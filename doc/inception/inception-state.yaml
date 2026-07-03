@@ -1,0 +1,78 @@
+ados_distribution: redistributable
+# inception-state.yaml
+#
+# Inception process state tracker for MarkSync for Confluence.
+# Instantiated from doc/templates/inception-state-template.yaml in Phase 0.
+#
+# Resume behavior: a fresh invocation reads this file, determines the current
+# (last incomplete) phase, and resumes inception with the state + prior
+# artifacts as context. See doc/guides/project-inception.md.
+#
+# Workflow note: this project runs inception as one branch+PR per phase. The
+# human gate for each phase is satisfied by reviewing and merging that phase's
+# PR to main. A phase is therefore flipped to `completed` only after its PR
+# merges (state updated in the *next* phase's PR).
+schema_version: 1
+
+project:
+  name: MarkSync for Confluence
+  flow: new                 # greenfield: no product source committed; rich inception inputs only
+  profile: engineering-repo # software product (TS CLI/library); strategy docs are inception inputs
+  characteristics:
+    ui_bearing: false       # CLI tool; DX handled as quality concern in Phase 4
+    multi_user: false       # single-operator tool; persona gate flag at Gate 0
+    complex_domain: true    # Storage/ADF, content properties, drift, ownership, atomicity → ubiquitous language
+    code_project: true      # TS product → testing strategy, CI baseline, dev env, conventions
+
+phases:
+  # status: pending | in_progress | completed
+  - { id: 0, name: "Intake & material scan", status: in_progress, started: 2026-07-03, completed: null }
+  - { id: 1, name: "North star & vision", status: pending, started: null, completed: null }
+  - { id: 2, name: "Scope & roadmap", status: pending, started: null, completed: null }
+  - { id: 3, name: "Tech stack & architecture", status: pending, started: null, completed: null }
+  - { id: 4, name: "Domain, conventions & quality baseline", status: pending, started: null, completed: null }
+  - { id: 5, name: "ADOS framework integration", status: pending, started: null, completed: null }
+  - { id: 6, name: "Inception readiness check", status: pending, started: null, completed: null }
+  - { id: 7, name: "Inception summary & handoff", status: pending, started: null, completed: null }
+
+artifacts:
+  # status: pending | draft | approved | written ; confidence: 0.0-1.0
+  north_star:        { status: pending, path: "doc/overview/01-north-star.md", confidence: 0.0 }
+  roadmap:           { status: pending, path: "doc/overview/02-roadmap.md", confidence: 0.0 }
+  tech_stack:        { status: pending, path: "doc/overview/tech-stack.md", confidence: 0.0 }
+  architecture:      { status: pending, path: "doc/overview/architecture-overview.md", confidence: 0.0 }
+  glossary:          { status: pending, path: "doc/overview/glossary.md", confidence: 0.0 }
+  ost:               { status: pending, path: "doc/overview/opportunity-solution-tree.md", confidence: 0.0 }
+  personas_jtbd:     { status: pending, path: "doc/overview/personas-jtbd.md", confidence: 0.0 }
+  user_journeys:     { status: pending, path: "doc/overview/user-journeys.md", confidence: 0.0 }
+  screen_inventory:  { status: pending, path: "doc/overview/screen-inventory.md", confidence: 0.0 }
+  ux_guidance:       { status: pending, path: "doc/overview/ux-guidance.md", confidence: 0.0 }
+  ubiquitous_language: { status: pending, path: "doc/overview/ubiquitous-language.md", confidence: 0.0 }
+  assumptions:       { status: pending, path: "doc/inception/analysis/assumptions.md", confidence: 0.0 }
+  risks:             { status: pending, path: "doc/inception/analysis/risks.md", confidence: 0.0 }
+  material_inventory: { status: draft, path: "doc/inception/analysis/material-inventory.md", confidence: 0.85 }
+  inception_summary: { status: pending, path: "doc/inception/inception-summary.md", confidence: 0.0 }
+  repo_analysis:     { status: pending, path: "doc/inception/analysis/repo-analysis.md", confidence: 0.0 }
+  tribal_knowledge:  { status: pending, path: "doc/inception/analysis/tribal-knowledge.md", confidence: 0.0 }
+  project_prd:       { status: pending, path: "doc/overview/prd.md", confidence: 0.0 }
+  nonfunctional:     { status: pending, path: "doc/spec/nonfunctional.md", confidence: 0.0 }
+  feature_specs:     { status: pending, path: "doc/spec/features/", confidence: 0.0 }
+  decision_records:  { status: pending, path: "doc/decisions/", confidence: 0.0 }
+
+decisions:
+  # Phase 0 classifications (pending Gate 0 confirmation via PR merge)
+  - { phase: 0, text: "Inception flow = new (greenfield; no product source committed).", rationale: "Repo holds only .ai/, doc/, .gitignore, LICENSE across 3 trivial commits; the rich inception docs are research/spec inputs for an unbuilt product, not a legacy codebase.", date: 2026-07-03 }
+  - { phase: 0, text: "Repo profile = engineering-repo.", rationale: "MarkSync is a software product (TS CLI/library). Strategy/business docs are inception inputs, not a standing business-documentation tree; documentation-profile defaults to engineering-repo when absent.", date: 2026-07-03 }
+  - { phase: 0, text: "Project characteristics: code_project=true, complex_domain=true, ui_bearing=false, multi_user=false.", rationale: "TS product (code); rich domain (Storage/ADF, content properties, drift, ownership, atomicity); CLI tool (no GUI); single-operator per repo. Activates ubiquitous language + testing/CI/conventions; skips screen-inventory/UX-guidance and auto-personas.", date: 2026-07-03 }
+
+assumptions:
+  # risk_type: value | usability | feasibility | viability
+  # validation_status: unvalidated | testing | validated | invalidated
+  - { text: "No product source code exists yet (greenfield start).", risk_type: feasibility, validation_status: validated, date: 2026-07-03 }
+  - { text: "MarkSync is a CLI tool with no graphical UI.", risk_type: usability, validation_status: unvalidated, date: 2026-07-03 }
+  - { text: "MarkSync is a single-operator tool (one author per repo), even though Confluence is multi-user.", risk_type: usability, validation_status: unvalidated, date: 2026-07-03 }
+
+sessions:
+  - { started: 2026-07-03, phase: 0, notes: "Phase 0 intake: classified flow=new, profile=engineering-repo, characteristics (code_project/complex_domain true; ui_bearing/multi_user false); cleaned stale staged files; wrote material-inventory.md + inception-state.yaml. Opened inception/phase-0 PR for Gate 0 review." }
+
+last_updated: 2026-07-03
