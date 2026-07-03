@@ -9,6 +9,7 @@ created: 2026-07-03
 last_updated: 2026-07-03
 owners: ["juliusz-cwiakalski"]
 summary: "North Star for MarkSync — a safe, Git-native bridge that publishes Markdown documentation to Confluence (and, later, other surfaces) without losing work."
+ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
 
 # MarkSync: North Star
@@ -26,20 +27,27 @@ summary: "North Star for MarkSync — a safe, Git-native bridge that publishes M
 > single binary** (ADR-0001), not Go; (2) the product/brand is **"MarkSync"**
 > with Confluence as the **first adapter** (ADR-0003), so "Confluence" appears
 > only as a descriptor under nominative use.
+>
+> **Trademark.** "Confluence" and Atlassian are trademarks of Atlassian Pty Ltd.
+> MarkSync is not affiliated with or endorsed by Atlassian; "Confluence" is used
+> nominatively to indicate the integration target.
 
 ## Vision
 
-Engineering teams no longer choose between Git-native documentation workflows and organization-wide access through Confluence. Documentation stays versioned, reviewable, automatable, and AI-operable in Git, while Confluence shows a faithful, current, and traceable representation of its source — and no knowledge is lost when the two worlds meet.
+Engineering teams no longer choose between Git-native documentation workflows and organization-wide access through Confluence. Documentation stays versioned, reviewable, automatable, and AI-operable in Git, while Confluence shows a faithful, current, and traceable representation of its source — with knowledge loss minimized, not eliminated, where the two worlds meet (achieved progressively: safe one-way publish first, controlled reverse sync later).
 
 ## Mission
 
-We enable software teams to author and govern documentation in Markdown and Git, then publish it safely to Confluence through deterministic local and CI workflows — with drift detection first and controlled reverse reconciliation later — so engineers and AI agents work efficiently while the wider organization keeps accessible, trusted documentation.
+We enable software teams to author and govern documentation in Markdown and Git, then publish it safely to Confluence through deterministic local and CI workflows, with drift detection from day one. Controlled **reverse sync** — bringing Confluence-side edits back as reviewable patches — is added later, only once the one-way wedge has earned trust. The result: engineers and AI agents work efficiently while the wider organization keeps accessible, trusted documentation.
 
 ## Target Users
 
-MarkSync serves several distinct operator personas (full detail in
+MarkSync serves several distinct **operator** personas (full detail in
 [personas-jtbd.md](./personas-jtbd.md)); Confluence readers are beneficiaries
-who never run the tool.
+who never run the tool. A fifth, **non-operator** persona — the *sponsoring
+stakeholder* (business owner / PM / executive) — does not run MarkSync but
+frequently drives its adoption; it is modelled as Persona 5 in
+[personas-jtbd.md](./personas-jtbd.md) and reflected under Stakeholders below.
 
 - **Primary — Software architect / technical lead:** maintains architecture-as-code, ADRs, and Mermaid diagrams that must reach Confluence without manual copy.
 - **Platform / DevX engineer:** standardizes Git→Confluence publishing across many repositories and CI pipelines.
@@ -58,6 +66,7 @@ who never run the tool.
 - **Diagrams (Mermaid/PlantUML) break or disappear** in conversion, and orgs often lack the Confluence diagram plugins — so the most useful visuals never make it to readers.
 - **Existing tools are opaque, one-way, and hard to automate** — no dependable hierarchy mapping, dry-run/diff, provenance, or agent-friendly output — so teams cannot trust them in CI.
 - **Setup is painful and platform-fragile** — so the tool never gets adopted past one enthusiast.
+- **Closest incumbents** (e.g. `kovetskiy/mark`, `md2conf`, `markdown-confluence`) are one-way converters that lack drift detection, provenance, and agent-operable output — the specific gaps MarkSync targets.
 
 ## North Star Metric
 
@@ -76,12 +85,20 @@ A change counts as *successfully published* only when the target page is updated
 > Outcome, not output: the NSM measures a change in user behaviour (copy-paste
 > eliminated), not features shipped.
 
+**Measurement.** As a no-telemetry OSS CLI, MarkSync will not collect population
+data, so the NSM above is a *directional* north-star. The proximate,
+CLI-derivable metric we actually track: **the share of `plan` entries that reach
+`published` on a clean run without entering CONFLICT or ERROR** (instrumented
+from the CLI's own plan/exec report). True adoption breadth — the NSM
+denominator — is gauged qualitatively via beta feedback and GitHub adoption
+signals, and feeds Phase 2's assumption register.
+
 ## Guiding Principles
 
 - **Git is the authoritative engineering workspace** — documentation is authored, reviewed, versioned, and approved in Git beside the code it describes.
 - **Confluence is a first-class publication surface** — published pages must stay readable, navigable, and useful to people who never touch Git.
 - **Safe synchronization beats magical synchronization** — prefer explicit diffs, dry runs, drift detection, and human reconciliation over silent overwrites or speculative merges.
-- **Fidelity and provenance are non-negotiable** — structure, code, tables, links, images, attachments, and diagrams are preserved; every managed page identifies its source and revision.
+- **Fidelity and provenance are non-negotiable for the supported canonical subset** — structure, code, tables, links, images, attachments, and diagrams are preserved; every managed page identifies its source and revision.
 - **Humans and AI agents are equal operators** — commands, help, diagnostics, exit codes, and structured output serve interactive use *and* reliable automation.
 - **Local-first and CI-ready** — identical core behaviour from a workstation, an agent session, a container, or a pipeline, with no required hosted control plane.
 
@@ -95,14 +112,15 @@ When two good options compete, prefer the one that:
 4. Produces deterministic, scriptable behaviour over hidden heuristics or interactive-only workflows.
 5. Reduces setup and operating friction over introducing a central service or complex infrastructure.
 6. Serves both human and AI-agent workflows over optimizing for one interface.
+7. Serves the product contract (safety, fidelity, DX for users) over demonstrating AI-delivery velocity or feature breadth.
 
 ## Four-Risk Awareness
 
 The top risks behind these north-star decisions (detailed in Phase 2's assumption and risk registers):
 
 - **Value risk** — will users want it? *Yes, if* we nail the trust wedge (safe publish + drift detection). The differentiator is safety/fidelity, not raw conversion breadth.
-- **Usability risk** — can users use it? *Risky.* Setup friction and platform fragility are adoption killers → the MLP exists specifically to make first-publish under ~10 minutes.
-- **Feasibility risk** — can we build it? *Mostly de-risked.* The API validation spike proved the Confluence contract; residual risk is Mermaid headless rendering in-process (ADR-0002 spike) and Bun single-binary signing/trust.
+- **Usability risk** — can users use it? *Risky.* Setup friction and platform fragility are adoption killers → the MLP exists specifically to make first-publish under ~10 minutes (excluding Atlassian credential creation).
+- **Feasibility risk** — can we build it? *Mostly de-risked for the Confluence contract* (the API validation spike proved it). The **TypeScript/Bun stack itself remains contingent** on the ADR-0002 Mermaid headless-render spike (OST E3.1) and on Bun single-binary signing/trust.
 - **Viability risk** — does it make business sense? *Sustainable as OSS.* No hosted backend for core value; secondary goal is the owner's personal brand / AI-delivery demonstration, which does not distort the product contract.
 
 ## Scope
@@ -116,7 +134,7 @@ The top risks behind these north-star decisions (detailed in Phase 2's assumptio
 - Dry-run / plan / diff before any write; stable exit codes and JSON/NDJSON output.
 - Source-path + Git-revision provenance on every managed page; drift/conflict detection that refuses unsafe overwrites.
 - Local + CI operation with personal or service-account credentials.
-- A controlled Confluence→Git reverse path that produces reviewable patches and **never** auto-commits.
+- A controlled **reverse sync** path (Confluence→Git) that produces reviewable patches and **never** auto-commits.
 
 **Out of scope (for now):**
 
@@ -124,12 +142,13 @@ The top risks behind these north-star decisions (detailed in Phase 2's assumptio
 - Automatic semantic conflict resolution; automatic Git commits/pushes; default destructive deletion.
 - Perfect round-trip of arbitrary Confluence layouts (only the canonical subset is promised).
 - A mandatory hosted SaaS control plane; Data Center support and other knowledge platforms before Confluence Cloud is mature.
+- **Adopting/importing an existing Confluence corpus** into MarkSync's managed set (a safe first-publish over pre-existing pages) — this depends on the deferred reverse-sync path (OST O5) and is tracked as an assumption for Phase 2.
 
 ## Current Focus
 
 Deliver the **smallest trustworthy Git→Confluence publishing loop** (the MVP),
 then the **Minimum Lovable Product (MLP)** focused on exceptional DX and easy
-setup. Bidirectional/reverse sync is staged only after the one-way wedge earns
+setup. Reverse sync is staged only after the one-way wedge earns
 trust. Phase boundaries are defined in Phase 2's roadmap.
 
 Key MVP deliverables:
@@ -139,6 +158,7 @@ Key MVP deliverables:
 - Deterministic Markdown→Storage conversion and page create/update with provenance.
 - Authentication for local users and non-interactive CI service accounts.
 - Dry-run, diff, diagnostics, structured output, and source-revision metadata.
+- A visible provenance panel/footer on each managed page (source path + Git revision + last-sync time) so non-Git readers can see provenance, not just machine metadata.
 - Local assets and Mermaid diagrams (rendered via the official library, ADR-0001/0002).
 - Drift/version detection that blocks unsafe overwrites.
 
@@ -146,7 +166,7 @@ MVP success criteria:
 
 - A user can initialize MarkSync, configure a documentation tree, and publish to Confluence without manual copy.
 - Re-running with no source changes produces zero unnecessary Confluence writes.
-- Every managed page is traceable to its repository, source file, and Git revision.
+- Every managed page is traceable to its repository, source file, and Git revision, **and shows that provenance visibly** (panel/footer) so non-Git stakeholders can trust it.
 - Dry-run output accurately reports every page/asset that would be created or updated.
 - The same configuration works locally and in CI, with only authentication differing.
 - Conversion/sync failures never silently corrupt or overwrite existing content.
@@ -170,3 +190,4 @@ See [02-roadmap.md](./02-roadmap.md) for the full multi-phase plan (drafted in P
 | Date       | Author             | Change |
 | ---------- | ------------------ | ------ |
 | 2026-07-03 | Juliusz Ćwiąkalski | Canonical north star: reconciled motivation brain dump + 2026-06-16 draft + ADR-0001 (TypeScript) + ADR-0003 (MarkSync brand). Replaced Go-specific framing; added personas, four-risk awareness, OST link. |
+| 2026-07-03 | Juliusz Ćwiąkalski | Red-team pass: added NSM measurement proxy, visible-provenance MVP deliverable, existing-corpus migration assumption, sponsor-persona cross-reference, trademark + AI-assistance notices; softened vision/feasibility/principle over-reach; standardized "reverse sync"; added competitor naming + decision-filter guardrail. |
