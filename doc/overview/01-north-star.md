@@ -86,12 +86,16 @@ A change counts as *successfully published* only when the target page is updated
 > eliminated), not features shipped.
 
 **Measurement.** As a no-telemetry OSS CLI, MarkSync will not collect population
-data, so the NSM above is a *directional* north-star. The proximate,
-CLI-derivable metric we actually track: **the share of `plan` entries that reach
-`published` on a clean run without entering CONFLICT or ERROR** (instrumented
-from the CLI's own plan/exec report). True adoption breadth — the NSM
-denominator — is gauged qualitatively via beta feedback and GitHub adoption
-signals, and feeds Phase 2's assumption register.
+data, so the NSM above is a *directional* north-star. We track two proximate,
+CLI-derivable metrics from the plan/exec report: (a) **publish success rate** =
+`published` ÷ **all** plan entries (CONFLICT/ERROR kept in the denominator —
+target ≥95%); and (b) **drift-detection effectiveness** — drift correctly
+detected and blocked in supported remote-edit scenarios (target 100%,
+guardrail), with a **conflict false-positive rate** target <5%. Splitting these
+matters: a CONFLICT is the wedge *working*, so it must stay in the denominator
+to keep the metric honest. True adoption breadth — the NSM denominator — is
+gauged qualitatively via beta feedback and GitHub adoption signals, and feeds
+Phase 2's assumption register.
 
 ## Guiding Principles
 
