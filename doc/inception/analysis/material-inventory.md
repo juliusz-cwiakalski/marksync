@@ -42,10 +42,10 @@ _Produced in Phase 0 (Intake & material scan). Lives at `doc/inception/analysis/
   - `complex_domain: true` → activates ubiquitous language (Phase 4).
   - `ui_bearing: false` → CLI tool; screen-inventory / UX-guidance not activated.
     (DX/CLI ergonomics remain a first-class quality concern, handled in Phase 4.)
-  - `multi_user: false` → single-operator tool; personas/JTBD not auto-activated.
-    (A target-user description still exists in the motivation doc and will feed the
-    north star. **Flag for human:** decide at Gate 0 whether a lightweight persona is
-    desired despite `multi_user: false`.)
+  - `multi_user: true` → multiple distinct user types (individual developer,
+    technical writer, OSS maintainer, …) → activates personas/JTBD (Phase 1).
+    Each sync run is still single-operator (one author per repo), but the product
+    serves several personas.
 
 ## Inputs
 
@@ -88,7 +88,7 @@ _What is missing per phase — which phases have little or no supporting input, 
 |---|---|---|
 | 1 — North star | Drafts exist but **unreconciled** (north-star draft predates motivation brain dump; system spec has flagged corrections). | Phase 1: author a single reconciled north star; apply the documented corrections. |
 | 1 — Discovery (OST/PRD) | No Opportunity-Solution Tree or PRD yet. Discovery materials exist (strategy + competitive reports), so OST/PRD are candidates. | Phase 1: decide whether to produce OST and/or project-PRD (conditional on discovery materials — which are present). |
-| 1 — Personas/JTBD | No formal persona. `multi_user: false` skips auto-activation, but a target-user exists in the motivation doc. | **Flag for Gate 0:** confirm whether a lightweight persona/JTBD is desired regardless of the multi-user gate. |
+| 1 — Personas/JTBD | `multi_user: true` (distinct user types confirmed at Gate 0); no formal personas drafted yet. | Phase 1: author personas/JTBD (e.g., individual developer, technical writer, OSS maintainer) drawing on the motivation doc + competitive research. |
 | 2 — Scope/roadmap | Scope is implied across motivation + spec + strategy but not yet distilled into a single current-milestone definition + roadmap + assumption/risk registers. | Phase 2: define current milestone (MVP) scope, draft roadmap, assumption register, risk register (seeded by the pre-mortem). |
 | 3 — Tech/arch | Strongly pre-covered by ADR-0001…0005 + integration scenarios. No formal `tech-stack` or `architecture-overview` doc yet. | Phase 3: formalise tech-stack + architecture-overview from the ADRs/scenarios; run FSE audit; seed canonical ADRs into `doc/decisions/`. |
 | 4 — Domain (ubiquitous language) | `complex_domain: true` but no ubiquitous-language / glossary drafted yet. | Phase 4: draft ubiquitous language + glossary (Storage vs ADF, content properties, drift, ownership modes, atomicity). |
