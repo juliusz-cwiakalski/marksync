@@ -159,6 +159,7 @@ See [02-roadmap.md](./02-roadmap.md) for the full multi-phase plan (drafted in P
 - **Developers & documentation authors** — create and review Markdown alongside code changes.
 - **Platform & DevX teams** — standardize configuration, credentials, and CI rollout across repositories.
 - **Confluence readers (PMs, analysts, support, auditors, customers)** — consume current documentation without Git access.
+- **Sponsoring stakeholders (business owners, product managers, executives)** — depend on current Confluence documentation for decisions, audits, and onboarding; champion adoption so engineering keeps it current without leaving Git. They do not run the CLI but are often the reason a team adopts MarkSync.
 - **AI coding/documentation agents** — create, validate, compare, and publish documentation through predictable CLI operations.
 - **Open-source contributors & project owner (Juliusz Ćwiąkalski)** — evolve MarkSync while protecting safety, interoperability, and maintainability; the project also serves as a demonstration of high-quality AI-native delivery.
 

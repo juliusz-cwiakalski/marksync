@@ -19,10 +19,13 @@ summary: "MarkSync personas + Jobs To Be Done — the operator types that hire M
 # Personas & JTBD (Inception)
 
 _Conditional — produced because `multi_user: true`. MarkSync has several distinct
-operator types. Each sync run is single-operator (one author, one repo), but the
-*kind* of operator varies, so personas are modelled explicitly. Confluence
-readers (PMs, analysts, support, auditors, customers) are **beneficiaries**, not
-operators, and are not enumerated here._
+operator types (Personas 1–4). Each sync run is single-operator (one author, one
+repo), but the *kind* of operator varies, so operators are modelled explicitly.
+**Persona 5 is a sponsoring stakeholder** — a non-technical role that does **not**
+run the CLI but drives adoption and depends on its output; it is enumerated
+because it is often the primary reason the operator personas adopt MarkSync at
+all. General Confluence readers (analysts, support, end customers) remain
+beneficiaries and are not enumerated individually._
 
 > **Relationship to other templates.** This is the lightweight inception combined
 > view used at project level. For business-profile deep dives use
@@ -185,3 +188,46 @@ operators, and are not enumerated here._
 **Success criteria**
 - The agent can plan, validate, and (with approval) publish using only JSON I/O.
 - Unsafe operations are refused or flagged, never performed silently.
+
+---
+
+## Persona 5 — Business owner / Product manager / Executive  *(sponsoring stakeholder, non-operator)*
+
+### Role and context
+- Non-technical stakeholder accountable for organizational knowledge, compliance, onboarding, or delivery readiness (business owner, PM, department head, or even CEO).
+- Does **not** run MarkSync or Git directly; depends on engineering teams to keep Confluence current.
+- Context: the organization mandates Confluence as the system of record, while engineering prefers Git. This persona is the bridge's "demand side" and frequently the one who *mandates* that the dev team adopt a sync tool.
+
+### Goals and motivations
+- Assure the org has current, trustworthy documentation in Confluence — for audits, onboarding, support, and compliance.
+- Reduce the risk of decisions made on stale information.
+- Let engineers work the way they prefer (Git) without losing organizational visibility.
+
+### Frictions and blockers
+- Confluence docs drift stale because engineers dislike editing there — so the org operates on outdated information.
+- No visibility into whether the Git→Confluence publish pipeline ran, succeeded, or failed.
+- Cannot tell which Confluence page is authoritative or when it was last synced.
+
+### Decision criteria (for sponsoring / championing adoption)
+- Trust that published docs are current and traceable to a source.
+- Low burden on engineering (so the team actually adopts it).
+- Assurance signals a non-technical reviewer can read: provenance, last-sync status, staleness/drift reports.
+
+### Job To Be Done
+
+**Job statement**
+- When my organization needs reliable documentation in Confluence, I want my engineering teams to publish from their preferred Git workflow automatically and verifiably, so the whole org can trust Confluence is current without forcing developers out of Git.
+
+**Functional, emotional, social outcomes**
+- Functional: a verifiable signal that documentation was published and is traceable to its source.
+- Emotional: confidence that the organization is not operating on stale information.
+- Social: cross-team alignment — engineers keep their workflow; the org keeps its system of record.
+
+**Current alternatives**
+- Mandating direct Confluence editing — engineers comply reluctantly, docs drift from code, quality erodes.
+- Periodic manual doc-refresh sprints — expensive, and still stale between sprints.
+
+**Success criteria**
+- Managed Confluence pages carry provenance (source path + commit + sync time) a non-technical reviewer can see.
+- Staleness and drift are detectable/reportable so this persona can govern documentation currency.
+

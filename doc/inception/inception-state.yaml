@@ -75,6 +75,6 @@ assumptions:
 
 sessions:
   - { started: 2026-07-03, phase: 0, notes: "Phase 0 intake: classified flow=new, profile=engineering-repo, characteristics (code_project/complex_domain true; ui_bearing false); multi_user flipped false→true on human feedback (distinct user types → personas/JTBD in scope). Wrote material-inventory.md + inception-state.yaml. Gate 0 approved by human; squash-merged inception/phase-0 to main." }
-  - { started: 2026-07-03, phase: 1, notes: "Phase 1 north star & vision: authored canonical 01-north-star.md (reconciled motivation brain dump + 2026-06-16 draft + ADR-0001 TS + ADR-0003 MarkSync brand; removed Go framing), personas-jtbd.md (4 operator personas), opportunity-solution-tree.md (outcome→opportunities→solutions→experiments, validation status from the spike). PRD deferred as optional (flagged at gate). Devil's-advocate review run; top risks surfaced in PR #2." }
+  - { started: 2026-07-03, phase: 1, notes: "Phase 1 north star & vision: authored canonical 01-north-star.md (reconciled motivation brain dump + 2026-06-16 draft + ADR-0001 TS + ADR-0003 MarkSync brand; removed Go framing), personas-jtbd.md, opportunity-solution-tree.md. Added Persona 5 (sponsoring stakeholder — non-technical business owner/PM/executive) on human feedback. PRD deferred as optional. Red-team-coordinator review run; findings addressed." }
 
 last_updated: 2026-07-03
