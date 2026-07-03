@@ -27,7 +27,7 @@ project:
 phases:
   # status: pending | in_progress | completed
   - { id: 0, name: "Intake & material scan", status: completed, started: 2026-07-03, completed: 2026-07-03 }
-  - { id: 1, name: "North star & vision", status: pending, started: null, completed: null }
+  - { id: 1, name: "North star & vision", status: in_progress, started: 2026-07-03, completed: null }
   - { id: 2, name: "Scope & roadmap", status: pending, started: null, completed: null }
   - { id: 3, name: "Tech stack & architecture", status: pending, started: null, completed: null }
   - { id: 4, name: "Domain, conventions & quality baseline", status: pending, started: null, completed: null }
@@ -37,13 +37,13 @@ phases:
 
 artifacts:
   # status: pending | draft | approved | written ; confidence: 0.0-1.0
-  north_star:        { status: pending, path: "doc/overview/01-north-star.md", confidence: 0.0 }
+  north_star:        { status: draft, path: "doc/overview/01-north-star.md", confidence: 0.8 }
   roadmap:           { status: pending, path: "doc/overview/02-roadmap.md", confidence: 0.0 }
   tech_stack:        { status: pending, path: "doc/overview/tech-stack.md", confidence: 0.0 }
   architecture:      { status: pending, path: "doc/overview/architecture-overview.md", confidence: 0.0 }
   glossary:          { status: pending, path: "doc/overview/glossary.md", confidence: 0.0 }
-  ost:               { status: pending, path: "doc/overview/opportunity-solution-tree.md", confidence: 0.0 }
-  personas_jtbd:     { status: pending, path: "doc/overview/personas-jtbd.md", confidence: 0.0 }
+  ost:               { status: draft, path: "doc/overview/opportunity-solution-tree.md", confidence: 0.75 }
+  personas_jtbd:     { status: draft, path: "doc/overview/personas-jtbd.md", confidence: 0.75 }
   user_journeys:     { status: pending, path: "doc/overview/user-journeys.md", confidence: 0.0 }
   screen_inventory:  { status: pending, path: "doc/overview/screen-inventory.md", confidence: 0.0 }
   ux_guidance:       { status: pending, path: "doc/overview/ux-guidance.md", confidence: 0.0 }
@@ -64,6 +64,7 @@ decisions:
   - { phase: 0, text: "Inception flow = new (greenfield; no product source committed).", rationale: "Repo holds only .ai/, doc/, .gitignore, LICENSE across 3 trivial commits; the rich inception docs are research/spec inputs for an unbuilt product, not a legacy codebase.", date: 2026-07-03 }
   - { phase: 0, text: "Repo profile = engineering-repo.", rationale: "MarkSync is a software product (TS CLI/library). Strategy/business docs are inception inputs, not a standing business-documentation tree; documentation-profile defaults to engineering-repo when absent.", date: 2026-07-03 }
   - { phase: 0, text: "Project characteristics: code_project=true, complex_domain=true, ui_bearing=false, multi_user=true.", rationale: "TS product (code); rich domain (Storage/ADF, content properties, drift, ownership, atomicity); CLI tool (no GUI); multiple distinct user types (dev, tech writer, maintainer). Activates ubiquitous language + testing/CI/conventions + personas/JTBD; skips screen-inventory/UX-guidance.", date: 2026-07-03 }
+  - { phase: 1, text: "Defer the Project PRD (Working Backwards press release) — optional per the inception guide.", rationale: "North star + personas/JTBD + OST already capture Phase 1 intent; PRD can be added later if the human wants it. Keeps Phase 1 reviewable.", date: 2026-07-03 }
 
 assumptions:
   # risk_type: value | usability | feasibility | viability
@@ -74,5 +75,6 @@ assumptions:
 
 sessions:
   - { started: 2026-07-03, phase: 0, notes: "Phase 0 intake: classified flow=new, profile=engineering-repo, characteristics (code_project/complex_domain true; ui_bearing false); multi_user flipped false→true on human feedback (distinct user types → personas/JTBD in scope). Wrote material-inventory.md + inception-state.yaml. Gate 0 approved by human; squash-merged inception/phase-0 to main." }
+  - { started: 2026-07-03, phase: 1, notes: "Phase 1 north star & vision: authored canonical 01-north-star.md (reconciled motivation brain dump + 2026-06-16 draft + ADR-0001 TS + ADR-0003 MarkSync brand; removed Go framing), personas-jtbd.md (4 operator personas), opportunity-solution-tree.md (outcome→opportunities→solutions→experiments, validation status from the spike). PRD deferred as optional (flagged at gate). Devil's-advocate review run; top risks surfaced in PR #2." }
 
 last_updated: 2026-07-03
