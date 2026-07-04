@@ -56,29 +56,29 @@ each placeholder with a concrete ticket reference.
 
 | Assumption | Trigger slice / backlog representation required | Owner | Status before backlog |
 |---|---|---|---|
-| A-FEA-1 — in-process Mermaid | ADR-0002 spike ticket; decide render path before MVP tooling locks | JC | **Must materialize** |
-| A-FEA-7 — CI concurrency control | MVP sync-engine ticket: overlapping CI plans must not stale-write | JC | **Must materialize** |
-| A-FEA-9 — UUID + committed lock | MVP state-model ticket / ADR: UUID storage, lock semantics, duplicate-UUID fatal | JC | **Must materialize** |
-| A-VAL-2 — canonical subset sufficiency | MVP corpus ticket: adversarial corpus seeded by sanitized design-partner pages | JC | **Must materialize** |
-| A-VAL-1 — wedge differentiation | MVP beta ticket: 3–5 retained design partners; retention reason taxonomy | JC | **Must materialize** |
-| A-FEA-2 — Bun single binary + signing | MVP distribution ticket: clean-OS smoke + size/startup/signing budget | JC | **Must materialize** |
-| A-VAL-3 — existing-corpus adoption | MLP discovery/migration ticket if MVP beta reports migration-absence as non-retention reason | JC | Triggered by MVP beta |
-| A-USA-1 / A-USA-2 — setup friction | MLP DX ticket: guided init/doctor; capture TTV during MVP beta | JC | Triggered by MVP beta |
-| A-USA-3 — visible provenance trust | MVP/MLP acceptance criteria: visible provenance reviewed with Persona 5 | JC | **Must materialize** |
-| A-FEA-6 — Atlassian API drift | MVP adapter ticket: live-smoke/deprecation cadence; patch-release SLA | JC | **Must materialize** |
-| A-FEA-10 — repo/binary bounds | MVP NFR ticket/AC: ≤500 pages, ≤90 MB binary, ≤2s cold start | JC | **Must materialize** |
-| A-VIA-1 / A-VIA-2 — OSS sustainability | Post-MVP governance ticket: support matrix, contribution seams, maintenance/funding posture | JC | Triggered before public launch |
-| A-VIA-4 — trademark risk | Pre-launch legal/review ticket: nominative-use wording | JC | Triggered before public launch |
+| A-FEA-1 — in-process Mermaid | `MS-0002` ADR-0002 spike ticket; decide render path before tooling locks | JC | **Must materialize** |
+| A-FEA-7 — CI concurrency control | `MS-0002` sync-engine ticket: overlapping CI plans must not stale-write | JC | **Must materialize** |
+| A-FEA-9 — UUID + committed lock | `MS-0002` state-model ticket / ADR: UUID storage, lock semantics, duplicate-UUID fatal | JC | **Must materialize** |
+| A-VAL-2 — canonical subset sufficiency | `MS-0002` corpus ticket: adversarial corpus seeded by sanitized design-partner pages | JC | **Must materialize** |
+| A-VAL-1 — wedge differentiation | `MS-0002` beta ticket: 3–5 retained design partners; retention reason taxonomy | JC | **Must materialize** |
+| A-FEA-2 — Bun single binary + signing | `MS-0002` distribution ticket: clean-OS smoke + size/startup/signing budget | JC | **Must materialize** |
+| A-VAL-3 — existing-corpus adoption | `MS-0003` discovery/migration ticket if `MS-0002` beta reports migration-absence as non-retention reason | JC | Triggered by `MS-0002` beta |
+| A-USA-1 / A-USA-2 — setup friction | `MS-0003` DX ticket: guided init/doctor; capture TTV during `MS-0002` beta | JC | Triggered by `MS-0002` beta |
+| A-USA-3 — visible provenance trust | `MS-0002` / `MS-0003` acceptance criteria: visible provenance reviewed with Persona 5 | JC | **Must materialize** |
+| A-FEA-6 — Atlassian API drift | `MS-0002` adapter ticket: live-smoke/deprecation cadence; patch-release SLA | JC | **Must materialize** |
+| A-FEA-10 — repo/binary bounds | `MS-0002` NFR ticket/AC: ≤500 pages, ≤90 MB binary, ≤2s cold start | JC | **Must materialize** |
+| A-VIA-1 / A-VIA-2 — OSS sustainability | `MS-0008` governance ticket: support matrix, contribution seams, maintenance/funding posture | JC | Triggered before `MS-0008` public launch |
+| A-VIA-4 — trademark risk | `MS-0008` legal/review ticket: nominative-use wording | JC | Triggered before `MS-0008` public launch |
 
 ## Deferred decision / sub-decision reconciliation
 
 | Decision / sub-decision | Required trigger | Backlog representation required | Status before backlog |
 |---|---|---|---|
-| ADR-0001 — TypeScript + Bun single-binary | Bun/Deno + signing viability; clean-OS smoke | MVP distribution/spike ticket | **Must materialize** |
-| ADR-0002 — Mermaid rendering strategy | Headless official-library spike | MVP Mermaid spike ticket | **Must materialize** |
-| ADR-0003 — package / namespace scheme; repo URL | Public packaging / pre-launch branding | Pre-launch packaging/branding ticket | Triggered pre-launch |
+| ADR-0001 — TypeScript + Bun single-binary | Bun/Deno + signing viability; clean-OS smoke | `MS-0002` distribution/spike ticket | **Must materialize** |
+| ADR-0002 — Mermaid rendering strategy | Headless official-library spike | `MS-0002` Mermaid spike ticket | **Must materialize** |
+| ADR-0003 — package / namespace scheme; repo URL | Public packaging / pre-launch branding | `MS-0008` packaging/branding ticket | Triggered before `MS-0008` |
 | ADR-0005 — Storage format | Canonical subset expansion or lossy fixture | Renderer fixture ticket per subset expansion | Triggered by subset expansion |
-| State model ADR (recommended, not yet written) | Before sync-engine implementation | Phase 3 ADR seed + MVP state-model ticket | **Must materialize in Phase 3** |
+| State model ADR (recommended, not yet written) | Before sync-engine implementation | Phase 3 ADR seed + `MS-0002` state-model ticket | **Must materialize in Phase 3** |
 
 ## Cross-cutting concern coverage matrix
 
@@ -97,7 +97,7 @@ AC._
 | Observability / diagnostics | Structured run ID + JSON diagnostics AC | North star guardrail; roadmap |
 | Performance / scale budget | NFR AC: ≤500 pages, ≤90 MB, ≤2s cold start | A-FEA-10 |
 | Accessibility/plain logs | AC: no color dependency, screen-reader/plain-log compatible output | North star / spec NFR |
-| Maintainer sustainability | Ticket to tag MVP scope as beachhead-critical vs validation apparatus | R-VIA-1 |
+| Maintainer sustainability | Ticket to tag `MS-0002` scope as beachhead-critical vs validation apparatus | R-VIA-1 |
 
 ## Readiness checklist for Phase 7 / first delivery planning
 

@@ -123,7 +123,7 @@ When two good options compete, prefer the one that:
 The top risks behind these north-star decisions (detailed in Phase 2's assumption and risk registers):
 
 - **Value risk** — will users want it? *Yes, if* we nail the trust wedge (safe publish + drift detection). The differentiator is safety/fidelity, not raw conversion breadth.
-- **Usability risk** — can users use it? *Risky.* Setup friction and platform fragility are adoption killers → the MLP exists specifically to make first-publish under ~10 minutes (excluding Atlassian credential creation).
+- **Usability risk** — can users use it? *Risky.* Setup friction and platform fragility are adoption killers → `MS-0003` / MLP exists specifically to make first-publish under ~10 minutes (excluding Atlassian credential creation).
 - **Feasibility risk** — can we build it? *Mostly de-risked for the Confluence contract* (the API validation spike proved it). The **TypeScript/Bun stack itself remains contingent** on the ADR-0002 Mermaid headless-render spike (OST E3.1) and on Bun single-binary signing/trust.
 - **Viability risk** — does it make business sense? *Sustainable as OSS.* No hosted backend for core value; secondary goal is the owner's personal brand / AI-delivery demonstration, which does not distort the product contract.
 
@@ -150,12 +150,12 @@ The top risks behind these north-star decisions (detailed in Phase 2's assumptio
 
 ## Current Focus
 
-Deliver the **smallest trustworthy Git→Confluence publishing loop** (the MVP),
-then the **Minimum Lovable Product (MLP)** focused on exceptional DX and easy
+Deliver the **smallest trustworthy Git→Confluence publishing loop** (`MS-0002` / MVP),
+then the **Minimum Lovable Product** (`MS-0003` / MLP) focused on exceptional DX and easy
 setup. Reverse sync is staged only after the one-way wedge earns
 trust. Phase boundaries are defined in Phase 2's roadmap.
 
-Key MVP deliverables:
+Key `MS-0002` / MVP deliverables:
 
 - A portable **TypeScript** CLI compiled to a single self-contained binary per OS/arch (ADR-0001), runnable on Linux/macOS/Windows with no language runtime for end users.
 - Repository-owned YAML config with file selection, hierarchy mapping, and document-level overrides.
@@ -166,7 +166,7 @@ Key MVP deliverables:
 - Local assets and Mermaid diagrams (rendered via the official library, ADR-0001/0002).
 - Drift/version detection that blocks unsafe overwrites.
 
-MVP success criteria:
+`MS-0002` / MVP success criteria:
 
 - A user can initialize MarkSync, configure a documentation tree, and publish to Confluence without manual copy.
 - Re-running with no source changes produces zero unnecessary Confluence writes.

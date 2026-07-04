@@ -27,13 +27,13 @@ for success to become unsurprising._
 
 ## Horizon and imagined successful end state
 
-**Horizon:** 6–12 months after MVP beta starts.
+**Horizon:** 6–12 months after `MS-0002` / MVP beta starts.
 
 **Successful state:** 3–5 heterogeneous teams run MarkSync in recurring CI. They
 trust it because it explains every intended mutation, blocks remote drift, shows
 visible provenance in Confluence, and never silently overwrites work. The first
 cohort does not need reverse sync to get value, but their feedback clearly shapes
-the MLP and reverse-sync gates.
+`MS-0003` / MLP and reverse-sync gates.
 
 ## Backward chain
 
@@ -41,7 +41,7 @@ the MLP and reverse-sync gates.
 Retained CI usage by real teams
   <- beta partners can reach a safe first publish
   <- wedge metrics are observable (publish success, drift effectiveness, false positives)
-  <- concurrency, identity, semantic hashing, provenance, and repair are MVP invariants
+  <- concurrency, identity, semantic hashing, provenance, and repair are MS-0002 / MVP invariants
   <- scope stays narrow enough for one maintainer
   <- every open assumption/sub-decision has a trigger ticket
 ```
@@ -63,7 +63,7 @@ Retained CI usage by real teams
 |---|---|
 | Success = retained CI usage, not stars | `02-roadmap.md` beachhead-validation metric |
 | Success requires observable trust | `01-north-star.md` measurement note + `02-roadmap.md` metrics |
-| Success requires non-technical trust signal | Persona 5 + visible-provenance MVP deliverable |
+| Success requires non-technical trust signal | Persona 5 + visible-provenance `MS-0002` deliverable |
 | Success requires explicit backlog triggers | `backlog-reconciliation.md` |
 | Success requires narrow scope | `02-roadmap.md` out-of-scope and future milestones |
 

@@ -33,8 +33,11 @@ plans. Do **not** invent new prefixes casually. Extend this catalog first.
    that depends on it.
 4. **Reference, don't duplicate.** A backlog item may repeat the ID but should
    link back to the source artifact.
-5. **Use a domain segment when it improves filtering.** Example:
-   `A-FEA-7`, `R-SEC-1`, `AC-MVP-3`.
+5. **Milestone IDs are monotonic.** Use the next `MS-<NNNN>` number for each
+   roadmap milestone. Never renumber old milestones, even if names/scope change
+   or the project eventually has 100+ milestones.
+6. **Use a domain segment when it improves filtering.** Example:
+   `A-FEA-7`, `R-SEC-1`, `AC-MS-0002-3`.
 
 ## Canonical prefixes
 
@@ -46,14 +49,15 @@ plans. Do **not** invent new prefixes casually. Extend this catalog first.
 | `ODR-` | Operational Decision Record | `ODR-0001` | Process/operations decisions |
 | `BDR-` | Business Decision Record | `BDR-0001` | Business/model decisions |
 | `SD-` | Sub-decision / deferred decision | `SD-<AREA>-<N>` | Use when a decision record parks a future sub-decision |
+| `MS-` | Roadmap milestone | `MS-<NNNN>` | `MS-0002`: MVP safe one-way publisher |
 | `A-` | Assumption | `A-<RISK>-<N>` | `A-FEA-1`, `A-VAL-3` |
 | `R-` | Risk | `R-<RISK>-<N>` | `R-FEA-7`, `R-SEC-1` |
-| `AC-` | Acceptance criterion | `AC-<SCOPE>-<N>` | `AC-MVP-1`, `AC-SEC-1` |
+| `AC-` | Acceptance criterion | `AC-<SCOPE>-<N>` | `AC-MS-0002-1`, `AC-SEC-1` |
 | `FR-` | Functional requirement | `FR-<AREA>-<N>` | `FR-AUTH-007` from the system spec |
 | `NFR-` | Non-functional requirement | `NFR-<AREA>-<N>` or `NFR-001` | `NFR-SEC-1`, `NFR-001` |
 | `INV-` | Invariant / release-blocking guardrail | `INV-<AREA>-<N>` | `INV-SAFE-1`: no silent overwrite |
 | `G-` | North-star guardrail | `G-<AREA>-<N>` | `G-SAFE-1`, `G-DX-1` |
-| `MET-` | Metric | `MET-<AREA>-<N>` | `MET-MVP-1`: publish success rate |
+| `MET-` | Metric | `MET-<AREA>-<N>` | `MET-MS-0002-1`: publish success rate |
 | `CC-` | Cross-cutting concern | `CC-<AREA>-<N>` | `CC-OBS-1`, `CC-SEC-1` |
 | `BT-` | Backlog trigger / validation trigger | `BT-<AREA>-<N>` | `BT-FEA-1`: Mermaid spike trigger |
 | `PER-` | Persona | `PER-<N>` | `PER-5`: sponsoring stakeholder |
@@ -82,8 +86,10 @@ Use these consistently with `A-` and `R-`:
 
 | Scope | Use for | Example |
 |---|---|---|
-| `MVP` | Current milestone acceptance criteria | `AC-MVP-1` |
-| `MLP` | Minimum Lovable Product acceptance criteria | `AC-MLP-1` |
+| `MS-0002` | Current milestone acceptance criteria | `AC-MS-0002-1` |
+| `MS-0003` | Next milestone acceptance criteria | `AC-MS-0003-1` |
+| `MVP` | Legacy shorthand for current MVP criteria; prefer milestone ID in new docs | `AC-MVP-1` |
+| `MLP` | Legacy shorthand for Minimum Lovable Product criteria; prefer milestone ID in new docs | `AC-MLP-1` |
 | `SEC` | Security/redaction criteria | `AC-SEC-1` |
 | `OBS` | Observability/diagnostics criteria | `AC-OBS-1` |
 | `PERF` | Performance/scale criteria | `AC-PERF-1` |
@@ -95,7 +101,8 @@ Use these consistently with `A-` and `R-`:
 ```bash
 rg 'A-FEA-' doc
 rg 'R-SEC-1' doc
-rg 'AC-MVP-' doc
+rg 'MS-0002' doc
+rg 'AC-MS-0002-' doc
 rg 'BT-' doc
 ```
 

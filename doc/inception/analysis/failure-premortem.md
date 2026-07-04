@@ -28,7 +28,7 @@ must change downstream._
 
 ## Horizon and imagined failed end state
 
-**Horizon:** 6–12 months after the MVP begins delivery.
+**Horizon:** 6–12 months after `MS-0002` / MVP begins delivery.
 
 **Failed state:** MarkSync looks mature on paper but has not become a retained
 CI tool for real teams. It has many docs and tests, but users either cannot
@@ -39,7 +39,7 @@ that requires maintainer intervention.
 
 ```text
 End-state category vision
-  -> too many MVP promises
+  -> too many MS-0002 / MVP promises
   -> slow delivery of the safe one-way wedge
   -> few real design partners / fixture-only validation
   -> first beta hits stale-base, identity, macro, or setup failures
@@ -51,7 +51,7 @@ End-state category vision
 
 | Driver | Classification | Routed artifact |
 |---|---|---|
-| Scope explosion | value / viability | R-VAL-1; roadmap MVP/MLP split |
+| Scope explosion | value / viability | R-VAL-1; roadmap `MS-0002` / `MS-0003` split |
 | No validated beachhead | value | R-VAL-2; A-VAL-1 |
 | Concurrent stale-base overwrite | feasibility / safety | R-FEA-7; A-FEA-7; roadmap concurrency deliverable |
 | Wrong identity / state model | feasibility | R-FEA-3; A-FEA-9 |

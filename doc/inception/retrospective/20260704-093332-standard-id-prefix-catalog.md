@@ -56,3 +56,4 @@ Scanning the ADOS repo shows a few high-value prefixes that are already in use o
 - `DEC-` — local decision-log items inside change specs; distinct from ADR/PDR/TDR/ODR/BDR records.
 - `TC-` — test-case IDs in test plans; especially useful when tied to feature slugs (`TC-<FEATURE>-<NNN>`).
 - `API-` / `EVT-` — interface-coverage IDs referenced by test-plan templates; worth standardizing if interface traces are expected to be grepable.
+- `MS-` — roadmap milestone IDs (`MS-0001`, `MS-0002`, ...). Milestone numbers should be monotonic and never reused or renumbered, so humans and agents can reference specific milestones unambiguously even as names/scope evolve.

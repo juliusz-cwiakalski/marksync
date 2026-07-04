@@ -25,7 +25,7 @@ scope tied to user problems, not feature breadth._
 
 ## Desired outcome
 
-- **Outcome:** Increase **automation coverage of documentation publishing** — the share of configured Git→Confluence changes published faithfully without manual copy-paste. *(MVP target: eliminate copy-paste for the canonical Markdown subset; MLP target: first-publish under ~10 min.)*
+- **Outcome:** Increase **automation coverage of documentation publishing** — the share of configured Git→Confluence changes published faithfully without manual copy-paste. *(`MS-0002` / MVP target: eliminate copy-paste for the canonical Markdown subset; `MS-0003` / MLP target: first-publish under ~10 min.)*
 - **Links to NSM:** [North Star Metric](./01-north-star.md#north-star-metric).
 
 ## Tree
@@ -80,13 +80,13 @@ _Opportunities are user problems (not features), each backed by evidence._
 
 | Opportunity | Solution | Phase | Rationale |
 |---|---|---|---|
-| O1 | S1.1 Safe publish with mandatory plan/dry-run/diff before any write | MVP | "Safe sync beats magical sync" principle; FR-SYNC-001/004/006 |
-| O1 | S1.2 Drift detection: compare remote version/body hash vs last base; classify REMOTE_AHEAD/DIVERGED; block by default | MVP | Directly prevents silent overwrite; FR-SYNC-003/008/009; spike-proven (409 on `version=current+1`) |
-| O2 | S2.1 Guided `init` + schema-validated YAML config + `doctor` health check | MLP | Reduces time-to-first-publish; FR-CFG-009/010, FR-AUTH-010 |
-| O2 | S2.2 Single self-contained binary per OS/arch (TS compiled via Bun) | MVP | Removes runtime-install friction; ADR-0001; motivation (single binary, cross-OS) |
-| O3 | S3.1 Render Mermaid via the **official** library in-process; content-hash + reuse | MVP | Guarantees fidelity without a Confluence plugin or external Node/Chromium; ADR-0001/0002 |
-| O4 | S4.1 Stable JSON/NDJSON + exit-code contracts + a SKILL doc + read-only defaults | MVP | Makes MarkSync agent- and CI-operable; FR-CLI-002/004/009/010 |
-| O5 | S5.1 Controlled reverse conversion → uncommitted patch / conflict bundle; **never** auto-commits | Phase 2 | Recovers Confluence edits safely; honors Git-authoritative principle; FR-REV-001…008 |
+| O1 | S1.1 Safe publish with mandatory plan/dry-run/diff before any write | `MS-0002` / MVP | "Safe sync beats magical sync" principle; FR-SYNC-001/004/006 |
+| O1 | S1.2 Drift detection: compare remote version/body hash vs last base; classify REMOTE_AHEAD/DIVERGED; block by default | `MS-0002` / MVP | Directly prevents silent overwrite; FR-SYNC-003/008/009; spike-proven (409 on `version=current+1`) |
+| O2 | S2.1 Guided `init` + schema-validated YAML config + `doctor` health check | `MS-0003` / MLP | Reduces time-to-first-publish; FR-CFG-009/010, FR-AUTH-010 |
+| O2 | S2.2 Single self-contained binary per OS/arch (TS compiled via Bun) | `MS-0002` / MVP | Removes runtime-install friction; ADR-0001; motivation (single binary, cross-OS) |
+| O3 | S3.1 Render Mermaid via the **official** library in-process; content-hash + reuse | `MS-0002` / MVP | Guarantees fidelity without a Confluence plugin or external Node/Chromium; ADR-0001/0002 |
+| O4 | S4.1 Stable JSON/NDJSON + exit-code contracts + a SKILL doc + read-only defaults | `MS-0002` / MVP | Makes MarkSync agent- and CI-operable; FR-CLI-002/004/009/010 |
+| O5 | S5.1 Controlled reverse conversion → uncommitted patch / conflict bundle; **never** auto-commits | `MS-0005` | Recovers Confluence edits safely; honors Git-authoritative principle; FR-REV-001…008 |
 
 ## Experiments per solution
 
@@ -94,10 +94,10 @@ _Validation status reflects the Confluence API validation spike where applicable
 
 | Solution | Phase | Assumption tested | Metric | Stop criteria / status |
 |---|---|---|---|---|
-| S1.1 (safe publish) | MVP | Markdown→Storage round-trips losslessly for the canonical subset | 100% of GFM kitchensink fixtures survive round-trip | **Validated** (spike K1: 27/27 constructs; GFM only — non-GFM extensions deferred, re-run on subset expansion). Stop if any construct is lossy. |
-| S1.2 (drift detection) | MVP | Confluence rejects stale-version writes with a usable 409 | 409 returned when `version != current+1`; error is machine-parseable | **Validated** (spike G1). |
-| S2.1 (guided init) | MLP | A user can reach first publish under ~10 min (excluding Atlassian credential creation) | Time-to-first-publish in a usability test | **Unvalidated** — test in MLP. |
-| S2.2 (single binary) | MVP | A clean OS image with no language runtime runs the binary end-to-end | `config validate` + dry-run succeed on clean Linux/macOS/Windows | **Unvalidated** — spike pending (Bun compile + signing/trust). Stop if binary cannot run without a runtime or signing is blocked. |
-| S3.1 (in-process Mermaid) | MVP | The official `mermaid` library renders deterministically headless without Chromium | One diagram renders in-process; output is byte-stable for unchanged input | **Testing** (ADR-0002 spike) — load-bearing unknown. Stop and reconsider language if it requires Chromium. |
-| S4.1 (agent contracts) | MVP | JSON output + exit codes are stable enough for an agent to drive safely | Contract tests pass; agent completes plan→validate→publish via JSON only | **Unvalidated** — test once CLI exists. |
-| S5.1 (reverse sync) | Phase 2 | The canonical subset reverse-converts to semantically-equivalent Markdown | Round-trip fixtures match; unsupported constructs never vanish silently | **Partially validated** (spike reverse-read works on a trivial page; enriched-page test pending). Phase 2. |
+| S1.1 (safe publish) | `MS-0002` / MVP | Markdown→Storage round-trips losslessly for the canonical subset | 100% of GFM kitchensink fixtures survive round-trip | **Validated** (spike K1: 27/27 constructs; GFM only — non-GFM extensions deferred, re-run on subset expansion). Stop if any construct is lossy. |
+| S1.2 (drift detection) | `MS-0002` / MVP | Confluence rejects stale-version writes with a usable 409 | 409 returned when `version != current+1`; error is machine-parseable | **Validated** (spike G1). |
+| S2.1 (guided init) | `MS-0003` / MLP | A user can reach first publish under ~10 min (excluding Atlassian credential creation) | Time-to-first-publish in a usability test | **Unvalidated** — test in `MS-0003`. |
+| S2.2 (single binary) | `MS-0002` / MVP | A clean OS image with no language runtime runs the binary end-to-end | `config validate` + dry-run succeed on clean Linux/macOS/Windows | **Unvalidated** — spike pending (Bun compile + signing/trust). Stop if binary cannot run without a runtime or signing is blocked. |
+| S3.1 (in-process Mermaid) | `MS-0002` / MVP | The official `mermaid` library renders deterministically headless without Chromium | One diagram renders in-process; output is byte-stable for unchanged input | **Testing** (ADR-0002 spike) — load-bearing unknown. Stop and reconsider language if it requires Chromium. |
+| S4.1 (agent contracts) | `MS-0002` / MVP | JSON output + exit codes are stable enough for an agent to drive safely | Contract tests pass; agent completes plan→validate→publish via JSON only | **Unvalidated** — test once CLI exists. |
+| S5.1 (reverse sync) | `MS-0005` | The canonical subset reverse-converts to semantically-equivalent Markdown | Round-trip fixtures match; unsupported constructs never vanish silently | **Partially validated** (spike reverse-read works on a trivial page; enriched-page test pending). |
