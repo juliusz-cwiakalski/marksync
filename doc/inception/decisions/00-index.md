@@ -11,4 +11,4 @@
 > live in `doc/decisions/`.
 
 See [`doc/decisions/00-index.md`](../../decisions/00-index.md) for the full
-registry (ADR-0001…ADR-0009).
+registry (ADR-0001…ADR-0010).

@@ -9,7 +9,7 @@ All decision records for this repository, ordered by number.
 
 > **Migration note (Phase 3, 2026-07-04).** ADR-0001…ADR-0005 were authored
 > pre-inception in `doc/inception/decisions/` and have been migrated to this
-> canonical home (`doc/decisions/`). ADR-0006…ADR-0009 were created during
+> canonical home (`doc/decisions/`). ADR-0006…ADR-0010 were created during
 > Phase 3 inception. All remain `status: Proposed` pending human confirmation.
 > Records are numbered in one sequence regardless of `decision_type`.
 
@@ -24,3 +24,4 @@ All decision records for this repository, ordered by number.
 | [ADR-0007](./ADR-0007-cli-framework.md) | ADR | CLI framework — Cliffy | Proposed | 2026-07-04 | Juliusz Ćwiąkalski |
 | [ADR-0008](./ADR-0008-git-adapter.md) | ADR | Git adapter — shell-Git behind the Repository interface | Proposed | 2026-07-04 | Juliusz Ćwiąkalski |
 | [ADR-0009](./ADR-0009-testing-runner.md) | TDR | Testing runner — bun:test + thin E2E runner | Proposed | 2026-07-04 | Juliusz Ćwiąkalski |
+| [ADR-0010](./ADR-0010-confluence-page-history-provenance-and-sync-granularity.md) | ADR | Confluence page history provenance and sync granularity — commit-by-commit by default, squash opt-in | Proposed | 2026-07-04 | Juliusz Ćwiąkalski |

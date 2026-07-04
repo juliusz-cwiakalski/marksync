@@ -85,7 +85,13 @@ _→ Incorporated: ADR-0006 refined — UUID **v7** (research: best sortability/
 
 ## Open (awaiting answer)
 
-### [OPEN-Q6] Default sync granularity — commit-by-commit vs squashed — OPEN
+_None at this time._
+
+---
+
+## Answered after initial PR review
+
+### [OPEN-Q6] Default sync granularity — commit-by-commit vs squashed — ANSWERED
 
 **Context (from OPEN-Q5 / external-researcher findings):** You want Confluence page history to reflect Git history and to identify direct Confluence edits (a version entry without a `marksync:commit=` marker = direct edit). The `version.message` field carries the commit ID per page version. Two granularity modes are feasible:
 
@@ -93,10 +99,12 @@ _→ Incorporated: ADR-0006 refined — UUID **v7** (research: best sortability/
 - **Squashed (fast-forward)**: one page version per sync, `version.message` = `marksync:commit=<HEAD-sha>`. Cheaper; history shows one "deploy" per sync rather than per commit.
 - **Hybrid**: default one way, opt-in flag the other.
 
-**Adopted working assumption (pending your confirmation):** commit-by-commit **by default** (reflects your intent), with a `--squash` opt-in for perf-sensitive/large-sync cases. Always embed `marksync:commit=<sha>` in `version.message` either way.
+**Adopted decision:** commit-by-commit **by default**, with a squash option. Always embed Git provenance in Confluence page version history.
 
 ### Answer
-<!-- Answer inline here. If blank, the working assumption above stands. -->
+Aim for default commit-by-commit sync with an option to squash. Squashed updates should contain a list of commit identifiers (commit id + message, or at least the first line of the message if there are limits on the history entry length). The Confluence history-description entry limit must be verified; after verification, adopt a feasible strategy for efficient squashed history messages with the list of squashed commits. For commit-by-commit sync, put the full commit message in the Confluence history with a clear header/prefix to show it is coming from Git, trimming as required if a length limit exists.
+
+_→ Incorporated: `doc/decisions/ADR-0010-confluence-page-history-provenance-and-sync-granularity.md` records commit-by-commit by default, squash opt-in, clear `version.message` prefixes, deterministic trimming, and a required verification spike for the Confluence version-message/history-description length limit._
 
 ---
 

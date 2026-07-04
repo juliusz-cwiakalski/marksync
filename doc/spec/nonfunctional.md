@@ -58,8 +58,9 @@ binding. `MS-0002` NFRs are release-blocking guardrails unless marked
 | NFR-REL-6 | REMOTE_DELETED invariant | A remotely-deleted managed page is never silently re-created | INV-SAFE-2; roadmap invariant |
 | NFR-REL-7 | Partial-apply recoverability | An interrupted apply is recoverable via journal replay / `repair-state` without duplicates | R-FEA-4; spec §9.3/§9.8 |
 | NFR-REL-8 | Duplicate-UUID fatal | Two source docs with the same UUID halt before any write | INV-SAFE-3; ADR-0006 |
-| NFR-REL-9 | Per-version provenance | Each MarkSync-applied page version carries `marksync:commit=<sha>` in `version.message`; direct Confluence edits are identifiable (no marker) | ADR-0006; OPEN-Q5 |
+| NFR-REL-9 | Per-version provenance | Each MarkSync-applied page version carries a clear MarkSync/Git prefix, commit id, and commit message in `version.message`; direct Confluence edits are identifiable (no marker). Squashed updates include a compact commit list. | ADR-0006; ADR-0010; OPEN-Q6 |
 | NFR-REL-10 | Decentralized concurrency | Two runners on separate machines (no shared service) cannot silently overwrite (409 gates stale write) | ADR-0006 C-6 |
+| NFR-REL-11 | Version-message length handling | Confluence `version.message` / history-description length limit is verified before implementation; commit-by-commit and squashed messages trim deterministically with a clear marker when required | ADR-0010 |
 
 ## Operability & diagnostics (`MS-0002` binding unless noted)
 

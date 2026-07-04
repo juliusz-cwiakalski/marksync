@@ -241,7 +241,7 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes with accepted cost.
 ### Provenance in Confluence page history
 
 - The **commit ID + source path + revision** are recorded in each Confluence page **version's `message` field** (e.g. `marksync:commit=<sha> branch=<branch> path=<path>`), which is visible in the Confluence page-history UI and machine-parseable.
-- **Default sync granularity = commit-by-commit** (OPEN-Q6 working assumption): for N commits since the last sync, MarkSync creates N page versions, each carrying its commit SHA in `version.message`. This makes Confluence page history mirror Git history and lets direct Confluence edits be identified later (a version entry **without** a `marksync:commit=` marker = direct edit). A `--squash` opt-in creates a single version per sync for perf-sensitive/large-sync cases. _(Granularity default pending human confirmation — see `doc/inception/open-questions/phase-3-open-questions.md` OPEN-Q6.)_
+- **Default sync granularity = commit-by-commit** (confirmed in OPEN-Q6 and recorded in ADR-0010): for N commits since the last sync, MarkSync creates N page versions, each carrying its commit SHA and Git commit message in `version.message` with a clear MarkSync/Git prefix. This makes Confluence page history mirror Git history and lets direct Confluence edits be identified later (a version entry **without** a MarkSync/Git marker = direct edit). A `--squash` opt-in creates a single version per sync for perf-sensitive/large-sync cases; squashed version messages include a compact list of included commits subject to the verified Confluence version-message length.
 - Content properties are per-page (not per-version), so `version.message` is the per-version provenance vehicle; `marksync.metadata` carries the latest-sync summary.
 
 ### Branch restriction (deployment-gate)
@@ -287,7 +287,7 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes with accepted cost.
 - [x] **Lease backend:** resolved → **optimistic concurrency via Confluence 409 + operation-ID dedup + stale-plan expiry** (no pessimistic lease / no shared service; C-6). See Concurrency control section.
 - [ ] **Lock-file granularity:** single repo-wide lock vs per-target lock files. Per-target reduces merge conflicts but adds file count. (owner: JC — default assumption: per-target)
 - [ ] **Stale-plan expiry window:** default 15 min assumed; confirm. (owner: JC)
-- [ ] **Default sync granularity:** commit-by-commit (working assumption, mirrors Git history in Confluence) vs squashed (cheaper). Pending human confirmation — see `doc/inception/open-questions/phase-3-open-questions.md` OPEN-Q6. (owner: JC)
+- [x] **Default sync granularity:** resolved → commit-by-commit by default, squash opt-in. Full commit message where feasible; deterministic trimming and squashed commit-list strategy depend on verified Confluence `version.message` / history-description length. See ADR-0010 and `doc/inception/open-questions/phase-3-open-questions.md` OPEN-Q6.
 
 ## Implementation Plan
 
@@ -296,7 +296,8 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes with accepted cost.
 3. **Content property** `marksync.metadata` written after a successful body update (cross-check).
 4. **Concurrency control** implemented in the push executor: lease acquisition, operation-ID dedup, stale-plan expiry.
 5. **`repair-state`** for stale locks + journal replay (R-USA-3).
-6. **Acceptance tests:** clone/CI/concurrency (A-FEA-9), duplicate-UUID fatal (INV-SAFE-3), cache-disposable (C-3), REMOTE_DELETED invariant (INV-SAFE-2).
+6. **Version-message provenance** implemented per ADR-0010: commit-by-commit default, squash opt-in, clear MarkSync/Git prefix, deterministic trimming after verifying Confluence message length.
+7. **Acceptance tests:** clone/CI/concurrency (A-FEA-9), duplicate-UUID fatal (INV-SAFE-3), cache-disposable (C-3), REMOTE_DELETED invariant (INV-SAFE-2), commit-by-commit and squashed history messages (ADR-0010).
 
 ## Verification Criteria
 
@@ -304,7 +305,7 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes with accepted cost.
 - **Metric: Duplicate-UUID fatal** — Target: duplicated-UUID fixture aborts with 0 writes — Window: `MS-0002`.
 - **Metric: Concurrency** — Target: two overlapping CI plans, older does not overwrite newer — Window: `MS-0002` (A-FEA-7).
 - **Metric: Decentralized concurrency** — Target: two runners on separate machines (no shared lease store) sync to the same target; the stale-version write is 409-rejected — Window: `MS-0002` (C-6).
-- **Metric: Per-version provenance** — Target: each MarkSync-applied page version carries `marksync:commit=<sha>` in `version.message`; a direct Confluence edit produces a version without that marker — Window: `MS-0002`.
+- **Metric: Per-version provenance** — Target: each MarkSync-applied page version carries a clear MarkSync/Git prefix, commit id, and commit message in `version.message` subject to verified length/trimming rules; a direct Confluence edit produces a version without that marker — Window: `MS-0002` (ADR-0010).
 - **Metric: Branch restriction** — Target: a sync from a non-allowed branch exits non-zero; `MARKSYNC_ALLOW_BRANCHES` override works — Window: `MS-0002`.
 - **Metric: Cache layout** — Target: `.marksync/cache/` is CI-cacheable and reconstructable; deleting it changes no plan — Window: `MS-0002`.
 - **Metric: Re-clone recovery** — Target: a fresh clone reproduces the shared base from lock + Confluence — Window: `MS-0002`.
@@ -329,6 +330,6 @@ TODO: Populate after implementation.
 - `../inception/analysis/risks.md` — R-VAL-4, R-FEA-3, R-FEA-4, R-FEA-7, R-USA-3.
 - `../inception/analysis/backlog-reconciliation.md` — "State model ADR (recommended, not yet written) — Must materialize in Phase 3."
 - Spike findings: `../inception/tmp/confluence-api-validation-spike/findings/atlassian-api-spike-findings.md` (content properties, 409 conflict).
-- `../inception/open-questions/phase-3-open-questions.md` — OPEN-Q5 (state-model refinements) and OPEN-Q6 (sync granularity, pending).
+- `../inception/open-questions/phase-3-open-questions.md` — OPEN-Q5 (state-model refinements) and OPEN-Q6 (sync granularity, answered).
 - External research (2026-07-04): UUID v7 vs KSUID vs ULID; decentralized locking via 409; Confluence version limits + `version.message` provenance; commit-by-commit feasibility.
-- Related decisions: ADR-0001 (TS runtime), ADR-0004 (the spike), ADR-0005 (Storage body — the rendered hash input), ADR-0007 (CLI framework), ADR-0008 (Git adapter), ADR-0009 (testing runner).
+- Related decisions: ADR-0001 (TS runtime), ADR-0004 (the spike), ADR-0005 (Storage body — the rendered hash input), ADR-0007 (CLI framework), ADR-0008 (Git adapter), ADR-0009 (testing runner), ADR-0010 (Confluence page history provenance and sync granularity).
