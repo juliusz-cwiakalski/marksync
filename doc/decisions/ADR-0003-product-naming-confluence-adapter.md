@@ -50,7 +50,7 @@ links:
   related_changes: []
   supersedes: []
   superseded_by: []
-  spec: ["../system-specification-draft-from-ai-brainstorm.md"]
+  spec: ["../inception/system-specification-draft-from-ai-brainstorm.md"]
   contracts: []
   diagrams: []
   decisions: []
@@ -63,7 +63,7 @@ links:
 
 ## Context
 
-> **Pre-inception location note:** This record lives in `doc/inception/decisions/` by the project owner's explicit direction, overriding the canonical ADOS decision home (`doc/decisions/`). These are pre-inception inputs pending human confirmation during the formal ADOS inception, where they will be reviewed and possibly migrated to `doc/decisions/`. Records are numbered in one inception sequence (ADR-0001…ADR-0004) regardless of `decision_type`.
+> **Migration note:** This record was authored pre-inception in `doc/inception/decisions/` and migrated to the canonical ADOS home `doc/decisions/` during Phase 3 inception (2026-07-04). It remains `status: Proposed` pending human confirmation. Records are numbered in one sequence (ADR-0001…) regardless of `decision_type`.
 
 The current product identity is **"MarkSync for Confluence"** (repo: `marksync-for-confluence`). Two facts drive this decision:
 
@@ -100,7 +100,7 @@ The decision is *not* "should we rename the codebase" (the codebase is already `
 ### C-3: No collision with prominent existing project names
 
 - **Statement:** The chosen core name must not collide with established projects. In particular, bare "Mark" is taken (`kovetskiy/mark`, ~1,500 stars).
-- **Source:** Competitive inventory (`../open-source-git-markdown-confluence-sync-report-2026-07-02.md` §3).
+- **Source:** Competitive inventory (`../inception/open-source-git-markdown-confluence-sync-report-2026-07-02.md` §3).
 - **Verification:** Name search across the competitive inventory and GitHub.
 - **Negotiable:** no.
 
@@ -224,7 +224,7 @@ TODO: Populate after implementation.
 
 ## References
 
-- `../system-specification-draft-from-ai-brainstorm.md` — §2.5 (trademark open question), §5.2 (additional adapters later), §9.7 (Confluence adapter interface), §9.13 (README non-affiliation notice), §16 (trademark risk), NFR-023.
-- `../marksync-failure-premortem-and-anti-failure-playbook-2026-07-02.md` — §4.7 (name/language inconsistency), §21.1 (canonical name decision).
-- `../marksync-category-leadership-strategy-report-2026-07-02.md` — §23 (community/adoption), §32 Epic A (canonical spelling + GitHub org strategy).
-- `../open-source-git-markdown-confluence-sync-report-2026-07-02.md` — §3 (competitive inventory; `kovetskiy/mark` collision).
+- `../inception/system-specification-draft-from-ai-brainstorm.md` — §2.5 (trademark open question), §5.2 (additional adapters later), §9.7 (Confluence adapter interface), §9.13 (README non-affiliation notice), §16 (trademark risk), NFR-023.
+- `../inception/marksync-failure-premortem-and-anti-failure-playbook-2026-07-02.md` — §4.7 (name/language inconsistency), §21.1 (canonical name decision).
+- `../inception/marksync-category-leadership-strategy-report-2026-07-02.md` — §23 (community/adoption), §32 Epic A (canonical spelling + GitHub org strategy).
+- `../inception/open-source-git-markdown-confluence-sync-report-2026-07-02.md` — §3 (competitive inventory; `kovetskiy/mark` collision).

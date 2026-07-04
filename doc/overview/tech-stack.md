@@ -11,7 +11,7 @@ owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
-  related_decisions: [ADR-0001, ADR-0002, ADR-0003, ADR-0004, ADR-0005, ADR-0006]
+  related_decisions: [ADR-0001, ADR-0002, ADR-0003, ADR-0004, ADR-0005, ADR-0006, ADR-0007, ADR-0008, ADR-0009]
   related_changes: []
   summary: "Tech stack — TypeScript + Bun single-binary CLI; remark/HAST Markdown pipeline; official Mermaid; Confluence Storage Format; local-first, no DB."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
@@ -51,16 +51,18 @@ Confluence contract; ADR-0005 settled Storage over ADF._
 
 | Library / framework | Version | Role |
 |---|---|---|
-| `@cliffy/commander` (Cliffy) | latest | CLI framework: commands, flags, help, completions. TS-native; runs on Bun. _(Sub-decision — see OPEN-Q2)_ |
+| `@cliffy/command` + `@cliffy/prompt` (Cliffy) | v1.0.0-rc.7 (pin) | CLI framework: commands, flags, help, completions, interactive prompts (init/doctor). TS-native; Bun-compatible (ADR-0007) |
 | `remark` + `remark-gfm` (unified) | latest | Markdown → MDAST parser; GFM table/task-list/strikethrough support |
 | `rehype` + `remark-rehype` | latest | MDAST → HAST (HTML AST); the bridge to Storage rendering |
-| `jsdom` | latest | Headless DOM for in-process Mermaid `mermaid.render()` (spike-gated, ADR-0002) |
+| `jsdom` | latest | Headless DOM for in-process Mermaid `mermaid.render()` (spike-gated, ADR-0002). **Output = SVG** (byte-stable); enable `deterministicIds: true` + fixed `fontFamily` |
 | `mermaid` (official npm) | latest | Diagram rendering — the load-bearing dependency justifying TypeScript (ADR-0001/0002) |
+| `uuid` (v9+) | latest | UUID v7 generation for document identity (ADR-0006). `crypto.randomUUID()` fallback where v7 is available |
 | `ajv` (JSON Schema) | latest | YAML config + lock file schema validation |
 | `zod` | latest | Runtime typing for IO boundaries (config, plan, diagnostics) |
 | `pino` | latest | Structured logging (redacted, JSON-friendly) |
 | `keytar` (or OS-native) | latest | OS keyring credential storage for local users |
 | Native `fetch` + `WebCrypto` | platform | HTTP client + hashing; no `axios`/`node-fetch` dependency |
+| `bun:test` | built-in | Unit/integration/golden-fixture tests (ADR-0009); thin E2E runner for live-sandbox; vitest+happy-dom only for Mermaid-DOM files if needed |
 
 > **Markdown parser choice rationale.** `remark`/`unified` is the mature TS
 > ecosystem standard, gives an AST (MDAST/HAST) for deterministic transforms, and
@@ -91,7 +93,7 @@ Confluence contract; ADR-0005 settled Storage over ADF._
 | `cyclonedx` / `syft` | SBOM | Software Bill of Materials per release (R-SEC-1 supply-chain control) |
 | `osslsigncode` / `codesign` / `notarytool` | signing | Windows Authenticode + macOS notarization (spike-gated, ADR-0001 Unresolved Q; R-FEA-2) |
 | GitHub Releases | hosting | Binary artifacts + checksums + SBOM + release notes |
-| Git CLI | external prereq | Read committed snapshots, worktree status, renames (spec §9.4). Behind `Repository` interface. _(Shell-git vs `isomorphic-git` — see OPEN-Q3)_ |
+| Git CLI | external prereq | Read committed snapshots, worktree status, renames (spec §9.4). Shell-Git behind the `Repository` interface (ADR-0008). `isomorphic-git` is the swap option if zero-external-binary becomes a hard requirement. |
 
 ## Observability stack
 
@@ -120,7 +122,9 @@ Confluence contract; ADR-0005 settled Storage over ADF._
 | `remark`/`unified` | `marked` | Clean MDAST/HAST AST for deterministic Storage render | If AST pipeline proves too slow for very large docs (unlikely at ≤500 pages) |
 | Bun `build --compile` | Deno `compile` | Bun is the recommended compiler in ADR-0001; matures fast | If Bun cross-compile/signing proves unviable (R-FEA-2) |
 | In-process Mermaid via `jsdom` | shell-to-`mmdc` | Single-binary promise; no Node/Chromium dep | ADR-0002 spike fails → fallback ladder rung 1 (`mmdc`) |
-| Shell-Git behind interface | `isomorphic-git` (pure TS) | Spec §9.4 default; Git already a prereq | If single-binary purity requires no Git CLI on host (see OPEN-Q3) |
+| Shell-Git behind interface | `isomorphic-git` (pure TS) | 100% feature coverage; Git already a prereq for target users (ADR-0008) | If zero-external-binary becomes a hard requirement (isomorphic-git Bun fs issue permitting) |
+| Cliffy (CLI framework) | `commander` / `citty` / `clipanion` | Most feature-complete (prompts+completions); Bun-compatible (ADR-0007) | If Cliffy maintenance stalls and a breaking Bun change forces a fork → Crust |
+| `bun:test` | `vitest` / `jest` / `node:test` | Native, fastest, zero-dep, snapshots+mocks (ADR-0009) | If Mermaid-DOM test setup under `bun:test` proves painful → vitest+happy-dom for those files |
 | OS keyring (`keytar`) | env-only secrets | Local DX; tokens never in project files | `keytar` native-module friction under Bun compile → env/agent-only |
 
 ## Upgrade and compatibility notes

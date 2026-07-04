@@ -49,7 +49,7 @@ links:
   related_changes: []
   supersedes: []
   superseded_by: []
-  spec: ["../system-specification-draft-from-ai-brainstorm.md"]
+  spec: ["../inception/system-specification-draft-from-ai-brainstorm.md"]
   contracts: []
   diagrams: []
   decisions: [ADR-0001, ADR-0002, ADR-0003]
@@ -62,7 +62,7 @@ links:
 
 ## Context
 
-> **Pre-inception location note:** This record lives in `doc/inception/decisions/` by the project owner's explicit direction, overriding the canonical ADOS decision home (`doc/decisions/`). These are pre-inception inputs pending human confirmation during the formal ADOS inception, where they will be reviewed and possibly migrated to `doc/decisions/`. Records are numbered in one inception sequence (ADR-0001…ADR-0004) regardless of `decision_type`.
+> **Migration note:** This record was authored pre-inception in `doc/inception/decisions/` and migrated to the canonical ADOS home `doc/decisions/` during Phase 3 inception (2026-07-04). It remains `status: Proposed` pending human confirmation. Records are numbered in one sequence (ADR-0001…) regardless of `decision_type`.
 
 MarkSync's drift-detection + ownership model is **load-bearing on assumptions about Confluence Cloud REST API v2 behavior**. Those assumptions were checked against official Atlassian documentation on 2026-06-16 but have **never been exercised against a real tenant** (spec §20.3 "External Reference Baseline"; §2.4 assumptions flagged "Validation Needed"). The spec itself defines "Required Discovery Before Implementation" (§12.4), including sandbox spikes of Storage Format create/read/update, attachments, content properties, and Mermaid.
 
@@ -229,7 +229,7 @@ TODO: Populate after implementation.
 
 ## References
 
-- `../system-specification-draft-from-ai-brainstorm.md` — §2.4 (assumptions needing validation), §2.5 (open questions: state model), §9.3 (remote property `marksync.metadata`), §9.7 (Confluence adapter), §12.4 (Required Discovery Before Implementation), §16 (API-change risk), §20.3 (External Reference Baseline — 2026-06-16).
-- `../marksync-failure-premortem-and-anti-failure-playbook-2026-07-02.md` — §3 (strategic failure modes incl. "AI-generated false confidence"), §7 (auth/platform failure modes incl. "all authentication scenarios is an unbounded requirement"), §17 (testing strategy), §22 (do-not-do: mocks as primary evidence).
-- `../marksync-category-leadership-strategy-report-2026-07-02.md` — §30 (anti-patterns: mocked Confluence tests), §33 (key hypotheses to validate early).
+- `../inception/system-specification-draft-from-ai-brainstorm.md` — §2.4 (assumptions needing validation), §2.5 (open questions: state model), §9.3 (remote property `marksync.metadata`), §9.7 (Confluence adapter), §12.4 (Required Discovery Before Implementation), §16 (API-change risk), §20.3 (External Reference Baseline — 2026-06-16).
+- `../inception/marksync-failure-premortem-and-anti-failure-playbook-2026-07-02.md` — §3 (strategic failure modes incl. "AI-generated false confidence"), §7 (auth/platform failure modes incl. "all authentication scenarios is an unbounded requirement"), §17 (testing strategy), §22 (do-not-do: mocks as primary evidence).
+- `../inception/marksync-category-leadership-strategy-report-2026-07-02.md` — §30 (anti-patterns: mocked Confluence tests), §33 (key hypotheses to validate early).
 - Related decisions: ADR-0001 (language — affects renderer target), ADR-0002 (Mermaid — uses attachments), ADR-0003 (naming — independent).

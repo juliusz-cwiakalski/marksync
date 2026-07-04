@@ -50,7 +50,7 @@ links:
   related_changes: []
   supersedes: []
   superseded_by: []
-  spec: ["../system-specification-draft-from-ai-brainstorm.md"]
+  spec: ["../inception/system-specification-draft-from-ai-brainstorm.md"]
   contracts: []
   diagrams: []
   decisions: [ADR-0001]
@@ -63,9 +63,9 @@ links:
 
 ## Context
 
-> **Pre-inception location note:** This record lives in `doc/inception/decisions/` by the project owner's explicit direction, overriding the canonical ADOS decision home (`doc/decisions/`). These are pre-inception inputs pending human confirmation during the formal ADOS inception, where they will be reviewed and possibly migrated to `doc/decisions/`. Records are numbered in one inception sequence (ADR-0001…ADR-0004) regardless of `decision_type`.
+> **Migration note:** This record was authored pre-inception in `doc/inception/decisions/` and migrated to the canonical ADOS home `doc/decisions/` during Phase 3 inception (2026-07-04). It remains `status: Proposed` pending human confirmation. Records are numbered in one sequence (ADR-0001…) regardless of `decision_type`.
 
-Mermaid and other text diagrams must be rendered to images and attached to Confluence pages, with content-hash-based filenames so unchanged diagrams are not re-rendered or re-uploaded. This is a headline MVP feature and works **even when the target organization has no Confluence Mermaid plugin** (`../motivation-and-goal-notes-brain-dump.md`; spec §7.5, §9.11).
+Mermaid and other text diagrams must be rendered to images and attached to Confluence pages, with content-hash-based filenames so unchanged diagrams are not re-rendered or re-uploaded. This is a headline MVP feature and works **even when the target organization has no Confluence Mermaid plugin** (`../inception/motivation-and-goal-notes-brain-dump.md`; spec §7.5, §9.11).
 
 This decision **depends on ADR-0001** (TypeScript): the preferred in-process rendering path is only available because the implementation runs the official Mermaid library natively. The spec already lists "Which Mermaid renderer is mandatory in v1?" as an open question (§2.5) and records the assumption "No assumption of a production-grade pure-Go renderer" (§2.4). The spec's capability matrix (§9.11) ranks modes: local `mmdc` command (MVP), official container bundle (MVP), Confluence plugin macro (optional), Kroki/remote (optional, privacy warning), preserve code block (fallback), embedded native renderer (research).
 
@@ -99,7 +99,7 @@ Reframed: lock the principles and the naming scheme now; defer the mechanism to 
 ### C-3: Privacy (remote rendering is opt-in only)
 
 - **Statement:** Any rendering path that sends source/diagram content to a remote service (e.g., Kroki) must be disabled by default and require explicit opt-in with a privacy warning.
-- **Source:** Spec FR-AST-007, NFR-006; `../motivation-and-goal-notes-brain-dump.md` (local-first).
+- **Source:** Spec FR-AST-007, NFR-006; `../inception/motivation-and-goal-notes-brain-dump.md` (local-first).
 - **Verification:** Default config has remote rendering off; enabling it surfaces a warning; no outbound diagram content without opt-in.
 - **Negotiable:** no.
 
@@ -238,9 +238,9 @@ TODO: Populate after implementation.
 
 ## References
 
-- `../system-specification-draft-from-ai-brainstorm.md` — §2.2 (Mermaid hashing Decided), §2.4 (no pure-Go renderer assumption), §2.5 (open question: Mermaid renderer), §7.5 (FR-AST-005…010), §9.11 (capability matrix, hash input, filename), §16 (renderer fidelity / remote-leak risks).
-- `../motivation-and-goal-notes-brain-dump.md` — render Mermaid to images, hash-based change detection, works without org plugin.
-- `../marksync-failure-premortem-and-anti-failure-playbook-2026-07-02.md` — §7 (renderer-missing failure mode), §13.7 (do not support every diagram language).
-- `../marksync-category-leadership-strategy-report-2026-07-02.md` — §19 (content fidelity strategy).
-- `../open-source-git-markdown-confluence-sync-report-2026-07-02.md` — §8 (diagrams as decision-driving features), §9 (round-trip fidelity).
+- `../inception/system-specification-draft-from-ai-brainstorm.md` — §2.2 (Mermaid hashing Decided), §2.4 (no pure-Go renderer assumption), §2.5 (open question: Mermaid renderer), §7.5 (FR-AST-005…010), §9.11 (capability matrix, hash input, filename), §16 (renderer fidelity / remote-leak risks).
+- `../inception/motivation-and-goal-notes-brain-dump.md` — render Mermaid to images, hash-based change detection, works without org plugin.
+- `../inception/marksync-failure-premortem-and-anti-failure-playbook-2026-07-02.md` — §7 (renderer-missing failure mode), §13.7 (do not support every diagram language).
+- `../inception/marksync-category-leadership-strategy-report-2026-07-02.md` — §19 (content fidelity strategy).
+- `../inception/open-source-git-markdown-confluence-sync-report-2026-07-02.md` — §8 (diagrams as decision-driving features), §9 (round-trip fidelity).
 - Related decision: ADR-0001 (implementation language) — this ADR depends on it.

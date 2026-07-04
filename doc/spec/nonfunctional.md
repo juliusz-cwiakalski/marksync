@@ -58,6 +58,8 @@ binding. `MS-0002` NFRs are release-blocking guardrails unless marked
 | NFR-REL-6 | REMOTE_DELETED invariant | A remotely-deleted managed page is never silently re-created | INV-SAFE-2; roadmap invariant |
 | NFR-REL-7 | Partial-apply recoverability | An interrupted apply is recoverable via journal replay / `repair-state` without duplicates | R-FEA-4; spec §9.3/§9.8 |
 | NFR-REL-8 | Duplicate-UUID fatal | Two source docs with the same UUID halt before any write | INV-SAFE-3; ADR-0006 |
+| NFR-REL-9 | Per-version provenance | Each MarkSync-applied page version carries `marksync:commit=<sha>` in `version.message`; direct Confluence edits are identifiable (no marker) | ADR-0006; OPEN-Q5 |
+| NFR-REL-10 | Decentralized concurrency | Two runners on separate machines (no shared service) cannot silently overwrite (409 gates stale write) | ADR-0006 C-6 |
 
 ## Operability & diagnostics (`MS-0002` binding unless noted)
 
@@ -76,7 +78,9 @@ binding. `MS-0002` NFRs are release-blocking guardrails unless marked
 | NFR-COMP-1 | Cross-OS support | Linux, macOS, Windows (amd64 + arm64 where supported) | ADR-0001 C-3; spec NFR-012 |
 | NFR-COMP-2 | Single binary, no runtime | Clean-OS image runs the binary with no Node/Bun/Deno installed | ADR-0001 C-2; clean-OS smoke |
 | NFR-COMP-3 | Confluence Cloud only (`MS-0002`) | Data Center deferred (`MS-0009`) | Roadmap; R-VIA-1 |
-| NFR-COMP-4 | Git CLI prerequisite | Git is an explicit external prereq (read-only) | spec §9.4 |
+| NFR-COMP-4 | Git CLI prerequisite | Git is an explicit external prereq (read-only); `doctor` verifies it on `$PATH` | spec §9.4; ADR-0008 |
+| NFR-COMP-5 | Branch restriction | Sync restricted to configured `allowBranches` (default `["main"]`); override via `MARKSYNC_ALLOW_BRANCHES` | ADR-0006; OPEN-Q5 |
+| NFR-COMP-6 | CI-cacheable cache dir | Single cache root `.marksync/` (overridable via `MARKSYNC_CACHE_DIR`); `.marksync/cache/` is CI-cacheable; deleting it changes no plan | ADR-0006 C-3; OPEN-Q5 |
 
 ## Privacy (`MS-0002` binding)
 

@@ -50,11 +50,11 @@ links:
   related_changes: []
   supersedes: []
   superseded_by: []
-  spec: ["../system-specification-draft-from-ai-brainstorm.md"]
+  spec: ["../inception/system-specification-draft-from-ai-brainstorm.md"]
   contracts: []
   diagrams: []
   decisions: [ADR-0001, ADR-0004]
-  experiments: ["../tmp/confluence-api-validation-spike/findings/atlassian-api-spike-findings.md"]
+  experiments: ["../inception/tmp/confluence-api-validation-spike/findings/atlassian-api-spike-findings.md"]
   metrics: []
   roadmap_items: []
 ---
@@ -63,14 +63,14 @@ links:
 
 ## Context
 
-> **Pre-inception location note:** This record lives in `doc/inception/decisions/` by the project owner's explicit direction, overriding the canonical ADOS decision home (`doc/decisions/`). These are pre-inception inputs pending human confirmation during the formal ADOS inception, where they will be reviewed and possibly migrated to `doc/decisions/`. Records are numbered in one inception sequence (ADR-0001…ADR-0005) regardless of `decision_type`.
+> **Migration note:** This record was authored pre-inception in `doc/inception/decisions/` and migrated to the canonical ADOS home `doc/decisions/` during Phase 3 inception (2026-07-04). It remains `status: Proposed` pending human confirmation. Records are numbered in one sequence (ADR-0001…) regardless of `decision_type`.
 
 MarkSync's job is to render Markdown to a Confluence page body. Confluence Cloud's v2 page API accepts two body representations on create/update:
 
 - **Storage Format** — an XHTML document with a small set of `ac:`/`ri:` namespaced elements for Confluence-specific constructs (code blocks, images, task lists, macros). HTML-like; what every Markdown↔Confluence tool in the ecosystem emits.
 - **Atlassian Document Format (ADF)** — a ProseMirror-style nested JSON document model (`{type, attrs, content}`); the new editor's internal representation.
 
-The spec flagged "page body representation" as an assumption needing validation (§2.4, §2.5), and ADR-0004's spike was tasked to settle it. The spike has now run (2026-07-03) and produced evidence (see `../tmp/confluence-api-validation-spike/findings/atlassian-api-spike-findings.md`).
+The spec flagged "page body representation" as an assumption needing validation (§2.4, §2.5), and ADR-0004's spike was tasked to settle it. The spike has now run (2026-07-03) and produced evidence (see `../inception/tmp/confluence-api-validation-spike/findings/atlassian-api-spike-findings.md`).
 
 FACT: both representations are accepted by `POST/PATCH /wiki/api/v2/pages` — Storage (scenario C1/C3) and ADF (scenario D1) both return 200. FACT: a Storage body round-trips **losslessly** through the API — a kitchen-sink page containing all 27 GFM constructs was read back (storage→ADF→storage) with 27/27 surviving (scenario K1). FACT: the only normalisation Confluence performs is auto-filling `ac:schema-version` + `ac:macro-id` on macros and trivial self-closing whitespace. FACT: every reference converter cloned for this spike (`md2conf`, `kovetskiy/mark`, `text2confl`, `md2cf`, `markdown-confluence`) writes Storage; **none** writes ADF on the write path. FACT: under ADR-0001 the implementation language is TypeScript, which has mature Markdown→HTML pipelines (`remark`/`rehype`); the last mile from HTML to Storage is small (entity-escape, wrap code in the code macro, images in `ac:image`, task lists in `ac:task-list`).
 
@@ -214,7 +214,7 @@ TODO: Populate after implementation.
 
 ## References
 
-- Spike findings: `../tmp/confluence-api-validation-spike/findings/atlassian-api-spike-findings.md` (H3, H3b, H6).
-- Spike evidence: `../tmp/confluence-api-validation-spike/evidence/raw/` — `C1-01`, `C2-01`, `C3-01`, `D1-01`, `K1-02`, `K1-03`, `K1-04`; fixture `examples/pages/storage-kitchensink.xml`.
-- `../system-specification-draft-from-ai-brainstorm.md` — §2.4 (assumptions needing validation), §2.5 (open question: body representation), §9.7 (Confluence adapter).
+- Spike findings: `../inception/tmp/confluence-api-validation-spike/findings/atlassian-api-spike-findings.md` (H3, H3b, H6).
+- Spike evidence: `../inception/tmp/confluence-api-validation-spike/evidence/raw/` — `C1-01`, `C2-01`, `C3-01`, `D1-01`, `K1-02`, `K1-03`, `K1-04`; fixture `examples/pages/storage-kitchensink.xml`.
+- `../inception/system-specification-draft-from-ai-brainstorm.md` — §2.4 (assumptions needing validation), §2.5 (open question: body representation), §9.7 (Confluence adapter).
 - Related decisions: ADR-0001 (TS runtime + Markdown tooling), ADR-0004 (the spike that produced this evidence).

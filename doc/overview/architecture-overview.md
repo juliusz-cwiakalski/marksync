@@ -224,12 +224,15 @@ flowchart TD
 
 | Decision | Decision record |
 |---|---|
-| TypeScript + Bun single-binary over Go | `doc/inception/decisions/ADR-0001-...md` |
-| Mermaid rendering strategy (official lib, content-hash, fallback ladder) | `doc/inception/decisions/ADR-0002-...md` |
-| Brand = MarkSync; Confluence = first adapter | `doc/inception/decisions/ADR-0003-...md` |
-| Run a Confluence API validation spike before implementation | `doc/inception/decisions/ADR-0004-...md` |
-| Write Storage Format, not ADF | `doc/inception/decisions/ADR-0005-...md` |
-| Document identity + shared-base state model (UUID + committed lock) | `doc/decisions/ADR-0006-...md` |
+| TypeScript + Bun single-binary over Go | `doc/decisions/ADR-0001-...md` |
+| Mermaid rendering strategy (official lib, content-hash, SVG, fallback ladder) | `doc/decisions/ADR-0002-...md` |
+| Brand = MarkSync; Confluence = first adapter | `doc/decisions/ADR-0003-...md` |
+| Run a Confluence API validation spike before implementation | `doc/decisions/ADR-0004-...md` |
+| Write Storage Format, not ADF | `doc/decisions/ADR-0005-...md` |
+| Document identity + shared-base state model (UUID v7 + committed lock + disposable cache + decentralized 409 concurrency + commit-by-commit provenance + branch restriction) | `doc/decisions/ADR-0006-...md` |
+| CLI framework — Cliffy | `doc/decisions/ADR-0007-...md` |
+| Git adapter — shell-Git behind `Repository` interface | `doc/decisions/ADR-0008-...md` |
+| Testing runner — bun:test + thin E2E runner | `doc/decisions/ADR-0009-...md` |
 
 ## Known constraints and uncertainty flags
 
@@ -238,14 +241,20 @@ flowchart TD
 - Cloud-only in `MS-0002`; one auth path (API token); one configured subtree per target.
 - No cross-page transaction (Confluence has none) — validate globally, execute parent-first, journal immediately.
 - Binary ≤ 90 MB; cold-start ≤ 2 s; ≤ ~500 managed pages in `MS-0002` (A-FEA-10).
+- Decentralized coordination: no shared service — locking via Git lock + Confluence 409 (ADR-0006 C-6).
+- Sync restricted to configured branches (`allowBranches`, default `["main"]`) — docs sync as "deployment" (ADR-0006).
+- Single cache root `.marksync/` (overridable via `MARKSYNC_CACHE_DIR`); only `.marksync/cache/` is CI-cacheable (ADR-0006).
 
 **Uncertainty flags (low confidence — human confirmation needed):**
 
-- **[UNCERT-1] Mermaid in-process render** — `A-FEA-1` (`testing`). The official library's headless determinism via `jsdom` is spike-gated (ADR-0002). If it fails, language choice is revisited. _Confidence: low._
-- **[UNCERT-2] Bun single-binary signing/trust** — `A-FEA-2` (`unvalidated`). Cross-compile works, but macOS notarization + Windows Authenticode under Bun `build --compile` is unproven (R-FEA-2). _Confidence: low._
-- **[UNCERT-3] State model lock-file format** — ADR-0006 (Proposed). Single lock vs per-target lock, UUID v4 vs v7, lease semantics for CI concurrency need confirmation. _Confidence: medium._
-- **[UNCERT-4] Git adapter choice** — shell-Git (spec default) vs `isomorphic-git` (pure-TS, better single-binary purity). _Confidence: medium._ (See OPEN-Q3.)
-- **[UNCERT-5] Permission asymmetry handling** — `A-FEA-6`/`R-FEA-10`. `doctor` discovery is planned but the visibility-completeness check is not yet designed. _Confidence: medium._
+- **[UNCERT-1] Mermaid in-process render** — `A-FEA-1` (`testing`). The official library's headless determinism via `jsdom` (+ `deterministicIds`, SVG output, fixed font) is spike-gated (ADR-0002). If it fails, language choice is revisited. _Confidence: low → medium_ (Mermaid's own test suite uses jsdom).
+- **[UNCERT-2] Bun single-binary signing/trust** — `A-FEA-2` (`unvalidated`). Cross-compile works; macOS codesign guide exists (Bun v1.2.4+); Windows Authenticode via `osslsigncode` is manual (R-FEA-2). _Confidence: low._
+- **[UNCERT-3] Sync granularity default** — commit-by-commit (working assumption, mirrors Git history) vs squashed. Pending human confirmation — OPEN-Q6 in `doc/inception/open-questions/phase-3-open-questions.md`. _Confidence: medium._
+- **[UNCERT-4] Permission asymmetry handling** — `A-FEA-6`/`R-FEA-10`. `doctor` discovery is planned but the visibility-completeness check is not yet designed. _Confidence: medium._
+- **[RESOLVED] State model** — ADR-0006 refined: UUID v7, decentralized 409 concurrency, per-target lock (assumed), 15-min stale window (assumed). _Confidence: medium-high._
+- **[RESOLVED] Git adapter** — shell-Git (ADR-0008). _Confidence: high._
+- **[RESOLVED] CLI framework** — Cliffy (ADR-0007). _Confidence: medium-high._
+- **[RESOLVED] Testing runner** — bun:test (ADR-0009). _Confidence: medium-high._
 
 ## Four-risk check on architecture decisions
 

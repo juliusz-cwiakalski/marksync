@@ -7,7 +7,7 @@ status: Proposed
 created: 2026-07-04
 decision_date: null
 last_updated: 2026-07-04
-summary: "Document identity = immutable source-side UUID (v4); shared base = committed versioned lock file; cache = disposable; duplicate-UUID is fatal before any write. Establishes the safety foundation for drift detection, concurrency control, and reverse sync."
+summary: "Document identity = immutable source-side UUID v7; shared base = committed versioned lock file; cache = disposable (single CI-cacheable dir); duplicate-UUID is fatal before any write; decentralized coordination via Confluence 409 + operation-ID dedup (no shared service); commit ID recorded per Confluence page version; sync restricted to configured branches. Establishes the safety foundation for drift detection, concurrency control, and reverse sync."
 owners:
   - Juliusz Ćwiąkalski
 service: marksync-cli
@@ -136,6 +136,13 @@ separating:
 - **Verification:** A concurrency integration test: two overlapping plans, the older must not overwrite the newer.
 - **Negotiable:** no.
 
+### C-6: Decentralized — no shared coordination service
+
+- **Statement:** Coordination/locking must work with multiple operators/CI runners syncing to the same target **without any shared service** — all exchange and locking lives purely in Git + Confluence.
+- **Source:** Owner directive (OPEN-Q5): "multiple people could sync and no shared service is required — all exchange/locking lives purely in git/confluence."
+- **Verification:** Two runners on separate machines, no shared filesystem/lease store, both sync to the same Confluence target → no silent overwrite (409 gates the stale write).
+- **Negotiable:** no.
+
 ## Decision Drivers
 
 **Safety drivers:**
@@ -163,11 +170,11 @@ separating:
 
 Legend: ✅ = passes · ❌ = fails · ⚠️ = passes with accepted cost.
 
-|          | C-1 (identity) | C-2 (committed base) | C-3 (cache disposable) | C-4 (dup fatal) | C-5 (concurrency) |
-|----------|----------------|----------------------|------------------------|-----------------|-------------------|
-| Alt 0    | ❌ (path/title = mutable) | ❌ (local cache only) | ✅ | ❌ | ❌ |
-| Alt 1    | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Alt 2    | ✅ | ⚠️ (remote-only; offline/CI gap) | ✅ | ✅ | ⚠️ (depends on remote lease) |
+|          | C-1 (identity) | C-2 (committed base) | C-3 (cache disposable) | C-4 (dup fatal) | C-5 (concurrency) | C-6 (decentralized) |
+|----------|----------------|----------------------|------------------------|-----------------|-------------------|---------------------|
+| Alt 0    | ❌ (path/title = mutable) | ❌ (local cache only) | ✅ | ❌ | ❌ | ❌ |
+| Alt 1    | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Alt 2    | ✅ | ⚠️ (remote-only; offline/CI gap) | ✅ | ✅ | ⚠️ (depends on remote lease) | ✅ |
 
 ### Alternative 0 — Path/title/cache-based identity (do nothing / spec-as-misread)
 
@@ -203,7 +210,7 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes with accepted cost.
 
 ### Identity
 
-- Each managed document has an immutable **UUID** (v4) generated at first publish and stored in source front-matter (`marksync.uuid`). It survives clones, branches, renames, and moves.
+- Each managed document has an immutable **UUID v7** generated at first publish and stored in source front-matter (`marksync.uuid`). It survives clones, branches, renames, and moves. **v7 chosen over v4** for time-sortable prefixes (improves lock-file locality and reduces merge conflicts when two branches add documents concurrently); **KSUID was considered** but rejected because the TS/JS library ecosystem is weak (the original `ksuid` npm package is unmaintained; `@langwatch/ksuid`/`@owpz/ksuid` are unproven), whereas UUID v7 has the same 36-char shape as v4 (zero schema-change cost) and solid library support (`uuid` v9+, RFC 9562).
 - The Confluence **page ID** is the remote identity (mutable attribute recorded in the lock).
 - Title and path are mutable attributes, never identity.
 - **Duplicate-UUID detection is fatal before any write** (INV-SAFE-3, C-4).
@@ -215,14 +222,31 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes with accepted cost.
 - Lock updates are staged and written **atomically** after a successful apply.
 - The remote `marksync.metadata` content property mirrors key lock fields as a cross-check; lock and property agree after success. A lost lock can be rebuilt from Confluence + Git.
 
-### Cache (disposable)
+### Cache (disposable, single CI-cacheable dir)
 
-- `.marksync/` holds rendered bodies, asset cache, the apply journal (`<run-id>.jsonl`), and conflict workspaces. It is gitignored.
-- **Deleting the cache changes no plan.** Correctness depends only on Git + lock + Confluence.
+- A single cache root (default `.marksync/`, overridable via `MARKSYNC_CACHE_DIR`) holds:
+  - `.marksync/cache/` — **CI-cacheable** (rendered bodies, Mermaid renders, asset metadata, discovered remote graph). Safe to persist across CI runs; every entry is reconstructable from Git + Confluence.
+  - `.marksync/journal/<run-id>.jsonl` — **run-specific**, never cached (apply journal).
+  - `.marksync/conflicts/<target>/<uuid>/` — **run-specific**, never cached (reverse-sync workspaces).
+- The whole tree is gitignored. **Deleting the cache changes no plan.** Correctness depends only on Git + lock + Confluence (C-3). Splitting `cache/` from `journal/`+`conflicts/` lets CI cache only the reconstructable subtree (e.g. GitHub Actions `actions/cache` on `.marksync/cache`).
 
-### Concurrency control (C-5)
+### Concurrency control (C-5) — decentralized, no shared service
 
-- Per-target serialization + a repo/target lease + operation-ID deduplication + stale-plan expiry + CI concurrency-group templates (A-FEA-7). Two overlapping CI plans can never let the older overwrite the newer.
+- **No shared service is required.** All coordination lives in Git (committed lock) + Confluence (page version 409). Confluence's server-enforced **409 CONFLICT on stale `version.number`** is the hard gate: any write that does not know the current page version is rejected. Combined with:
+  - **operation-ID deduplication** — each plan carries a unique operation ID; the `marksync.metadata` content property records the last-applied operation ID; a replay of an already-applied plan sees a mismatch and aborts;
+  - **stale-plan expiry** — a plan unapplied beyond a configurable window (default 15 min) is treated as stale and must be regenerated;
+  - **CI concurrency-group templates** — GitHub Actions `concurrency:` etc. to reduce overlap at the source.
+- This is **optimistic concurrency**, not pessimistic leasing. At MarkSync's target scale (≤500 pages, ≤10 concurrent runners) the 409-retry rate is manageable; pessimistic leasing (git refs / external lease store) adds crash-recovery complexity for no additional safety. Two overlapping CI plans can never let the older overwrite the newer because the 409 rejects the stale-version write.
+
+### Provenance in Confluence page history
+
+- The **commit ID + source path + revision** are recorded in each Confluence page **version's `message` field** (e.g. `marksync:commit=<sha> branch=<branch> path=<path>`), which is visible in the Confluence page-history UI and machine-parseable.
+- **Default sync granularity = commit-by-commit** (OPEN-Q6 working assumption): for N commits since the last sync, MarkSync creates N page versions, each carrying its commit SHA in `version.message`. This makes Confluence page history mirror Git history and lets direct Confluence edits be identified later (a version entry **without** a `marksync:commit=` marker = direct edit). A `--squash` opt-in creates a single version per sync for perf-sensitive/large-sync cases. _(Granularity default pending human confirmation — see `doc/inception/open-questions/phase-3-open-questions.md` OPEN-Q6.)_
+- Content properties are per-page (not per-version), so `version.message` is the per-version provenance vehicle; `marksync.metadata` carries the latest-sync summary.
+
+### Branch restriction (deployment-gate)
+
+- Sync is restricted to configured branches via `sync.allowBranches` (default `["main"]`), treating Markdown synchronization as a documentation "deployment". A sync attempted from a non-allowed branch exits non-zero with a clear diagnostic. Override via `MARKSYNC_ALLOW_BRANCHES` env var for feature-branch previews. The source branch is recorded in `version.message` and `marksync.metadata.sourceBranch`. CI detached-HEAD is handled via `GITHUB_REF_NAME`/`CI_COMMIT_BRANCH`.
 
 ### Repair surface (`MS-0002`)
 
@@ -236,11 +260,12 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes with accepted cost.
 
 ### Constraint Compliance Attestation
 
-- **C-1 — ✅:** UUID is source-side, immutable, path/title-independent.
+- **C-1 — ✅:** UUID v7 is source-side, immutable, path/title-independent.
 - **C-2 — ✅:** Lock is committed and versioned; available offline/CI without a network call.
 - **C-3 — ✅:** Cache is gitignored; deleting it changes no plan.
 - **C-4 — ✅:** Duplicate-UUID detection halts the plan before any write.
-- **C-5 — ✅:** Lease + serialization + operation-ID dedup + stale-plan expiry (acceptance-tested in `MS-0002`).
+- **C-5 — ✅:** Confluence 409 + operation-ID dedup + stale-plan expiry (optimistic concurrency; acceptance-tested in `MS-0002`).
+- **C-6 — ✅:** No shared service — coordination lives in Git (lock) + Confluence (409); two runners on separate machines cannot silently overwrite.
 
 ## Trade-offs & Consequences
 
@@ -258,10 +283,11 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes with accepted cost.
 
 ### Unresolved Questions
 
-- [ ] **UUID version:** v4 (random) is the default; v7 (time-ordered) could improve lock-file locality/mergeability. (owner: JC — see OPEN-Q5)
-- [ ] **Lock-file granularity:** single repo-wide lock vs per-target lock files. Per-target reduces merge conflicts but adds file count. (owner: JC — see OPEN-Q5)
-- [ ] **Lease backend:** filesystem lockfile in the repo vs an external lease store. Repo-local is simpler and CI-friendly; an external store is needed only for cross-runner serialization beyond a single repo. (owner: JC)
-- [ ] **Stale-plan expiry window:** how long before a planned-but-unapplied operation is considered stale. (owner: JC)
+- [x] **UUID version:** resolved → **UUID v7** (time-sortable; KSUID considered, rejected on TS-library weakness). See Identity section.
+- [x] **Lease backend:** resolved → **optimistic concurrency via Confluence 409 + operation-ID dedup + stale-plan expiry** (no pessimistic lease / no shared service; C-6). See Concurrency control section.
+- [ ] **Lock-file granularity:** single repo-wide lock vs per-target lock files. Per-target reduces merge conflicts but adds file count. (owner: JC — default assumption: per-target)
+- [ ] **Stale-plan expiry window:** default 15 min assumed; confirm. (owner: JC)
+- [ ] **Default sync granularity:** commit-by-commit (working assumption, mirrors Git history in Confluence) vs squashed (cheaper). Pending human confirmation — see `doc/inception/open-questions/phase-3-open-questions.md` OPEN-Q6. (owner: JC)
 
 ## Implementation Plan
 
@@ -277,6 +303,10 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes with accepted cost.
 - **Metric: Cache-disposable** — Target: delete `.marksync/`, rerun plan → identical output — Window: `MS-0002`.
 - **Metric: Duplicate-UUID fatal** — Target: duplicated-UUID fixture aborts with 0 writes — Window: `MS-0002`.
 - **Metric: Concurrency** — Target: two overlapping CI plans, older does not overwrite newer — Window: `MS-0002` (A-FEA-7).
+- **Metric: Decentralized concurrency** — Target: two runners on separate machines (no shared lease store) sync to the same target; the stale-version write is 409-rejected — Window: `MS-0002` (C-6).
+- **Metric: Per-version provenance** — Target: each MarkSync-applied page version carries `marksync:commit=<sha>` in `version.message`; a direct Confluence edit produces a version without that marker — Window: `MS-0002`.
+- **Metric: Branch restriction** — Target: a sync from a non-allowed branch exits non-zero; `MARKSYNC_ALLOW_BRANCHES` override works — Window: `MS-0002`.
+- **Metric: Cache layout** — Target: `.marksync/cache/` is CI-cacheable and reconstructable; deleting it changes no plan — Window: `MS-0002`.
 - **Metric: Re-clone recovery** — Target: a fresh clone reproduces the shared base from lock + Confluence — Window: `MS-0002`.
 - **Metric: REMOTE_DELETED invariant** — Target: a remotely-deleted managed page is never silently re-created — Window: `MS-0002` (INV-SAFE-2).
 
@@ -299,4 +329,6 @@ TODO: Populate after implementation.
 - `../inception/analysis/risks.md` — R-VAL-4, R-FEA-3, R-FEA-4, R-FEA-7, R-USA-3.
 - `../inception/analysis/backlog-reconciliation.md` — "State model ADR (recommended, not yet written) — Must materialize in Phase 3."
 - Spike findings: `../inception/tmp/confluence-api-validation-spike/findings/atlassian-api-spike-findings.md` (content properties, 409 conflict).
-- Related decisions: ADR-0001 (TS runtime), ADR-0004 (the spike), ADR-0005 (Storage body — the rendered hash input).
+- `../inception/open-questions/phase-3-open-questions.md` — OPEN-Q5 (state-model refinements) and OPEN-Q6 (sync granularity, pending).
+- External research (2026-07-04): UUID v7 vs KSUID vs ULID; decentralized locking via 409; Confluence version limits + `version.message` provenance; commit-by-commit feasibility.
+- Related decisions: ADR-0001 (TS runtime), ADR-0004 (the spike), ADR-0005 (Storage body — the rendered hash input), ADR-0007 (CLI framework), ADR-0008 (Git adapter), ADR-0009 (testing runner).
