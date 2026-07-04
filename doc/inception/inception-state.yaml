@@ -28,8 +28,8 @@ phases:
   # status: pending | in_progress | completed
   - { id: 0, name: "Intake & material scan", status: completed, started: 2026-07-03, completed: 2026-07-03 }
   - { id: 1, name: "North star & vision", status: completed, started: 2026-07-03, completed: 2026-07-03 }
-  - { id: 2, name: "Scope & roadmap", status: in_progress, started: 2026-07-03, completed: null }
-  - { id: 3, name: "Tech stack & architecture", status: pending, started: null, completed: null }
+  - { id: 2, name: "Scope & roadmap", status: completed, started: 2026-07-03, completed: 2026-07-04 }
+  - { id: 3, name: "Tech stack & architecture", status: in_progress, started: 2026-07-04, completed: null }
   - { id: 4, name: "Domain, conventions & quality baseline", status: pending, started: null, completed: null }
   - { id: 5, name: "ADOS framework integration", status: pending, started: null, completed: null }
   - { id: 6, name: "Inception readiness check", status: pending, started: null, completed: null }
@@ -39,8 +39,8 @@ artifacts:
   # status: pending | draft | approved | written ; confidence: 0.0-1.0
   north_star:        { status: draft, path: "doc/overview/01-north-star.md", confidence: 0.8 }
   roadmap:           { status: draft, path: "doc/overview/02-roadmap.md", confidence: 0.8 }
-  tech_stack:        { status: pending, path: "doc/overview/tech-stack.md", confidence: 0.0 }
-  architecture:      { status: pending, path: "doc/overview/architecture-overview.md", confidence: 0.0 }
+  tech_stack:        { status: draft, path: "doc/overview/tech-stack.md", confidence: 0.75 }
+  architecture:      { status: draft, path: "doc/overview/architecture-overview.md", confidence: 0.75 }
   glossary:          { status: pending, path: "doc/overview/glossary.md", confidence: 0.0 }
   ost:               { status: draft, path: "doc/overview/opportunity-solution-tree.md", confidence: 0.75 }
   personas_jtbd:     { status: draft, path: "doc/overview/personas-jtbd.md", confidence: 0.75 }
@@ -56,13 +56,14 @@ artifacts:
   success_pre_parade: { status: draft, path: "doc/inception/analysis/success-pre-parade.md", confidence: 0.8 }
   retrospective_notes: { status: draft, path: "doc/inception/retrospective/", confidence: 0.8 }
   material_inventory: { status: draft, path: "doc/inception/analysis/material-inventory.md", confidence: 0.85 }
+  fse_audit:         { status: draft, path: "doc/inception/analysis/fse-audit.md", confidence: 0.8 }
   inception_summary: { status: pending, path: "doc/inception/inception-summary.md", confidence: 0.0 }
   repo_analysis:     { status: pending, path: "doc/inception/analysis/repo-analysis.md", confidence: 0.0 }
   tribal_knowledge:  { status: pending, path: "doc/inception/analysis/tribal-knowledge.md", confidence: 0.0 }
   project_prd:       { status: pending, path: "doc/overview/prd.md", confidence: 0.0 }
-  nonfunctional:     { status: pending, path: "doc/spec/nonfunctional.md", confidence: 0.0 }
+  nonfunctional:     { status: draft, path: "doc/spec/nonfunctional.md", confidence: 0.8 }
   feature_specs:     { status: pending, path: "doc/spec/features/", confidence: 0.0 }
-  decision_records:  { status: pending, path: "doc/decisions/", confidence: 0.0 }
+  decision_records:  { status: draft, path: "doc/decisions/", confidence: 0.8 }
 
 decisions:
   # Phase 0 classifications (pending Gate 0 confirmation via PR merge)
@@ -70,6 +71,8 @@ decisions:
   - { phase: 0, text: "Repo profile = engineering-repo.", rationale: "MarkSync is a software product (TS CLI/library). Strategy/business docs are inception inputs, not a standing business-documentation tree; documentation-profile defaults to engineering-repo when absent.", date: 2026-07-03 }
   - { phase: 0, text: "Project characteristics: code_project=true, complex_domain=true, ui_bearing=false, multi_user=true.", rationale: "TS product (code); rich domain (Storage/ADF, content properties, drift, ownership, atomicity); CLI tool (no GUI); multiple distinct user types (dev, tech writer, maintainer). Activates ubiquitous language + testing/CI/conventions + personas/JTBD; skips screen-inventory/UX-guidance.", date: 2026-07-03 }
   - { phase: 1, text: "Defer the Project PRD (Working Backwards press release) — optional per the inception guide.", rationale: "North star + personas/JTBD + OST already capture Phase 1 intent; PRD can be added later if the human wants it. Keeps Phase 1 reviewable.", date: 2026-07-03 }
+  - { phase: 3, text: "Tech stack = TypeScript + Bun single-binary; remark/HAST Markdown pipeline; official Mermaid in-process; Storage Format write target; no DB/telemetry.", rationale: "ADR-0001 (TS over Go for Mermaid) + ADR-0005 (Storage over ADF) + spike MS-0001 evidence. Ports-and-adapters per spec §11 re-pointed to TS.", date: 2026-07-04 }
+  - { phase: 3, text: "State model = source-side immutable UUID + committed versioned lock + disposable .marksync/ cache + remote content-property cross-check + lease-based CI concurrency control.", rationale: "ADR-0006 (Proposed). Separates identity/base/cache per premortem §5.1; closes the silent-overwrite/concurrency vectors (R-VAL-4, R-FEA-7). Must-materialize-in-Phase-3 per backlog-reconciliation.", date: 2026-07-04 }
 
 assumptions:
   # risk_type: value | usability | feasibility | viability
@@ -82,5 +85,6 @@ sessions:
   - { started: 2026-07-03, phase: 0, notes: "Phase 0 intake: classified flow=new, profile=engineering-repo, characteristics (code_project/complex_domain true; ui_bearing false); multi_user flipped false→true on human feedback (distinct user types → personas/JTBD in scope). Wrote material-inventory.md + inception-state.yaml. Gate 0 approved by human; squash-merged inception/phase-0 to main." }
   - { started: 2026-07-03, phase: 1, notes: "Phase 1 north star & vision: authored canonical 01-north-star.md (reconciled motivation brain dump + 2026-06-16 draft + ADR-0001 TS + ADR-0003 MarkSync brand; removed Go framing), personas-jtbd.md, opportunity-solution-tree.md. Added Persona 5 (sponsoring stakeholder — non-technical business owner/PM/executive) on human feedback. PRD deferred as optional. Red-team-coordinator review run; findings addressed. Gate 1 approved by human; squash-merged inception/phase-1 to main." }
   - { started: 2026-07-03, phase: 2, notes: "Phase 2 scope & roadmap: drafted 02-roadmap.md (MS-0002/MVP=safe one-way publisher trust wedge; MS-0003/MLP=exceptional DX; MS-0004+ future=reverse-sync gates 2-6), assumptions.md (19 assumptions, 4 validated), risks.md (21 risks seeded by the failure premortem + red-team). ui_bearing=false so no screen-inventory/user-journeys. Pre-mortem + four-risk check reflected in the risk register. Red-team-coordinator review + Copilot PR review run; addressed 2 Critical + 6 High + Mediums + all 9 Copilot comments (NSM honesty, concurrency/identity/repair/corpus/Mermaid/drift-classification gaps, security risk, scope-realism, ≤10-min rendering, OAuth/ADR-format consistency). Reviewed ADOS retrospective issues #103/#105/#131 and proactively added backlog-reconciliation.md, failure-premortem.md, and success-pre-parade.md as Phase 2 planning controls. Added id-prefix-catalog.md to standardize grepable IDs/prefixes for future agents and backlog work, including monotonic MS-* roadmap milestone IDs. Expanded 02-roadmap.md with a detailed Next Milestone, future milestone reference subsections, and a roadmap allocation matrix for assumptions/risks/decisions/spikes/backlog triggers. Added retrospective notes for after-phase retro practice, an ADOS process glossary/acronym catalog (e.g. NSM = North Star Metric), and ADOS milestone-management guidance/templates." }
+  - { started: 2026-07-04, phase: 3, notes: "Phase 3 tech stack & architecture: drafted tech-stack.md (TypeScript + Bun single-binary; remark/HAST Markdown pipeline; official Mermaid in-process; Storage render; no DB/telemetry), architecture-overview.md (ports-and-adapters CLI; C4 context+container; 16 components across presentation/application/domain/infrastructure tiers; module governance with residence rules + dependency-direction matrix + interface contracts; push + reverse data flows; Confluence v2/v1 isolation), fse-audit.md (10 AI-friendliness attributes as target baseline), nonfunctional.md (NFRs across performance/security/reliability/operability/compatibility/privacy/maintainability/accessibility/legal). Seeded canonical doc/decisions/00-index.md registry referencing ADR-0001..0005 (inception, Proposed) and wrote ADR-0006 (document identity + shared-base state model: source-side UUID + committed lock + disposable cache + lease concurrency control) — flagged must-materialize-in-Phase-3 by backlog-reconciliation. Open questions for human: ADR migration, CLI framework, Git adapter, test runner, ADR-0006 sub-decisions. ui_bearing=false so no UX artifacts; code_project=true activates testing/CI/conventions in Phase 4." }
 
 last_updated: 2026-07-04
