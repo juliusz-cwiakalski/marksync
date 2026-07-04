@@ -32,6 +32,16 @@ Before creating a new item type, ask:
 2. if not, should this be a new prefix or a subtype of an existing prefix?
 3. will the resulting ID be easy to `rg` across the repo?
 
+Also document the prefix scope explicitly:
+
+- company-global: valid across all company projects and repos;
+- project-global: valid across a single project, including multi-repo setups;
+- repo-local: valid only within one repository;
+- change-local: valid only within one change, initiative, or ADOS phase;
+- document-local: valid only within a single document.
+
+If the scope is not obvious, record it next to the prefix in the catalog.
+
 ## Why it matters
 
 Stable prefixes make AI-agent work safer:

@@ -12,9 +12,9 @@ outcome: repeat
 
 The owner pointed at ADOS issues from another project retrospective:
 
-- #103 — decision→backlog traceability and deferred-decision hygiene;
-- #105 — cross-cutting-concern decomposition;
-- #131 — structured failure pre-mortem + success pre-parade artifacts.
+- [#103](https://github.com/juliusz-cwiakalski/agentic-delivery-os/issues/103) — decision→backlog traceability and deferred-decision hygiene;
+- [#105](https://github.com/juliusz-cwiakalski/agentic-delivery-os/issues/105) — cross-cutting-concern decomposition;
+- [#131](https://github.com/juliusz-cwiakalski/agentic-delivery-os/issues/131) — structured failure pre-mortem + success pre-parade artifacts.
 
 Although ADOS has not implemented these changes yet, we proactively applied the
 lessons to MarkSync Phase 2.

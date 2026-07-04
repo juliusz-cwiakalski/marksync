@@ -10,7 +10,7 @@ outcome: repeat
 
 ## What happened
 
-ADOS issue #105 highlighted a failure mode: functional decomposition can hide
+ADOS issue [#105](https://github.com/juliusz-cwiakalski/agentic-delivery-os/issues/105) highlighted a failure mode: functional decomposition can hide
 cross-cutting quality work. In MarkSync, the risk is acute because the product's
 value depends on safety/security/diagnostics/provenance/performance, not only on
 feature delivery.
