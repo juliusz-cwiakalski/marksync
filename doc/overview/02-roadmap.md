@@ -116,6 +116,25 @@ _Outcome metrics that prove the milestone delivered user value. **Type:** Target
 | In-process Mermaid fidelity | O3 | S3.1 | E3.1 (testing — load-bearing) |
 | Agent/CI-operable JSON contracts | O4 | S4.1 | E4.1 (unvalidated) |
 
+### Backlog planning readiness controls
+
+_Proactive overlay from ADOS retrospective issues #103, #105, and #131. ADOS
+does not yet enforce these gates, so this project records them explicitly._
+
+- **Decision / assumption → backlog reconciliation:** before the first delivery
+  backlog is ready, every open assumption and deferred sub-decision must have a
+  backlog ticket, named AC, or explicit closure reason. See
+  [`backlog-reconciliation.md`](../inception/analysis/backlog-reconciliation.md).
+- **Cross-cutting coverage:** every north-star guardrail / NFR / cross-cutting
+  concern (safety, security, diagnostics, performance, provenance, observability,
+  maintainer sustainability) must be represented as a dedicated ticket or named
+  AC — never folded invisibly into a functional slice.
+- **Prospective analysis routing:** the structured
+  [`failure-premortem.md`](../inception/analysis/failure-premortem.md) feeds
+  risks, phase gates, and anti-roadmap constraints; the structured
+  [`success-pre-parade.md`](../inception/analysis/success-pre-parade.md) feeds
+  outcome metrics, decision filters, and roadmap prioritization.
+
 ## Future Milestones
 
 _Rough, outcome-oriented placeholders. Names mirror the premortem's phase gates (`§15`). Refine as MVP approaches completion._
@@ -133,4 +152,4 @@ _Rough, outcome-oriented placeholders. Names mirror the premortem's phase gates 
 
 - Changes: _(none yet — delivery starts after inception Phase 7)_
 - Decision records: ADR-0001 (TS), ADR-0002 (Mermaid), ADR-0003 (MarkSync brand), ADR-0004 (spike), ADR-0005 (Storage). To be migrated to `doc/decisions/` during inception.
-- North star: [`01-north-star.md`](./01-north-star.md) · OST: [`opportunity-solution-tree.md`](./opportunity-solution-tree.md) · Assumptions: [`../inception/analysis/assumptions.md`](../inception/analysis/assumptions.md) · Risks: [`../inception/analysis/risks.md`](../inception/analysis/risks.md)
+- North star: [`01-north-star.md`](./01-north-star.md) · OST: [`opportunity-solution-tree.md`](./opportunity-solution-tree.md) · Assumptions: [`../inception/analysis/assumptions.md`](../inception/analysis/assumptions.md) · Risks: [`../inception/analysis/risks.md`](../inception/analysis/risks.md) · Backlog reconciliation: [`../inception/analysis/backlog-reconciliation.md`](../inception/analysis/backlog-reconciliation.md) · Failure premortem: [`../inception/analysis/failure-premortem.md`](../inception/analysis/failure-premortem.md) · Success pre-parade: [`../inception/analysis/success-pre-parade.md`](../inception/analysis/success-pre-parade.md)
