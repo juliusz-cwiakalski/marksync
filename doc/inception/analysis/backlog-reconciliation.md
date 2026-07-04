@@ -17,6 +17,7 @@ links:
     - doc/inception/analysis/assumptions.md
     - doc/inception/analysis/risks.md
     - doc/overview/02-roadmap.md
+    - doc/inception/analysis/id-prefix-catalog.md
 summary: "Phase 2 proactive reconciliation: open assumptions/deferred decisions and cross-cutting guardrails must be represented in the initial backlog."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -38,6 +39,9 @@ concern must have one of:
 
 No assumption may remain "parked on a person" with no trigger. No guardrail may
 be folded invisibly into a feature slice.
+
+Use stable IDs from [`id-prefix-catalog.md`](./id-prefix-catalog.md) when
+materializing tickets, acceptance criteria, validation triggers, or references.
 
 ## Gate rule for the initial backlog
 
@@ -101,4 +105,5 @@ AC._
 - [ ] Every open assumption has a validation trigger and owner.
 - [ ] Every deferred decision has `decide_by` / trigger captured in an ADR or backlog item.
 - [ ] Every north-star guardrail and NFR has explicit backlog representation.
+- [ ] Every backlog item / AC uses a stable prefix from `id-prefix-catalog.md`.
 - [ ] Any item intentionally not represented is closed here with a reason.
