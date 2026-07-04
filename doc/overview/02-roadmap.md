@@ -20,7 +20,10 @@ ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćw
 # Engineering Roadmap
 
 _The engineering roadmap for delivery. The **Current Milestone** is first-class
-and detailed; past milestones are a record; future milestones are rough. Sequencing
+and detailed. The **Next Milestone** is also detailed because the project already
+has useful current knowledge that should not be lost, but it is explicitly
+subject to change based on Current Milestone evidence. Later future milestones
+remain high-level and include "read before planning" references. Sequencing
 follows the failure-premortem's central conclusion: **prove the narrow trust wedge
 before the end-state category vision** (`doc/inception/marksync-failure-premortem-and-anti-failure-playbook-2026-07-02.md`)._
 
@@ -135,18 +138,224 @@ does not yet enforce these gates, so this project records them explicitly._
   [`success-pre-parade.md`](../inception/analysis/success-pre-parade.md) feeds
   outcome metrics, decision filters, and roadmap prioritization.
 
+## Next Milestone
+
+### MLP — "Exceptional DX & easy setup"  _(subject to change)_
+
+_This section is intentionally detailed even though the milestone is next, not
+current. It captures what we know now so Phase 2 knowledge does not evaporate.
+Scope must be revalidated after MVP beta using the retention-reason taxonomy,
+time-to-first-publish measurements, and support-issue data._
+
+**Outcome hypothesis:** a technically capable new user can reach a safe first
+publish in **≤ 10 min** (excluding Atlassian credential creation), understand why
+the tool did or did not write, and recover from common setup/state problems
+without maintainer intervention.
+
+**Deliverables:**
+
+- Guided `marksync init` with progressive disclosure: minimal happy path first;
+  advanced mappings only when needed.
+- `marksync doctor` for tenant, auth, scopes, parent-page permissions,
+  attachment/property capability, proxy/CA hints, renderer availability, Git
+  state, and visibility completeness.
+- Setup-failure taxonomy and human-readable remediation messages paired with
+  stable machine-readable diagnostic codes.
+- Common-layout examples: single folder → one Confluence parent, multiple folders
+  → multiple spaces, architecture docs with Mermaid/assets, CI publish.
+- Migration/adoption helpers if MVP beta validates A-VAL-3:
+  - import/adopt planning for pre-existing Confluence pages;
+  - `mark` / `md2conf` / manual-copy migration notes;
+  - clear generated-page / managed-page banners.
+- Minimal repair UX expansion beyond MVP `repair-state`: explain stale locks,
+  moved pages, missing pages, permission asymmetry, and partial-apply recovery.
+- First public user guide and troubleshooting guide focused on activation, not
+  architecture.
+
+**In scope (MLP):**
+
+- Activation/DX improvements; setup diagnostics; common examples; migration
+  discovery and the first low-friction adoption workflows; clearer failure
+  messages; repair UX.
+
+**Out of scope (for this milestone):**
+
+- Full reverse sync / Confluence→Git reconciliation; structural merge; Data
+  Center; OAuth 2.0 (3LO) unless MVP beta shows API-token auth blocks adoption;
+  MCP server; GUI/editor plugins.
+
+### Success metrics (outcomes, not outputs)
+
+| Metric | Type | Definition | Target |
+|---|---|---|---|
+| Time to first publish | Target | New user reaches first safe publish excluding Atlassian credential creation | ≤ 10 min median in moderated tests |
+| Setup completion | Target | Users completing init + doctor + first plan without maintainer help | ≥ 80% in design-partner onboarding |
+| Actionable diagnostics | Guardrail | Setup failures with stable code + likely cause + remediation | 100% of known setup failure classes |
+| Migration signal clarity | Target | MVP beta non-retention reasons are classified (migration vs DX vs safety vs capability) | 100% of beta non-retentions classified |
+| Support burden | Guardrail | Repeated unclear setup issues after docs/doctor updates | No repeated P1/P2 setup issue without a backlog item |
+
+### Dependencies
+
+- MVP beta telemetry-by-report: time-to-first-publish, setup-failure taxonomy,
+  retention-reason partition.
+- A-VAL-3 outcome: whether existing-corpus adoption is a blocker.
+- A-USA-1 / A-USA-2 validation results.
+- MVP state model and repair primitives must exist before MLP can make them easy.
+
+### Validation approach
+
+- Run moderated first-publish sessions with at least 3 target-user types:
+  software architect/lead, platform/DevX engineer, documentation owner.
+- Record setup time, blockers, docs consulted, commands used, and whether the
+  user can explain the plan before publish.
+- Decide whether to proceed to drift lifecycle completeness, or spend another
+  MLP iteration on setup/migration if activation is still poor.
+
+### OST / discovery linkage
+
+| Milestone outcome | Opportunity (OST) | Solution (OST) | Experiment |
+|---|---|---|---|
+| ≤ 10 min first publish | O2 | S2.1 | E2.1 |
+| Single-binary trust / clean install | O2 | S2.2 | E2.2 |
+| Agent/CI-operable setup diagnostics | O4 | S4.1 | E4.1 |
+| Migration/adoption clarity | O5 / A-VAL-3 | S5.1 precursor | MVP beta retention taxonomy |
+
+### Read before detailed MLP planning
+
+- `doc/inception/marksync-failure-premortem-and-anti-failure-playbook-2026-07-02.md`
+  — especially `§3.3`, `§4.2`, `§4.3`, `§18.2`, `§19.1`.
+- `doc/overview/personas-jtbd.md` — Personas 1, 2, 3, and 5.
+- `doc/inception/analysis/assumptions.md` — A-USA-1, A-USA-2, A-USA-3,
+  A-VAL-3, A-FEA-10.
+- `doc/inception/analysis/risks.md` — R-USA-1, R-USA-2, R-USA-3, R-VIA-1.
+- `doc/inception/analysis/backlog-reconciliation.md` — cross-cutting coverage
+  and backlog triggers.
+
 ## Future Milestones
 
-_Rough, outcome-oriented placeholders. Names mirror the premortem's phase gates (`§15`). Refine as MVP approaches completion._
+_Rough, outcome-oriented placeholders. Names mirror the premortem's phase gates
+(`§15`). Each subsection records what to read before detailed planning so current
+knowledge is preserved._
 
 | Milestone | Outcome hypothesis | Rough timing |
 |---|---|---|
-| **MLP — Exceptional DX & easy setup** | A new user reaches first publish in ≤ 10 min (excluding Atlassian credential creation); migration from `mark`/`md2conf`/manual copy is low-friction. Guided `init`, `doctor`, progressive disclosure, polished errors, common-layout examples. (Premortem `§3.3`, `§4.2`.) | Next after MVP |
-| **Drift lifecycle completeness** (Gate 2) | Drift is not just detected but repairable per-document; stale locks, moved pages, and partial-apply are recoverable without expert supervision. (Premortem `§4.3`, `§4.4`, `§5.x`.) | After MLP |
-| **Reverse change capture** (Gate 3) | Confluence-side edits are captured and reverse-converted to a reviewable Markdown patch; never auto-committed. (OST O5 / S5.1.) | After Gate 2 |
-| **Reviewable reconciliation** (Gate 4) | Divergence produces base/local/remote conflict bundles and a controlled review/PR workflow; structural merge only for proven node classes. (Premortem `§5.5`.) | After Gate 3 |
+| **Drift lifecycle completeness** (Gate 2) | Drift is not just detected but repairable per-document; stale locks, moved pages, and partial-apply are recoverable without expert supervision. | After MLP |
+| **Reverse change capture** (Gate 3) | Confluence-side edits are captured and reverse-converted to a reviewable Markdown patch; never auto-committed. | After Gate 2 |
+| **Reviewable reconciliation** (Gate 4) | Divergence produces base/local/remote conflict bundles and a controlled review/PR workflow; structural merge only for proven node classes. | After Gate 3 |
 | **Continuous / policy-controlled sync** (Gate 5–6) | Policy-controlled continuous bidirectional behaviour for supported constructs; per-page ownership modes. | After Gate 4 |
+| **Public launch & sustainability readiness** | The project is safe to promote publicly: trademark notice, support matrix, funding/sponsorship posture, continuity model, contributor seams. | Before broad launch |
 | **Platform breadth** | Data Center adapter; OAuth 2.0 (3LO); package-manager distribution; optional MCP server. Only after Confluence Cloud is mature and the matrix is sustainable. | Later |
+
+### Drift lifecycle completeness (Gate 2) — detail notes
+
+**Likely scope to refine later:** repair commands beyond MVP, stale-lock
+diagnostics, moved-page repair, missing-page / `REMOTE_DELETED` handling,
+permission-asymmetry handling, partial-apply replay, per-document isolation.
+
+**Read before planning:**
+
+- Premortem `§4.3`, `§4.4`, `§5.1`, `§5.2`, `§5.4`, `§5.8`, `§7.4`, `§15 Gate 2`.
+- `doc/inception/analysis/risks.md` — R-USA-3, R-FEA-3, R-FEA-4,
+  R-FEA-7, R-FEA-8, R-FEA-10.
+- `doc/inception/analysis/assumptions.md` — A-FEA-7, A-FEA-9, A-FEA-6.
+- `doc/inception/analysis/backlog-reconciliation.md` — repair/state triggers.
+
+### Reverse change capture (Gate 3) — detail notes
+
+**Likely scope to refine later:** read managed Confluence page, classify supported
+vs unsupported constructs, reverse-convert canonical subset, produce reviewable
+Markdown patch, never auto-commit, preserve unsupported content safely.
+
+**Read before planning:**
+
+- Premortem `§4.1`, `§5.5`, `§5.6`, `§15 Gate 3`.
+- `doc/overview/opportunity-solution-tree.md` — O5 / S5.1 / E5.1.
+- `doc/inception/integration-scenarios/15-reverse-sync.md`.
+- `doc/inception/analysis/assumptions.md` — A-VAL-3, A-VAL-2.
+- `doc/inception/analysis/risks.md` — R-USA-2, R-FEA-9, R-FEA-5.
+
+### Reviewable reconciliation (Gate 4) — detail notes
+
+**Likely scope to refine later:** base/local/remote bundle, conflict workspace,
+human/AI review workflow, PR-oriented apply, semantic validation before new base,
+clear unsupported-merge fallback.
+
+**Read before planning:**
+
+- Premortem `§5.5`, `§5.6`, `§15 Gate 4`.
+- `doc/inception/integration-scenarios/13-version-conflict-drift.md`.
+- `doc/inception/integration-scenarios/15-reverse-sync.md`.
+- `doc/inception/analysis/failure-premortem.md` — backward-chain drivers.
+
+### Continuous / policy-controlled sync (Gate 5–6) — detail notes
+
+**Likely scope to refine later:** explicit ownership modes, supported structural
+merge classes, page/section policies, policy-controlled continuous operation,
+guardrails against automatic semantic conflict resolution.
+
+**Read before planning:**
+
+- Premortem `§3.2`, `§4.1`, `§5.5`, `§13.1`, `§15 Gate 5`, `§15 Gate 6`.
+- `doc/inception/analysis/risks.md` — R-VAL-3, R-VAL-4, R-FEA-8, R-FEA-9.
+- `doc/inception/analysis/id-prefix-catalog.md` — stable IDs for ownership
+  policies / acceptance criteria.
+
+### Public launch & sustainability readiness — detail notes
+
+**Likely scope to refine later:** README positioning, non-affiliation notice,
+support matrix, issue templates, contributor seams, continuity/funding posture,
+design-partner evidence pack.
+
+**Read before planning:**
+
+- Premortem `§9`, `§18`, `§19.5`, `§21`.
+- ADR-0003 (MarkSync brand / Confluence adapter).
+- `doc/inception/analysis/risks.md` — R-VIA-1, R-VIA-2, R-VIA-3.
+- `doc/inception/analysis/assumptions.md` — A-VIA-1, A-VIA-2, A-VIA-4.
+
+### Platform breadth — detail notes
+
+**Likely scope to refine later:** Data Center adapter, OAuth 2.0 (3LO), package
+manager distribution, optional MCP server, additional knowledge-platform
+adapters. This milestone must not start until Confluence Cloud maturity and
+maintainer sustainability are proven.
+
+**Read before planning:**
+
+- Premortem `§7.1`, `§7.2`, `§8.6`, `§9.1`, `§13.2`, `§13.3`, `§13.8`, `§13.12`.
+- `doc/inception/integration-scenarios/18-oauth-3lo.md`.
+- ADR-0001 (distribution constraints), ADR-0003 (adapter architecture).
+- `doc/inception/analysis/risks.md` — R-FEA-2, R-FEA-6, R-VIA-1.
+
+## Roadmap allocation matrix
+
+_Every currently known backlog trigger / assumption / risk / decision / spike is
+allocated to a roadmap milestone or pre-milestone planning gate. Update this
+table whenever a new durable ID is introduced._
+
+| Item(s) | Source | Handled in milestone / gate | Notes |
+|---|---|---|---|
+| A-FEA-1; ADR-0002; BT-FEA-1 | Assumptions / ADR / backlog reconciliation | MVP prerequisite / MVP | Mermaid spike before MVP tooling locks; `code` fallback if late failure. |
+| A-FEA-2; R-FEA-2; ADR-0001 | Assumptions / risks / ADR | MVP | Bun single-binary, clean-OS smoke, signing, size/startup budget. |
+| A-FEA-3, A-FEA-4, A-FEA-5; ADR-0005 | Assumptions / ADR | MVP | Storage rendering, content properties, drift 409. |
+| A-FEA-7; R-FEA-7 | Assumptions / risks | MVP | CI concurrency control; stale-base overwrite prevention. |
+| A-FEA-9; R-FEA-3 | Assumptions / risks | MVP / Phase 3 architecture prerequisite | UUID, committed lock, cache/state separation; state ADR should be seeded in Phase 3. |
+| A-FEA-10; R-FEA-2; R-VIA-1 | Assumptions / risks | MVP | ≤500 page budget, ≤90 MB binary, ≤2s cold start. |
+| A-VAL-1; R-VAL-1, R-VAL-2, R-VAL-3 | Assumptions / risks | MVP beta gate | Validate wedge before expanding. |
+| A-VAL-2; R-FEA-9 | Assumptions / risks | MVP | Adversarial corpus seeded by real/sanitized pages. |
+| A-VAL-3; R-USA-2 | Assumptions / risks | MLP if validated | Existing-corpus migration. |
+| A-USA-1, A-USA-2, A-USA-3; R-USA-1 | Assumptions / risks | MLP | ≤10-min first publish, setup friction, visible provenance trust. |
+| R-USA-3; R-FEA-4 | Risks | MVP minimal repair; expanded in Drift lifecycle completeness | `repair-state` in MVP; fuller lifecycle repair later. |
+| R-FEA-8 | Risk | MVP | Semantic hashing / false no-op prevention. |
+| R-FEA-10 | Risk | MVP / Drift lifecycle completeness | Permission asymmetry; `doctor` visibility checks in MVP, repair later. |
+| R-SEC-1; AC-SEC-* | Risk / future ACs | MVP | Secret redaction and converter escaping. |
+| A-FEA-6; R-FEA-6 | Assumption / risk | MVP and ongoing | Adapter isolation, live smoke, deprecation monitoring. |
+| R-VAL-4 | Risk | MVP and all later milestones | Zero silent overwrite is a permanent guardrail. |
+| A-VIA-1, A-VIA-2, A-VIA-4; R-VIA-1, R-VIA-2, R-VIA-3 | Assumptions / risks | Public launch & sustainability readiness | Support matrix, continuity/funding, trademark, no demo-ware. |
+| ADR-0003 | Decision | Public launch & platform breadth | Brand, Confluence as adapter, package naming. |
+| ADR-0004 | Decision/spike | Completed milestone / evidence base | Keep evidence links available for implementation. |
+| `backlog-reconciliation.md` rows | Planning control | Phase 7 / first delivery planning | Replace placeholders with ticket refs or closure reasons. |
+| `failure-premortem.md` / `success-pre-parade.md` | Prospective analysis | Phase 6 readiness + all milestone planning | Verify routed outputs remain reflected. |
 
 ## Links
 

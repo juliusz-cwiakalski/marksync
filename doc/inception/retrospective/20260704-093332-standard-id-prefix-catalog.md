@@ -41,3 +41,18 @@ Stable prefixes make AI-agent work safer:
 - cleaner backlog reconciliation;
 - easier readiness checks;
 - better automated search across docs, PRs, and future issues.
+
+## ADOS repo gap analysis — prefixes to standardize
+
+Scanning the ADOS repo shows a few high-value prefixes that are already in use or strongly implied by templates, but are not yet in the shared catalog:
+
+- `SPEC-` — feature spec IDs (`doc/spec/features/feature-*.md`); useful as durable feature anchors.
+- `TEST-SPEC-` — enduring feature test-spec IDs; pairs with `SPEC-` for traceability.
+- `F-` — functional capability IDs in change/feature specs; the repo uses these pervasively.
+- `NG-` — non-goal IDs in change specs; helps keep exclusions grepable.
+- `DM-` — data-model / metadata-model IDs; already used for front matter and schema elements.
+- `RSK-` — risk-register item IDs; clearer than overloading generic `R-` in change specs.
+- `OQ-` — open-question IDs; useful for unresolved scope questions.
+- `DEC-` — local decision-log items inside change specs; distinct from ADR/PDR/TDR/ODR/BDR records.
+- `TC-` — test-case IDs in test plans; especially useful when tied to feature slugs (`TC-<FEATURE>-<NNN>`).
+- `API-` / `EVT-` — interface-coverage IDs referenced by test-plan templates; worth standardizing if interface traces are expected to be grepable.

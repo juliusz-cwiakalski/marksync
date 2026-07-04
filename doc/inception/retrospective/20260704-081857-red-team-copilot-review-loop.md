@@ -23,7 +23,7 @@ human owner performed final review:
 - Red-team review found substantive issues that ordinary drafting missed:
   - Phase 1: unmeasurable NSM, visible-provenance ambiguity, existing-corpus adoption gap.
   - Phase 2: headline metric hiding failures, concurrent-CI stale-base overwrite, identity/lock under-specification.
-- Copilot found small but real hygiene issues (`<10 min` Markdown rendering,
+- Copilot found small but real hygiene issues (`≤ 10 min` Markdown rendering,
   ADR reference consistency, OAuth wording).
 - Posting a PR comment with the review/remediation summary made the review trail visible.
 
