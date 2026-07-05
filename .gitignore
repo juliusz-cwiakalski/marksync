@@ -33,3 +33,4 @@ go.work.sum
 
 .ai/local/
 doc/**/tmp/
+tmp/
