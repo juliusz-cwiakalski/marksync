@@ -25,5 +25,9 @@ All decision records for this repository, ordered by number.
 | [TDR-0002](./TDR-0002-cli-framework.md) | TDR | CLI framework — Cliffy | Proposed | 2026-07-04 | Juliusz Ćwiąkalski |
 | [TDR-0003](./TDR-0003-git-adapter.md) | TDR | Git adapter — shell-Git behind the Repository interface | Proposed | 2026-07-04 | Juliusz Ćwiąkalski |
 | [TDR-0004](./TDR-0004-testing-runner.md) | TDR | Testing runner — bun:test + thin E2E runner | Proposed | 2026-07-04 | Juliusz Ćwiąkalski |
+| [TDR-0005](./TDR-0005-linter-and-formatter.md) | TDR | Linter and formatter — Biome for lint + format in one tool | Proposed | 2026-07-05 | Juliusz Ćwiąkalski |
+| [TDR-0006](./TDR-0006-import-boundary-enforcement.md) | TDR | Import-boundary enforcement — dependency-cruiser for architecture rules | Proposed | 2026-07-05 | Juliusz Ćwiąkalski |
+| [TDR-0007](./TDR-0007-gherkin-bdd-runner.md) | TDR | Gherkin/BDD runner — @cucumber/cucumber for lifecycle-invariant tests | Proposed | 2026-07-05 | Juliusz Ćwiąkalski |
+| [TDR-0008](./TDR-0008-conventional-commits-enforcement.md) | TDR | Conventional Commits enforcement — commitlint + husky commit-msg hook + CI lint job | Proposed | 2026-07-05 | Juliusz Ćwiąkalski |
 | [ADR-0010](./ADR-0010-confluence-page-history-provenance-and-sync-granularity.md) | ADR | Confluence page history provenance and sync granularity — squash by default, commit-by-commit deferred | Proposed | 2026-07-04 | Juliusz Ćwiąkalski |
 | [ADR-0011](./ADR-0011-cli-output-strategy.md) | ADR | CLI output strategy — structured results + generic JSON renderer + optional per-command human formatter | Proposed | 2026-07-05 | Juliusz Ćwiąkalski |
