@@ -8,6 +8,8 @@ outcome: repeat
 
 # Retrospective — Standard ID prefix catalog
 
+> **ADOS outcome (2026-07-05):** split three ways → [GH-137](https://github.com/juliusz-cwiakalski/agentic-delivery-os/issues/137) (Practice 7 — bootstrapper maintains a project-local catalog) + [GH-140](https://github.com/juliusz-cwiakalski/agentic-delivery-os/issues/140) (framework-wide prefix standardization across templates) + [GH-139](https://github.com/juliusz-cwiakalski/agentic-delivery-os/issues/139) (`MS-` milestone IDs).
+
 ## What happened
 
 During Phase 2, the documents started accumulating many durable item IDs:

@@ -11,7 +11,7 @@ owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
-  related_decisions: [ADR-0001, ADR-0002, ADR-0003, ADR-0004, ADR-0005]
+  related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005]
   related_changes: []
 summary: "Engineering roadmap — MS-0002 MVP (safe one-way publisher / trust wedge), MS-0003 MLP (exceptional DX), then staged reverse-sync gates."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
@@ -44,7 +44,7 @@ references. Sequencing follows the failure-premortem's central conclusion:
 
 | ID | Milestone | Shipped | Outcome achieved | Links |
 |---|---|---|---|---|
-| `MS-0001` | Confluence API validation spike | 2026-07-03 | Proved the Confluence Cloud contract: Storage round-trip (27/27 GFM constructs), v2 content properties, drift 409 detection, attachments, labels, search, restrictions. De-risked `MS-0002` feasibility. | ADR-0004, ADR-0005; `doc/inception/integration-scenarios/` |
+| `MS-0001` | Confluence API validation spike | 2026-07-03 | Proved the Confluence Cloud contract: Storage round-trip (27/27 GFM constructs), v2 content properties, drift 409 detection, attachments, labels, search, restrictions. De-risked `MS-0002` feasibility. | TDR-0001, ADR-0005; `doc/inception/integration-scenarios/` |
 
 _(Only the spike has shipped; no product milestone has shipped yet.)_
 
@@ -65,8 +65,8 @@ _Beachhead-critical items first (the wedge); validation apparatus is best-effort
 - Deterministic Markdown → Confluence Storage Format conversion for a documented canonical GFM subset (ADR-0005).
 - **Document identity & shared base:** immutable MarkSync document **UUID stored in source front-matter** (survives clones/branches/CI); Confluence page ID = remote identity; title/path are mutable attributes; **duplicate-UUID detection is fatal before any write** (premortem `§5.2`, `§17 #4`); a **committed (versioned) lock file** records the shared base; the `.marksync/` cache is disposable (premortem `§5.1` separation).
 - Page create / update / no-op / move with the identity above.
-- **Drift detection** via **canonical semantic hashing** (raw + canonical + normalized + attachment hashes, premortem `§5.4`); classify `NO_CHANGE` / `REMOTE_BEHIND` / `REMOTE_AHEAD` / `DIVERGED` / `REMOTE_DELETED`; block unsafe overwrites by default. **Invariant:** a remotely-deleted managed page is never silently re-created.
-- **Concurrency control** for CI-first operation: per-target serialization + repository/target lease + operation-ID deduplication + stale-plan expiry + CI concurrency-group templates (premortem `§5.8`) — so two overlapping CI plans can never let the older overwrite the newer.
+- **Drift detection** via **canonical semantic hashing** (raw + canonical + normalized + attachment hashes, premortem `§5.4`); classify `NO_CHANGE` / `REMOTE_BEHIND` / `REMOTE_AHEAD` / `DIVERGED` / `REMOTE_MISSING`; block unsafe overwrites by default. **Invariant:** a remotely-deleted managed page is never silently re-created.
+- **Concurrency control** for CI-first operation: decentralized optimistic concurrency — Confluence 409 on stale version.number + operation-ID deduplication + stale-plan expiry + CI concurrency-group templates (premortem `§5.8`, ADR-0006 C-6) — so two overlapping CI plans can never let the older overwrite the newer.
 - **Minimal repair surface** (in `MS-0002` / MVP, not deferred): `repair-state` for stale locks and interrupted-apply journal replay (premortem `§14` includes `repair` in the beachhead) — so a single stale lock or partial apply never blocks a whole subtree with no recovery.
 - Visible provenance (panel/footer: source path + Git revision + last-sync) plus machine content-property metadata.
 - Local images/attachments (path-safe, content-hashed, reused when unchanged).
@@ -256,7 +256,7 @@ knowledge is preserved._
 ### MS-0004 — Drift lifecycle completeness (Gate 2) — detail notes
 
 **Likely scope to refine later:** repair commands beyond `MS-0002`, stale-lock
-diagnostics, moved-page repair, missing-page / `REMOTE_DELETED` handling,
+diagnostics, moved-page repair, missing-page / `REMOTE_MISSING` handling,
 permission-asymmetry handling, partial-apply replay, per-document isolation.
 
 **Read before planning:**
@@ -316,7 +316,7 @@ design-partner evidence pack.
 **Read before planning:**
 
 - Premortem `§9`, `§18`, `§19.5`, `§21`.
-- ADR-0003 (MarkSync brand / Confluence adapter).
+- PDR-0001 (MarkSync brand / Confluence adapter).
 - `doc/inception/analysis/risks.md` — R-VIA-1, R-VIA-2, R-VIA-3.
 - `doc/inception/analysis/assumptions.md` — A-VIA-1, A-VIA-2, A-VIA-4.
 
@@ -331,7 +331,7 @@ maintainer sustainability are proven.
 
 - Premortem `§7.1`, `§7.2`, `§8.6`, `§9.1`, `§13.2`, `§13.3`, `§13.8`, `§13.12`.
 - `doc/inception/integration-scenarios/18-oauth-3lo.md`.
-- ADR-0001 (distribution constraints), ADR-0003 (adapter architecture).
+- ADR-0001 (distribution constraints), PDR-0001 (adapter architecture).
 - `doc/inception/analysis/risks.md` — R-FEA-2, R-FEA-6, R-VIA-1.
 
 ## Roadmap allocation matrix
@@ -359,13 +359,13 @@ table whenever a new durable ID is introduced._
 | A-FEA-6; R-FEA-6 | Assumption / risk | `MS-0002` and ongoing | Adapter isolation, live smoke, deprecation monitoring. |
 | R-VAL-4 | Risk | `MS-0002` and all later milestones | Zero silent overwrite is a permanent guardrail. |
 | A-VIA-1, A-VIA-2, A-VIA-4; R-VIA-1, R-VIA-2, R-VIA-3 | Assumptions / risks | `MS-0008` | Support matrix, continuity/funding, trademark, no demo-ware. |
-| ADR-0003 | Decision | `MS-0008` / `MS-0009` | Brand, Confluence as adapter, package naming. |
-| ADR-0004 | Decision/spike | `MS-0001` / evidence base | Keep evidence links available for implementation. |
+| PDR-0001 | Decision | `MS-0008` / `MS-0009` | Brand, Confluence as adapter, package naming. |
+| TDR-0001 | Decision/spike | `MS-0001` / evidence base | Keep evidence links available for implementation. |
 | `backlog-reconciliation.md` rows | Planning control | Phase 7 / first delivery planning | Replace placeholders with ticket refs or closure reasons. |
 | `failure-premortem.md` / `success-pre-parade.md` | Prospective analysis | Phase 6 readiness + all milestone planning | Verify routed outputs remain reflected. |
 
 ## Links
 
 - Changes: _(none yet — delivery starts after inception Phase 7)_
-- Decision records: ADR-0001 (TS), ADR-0002 (Mermaid), ADR-0003 (MarkSync brand), ADR-0004 (spike), ADR-0005 (Storage). To be migrated to `doc/decisions/` during inception.
+- Decision records: ADR-0001 (TS), ADR-0002 (Mermaid), PDR-0001 (MarkSync brand), TDR-0001 (spike), ADR-0005 (Storage). To be migrated to `doc/decisions/` during inception.
 - North star: [`01-north-star.md`](./01-north-star.md) · OST: [`opportunity-solution-tree.md`](./opportunity-solution-tree.md) · Assumptions: [`../inception/analysis/assumptions.md`](../inception/analysis/assumptions.md) · Risks: [`../inception/analysis/risks.md`](../inception/analysis/risks.md) · Backlog reconciliation: [`../inception/analysis/backlog-reconciliation.md`](../inception/analysis/backlog-reconciliation.md) · Failure premortem: [`../inception/analysis/failure-premortem.md`](../inception/analysis/failure-premortem.md) · Success pre-parade: [`../inception/analysis/success-pre-parade.md`](../inception/analysis/success-pre-parade.md)

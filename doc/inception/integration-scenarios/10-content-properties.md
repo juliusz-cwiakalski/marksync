@@ -44,15 +44,19 @@ POST /wiki/api/v2/pages/39485441/properties HTTP/1.1
 Content-Type: application/json
 ```
 ```json
-{ "key": "marksync.metadata.v2", "value": "{\"schemaVersion\":1,…\"synchronizedAt\":\"2026-07-03T09:00:00Z\"}" }
+{ "key": "marksync.metadata", "value": "{\"schemaVersion\":1,…\"synchronizedAt\":\"2026-07-03T09:00:00Z\"}" }
 ```
 ```http
 HTTP/1.1 200 OK
 ```
 ```json
-{ "id": "39911425", "key": "marksync.metadata.v2",
+{ "id": "39911425", "key": "marksync.metadata",
   "version": { "number": 1, "when": "…", "message": "" } }
 ```
+
+> **Note:** the spike originally used the key `marksync.metadata.v2`, but the
+> canonical key is **`marksync.metadata`** (the key name does not need to encode
+> the API version — v2 is an endpoint concern, not a key concern).
 
 ## Verbatim — update (PUT, version-bumped)
 Evidence: `P7-02-update.json`

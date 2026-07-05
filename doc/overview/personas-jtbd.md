@@ -11,7 +11,7 @@ owners: [Juliusz Ćwiąkalski]
 area: discovery
 document_classification: current-truth
 links:
-  related_decisions: [ADR-0001, ADR-0003]
+  related_decisions: [ADR-0001, PDR-0001]
   related_changes: []
 summary: "MarkSync personas + Jobs To Be Done — the operator types that hire MarkSync."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."

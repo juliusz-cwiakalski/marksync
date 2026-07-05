@@ -11,7 +11,7 @@ owners: [Juliusz Ćwiąkalski]
 area: risk
 document_classification: current-truth
 links:
-  related_decisions: [ADR-0001, ADR-0002, ADR-0003, ADR-0004, ADR-0005]
+  related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005]
   related_changes: []
 summary: "Inception assumption register — assumptions tagged by the four risks with validation status."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
@@ -44,13 +44,13 @@ _Validate assumptions; do not hide them._
 | A-FEA-4 | **v2 content properties** reliably carry MarkSync state metadata (`marksync.metadata`). | feasibility | validated | Spike E1–E3 (~8.4 KB accepted; v1 deprecated) | JC | — | OST; integration-scenarios/10 |
 | A-FEA-5 | Confluence's **version-conflict 409** is reliable and machine-parseable for drift detection. | feasibility | validated | Spike G1 (`version=current+1` → 409) | JC | — | OST E1.2; integration-scenarios/13 |
 | A-FEA-6 | Atlassian API drift (deprecations, rate limits, permission asymmetry) is **manageable** behind adapter boundaries. | feasibility | unvalidated | Adapter isolation + nightly live-tenant smoke + weekly deprecation-feed check | JC | Ongoing | Premortem `§7.3`, `§7.4` |
-| A-FEA-7 | **CI concurrency control** (per-target serialization + repo/target lease + operation-ID dedup + CI concurrency-group templates) makes concurrent-run stale-base writes impossible in `MS-0002`. | feasibility | unvalidated | Concurrency integration test: two overlapping plans, older must not overwrite newer | JC | `MS-0002` | Premortem `§5.8`; red-team C2 |
+| A-FEA-7 | **CI concurrency control** (Confluence 409 optimistic concurrency + operation-ID dedup + stale-plan expiry + CI concurrency-group templates) makes concurrent-run stale-base writes impossible in `MS-0002`. | feasibility | unvalidated | Concurrency integration test: two overlapping plans, older must not overwrite newer | JC | `MS-0002` | Premortem `§5.8`; red-team C2 |
 | A-FEA-9 | **Source-side immutable document UUID + committed (versioned) lock file** establish a correct shared base across clones/CI; the lock minimizes merge conflict and the cache is disposable. | feasibility | unvalidated | Clone/CI/concurrency acceptance test (premortem FMEA #3, RPN 80) | JC | `MS-0002` | Premortem `§5.1`, `§5.2`; red-team H2 |
 | A-FEA-10 | `MS-0002` targets repos **≤ ~500 managed pages**; large-repo incremental optimization is deferred (correctness first). Binary ≤ 90 MB; cold-start ≤ 2 s. | feasibility | unvalidated | Benchmark against a ≤500-page reference repo; clean-OS cold-start | JC | `MS-0002` | Premortem `§5.9`, `§13.11`; ADR-0001 verification |
 | A-VIA-1 | MarkSync is **sustainable as OSS** with no hosted backend for core value. | viability | unvalidated | Cost/maintenance tracking; maintainer-load signal | JC | Ongoing | North star viability; premortem `§9.6` |
 | A-VIA-2 | A **single maintainer** can sustain the support matrix (Cloud × OS × auth × content × packaging) without burning out. | viability | unvalidated | Maintain a deliberately narrow `MS-0002` matrix; track issue velocity | JC | Ongoing | Premortem `§9.1`, `§9.3` |
 | A-VIA-3 | The owner's **personal-brand / AI-delivery-demonstration** goal does not distort the product contract (no demo-ware creep). | viability | validated | Decision Filter #7 enforces it; human review at each gate | JC | — | Red-team M3; north star decision filter |
-| A-VIA-4 | "Confluence" used nominatively (descriptor, not brand) keeps Atlassian trademark risk acceptable. | viability | unvalidated | Formal trademark review before `MS-0008` public launch | JC | Before `MS-0008` | ADR-0003; red-team M5 |
+| A-VIA-4 | "Confluence" used nominatively (descriptor, not brand) keeps Atlassian trademark risk acceptable. | viability | unvalidated | Formal trademark review before `MS-0008` public launch | JC | Before `MS-0008` | PDR-0001; red-team M5 |
 
 _Owner: JC = Juliusz Ćwiąkalski._
 

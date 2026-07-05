@@ -76,9 +76,9 @@ each placeholder with a concrete ticket reference.
 |---|---|---|---|
 | ADR-0001 — TypeScript + Bun single-binary | Bun/Deno + signing viability; clean-OS smoke | `MS-0002` distribution/spike ticket | **Must materialize** |
 | ADR-0002 — Mermaid rendering strategy | Headless official-library spike | `MS-0002` Mermaid spike ticket | **Must materialize** |
-| ADR-0003 — package / namespace scheme; repo URL | Public packaging / pre-launch branding | `MS-0008` packaging/branding ticket | Triggered before `MS-0008` |
+| PDR-0001 — package / namespace scheme; repo URL | Public packaging / pre-launch branding | `MS-0008` packaging/branding ticket | Triggered before `MS-0008` |
 | ADR-0005 — Storage format | Canonical subset expansion or lossy fixture | Renderer fixture ticket per subset expansion | Triggered by subset expansion |
-| State model ADR (recommended, not yet written) | Before sync-engine implementation | Phase 3 ADR seed + `MS-0002` state-model ticket | **Must materialize in Phase 3** |
+| State model ADR | Done — ADR-0006 | Phase 3 | **Completed** — [ADR-0006](../../decisions/ADR-0006-document-identity-and-shared-base-state-model.md) |
 
 ## Cross-cutting concern coverage matrix
 

@@ -8,6 +8,8 @@ outcome: repeat
 
 # Retrospective — Backport ADOS retrospective issues into active inception
 
+> **ADOS outcome (2026-07-05):** EXCLUDED from [GH-137](https://github.com/juliusz-cwiakalski/agentic-delivery-os/issues/137) as non-generic — only meaningful when a project's owner tracks ADOS's own evolution (here the owner IS the ADOS maintainer); a generic ADOS install has no business polling the ADOS tracker each phase. Universal kernel ("record any process gap as a retro note") is covered by GH-137 Practice 1. No ticket.
+
 ## What happened
 
 The owner pointed at ADOS issues from another project retrospective:

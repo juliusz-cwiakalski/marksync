@@ -8,6 +8,8 @@ outcome: repeat
 
 # Retrospective — PR-per-phase human gate
 
+> **ADOS outcome (2026-07-05):** → [GH-137](https://github.com/juliusz-cwiakalski/agentic-delivery-os/issues/137) (Practice 6 — PR-per-phase as an optional inception delivery mode).
+
 ## What happened
 
 The project owner chose to run each inception phase as a separate branch and PR:

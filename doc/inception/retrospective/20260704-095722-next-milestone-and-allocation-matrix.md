@@ -8,6 +8,8 @@ outcome: repeat
 
 # Retrospective — Detailed next milestone and roadmap allocation matrix
 
+> **ADOS outcome (2026-07-05):** → [GH-139](https://github.com/juliusz-cwiakalski/agentic-delivery-os/issues/139) (roadmap `MS-<NNNN>` milestone IDs + allocation matrix + milestone-management guide).
+
 ## What happened
 
 The original roadmap had a detailed Current Milestone and a compact future

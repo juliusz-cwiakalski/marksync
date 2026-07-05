@@ -8,6 +8,8 @@ outcome: propose-ados-framework-improvement
 
 # Retrospective — Milestone IDs and ADOS roadmap guidance
 
+> **ADOS outcome (2026-07-05):** → [GH-139](https://github.com/juliusz-cwiakalski/agentic-delivery-os/issues/139) (roadmap milestone IDs + milestone-management guide).
+
 ## What happened
 
 While reviewing the Phase 2 roadmap, the owner observed that named milestones

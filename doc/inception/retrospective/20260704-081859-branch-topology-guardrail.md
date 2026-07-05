@@ -8,6 +8,8 @@ outcome: improve
 
 # Retrospective — Branch topology guardrail
 
+> **ADOS outcome (2026-07-05):** EXCLUDED from [GH-137](https://github.com/juliusz-cwiakalski/agentic-delivery-os/issues/137) as wrong-layer / mode-specific — generic git/agent hygiene, not inception-specific, and presupposes the optional PR-per-phase mode (GH-137 Practice 6). No standalone ticket.
+
 ## What happened
 
 During Phase 1, a commit briefly landed on local `main` instead of the intended

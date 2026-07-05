@@ -8,6 +8,8 @@ outcome: repeat
 
 # Retrospective — Red-team + Copilot review loop
 
+> **ADOS outcome (2026-07-05):** → [GH-138](https://github.com/juliusz-cwiakalski/agentic-delivery-os/issues/138) (parked — blocked on `@red-team-coordinator` publication as part of ADOS).
+
 ## What happened
 
 Phase 1 and Phase 2 both benefited from an explicit review loop before the

@@ -50,7 +50,7 @@ links:
   related_changes: []
   supersedes: []
   superseded_by: []
-  spec: ["../system-specification-draft-from-ai-brainstorm.md"]
+  spec: ["../inception/system-specification-draft-from-ai-brainstorm.md"]
   contracts: []
   diagrams: []
   decisions: [ADR-0002]
@@ -63,13 +63,13 @@ links:
 
 ## Context
 
-> **Pre-inception location note:** This record lives in `doc/inception/decisions/` by the project owner's explicit direction, overriding the canonical ADOS decision home (`doc/decisions/`). These are pre-inception inputs pending human confirmation during the formal ADOS inception (bootstrapper), where they will be reviewed and possibly migrated to `doc/decisions/`. All inception records are numbered in one sequence (ADR-0001…ADR-0004) regardless of `decision_type`.
+> **Migration note:** This record was authored pre-inception in `doc/inception/decisions/` and migrated to the canonical ADOS home `doc/decisions/` during Phase 3 inception (2026-07-04). It remains `status: Proposed` pending human confirmation. Records were originally numbered in one sequence regardless of `decision_type`; on 2026-07-05 they were reclassified so each type (ADR, PDR, TDR) has its own sequence per the ADOS decision-making guide.
 
-The system specification currently records "The implementation language is Go" as a **Decided** item, with Cobra, Goldmark, go-git, and GoReleaser as the implied follow-on stack (`../system-specification-draft-from-ai-brainstorm.md` §2.2, §2.6, §6.1, §9.4, §9.5). The brain dump and North Star both describe a "portable native CLI" distributed as a "single binary" that must run flawlessly on Linux, macOS, and Windows with no mandatory language runtime for end users (`../motivation-and-goal-notes-brain-dump.md`; `../north-star-draft-to-be-refined.md`).
+The system specification currently records "The implementation language is Go" as a **Decided** item, with Cobra, Goldmark, go-git, and GoReleaser as the implied follow-on stack (`../inception/system-specification-draft-from-ai-brainstorm.md` §2.2, §2.6, §6.1, §9.4, §9.5). The brain dump and North Star both describe a "portable native CLI" distributed as a "single binary" that must run flawlessly on Linux, macOS, and Windows with no mandatory language runtime for end users (`../inception/motivation-and-goal-notes-brain-dump.md`; `../inception/north-star-draft-to-be-refined.md`).
 
-That decision is now being **reopened** by the Mermaid constraint. The motivation explicitly requires that Mermaid (and other text diagrams) be rendered to images and attached to Confluence pages, working even when the target organization has no Confluence Mermaid plugin (`../motivation-and-goal-notes-brain-dump.md`). The spec already concedes, as an assumption: *"Mermaid is adapter-based. No assumption of a production-grade pure-Go renderer"* (§2.4), and lists "Which Mermaid renderer is mandatory in v1?" as an open question (§2.5).
+That decision is now being **reopened** by the Mermaid constraint. The motivation explicitly requires that Mermaid (and other text diagrams) be rendered to images and attached to Confluence pages, working even when the target organization has no Confluence Mermaid plugin (`../inception/motivation-and-goal-notes-brain-dump.md`). The spec already concedes, as an assumption: *"Mermaid is adapter-based. No assumption of a production-grade pure-Go renderer"* (§2.4), and lists "Which Mermaid renderer is mandatory in v1?" as an open question (§2.5).
 
-FACT: Mermaid is a JavaScript/TypeScript library; there is no production-grade pure-Go renderer. FACT: The owner has stated that reimplementing or reverse-engineering Mermaid is a NO-GO. FACT: The strategy report (§22.3) identifies Go as "the strongest default" for a cross-platform CLI but explicitly accommodates TypeScript *if* compiled/distributed as tested standalone binaries with no Bun/Node requirement for ordinary users; the same report (§11.x, atlcli analysis) and the failure premortem (§7) both flag Bun/TypeScript standalone packaging as a source of "trust and environment questions." FACT: the closest bidirectional competitor (`BjoernSchotte/atlcli`) is TS/Bun, and `markdown-confluence` is TS, so there is real ecosystem precedent in this category (`../open-source-git-markdown-confluence-sync-report-2026-07-02.md` §2.2, §3).
+FACT: Mermaid is a JavaScript/TypeScript library; there is no production-grade pure-Go renderer. FACT: The owner has stated that reimplementing or reverse-engineering Mermaid is a NO-GO. FACT: The strategy report (§22.3) identifies Go as "the strongest default" for a cross-platform CLI but explicitly accommodates TypeScript *if* compiled/distributed as tested standalone binaries with no Bun/Node requirement for ordinary users; the same report (§11.x, atlcli analysis) and the failure premortem (§7) both flag Bun/TypeScript standalone packaging as a source of "trust and environment questions." FACT: the closest bidirectional competitor (`BjoernSchotte/atlcli`) is TS/Bun, and `markdown-confluence` is TS, so there is real ecosystem precedent in this category (`../inception/open-source-git-markdown-confluence-sync-report-2026-07-02.md` §2.2, §3).
 
 ## Problem Framing (Clarified)
 
@@ -83,7 +83,7 @@ Reframed as a single decision: pick the implementation stack that lets us (a) ru
 
 ## Constraints (Hard Requirements)
 
-> **Table-stakes constraint (acknowledged once):** every alternative already satisfies **C-4 — must be automatable in CI (non-interactive, JSON output, stable exit codes)** (`../system-specification-draft-from-ai-brainstorm.md` §7.9, §9.1). All four candidate stacks can produce a CLI with JSON output, so C-4 is not a differentiator and is not repeated per alternative.
+> **Table-stakes constraint (acknowledged once):** every alternative already satisfies **C-4 — must be automatable in CI (non-interactive, JSON output, stable exit codes)** (`../inception/system-specification-draft-from-ai-brainstorm.md` §7.9, §9.1). All four candidate stacks can produce a CLI with JSON output, so C-4 is not a differentiator and is not repeated per alternative.
 
 ### C-1: Reuse the official Mermaid library
 
@@ -109,7 +109,7 @@ Reframed as a single decision: pick the implementation stack that lets us (a) ru
 ## Decision Drivers
 
 **Business / product drivers:**
-- Diagram fidelity is a stated differentiator and a headline MVP feature (`../motivation-and-goal-notes-brain-dump.md`; `../open-source-git-markdown-confluence-sync-report-2026-07-02.md` §8 "Attachments and diagrams are decision-driving features"). Trading some binary ergonomics for guaranteed-correct Mermaid is acceptable to the owner.
+- Diagram fidelity is a stated differentiator and a headline MVP feature (`../inception/motivation-and-goal-notes-brain-dump.md`; `../inception/open-source-git-markdown-confluence-sync-report-2026-07-02.md` §8 "Attachments and diagrams are decision-driving features"). Trading some binary ergonomics for guaranteed-correct Mermaid is acceptable to the owner.
 - Long-term maintainability: reusing the official, actively-maintained Mermaid library is cheaper than maintaining a Go renderer or a fragile reverse-engineered pipeline.
 
 **Technical drivers:**
@@ -151,7 +151,7 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes only via an accepted-risk
 - **Pros:** Smallest, fastest binaries; best-in-class cross-compile/release tooling (GoReleaser); the strategy report (§22.3) names Go "the strongest default"; matches the largest-star competitor `kovetskiy/mark`.
 - **Cons:** The "single self-contained binary" promise is broken in spirit: rendering a single diagram requires Node + Chromium (or pulling the official Mermaid container). This reintroduces exactly the runtime dependency the brain dump wanted to eliminate.
 - **Constraint compliance:** C-1 ✅ (reuses official `mmdc`); **C-2 ❌** (mandatory external Node/Chromium runtime); C-3 ✅.
-- **Why rejected:** Fails C-2 (non-negotiable). It also leaves the project one environment failure away from the failure-premortem scenario where "the first useful document fails because a renderer is missing or incompatible" (`../marksync-failure-premortem-and-anti-failure-playbook-2026-07-02.md`).
+- **Why rejected:** Fails C-2 (non-negotiable). It also leaves the project one environment failure away from the failure-premortem scenario where "the first useful document fails because a renderer is missing or incompatible" (`../inception/marksync-failure-premortem-and-anti-failure-playbook-2026-07-02.md`).
 
 ### Alternative 1 — TypeScript + Bun `build --compile` (RECOMMENDED)
 
@@ -181,7 +181,7 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes only via an accepted-risk
 
 **Recommendation: Alternative 1 — implement MarkSync in TypeScript and distribute via single-binary compilation (Bun `build --compile`).**
 
-This reverses the system spec's "implementation language is Go — Decided" item (`../system-specification-draft-from-ai-brainstorm.md` §2.2). The rationale is the owner's explicit value tradeoff, stated verbatim:
+This reverses the system spec's "implementation language is Go — Decided" item (`../inception/system-specification-draft-from-ai-brainstorm.md` §2.2). The rationale is the owner's explicit value tradeoff, stated verbatim:
 
 > The owner accepts larger and slower-starting binaries in exchange for **reusing the official Mermaid library** and **avoiding any self-delivery or reverse-engineering of Mermaid**.
 
@@ -257,9 +257,9 @@ TODO: Populate after implementation.
 
 ## References
 
-- `../system-specification-draft-from-ai-brainstorm.md` — §2.2 (Go marked Decided — **reversed by this ADR**), §2.4 (Mermaid adapter assumption), §2.5 (open question: Mermaid renderer), §6.1 (repo structure), §9.4 (Git adapter), §9.5 (Markdown/Goldmark), §9.11 (Mermaid capability matrix), §13 (CI/release), §16 (Risks).
-- `../motivation-and-goal-notes-brain-dump.md` — single-binary, cross-OS, Mermaid-to-image requirements.
-- `../marksync-category-leadership-strategy-report-2026-07-02.md` — §11.x (atlcli TS/Bun analysis, packaging trust), §22.3 (Go as strongest default; TS acceptable if compiled to standalone binaries), §31 (technical recommendations).
-- `../marksync-failure-premortem-and-anti-failure-playbook-2026-07-02.md` — §7 (platform/renderer failure modes; "renderer missing" scenario).
-- `../open-source-git-markdown-confluence-sync-report-2026-07-02.md` — §2.2 (competitor language choices), §8 (diagrams as decision-driving features).
+- `../inception/system-specification-draft-from-ai-brainstorm.md` — §2.2 (Go marked Decided — **reversed by this ADR**), §2.4 (Mermaid adapter assumption), §2.5 (open question: Mermaid renderer), §6.1 (repo structure), §9.4 (Git adapter), §9.5 (Markdown/Goldmark), §9.11 (Mermaid capability matrix), §13 (CI/release), §16 (Risks).
+- `../inception/motivation-and-goal-notes-brain-dump.md` — single-binary, cross-OS, Mermaid-to-image requirements.
+- `../inception/marksync-category-leadership-strategy-report-2026-07-02.md` — §11.x (atlcli TS/Bun analysis, packaging trust), §22.3 (Go as strongest default; TS acceptable if compiled to standalone binaries), §31 (technical recommendations).
+- `../inception/marksync-failure-premortem-and-anti-failure-playbook-2026-07-02.md` — §7 (platform/renderer failure modes; "renderer missing" scenario).
+- `../inception/open-source-git-markdown-confluence-sync-report-2026-07-02.md` — §2.2 (competitor language choices), §8 (diagrams as decision-driving features).
 - Related decision: ADR-0002 (Mermaid rendering strategy) — depends on this ADR.

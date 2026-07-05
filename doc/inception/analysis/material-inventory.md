@@ -11,7 +11,7 @@ owners: [Juliusz Ćwiąkalski]
 area: process
 document_classification: raw-evidence
 links:
-  related_decisions: [ADR-0001, ADR-0002, ADR-0003, ADR-0004, ADR-0005]
+  related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005]
   related_changes: []
 summary: "Material inventory — maps MarkSync inception inputs (under doc/inception/, no inputs/ subdir exists) to the phases they inform."
 ---
@@ -59,11 +59,11 @@ _Produced in Phase 0 (Intake & material scan). Lives at `doc/inception/analysis/
 | `doc/inception/marksync-failure-premortem-and-anti-failure-playbook-2026-07-02.md` | pre-mortem / risk | research | Failure-mode analysis and anti-failure playbook. | 2 (risks) | Concrete failure modes (data loss, drift, sync loops, auth footguns) and mitigations; seeds the risk register. |
 | `doc/inception/ideas.md` | scratchpad | author | Running list of ideas, open questions, candidate work items. | 2 (scope) | Candidate features and open questions to triage into/out of scope. |
 | `doc/inception/decisions/00-index.md` | decision registry | author | Index of pre-inception ADRs (ADR-0001…0005), all `status: Proposed`. | 3 | Registry; statuses pending confirmation during inception. |
-| `doc/inception/decisions/ADR-0001-implementation-language-and-runtime.md` | decision record | author | Implementation language & runtime choice. | 3 (tech stack) | TypeScript (per template/ADR); Node runtime. |
-| `doc/inception/decisions/ADR-0002-mermaid-rendering-strategy.md` | decision record | author | Mermaid diagram rendering strategy. | 3 | How Mermaid is rendered/published to Confluence. |
-| `doc/inception/decisions/ADR-0003-product-naming-confluence-adapter.md` | decision record | author | Product naming & architecture. | 1, 3 | "MarkSync" core + Confluence adapter; naming. |
-| `doc/inception/decisions/ADR-0004-confluence-api-validation-spike.md` | decision record | author | Decision to run a scoped Confluence API validation spike. | 3 | Spike scope/charter; now largely executed (see integration scenarios). |
-| `doc/inception/decisions/ADR-0005-page-body-representation-storage-not-adf.md` | decision record | spike-evidenced | Write Confluence Storage Format, not ADF. | 3 | Both accepted; Storage round-trips losslessly for all GFM; simpler; 5/5 reference converters write Storage. **Evidence-backed.** |
+| `doc/decisions/ADR-0001-implementation-language-and-runtime.md` | decision record | author | Implementation language & runtime choice. | 3 (tech stack) | TypeScript (per template/ADR); Node runtime. |
+| `doc/decisions/ADR-0002-mermaid-rendering-strategy.md` | decision record | author | Mermaid diagram rendering strategy. | 3 | How Mermaid is rendered/published to Confluence. |
+| `doc/decisions/PDR-0001-product-naming-confluence-adapter.md` | decision record | author | Product naming & architecture. | 1, 3 | "MarkSync" core + Confluence adapter; naming. |
+| `doc/decisions/TDR-0001-confluence-api-validation-spike.md` | decision record | author | Decision to run a scoped Confluence API validation spike. | 3 | Spike scope/charter; now largely executed (see integration scenarios). |
+| `doc/decisions/ADR-0005-page-body-representation-storage-not-adf.md` | decision record | spike-evidenced | Write Confluence Storage Format, not ADF. | 3 | Both accepted; Storage round-trips losslessly for all GFM; simpler; 5/5 reference converters write Storage. **Evidence-backed.** |
 | `doc/inception/integration-scenarios/00-index.md` | API evidence index | spike | Index of 18 evidence-backed Confluence Cloud integration scenarios. | 3, 4 | Catalogue of proven API scenarios. |
 | `doc/inception/integration-scenarios/01..18-*.md` | API scenarios (verbatim req/resp) | spike | One doc per integration scenario with current (non-deprecated) endpoint + verbatim captured request/response. | 3 (arch), 4 (testing/conventions) | v2 vs **V1-only** endpoints (attachments upload/download, labels add/delete, CQL search, restrictions); content properties v2; version-conflict/drift (`version=current+1` → 409); reverse sync; Markdown→Storage fidelity; OAuth 3LO (later phase, documented not live-proven). |
 | `doc/inception/README.md` | inception index / project summary | author | Index of inception materials + reading-order authority + cleaned project summary. | 0 (orientation) | Reading order & authority ranking of artifacts. |

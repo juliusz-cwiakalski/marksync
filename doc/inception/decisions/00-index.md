@@ -4,14 +4,11 @@
 ---
 # Inception Decision Records Index
 
-> **Pre-inception location note:** These records live in `doc/inception/decisions/` by the project owner's explicit direction, overriding the canonical ADOS decision home (`doc/decisions/`). They are **pre-inception inputs** (`status: Proposed`) awaiting human confirmation during the formal ADOS inception (bootstrapper), where they will be reviewed and possibly migrated to `doc/decisions/`. The canonical home remains `doc/decisions/00-index.md`.
+> **Migrated (Phase 3, 2026-07-04).** ADR-0001…ADR-0005 were authored here
+> pre-inception and have been migrated to the canonical ADOS decision home at
+> [`doc/decisions/00-index.md`](../../decisions/00-index.md). This directory no
+> longer holds decision-record files; the canonical registry and all records now
+> live in `doc/decisions/`.
 
-Inception decision records for MarkSync, numbered in one sequence (ADR-0001…ADR-0005) regardless of `decision_type`.
-
-| ID | Type | Title | Status | Date | Owners |
-|----|------|-------|--------|------|--------|
-| [ADR-0001](./ADR-0001-implementation-language-and-runtime.md) | ADR | Implementation language and runtime — TypeScript (single-binary) over Go | Proposed | 2026-07-03 | Juliusz Ćwiąkalski |
-| [ADR-0002](./ADR-0002-mermaid-rendering-strategy.md) | ADR | Mermaid rendering strategy | Proposed | 2026-07-03 | Juliusz Ćwiąkalski |
-| [ADR-0003](./ADR-0003-product-naming-confluence-adapter.md) | PDR | Product naming and architecture — "MarkSync" core with Confluence as the first adapter | Proposed | 2026-07-03 | Juliusz Ćwiąkalski |
-| [ADR-0004](./ADR-0004-confluence-api-validation-spike.md) | TDR | Run a scoped Atlassian Confluence Cloud API validation spike before implementation | Proposed | 2026-07-03 | Juliusz Ćwiąkalski |
-| [ADR-0005](./ADR-0005-page-body-representation-storage-not-adf.md) | ADR | Page body representation — write Storage Format, not ADF | Proposed | 2026-07-03 | Juliusz Ćwiąkalski |
+See [`doc/decisions/00-index.md`](../../decisions/00-index.md) for the full
+registry (ADR-0001…ADR-0010).

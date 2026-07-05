@@ -8,6 +8,8 @@ outcome: repeat
 
 # Retrospective — Convert spike evidence into authoritative artifacts
 
+> **ADOS outcome (2026-07-05):** → [GH-137](https://github.com/juliusz-cwiakalski/agentic-delivery-os/issues/137) (Practice 5 — spike evidence → authoritative artifacts).
+
 ## What happened
 
 The Confluence API spike produced temporary working evidence under
