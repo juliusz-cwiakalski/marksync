@@ -1,0 +1,54 @@
+# MarkSync E2E — live-sandbox gate (separate from fast loop)
+#
+# Runs the E2E test tier against a dedicated Confluence test space.
+# Triggered: scheduled (nightly), or PR label "run-e2e".
+# Implements: TDR-0004 (thin E2E runner), premortem §8.5 (single dedicated space).
+#
+# Status: Phase 4 baseline scaffold. E2E tests will be written at MS-0002
+# implementation start. Until then, this workflow runs but finds no tests.
+
+name: E2E (live-sandbox)
+
+on:
+  schedule:
+    - cron: "0 3 * * *" # nightly 03:00 UTC
+  workflow_dispatch: # manual trigger
+  pull_request:
+    types: [labeled]
+
+jobs:
+  e2e:
+    name: Live-sandbox E2E
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'run-e2e')
+
+    # At most 1 concurrent E2E run per sandbox to avoid version-conflict noise.
+    # Do NOT cancel mid-write against a live Confluence space.
+    concurrency:
+      group: e2e-sandbox
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.2"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        continue-on-error: true # no package.json yet during inception
+
+      - name: Run E2E tests
+        run: bun test tests/e2e/ || true
+        env:
+          MARKSYNC_E2E_CONFLUENCE_BASE_URL: ${{ secrets.E2E_CONFLUENCE_BASE_URL }}
+          MARKSYNC_E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+          MARKSYNC_E2E_API_TOKEN: ${{ secrets.E2E_API_TOKEN }}
+          MARKSYNC_E2E_SPACE_KEY: ${{ secrets.E2E_SPACE_KEY }}
+          MARKSYNC_E2E_PARENT_PAGE_ID: ${{ secrets.E2E_PARENT_PAGE_ID }}
+        # During inception there are no E2E tests; `|| true` keeps CI green.
+        # At MS-0002 start, remove `|| true`.

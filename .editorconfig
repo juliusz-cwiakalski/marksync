@@ -1,0 +1,39 @@
+# EditorConfig — https://editorconfig.org
+# MarkSync coding style baseline. All editors and IDEs that support
+# EditorConfig will use these settings automatically.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.{ts,tsx,js,jsx,mjs,cjs,json,jsonc,yaml,yml}]
+indent_size = 2
+
+[*.md]
+# Markdown: preserve trailing whitespace (two trailing spaces = line break)
+trim_trailing_whitespace = false
+max_line_length = off
+
+[*.{feature,gherkin}]
+indent_size = 2
+
+[Makefile]
+indent_style = tab
+
+[*.{sh,bash}]
+indent_size = 2
+
+# Binary files — leave untouched
+[*.{png,jpg,jpeg,gif,svg,webp,ico,pdf,woff,woff2,ttf,eot,lockb}]
+charset = unset
+end_of_line = unset
+insert_final_newline = unset
+trim_trailing_whitespace = unset
+indent_style = unset
+indent_size = unset

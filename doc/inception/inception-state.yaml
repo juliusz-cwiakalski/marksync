@@ -29,8 +29,8 @@ phases:
   - { id: 0, name: "Intake & material scan", status: completed, started: 2026-07-03, completed: 2026-07-03 }
   - { id: 1, name: "North star & vision", status: completed, started: 2026-07-03, completed: 2026-07-03 }
   - { id: 2, name: "Scope & roadmap", status: completed, started: 2026-07-03, completed: 2026-07-04 }
-  - { id: 3, name: "Tech stack & architecture", status: in_progress, started: 2026-07-04, completed: null }
-  - { id: 4, name: "Domain, conventions & quality baseline", status: pending, started: null, completed: null }
+  - { id: 3, name: "Tech stack & architecture", status: completed, started: 2026-07-04, completed: 2026-07-05 }
+  - { id: 4, name: "Domain, conventions & quality baseline", status: in_progress, started: 2026-07-05, completed: null }
   - { id: 5, name: "ADOS framework integration", status: pending, started: null, completed: null }
   - { id: 6, name: "Inception readiness check", status: pending, started: null, completed: null }
   - { id: 7, name: "Inception summary & handoff", status: pending, started: null, completed: null }
@@ -41,13 +41,13 @@ artifacts:
   roadmap:           { status: draft, path: "doc/overview/02-roadmap.md", confidence: 0.8 }
   tech_stack:        { status: draft, path: "doc/overview/tech-stack.md", confidence: 0.75 }
   architecture:      { status: draft, path: "doc/overview/architecture-overview.md", confidence: 0.75 }
-  glossary:          { status: pending, path: "doc/overview/glossary.md", confidence: 0.0 }
+  glossary:          { status: draft, path: "doc/overview/glossary.md", confidence: 0.82 }
   ost:               { status: draft, path: "doc/overview/opportunity-solution-tree.md", confidence: 0.75 }
   personas_jtbd:     { status: draft, path: "doc/overview/personas-jtbd.md", confidence: 0.75 }
   user_journeys:     { status: pending, path: "doc/overview/user-journeys.md", confidence: 0.0 }
   screen_inventory:  { status: pending, path: "doc/overview/screen-inventory.md", confidence: 0.0 }
   ux_guidance:       { status: pending, path: "doc/overview/ux-guidance.md", confidence: 0.0 }
-  ubiquitous_language: { status: pending, path: "doc/overview/ubiquitous-language.md", confidence: 0.0 }
+  ubiquitous_language: { status: draft, path: "doc/overview/ubiquitous-language.md", confidence: 0.82 }
   assumptions:       { status: draft, path: "doc/inception/analysis/assumptions.md", confidence: 0.8 }
   risks:             { status: draft, path: "doc/inception/analysis/risks.md", confidence: 0.8 }
   backlog_reconciliation: { status: draft, path: "doc/inception/analysis/backlog-reconciliation.md", confidence: 0.8 }
@@ -57,7 +57,7 @@ artifacts:
   retrospective_notes: { status: draft, path: "doc/inception/retrospective/", confidence: 0.8 }
   material_inventory: { status: draft, path: "doc/inception/analysis/material-inventory.md", confidence: 0.85 }
   fse_audit:         { status: draft, path: "doc/inception/analysis/fse-audit.md", confidence: 0.8 }
-  open_questions:    { status: draft, path: "doc/inception/open-questions/phase-3-open-questions.md", confidence: 0.85 }
+  open_questions:    { status: draft, path: "doc/inception/open-questions/", confidence: 0.85 }
   inception_summary: { status: pending, path: "doc/inception/inception-summary.md", confidence: 0.0 }
   repo_analysis:     { status: pending, path: "doc/inception/analysis/repo-analysis.md", confidence: 0.0 }
   tribal_knowledge:  { status: pending, path: "doc/inception/analysis/tribal-knowledge.md", confidence: 0.0 }
@@ -65,6 +65,16 @@ artifacts:
   nonfunctional:     { status: draft, path: "doc/spec/nonfunctional.md", confidence: 0.82 }
   feature_specs:     { status: pending, path: "doc/spec/features/", confidence: 0.0 }
   decision_records:  { status: draft, path: "doc/decisions/", confidence: 0.82 }
+  # Phase 4 artifacts
+  testing_strategy:  { status: draft, path: ".ai/rules/testing-strategy.md", confidence: 0.82 }
+  typescript_conventions: { status: draft, path: ".ai/rules/typescript.md", confidence: 0.82 }
+  security_baseline: { status: draft, path: "doc/guides/security-baseline.md", confidence: 0.82 }
+  accessibility_baseline: { status: draft, path: "doc/guides/accessibility-baseline.md", confidence: 0.80 }
+  dev_environment:   { status: draft, path: "doc/guides/dev-environment.md", confidence: 0.80 }
+  ci_baseline:       { status: draft, path: ".github/workflows/ci.yml", confidence: 0.80 }
+  ci_e2e_gate:       { status: draft, path: ".github/workflows/run-e2e.yml", confidence: 0.80 }
+  env_example:       { status: draft, path: ".env.example", confidence: 0.85 }
+  editor_config:     { status: draft, path: ".editorconfig", confidence: 0.85 }
 
 decisions:
   # Phase 0 classifications (pending Gate 0 confirmation via PR merge)
@@ -79,6 +89,15 @@ decisions:
   - { phase: 3, text: "Testing runner = bun:test + thin E2E runner; bun:test + happy-dom for Mermaid-DOM; vitest only as last-resort fallback.", rationale: "TDR-0004 (Proposed). Native, fastest, zero-dep, snapshots+mocks+Bun.serve mock server. Affects Phase 4 CI baseline.", date: 2026-07-04 }
   - { phase: 3, text: "Confluence page history provenance = squash by default for MS-0002; commit-by-commit deferred to a future milestone.", rationale: "ADR-0010 (Proposed, revised 2026-07-05). MarkSync-applied Confluence page versions carry a clear MarkSync/Git prefix, head commit id, and compact included-commit summary in version.message; exact version-message/history-description length limit must be verified before implementation. Rationale: simplicity, rate-limit safety, scope discipline, reduced privacy exposure.", date: 2026-07-04 }
   - { phase: 3, text: "Migrated ADR-0001..0005 from doc/inception/decisions/ to canonical doc/decisions/; introduced doc/inception/open-questions/ per-phase file pattern.", rationale: "OPEN-Q1 answer (migrate to meet ADOS structure) + open-questions-as-in-git-files retrospective (durable, grepable, inline-answerable).", date: 2026-07-04 }
+  - { phase: 4, text: "Linter/formatter = Biome (lint + format in one tool).", rationale: "TDR-0005. Rust-fast, zero-config, Bun-compatible. ESLint+Prettier is fallback only if a needed rule is missing.", date: 2026-07-05 }
+  - { phase: 4, text: "Import-boundary enforcement = dependency-cruiser.", rationale: "TDR-0006. Purpose-built architecture-rule enforcement; graph-based (no false negatives); clear AI-agent feedback on violations.", date: 2026-07-05 }
+  - { phase: 4, text: "Gherkin/BDD runner = @cucumber/cucumber for lifecycle invariants.", rationale: "TDR-0007. Battle-tested, standard, active. Tests not compiled into binary so dependency cost is zero.", date: 2026-07-05 }
+  - { phase: 4, text: "Conventional Commits enforcement = commitlint + husky commit-msg hook + CI.", rationale: "TDR-0008. Defense-in-depth: local hook for fast feedback + CI as authoritative gate. AI agents get clear format-violation feedback.", date: 2026-07-05 }
+  - { phase: 4, text: "Accessibility baseline = CLI-focused (JSON/NDJSON output is primary accessible path; color auto-disabled non-interactive; provenance panel contract). Not a hard compliance requirement.", rationale: "OPEN-Q4 answer. In this project context, accessibility = easy to use via CLI + AI/CI. doc/guides/accessibility-baseline.md created.", date: 2026-07-05 }
+  - { phase: 4, text: "Performance testing = minimal mock-based scenarios; deferred wiring to MS-0003+.", rationale: "OPEN-Q5 answer. Product NFRs are 'desired, not hard'; track regressions via commit-tracked baseline without blocking.", date: 2026-07-05 }
+  - { phase: 4, text: "Confluence version.message length limit is undocumented per @external-researcher; live API spike needed at MS-0002 start.", rationale: "OPEN-Q6 answer. Atlassian v2 API docs do not specify maxLength for version.message; SPIKE-N prerequisite added to MS-0002 backlog.", date: 2026-07-05 }
+  - { phase: 4, text: "CI baseline uses `continue-on-error` / `|| true` guards during inception so CI stays green with no source/tests; guards removed at MS-0002 start.", rationale: "No package.json/tsconfig/tests exist during inception. The CI scaffold establishes the target workflow shape and removes ambiguity about what CI will do.", date: 2026-07-05 }
+  - { phase: 4, text: "Security baseline in doc/guides/security-baseline.md (not .ai/rules/) for visibility to non-agent readers.", rationale: "Security is a cross-cutting concern that human contributors, auditors, and stakeholders need to find easily. doc/guides/ is the canonical location for project guides; .ai/rules/ is for agent-loaded coding rules.", date: 2026-07-05 }
 
 assumptions:
   # risk_type: value | usability | feasibility | viability
@@ -92,5 +111,6 @@ sessions:
   - { started: 2026-07-03, phase: 1, notes: "Phase 1 north star & vision: authored canonical 01-north-star.md (reconciled motivation brain dump + 2026-06-16 draft + ADR-0001 TS + PDR-0001 MarkSync brand; removed Go framing), personas-jtbd.md, opportunity-solution-tree.md. Added Persona 5 (sponsoring stakeholder — non-technical business owner/PM/executive) on human feedback. PRD deferred as optional. Red-team-coordinator review run; findings addressed. Gate 1 approved by human; squash-merged inception/phase-1 to main." }
   - { started: 2026-07-03, phase: 2, notes: "Phase 2 scope & roadmap: drafted 02-roadmap.md (MS-0002/MVP=safe one-way publisher trust wedge; MS-0003/MLP=exceptional DX; MS-0004+ future=reverse-sync gates 2-6), assumptions.md (19 assumptions, 4 validated), risks.md (21 risks seeded by the failure premortem + red-team). ui_bearing=false so no screen-inventory/user-journeys. Pre-mortem + four-risk check reflected in the risk register. Red-team-coordinator review + Copilot PR review run; addressed 2 Critical + 6 High + Mediums + all 9 Copilot comments (NSM honesty, concurrency/identity/repair/corpus/Mermaid/drift-classification gaps, security risk, scope-realism, ≤10-min rendering, OAuth/ADR-format consistency). Reviewed ADOS retrospective issues #103/#105/#131 and proactively added backlog-reconciliation.md, failure-premortem.md, and success-pre-parade.md as Phase 2 planning controls. Added id-prefix-catalog.md to standardize grepable IDs/prefixes for future agents and backlog work, including monotonic MS-* roadmap milestone IDs. Expanded 02-roadmap.md with a detailed Next Milestone, future milestone reference subsections, and a roadmap allocation matrix for assumptions/risks/decisions/spikes/backlog triggers. Added retrospective notes for after-phase retro practice, an ADOS process glossary/acronym catalog (e.g. NSM = North Star Metric), and ADOS milestone-management guidance/templates." }
   - { started: 2026-07-04, phase: 3, notes: "Phase 3 tech stack & architecture: drafted tech-stack.md (TypeScript + Bun single-binary; remark/HAST Markdown pipeline; official Mermaid in-process via jsdom+SVG+deterministicIds; Storage render; no DB/telemetry), architecture-overview.md (ports-and-adapters CLI; C4 context+container; 16 components; module governance; push + reverse flows; Confluence v2/v1 isolation), fse-audit.md (10 AI-friendliness attributes), nonfunctional.md (NFRs incl. branch restriction, cache layout, per-version provenance, decentralized concurrency). Seeded doc/decisions/ registry. Wrote ADR-0006 (state model) — flagged must-materialize-in-Phase-3. Posted OPEN-Q1..Q5 on PR #4; human answered (migrate ADRs; create CLI/Git/testing ADRs via @decision-advisor; refine ADR-0006 with UUID v7, decentralized locking, commit-by-commit provenance, branch restriction, single cache dir). Ran @external-researcher (10-area 2026 alternatives report). Delegated ADR-0007 (Cliffy), ADR-0008 (shell-Git), ADR-0009 (bun:test) to @decision-advisor with full context. Migrated ADR-0001..0005 to doc/decisions/ (OPEN-Q1). Refined ADR-0006 (UUID v7, C-6 decentralized, version.message provenance, allowBranches, .marksync/cache CI-cacheable split). Introduced doc/inception/open-questions/phase-3-open-questions.md (durable in-git Q&A). Human answered OPEN-Q6: commit-by-commit default, squash opt-in, full/trimmed Git commit message in Confluence history; delegated ADR-0010 to @decision-advisor and updated docs/state. Retro note for the open-questions-as-files pattern. ui_bearing=false; code_project=true activates testing/CI/conventions in Phase 4." }
+  - { started: 2026-07-05, phase: 4, notes: "Phase 4 domain, conventions & quality baseline: drafted glossary.md, ubiquitous-language.md, .ai/rules/testing-strategy.md (6 test tiers, over-mocking guardrail, performance scenarios), .ai/rules/typescript.md (module structure, tsconfig with verbatimModuleSyntax/isolatedModules, Result<T,E> error handling, Biome/dependency-cruiser/bunfig.toml), .github/workflows/ci.yml + run-e2e.yml, doc/guides/dev-environment.md, doc/guides/security-baseline.md, doc/guides/accessibility-baseline.md, .env.example, .editorconfig. 3 red-team rounds (all findings addressed). Owner answered OPEN-Q1..Q7: TDR-0005 (Biome), TDR-0006 (dependency-cruiser), TDR-0007 (@cucumber/cucumber), TDR-0008 (commitlint+husky). External research on version.message limit (undocumented — spike needed). Q8/Q9 deferred to MS-0002. PR comment addressed: rules stripped of process annotations." }
 
 last_updated: 2026-07-05
