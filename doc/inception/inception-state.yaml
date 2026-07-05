@@ -41,13 +41,13 @@ artifacts:
   roadmap:           { status: draft, path: "doc/overview/02-roadmap.md", confidence: 0.8 }
   tech_stack:        { status: draft, path: "doc/overview/tech-stack.md", confidence: 0.75 }
   architecture:      { status: draft, path: "doc/overview/architecture-overview.md", confidence: 0.75 }
-  glossary:          { status: draft, path: "doc/overview/glossary.md", confidence: 0.8 }
+  glossary:          { status: draft, path: "doc/overview/glossary.md", confidence: 0.82 }
   ost:               { status: draft, path: "doc/overview/opportunity-solution-tree.md", confidence: 0.75 }
   personas_jtbd:     { status: draft, path: "doc/overview/personas-jtbd.md", confidence: 0.75 }
   user_journeys:     { status: pending, path: "doc/overview/user-journeys.md", confidence: 0.0 }
   screen_inventory:  { status: pending, path: "doc/overview/screen-inventory.md", confidence: 0.0 }
   ux_guidance:       { status: pending, path: "doc/overview/ux-guidance.md", confidence: 0.0 }
-  ubiquitous_language: { status: draft, path: "doc/overview/ubiquitous-language.md", confidence: 0.8 }
+  ubiquitous_language: { status: draft, path: "doc/overview/ubiquitous-language.md", confidence: 0.82 }
   assumptions:       { status: draft, path: "doc/inception/analysis/assumptions.md", confidence: 0.8 }
   risks:             { status: draft, path: "doc/inception/analysis/risks.md", confidence: 0.8 }
   backlog_reconciliation: { status: draft, path: "doc/inception/analysis/backlog-reconciliation.md", confidence: 0.8 }
@@ -57,7 +57,7 @@ artifacts:
   retrospective_notes: { status: draft, path: "doc/inception/retrospective/", confidence: 0.8 }
   material_inventory: { status: draft, path: "doc/inception/analysis/material-inventory.md", confidence: 0.85 }
   fse_audit:         { status: draft, path: "doc/inception/analysis/fse-audit.md", confidence: 0.8 }
-  open_questions:    { status: draft, path: "doc/inception/open-questions/phase-3-open-questions.md", confidence: 0.85 }
+  open_questions:    { status: draft, path: "doc/inception/open-questions/", confidence: 0.85 }
   inception_summary: { status: pending, path: "doc/inception/inception-summary.md", confidence: 0.0 }
   repo_analysis:     { status: pending, path: "doc/inception/analysis/repo-analysis.md", confidence: 0.0 }
   tribal_knowledge:  { status: pending, path: "doc/inception/analysis/tribal-knowledge.md", confidence: 0.0 }
@@ -65,6 +65,15 @@ artifacts:
   nonfunctional:     { status: draft, path: "doc/spec/nonfunctional.md", confidence: 0.82 }
   feature_specs:     { status: pending, path: "doc/spec/features/", confidence: 0.0 }
   decision_records:  { status: draft, path: "doc/decisions/", confidence: 0.82 }
+  # Phase 4 artifacts
+  testing_strategy:  { status: draft, path: ".ai/rules/testing-strategy.md", confidence: 0.82 }
+  typescript_conventions: { status: draft, path: ".ai/rules/typescript.md", confidence: 0.82 }
+  security_baseline: { status: draft, path: "doc/guides/security-baseline.md", confidence: 0.82 }
+  dev_environment:   { status: draft, path: "doc/guides/dev-environment.md", confidence: 0.80 }
+  ci_baseline:       { status: draft, path: ".github/workflows/ci.yml", confidence: 0.80 }
+  ci_e2e_gate:       { status: draft, path: ".github/workflows/run-e2e.yml", confidence: 0.80 }
+  env_example:       { status: draft, path: ".env.example", confidence: 0.85 }
+  editor_config:     { status: draft, path: ".editorconfig", confidence: 0.85 }
 
 decisions:
   # Phase 0 classifications (pending Gate 0 confirmation via PR merge)

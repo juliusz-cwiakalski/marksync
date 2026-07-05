@@ -59,41 +59,45 @@ jobs:
         # During inception there are no tests; `|| true` keeps CI green.
         # Exclude E2E (live-sandbox) from the fast loop — Bun's --filter matches
         # test names, not file paths, so we pass positional directory arguments.
+        # Note: Mermaid-DOM tests need --preload; see M-5 / OPEN-Q2.
         # At MS-0002 start, remove `|| true`.
-
-      - name: Snapshot stability check
-        run: bun test tests/golden/ || true
-        # Verifies golden fixtures are byte-stable (ADR-0002 C-1).
-        # No golden fixtures during inception; `|| true` until MS-0002.
 
   dependency-audit:
     name: Dependency + License Audit
     runs-on: ubuntu-latest
-    # Runs only when a lockfile changes or on release tags.
-    # Bun 1.2 defaults to bun.lock (text); legacy bun.lockb (binary) also accepted.
-    if: hashFiles('bun.lock') != '' || hashFiles('bun.lockb') != ''
+    # Runs on every push/PR; the actual scan is gated per-step after checkout
+    # (job-level hashFiles evaluates before checkout, so it always sees no files).
     steps:
       - uses: actions/checkout@v4
 
       - uses: oven-sh/setup-bun@v2
 
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Determine lockfile name
+      - name: Check for lockfile
         id: lockfile
         run: |
-          if [ -f bun.lock ]; then echo "name=bun.lock" >> "$GITHUB_OUTPUT"
-          elif [ -f bun.lockb ]; then echo "name=bun.lockb" >> "$GITHUB_OUTPUT"
-          else echo "No lockfile found" >&2; exit 1; fi
+          if [ -f bun.lock ] || [ -f bun.lockb ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            if [ -f bun.lock ]; then echo "name=bun.lock" >> "$GITHUB_OUTPUT"
+            else echo "name=bun.lockb" >> "$GITHUB_OUTPUT"; fi
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "No lockfile found — skipping dependency audit (expected during inception)"
+          fi
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        if: steps.lockfile.outputs.exists == 'true'
 
       - name: Vulnerability scan (osv-scanner)
+        if: steps.lockfile.outputs.exists == 'true'
         run: |
           # osv-scanner scans the lockfile for known vulnerabilities (NFR-SEC-4)
+          # NOTE: verify --lockfile vs --lockfile flag at MS-0002 start (osv-scanner may use -L/--lockfile)
           npx @google/osv-scanner --lock-file "${{ steps.lockfile.outputs.name }}" || true
         continue-on-error: true # advisory during inception; make blocking at MS-0002
 
       - name: License audit
+        if: steps.lockfile.outputs.exists == 'true'
         run: |
           # Reject GPL/AGPL/LGPL/UNLICENSED dependencies (MarkSync is MIT)
           npx license-checker --production --failOn "GPL;AGPL;LGPL;UNLICENSED" || true
@@ -131,25 +135,29 @@ jobs:
 
       - name: Check Markdown links
         run: |
-          # Basic check: every relative .md link in doc/ resolves to a file.
-          # Uses Python to avoid adding a dependency during inception.
+          # Check that every relative .md link in doc/ resolves to a file.
+          # Excludes doc/inception/tmp/ (vendored third-party repos with their own link contexts).
           python3 -c "
           import re, os, sys, glob
-          link_re = re.compile(r'\[^[]]*\]\(([^)]+\.md[^)]*)\)')
+          link_re = re.compile(r'\[([^\]]+)\]\(([^)]+)\)')
           errors = []
           for md_file in glob.glob('doc/**/*.md', recursive=True):
+              if 'doc/inception/tmp/' in md_file:
+                  continue
               dir_of = os.path.dirname(md_file)
-              with open(md_file) as f:
+              with open(md_file, encoding='utf-8') as f:
                   for line_no, line in enumerate(f, 1):
                       for match in link_re.finditer(line):
-                          target = match.group(1).split('#')[0].split(' ')[0]
+                          target = match.group(2).split()[0].split('#')[0]
                           if target.startswith('http') or target.startswith('mailto'):
+                              continue
+                          if not target.endswith('.md'):
                               continue
                           resolved = os.path.normpath(os.path.join(dir_of, target))
                           if not os.path.exists(resolved):
                               errors.append(f'{md_file}:{line_no} — broken link: {target} (resolved: {resolved})')
           if errors:
-              for e in errors[:50]:  # cap output
+              for e in errors[:50]:
                   print(f'BROKEN: {e}', file=sys.stderr)
               if len(errors) > 50:
                   print(f'... and {len(errors) - 50} more', file=sys.stderr)

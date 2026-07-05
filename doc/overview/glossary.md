@@ -33,7 +33,7 @@ Documentation Handbook §9 for the glossary-vs-UL distinction._
 | **Adopt** | Bring a pre-existing Confluence page into MarkSync's managed set without losing its content. Depends on reverse sync; tracked as A-VAL-3. | Product | — |
 | **Agent** | An AI coding/documentation agent that operates MarkSync non-interactively via CLI + JSON output. One of three operator personas. | Operator | — |
 | **Apply** | Execute the mutations described in a plan against the target system. Always preceded by plan/dry-run. | Process | Plan |
-| **API Token** | Atlassian's classic/direct authentication: an email + token pair. The guaranteed `MS-0002` auth path. Stored in OS keyring or env. | Auth | Credential |
+| **API Token** | Atlassian's classic/direct authentication: an email + token pair. The guaranteed `MS-0002` auth path. Stored in OS keyring or env. | Auth | — |
 | **Beachhead** | The narrow, must-work segment that proves the product's value before expansion. For MarkSync `MS-0002`, the beachhead is safe one-way publish with drift detection. | Strategy | — |
 | **Branch restriction** | Sync is allowed only on configured `allowBranches` (default `["main"]`); override via `MARKSYNC_ALLOW_BRANCHES`. Docs sync as "deployment." | Safety | — |
 | **Canonical subset** | The documented set of GFM Markdown constructs MarkSync guarantees to convert faithfully. Out-of-subset constructs are preserved safely or flagged. | Domain | Markdown Document |
@@ -42,31 +42,30 @@ Documentation Handbook §9 for the glossary-vs-UL distinction._
 | **Cloud** | Confluence Cloud — the Atlassian SaaS hosting model. The only supported target in `MS-0002` (NFR-COMP-3). | Confluence | — |
 | **Conflict** | A state where local and remote have diverged from the shared base and cannot be safely auto-resolved. Surfaced explicitly, never auto-resolved. | Process | Sync State |
 | **Content property** | A key-value pair attached to a Confluence page via the v2 API. MarkSync uses `marksync.metadata` for lock cross-check data. | Confluence | — |
-| **Credential** | Authentication material: API token or OAuth refresh token. Stored in OS keyring or env, never in project files. | Security | — |
-| **Data Center** | Atlassian's self-hosted Confluence offering. Deferred to `MS-0009`. | Confluence | — |
+| **Credential** | Authentication material: API token or OAuth refresh token. Stored in OS keyring or env, never in project files. | Security | — || **Data Center** | Atlassian's self-hosted Confluence offering. Deferred to `MS-0009`. | Confluence | — |
 | **Determinism** | The property that the same input always produces the same output. Required for the Storage renderer (ADR-0002 C-1) and Mermaid rendering. | Quality | — |
 | **Disposable cache** | The `.marksync/` directory, which is gitignored and never needed for correctness. Contains rendered bodies, journal, and conflict workspaces. | State | — |
 | **Doctor** | A health-check command that discovers capabilities, permissions, and visibility before any create/adopt. Minimal in `MS-0002`; full in `MS-0003`. | CLI | — |
 | **Drift** | A state where the remote (Confluence) page has changed since the last shared base, so a naive publish would overwrite unsaved work. | Process | Sync State |
 | **Dry-run** | A plan-only mode that reports what would happen without performing any write. First-class; no mutation without a reviewable plan. | CLI | Plan |
-| **Exit code** | A stable, machine-parseable code returned per error class. `0` = clean; non-zero = error class. | Operability | — |
+| **Exit Code** | A stable, machine-parseable code returned per error class. `0` = clean; non-zero = error class. | Operability | Exit Code |
 | **FSE** | Full-Stack Environment — the 10 AI-friendliness attributes assessed in the FSE audit. | Process | — |
 | **GFM** | GitHub Flavored Markdown — the Markdown dialect MarkSync targets (tables, task lists, strikethrough). | Domain | — |
 | **Golden fixture** | A captured snapshot of deterministic output (e.g., rendered Storage XHTML) used for regression testing. | Testing | — |
 | **Hexagonal** | Ports-and-adapters architecture: domain/application core owns logic; adapters supply IO (Git, Confluence, filesystem, keyring, stdout). | Architecture | — |
 | **Idempotent rerun** | A second semantically-unchanged push performs 0 writes. A `MS-0002` success metric. | Quality | — |
-| **Journal** | A per-run log (`<run-id>.jsonl`) recording each mutation immediately, enabling partial-apply recovery via `repair-state`. | State | — |
+| **Journal** | A per-run log (`<run-id>.jsonl`) recording each mutation immediately, enabling partial-apply recovery via `repair-state`. | State | Journal Entry |
 | **JSON Schema** | A JSON-based schema language used to validate MarkSync config and lock files (via `ajv`). | Tooling | — |
-| **Keyring** | The OS-managed credential store (macOS Keychain, Windows Credential Manager, Linux Secret Service). Optional for `MS-0002`; env-token is the guaranteed path. | Security | Credential |
+| **Keyring** | The OS-managed credential store (macOS Keychain, Windows Credential Manager, Linux Secret Service). Optional for `MS-0002`; env-token is the guaranteed path. | Security | — |
 | **Lifecycle invariant** | A release-blocking property enforced via Gherkin/BDD: INV-SAFE-1 (no silent overwrite), INV-SAFE-2 (no silent re-create of REMOTE_MISSING), INV-SAFE-3 (duplicate-UUID fatal), INV-SEC-1 (no secrets in output). | Safety | — |
 | **Lock file** | A committed, versioned file recording per-document bindings: UUID → page ID, parent, version, hashes, shared base. Like `package-lock.json` for npm. | State | Shared Base |
-| **Managed page** | A Confluence page tracked by MarkSync (has a UUID + lock entry + content property). | Domain | — |
+| **Managed page** | A Confluence page tracked by MarkSync (has a UUID + lock entry + content property). | Domain | Managed Document |
 | **MDAST** | Markdown Abstract Syntax Tree — the parsed tree format produced by `remark`. | Domain | — |
 | **Mermaid** | A diagram-as-code language (flowcharts, sequence diagrams, etc.). MarkSync renders it via the official library in-process (ADR-0002). | Domain | — |
 | **NDJSON** | Newline-Delimited JSON — one JSON object per line. A machine-readable output format. | Operability | — |
 | **NSM** | North Star Metric — the primary success measure. MarkSync's NSM is "automation coverage of documentation publishing." | Strategy | — |
-| **OAuth 3LO** | OAuth 2.0 three-legged authorization — Atlassian's modern auth flow. Deferred beyond `MS-0002`; API token is the `MS-0002` path. | Auth | Credential |
-| **Operation ID** | A per-run identifier used for decentralized concurrency dedup: if two runners submit the same operation ID, the stale one is rejected. | Safety | — |
+| **OAuth 3LO** | OAuth 2.0 three-legged authorization — Atlassian's modern auth flow. Deferred beyond `MS-0002`; API token is the `MS-0002` path. | Auth | — |
+| **Operation ID** | A per-run identifier used for decentralized concurrency dedup: if two runners submit the same operation ID, the stale one is rejected. | Safety | Operation ID |
 | **Operator** | Any entity that runs MarkSync: human, AI agent, or CI pipeline. All share identical core behaviour; only auth differs. | Product | — |
 | **Optimistic concurrency** | A concurrency model where writes are allowed but checked for staleness at commit time (Confluence 409 on stale `version.number`). No pessimistic locking. | Safety | — |
 | **Plan** | A deterministic, reviewable description of what MarkSync will do before any write. Always available via dry-run. | Process | — |
@@ -78,7 +77,7 @@ Documentation Handbook §9 for the glossary-vs-UL distinction._
 | **repair-state** | A command for recovering from stale locks or interrupted-apply journal replay. Minimal in `MS-0002`; expanded in `MS-0004`. | CLI | — |
 | **Repository** | The `Repository` port/interface abstracting Git operations. Shell-Git is the implementor (TDR-0003); `isomorphic-git` is the swap option. | Architecture | — |
 | **Reverse sync** | Confluence → Git reconciliation: reads remote Storage/ADF, reverse-converts to Markdown patch, writes to conflict workspace, **never** auto-commits. Deferred to `MS-0005+`. | Process | — |
-| **Run ID** | A unique identifier per sync execution. Used for journal tracking and partial-apply recovery. | State | — |
+| **Run ID** | A unique identifier per sync execution. Used for journal tracking and partial-apply recovery. | State | Run |
 | **Sandbox** | A dedicated Confluence test space for live E2E testing. Not per-suite; isolated from the fast test loop. | Testing | — |
 | **SBOM** | Software Bill of Materials — a machine-readable inventory of components/dependencies. Generated per release (NFR-SEC-4). | Security | — |
 | **Shared base** | The agreed "last published" state for a document, recorded in the lock file. Enables drift detection by comparing local/base/remote. | Domain | Shared Base |

@@ -269,6 +269,41 @@ _Deferred to `MS-0002` backlog planning._
 
 ---
 
+### [OPEN-Q9] MS-0002 CI unguard checklist — DEFERRED
+
+**Status:** DEFERRED
+
+**Question:** The CI is deliberately permissive during inception
+(`continue-on-error`, `|| true`, advisory-only scans). The requirement to remove
+these guards at `MS-0002` is mentioned in inline comments but not tracked as an
+actionable checklist. There is a real risk the guards are left in place once
+tests exist, silently masking failures — exactly the failure mode the H-1 regex
+bug demonstrated.
+
+**Context:** The CI unguard items are:
+
+1. Remove `|| true` from all test steps (ci.yml, run-e2e.yml).
+2. Remove `continue-on-error: true` from lint, typecheck, and audit steps.
+3. Pin Bun to a concrete patch version (snapshot stability, ADR-0002 C-1).
+4. Verify osv-scanner flag (`--lock-file` vs `-L`/`--lockfile`).
+5. Wire Mermaid preload via `bunfig.toml` or dedicated CI step (M-5).
+6. Create `bunfig.toml`, `package.json`, `tsconfig.json` (actual files).
+7. Add `dependency-cruiser` configuration and `check:boundaries` CI step.
+8. Make license-audit blocking (reject GPL/AGPL/LGPL/UNLICENSED).
+9. Make YAML-lint include Markdown frontmatter validation.
+10. Verify the dependency-audit step-level conditional (M-4) works in Actions.
+
+**Recommendation:** Create a `MS-0002 implementation-start checklist` (as a
+backlog TASK or a `doc/guides/ms-0002-startup-checklist.md`) enumerating every
+guard to flip. The H-1 regex bug proves that silent CI failures are the precise
+failure mode these guards must prevent.
+
+### Answer
+
+_Deferred — create the checklist at `MS-0002` implementation start._
+
+---
+
 ## Notes
 
 - All three open questions are **deferred to `MS-0002` implementation start**

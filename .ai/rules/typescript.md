@@ -84,14 +84,18 @@ contextual comments)._
 
 ## TypeScript configuration (target)
 
+_Updated per 2026 TypeScript + Bun best-practices research. Key changes from
+initial draft: `verbatimModuleSyntax` replaces `esModuleInterop`; `isolatedModules`
+required for Bun; modern strict flags added._
+
 ```jsonc
 // tsconfig.json (target — established in Phase 4)
 {
   "compilerOptions": {
-    "target": "ES2022",
+    "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["ES2022"],
+    "lib": ["ESNext"],
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -101,8 +105,10 @@ contextual comments)._
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
-    "noPropertyAccessFromIndexSignature": false,
-    "esModuleInterop": true,
+    "noImplicitOverride": true,
+    "noUncheckedSideEffectImports": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "declaration": true,
@@ -110,7 +116,7 @@ contextual comments)._
     "sourceMap": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    "types": ["bun-types"]
+    "types": ["bun"]
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "tests"]
@@ -119,12 +125,23 @@ contextual comments)._
 
 ### Strict-mode rules (non-negotiable)
 
-1. **`strict: true`** — full strict mode.
-2. **`noImplicitAny: true`** — no implicit `any`; annotate or use `unknown`.
-3. **`strictNullChecks: true`** — explicit null handling.
+1. **`strict: true`** — full strict mode (enables `noImplicitAny`, `strictNullChecks`,
+   `strictFunctionTypes`, `strictBindCallApply`, `strictPropertyInitialization`).
+2. **`verbatimModuleSyntax: true`** — enforces `import type` / `export type` for
+   type-only imports. Replaces the deprecated `esModuleInterop` /
+   `allowSyntheticDefaultImports` pair. Required for clean ESM output.
+3. **`isolatedModules: true`** — ensures every file can be transpiled independently
+   (Bun transpiles per-file). Prohibits `const enum` and re-exporting types
+   without `export type`.
 4. **`noUncheckedIndexedAccess: true`** — `array[i]` is `T | undefined`.
 5. **`exactOptionalPropertyTypes: true`** — `{ x?: T }` does not accept
    `{ x: undefined }`.
+6. **`noImplicitOverride: true`** — `override` keyword required on method
+   overrides (catches base-class change surprises).
+7. **`noUncheckedSideEffectImports: true`** — catches `import "something"` that
+   silently does nothing if the module is missing.
+8. **`types: ["bun"]`** — Bun provides native types; no separate `@types/bun`
+   or `bun-types` package needed.
 
 ### When `any` is acceptable (rare)
 
@@ -135,12 +152,25 @@ contextual comments)._
 
 ## Error handling
 
-### Typed errors
+### Two-layer error strategy
 
-Errors are typed discriminated unions, not bare `Error`:
+MarkSync uses two complementary error patterns:
+
+1. **`Result<T, E>` for expected failures** (domain logic, use cases) — the
+   function returns either a success value or a typed error; no throw/catch.
+   This is the 2026 TS consensus for explicit, exhaustive error handling.
+
+2. **Typed `throw` for unexpected failures** (invariants violated, truly
+   exceptional conditions) — discriminated-union error objects thrown to the
+   application-layer boundary, which catches and converts to `CommandResult`.
 
 ```typescript
-// src/domain/errors.ts
+// src/domain/result.ts — the Result type
+export type Result<T, E> =
+  | { ok: true; value: T }
+  | { ok: false; error: E };
+
+// src/domain/errors.ts — typed domain errors (discriminated union)
 export type MarkSyncError =
   | { kind: "Conflict"; pageId: string; baseVersion: number; remoteVersion: number }
   | { kind: "RemoteMissing"; pageId: string }
@@ -150,31 +180,76 @@ export type MarkSyncError =
   | { kind: "LockDirty"; path: string }
   | { kind: "ConcurrentWrite"; lockPath: string }
   | { kind: "RenderUnavailable"; renderer: string; cause: string };
+
+// Usage in domain logic — return Result, don't throw for expected cases:
+function classify(local: Doc, base: Base, remote: Page): Result<SyncState, MarkSyncError> {
+  if (remote.notFound) return { ok: false, error: { kind: "RemoteMissing", pageId: remote.id } };
+  // ...
+  return { ok: true, value: SyncState.LOCAL_AHEAD };
+}
+
+// Usage at the application boundary — catch unexpected throws:
+try {
+  const result = await pushExecutor.apply(plan);
+  if (!result.ok) return toCommandResult(result.error);
+  return { exitCode: 0, data: result.value };
+} catch (e) {
+  // Unexpected — log with context, redact, return generic error
+  logger.error({ err: e }, "unexpected error during apply");
+  return { exitCode: 1, error: "internal error" };
+}
 ```
 
 ### Rules
 
-- **Throw typed errors** — `throw { kind: "Conflict", pageId, ... }` or a typed
-  error class. Never `throw new Error("string")` in domain/infra code.
-- **Catch at boundaries** — the application layer catches `MarkSyncError` and
-  converts to a structured `CommandResult<T>` (ADR-0011). The CLI output service
-  maps `CommandResult` to exit codes + output.
+- **Domain functions return `Result<T, E>`** — no throwing for expected
+  failures (drift, conflict, missing page). The caller handles both branches.
+- **`throw` is for invariant violations** — duplicate UUID (INV-SAFE-3),
+  unreachable code, corrupted lock file. These are "should never happen" cases.
+- **Exhaustive checking** — use `never` in switch statements to ensure all
+  error kinds are handled:
+  ```typescript
+  function handle(error: MarkSyncError): never {
+    switch (error.kind) {
+      case "Conflict": // ...
+      case "RemoteMissing": // ...
+      // ... all cases ...
+      default:
+        const _exhaustive: never = error;
+        throw new Error(`unhandled error: ${_exhaustive}`);
+    }
+  }
+  ```
+- **Catch at boundaries** — the application layer catches thrown errors and
+  converts to `CommandResult<T>` (ADR-0011). The CLI output service maps
+  `CommandResult` to exit codes + output.
 - **No swallowed errors** — every `catch` must either re-throw, log with
   context, or explicitly handle. Empty `catch (e) {}` is forbidden.
 - **Errors carry context** — `pageId`, `sourcePath`, `operation`, `cause`. The
   redaction layer strips any secret material before output.
+- **No `throw new Error("string")`** in domain/infra code — use typed errors.
 
 ## IO boundaries
 
 ### Every external boundary uses runtime validation
 
-| Boundary | Validator | Type |
-|---|---|---|
-| Config file load | `ajv` (JSON Schema) | `ProjectConfig`, `TargetConfig` |
-| Lock file load | `ajv` (JSON Schema) | `LockFile`, `PageBinding` |
-| Confluence API response | `zod` | `ConfluencePage`, `ConfluenceVersion`, `ContentProperty` |
-| CLI input (flags/args) | Cliffy built-in + `zod` | command params |
-| Plan/diagnostics output | `zod` | `Plan`, `DiagnosticEntry` |
+**`zod` is the primary validator** for all IO boundaries (2026 TS consensus:
+better type inference than `ajv`, single-package simplicity). `ajv` is retained
+only for user-authored JSON Schema files (config/lock) where the schema is the
+source of truth and the user may edit it directly.
+
+| Boundary | Validator | Type | Rationale |
+|---|---|---|---|
+| Config file load | `ajv` (JSON Schema) | `ProjectConfig`, `TargetConfig` | User-authored schema; ajv emits human-readable errors |
+| Lock file load | `ajv` (JSON Schema) | `LockFile`, `PageBinding` | Same — schema is the source of truth |
+| Confluence API response | `zod` | `ConfluencePage`, `ConfluenceVersion`, `ContentProperty` | Type inference; programmatic schema |
+| CLI input (flags/args) | Cliffy built-in + `zod` | command params | Type inference; composable |
+| Plan/diagnostics output | `zod` | `Plan`, `DiagnosticEntry` | Type inference; output schema |
+
+> **Zod-first principle:** for any schema that is code-owned (not user-edited),
+> use `zod` — it gives end-to-end TypeScript type inference via `z.infer<typeof
+> schema>`. Use `ajv` only when the schema file itself is a user deliverable
+> (config/lock JSON Schema).
 
 **Rule:** no unvalidated external data enters the domain layer. If data crosses
 a process/system boundary, it passes through a schema.
@@ -185,27 +260,113 @@ a process/system boundary, it passes through a schema.
 - File extensions: `.ts` for source, `.test.ts` for tests. No `.mts` unless
   needed for a specific Bun interop.
 - `package.json` has `"type": "module"`.
+- Use `"exports"` field for public API surface; use `"imports"` field for
+  internal path aliases (preferred over tsconfig `paths`):
+
+```jsonc
+// package.json (target shape — created at MS-0002 start)
+{
+  "type": "module",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" }
+  },
+  "imports": {
+    "#domain/*": "./src/domain/*",
+    "#app/*": "./src/app/*",
+    "#infra/*": "./src/infra/*",
+    "#shared/*": "./src/shared/*"
+  }
+}
+```
+
+> **Why `"imports"` over tsconfig `paths`?** The Node/Bun `"imports"` field is
+> respected at runtime (no build-time path rewriting needed), works in
+> `bun build --compile`, and is the ESM standard. tsconfig `paths` requires a
+> bundler resolver step.
+
+### Bun configuration (`bunfig.toml`)
+
+```toml
+# bunfig.toml (target — created at MS-0002 start)
+[test]
+# Test root and discovery
+root = "tests"
+
+# Mermaid-DOM preload — registers happy-dom global registrant before tests.
+# This ensures Mermaid tests work without passing --preload on every invocation.
+preload = ["./tests/mermaid.preload.ts"]
+
+# Coverage (target thresholds — adjust based on MS-0002 baseline)
+coverage = true
+coverageThreshold = { lines = 0.80, functions = 0.80 }
+coverageDir = "./coverage"
+```
+
+> **`bunfig.toml` vs CI flags:** `bunfig.toml` is the single source of truth for
+> test configuration. CI commands (`bun test`) pick it up automatically. The
+> `preload` entry fixes the Mermaid-DOM setup gap (red-team M-5) so CI does not
+> need a separate `--preload` flag.
 
 ## Linting and formatting
 
-### Linter: Biome (preferred) or ESLint + Prettier
+### Linter: Biome (2026 consensus)
 
-**Decision deferred to `MS-0002` implementation start.** The FSE audit
-(Attribute 6) flags this as a sub-decision. The target is:
+Per 2026 TS ecosystem research, **Biome** is the consensus choice for new
+TypeScript projects — single tool for lint + format, Rust-fast, zero config.
+ESLint + Prettier is the fallback only if a needed plugin is unavailable.
 
 | Tool | Role | Why |
 |---|---|---|
-| **Biome** (preferred) | Lint + format in one tool; Rust-fast; zero config | Single tool; Bun-compatible; fewer dependencies |
-| **ESLint + Prettier** (fallback) | Separate lint + format | Mature ecosystem; more plugins; heavier config |
+| **Biome** (preferred) | Lint + format in one tool; Rust-fast; zero config | Single tool; Bun-compatible; 500+ rules; 10-100x faster than ESLint+Prettier |
+| **dependency-cruiser** | Module-boundary enforcement | Purpose-built for architecture rules; Biome lacks this capability |
+| ESLint + Prettier (fallback) | Separate lint + format | Mature ecosystem; more plugins; heavier config — use only if Biome lacks a needed rule |
 
-**Whichever is chosen:**
+**Scripts:**
 
 - `bun run lint` — lint check (fails CI on errors).
 - `bun run format` — format write.
 - `bun run format:check` — format check (fails CI on unformatted files).
-- Import-boundary enforcement: ESLint `no-restricted-imports` or Biome
-  `lint/style/noRestrictedImports` to enforce tier rules (no `src/domain/**`
-  importing from `src/infra/**`).
+- `bun run check:boundaries` — dependency-cruiser architecture check (fails CI on tier violations).
+
+### Import-boundary enforcement (dependency-cruiser)
+
+Per 2026 research, **dependency-cruiser** is the most effective tool for
+enforcing the tier rules (presentation → application → domain → infrastructure).
+It supports architecture rules as code and is more precise than linter-based
+`no-restricted-imports`. The linter (Biome) does not have this capability.
+
+```jsonc
+// .dependency-cruiser.cjs (target — created at MS-0002 start)
+module.exports = {
+  forbidden: [
+    {
+      name: "domain-may-not-import-infra",
+      from: { path: "src/domain/" },
+      to: { path: "src/infra/" }
+    },
+    {
+      name: "domain-may-not-import-app",
+      from: { path: "src/domain/" },
+      to: { path: "src/app/" }
+    },
+    {
+      name: "presentation-may-not-import-domain",
+      from: { path: "src/cli/" },
+      to: { path: "src/domain/" }
+    },
+    {
+      name: "presentation-may-not-import-infra",
+      from: { path: "src/cli/" },
+      to: { path: "src/infra/" }
+    }
+  ]
+};
+```
+
+> **OPEN-Q2 resolution:** dependency-cruiser is now the recommended mechanism
+> (upgraded from "linter rule" in the initial draft). At `MS-0002` start, create
+> `.dependency-cruiser.cjs` with the rules above and wire `bun run
+> check:boundaries` into CI.
 
 ### Pre-commit hooks (optional)
 
@@ -244,7 +405,7 @@ a process/system boundary, it passes through a schema.
 - **No deep dependency trees.** Prefer zero-dependency libraries (`uuid`,
   `ajv`). Flag any dep with > 20 transitive dependencies.
 - **Pin major versions.** `package.json` uses `^` for minor/patch, but the lock
-  file (`bun.lockb`) is committed and exact.
+  file (`bun.lock` or legacy `bun.lockb`) is committed and exact.
 - **License audit.** `bun run license-audit` (via `license-checker` or
   `osv-scanner`) runs in CI. No GPL/AGPL dependencies (MarkSync is MIT).
 
@@ -264,6 +425,9 @@ a process/system boundary, it passes through a schema.
 
 **No HTTP client library** (`axios`, `node-fetch`). Use native `fetch`.
 **No crypto library.** Use native `crypto.subtle`.
+**No coloring library** (`chalk`). If direct coloring is needed (the output
+service handles this centrally per ADR-0011), use `picocolors` — 14x smaller and
+2x faster than `chalk` (2026 consensus).
 
 ## Git conventions
 

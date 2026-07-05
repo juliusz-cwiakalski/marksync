@@ -57,7 +57,7 @@ bun install
 # 3. Verify the toolchain
 bun run lint
 bun run typecheck
-bun test --filter "!tests/e2e/**"
+bun test tests/unit/ tests/integration/ tests/golden/ tests/bdd/
 
 # 4. (Optional) Set up local credentials for live testing
 cp .env.example .env.local

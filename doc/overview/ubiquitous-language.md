@@ -91,7 +91,12 @@ events) and their relationships. Distinct from the reader-friendly
 | **Link Resolver** | Domain service that resolves local Markdown cross-document links to target-system page IDs/URLs so internal links work after sync. | Domain service | used by → Hierarchy Planner |
 | **Asset Resolver** | Domain service that prepares images/attachments: safe path resolution, content hashing, deduplication. | Domain service | — |
 | **Mermaid Artifact Manager** | Domain service that calculates Mermaid content hashes, detects whether a hash already exists on the target, and orchestrates render→upload→reference. | Domain service | used by → Push Executor |
-| **Push Executor** | Infrastructure service that performs ordered safe writes via the `TargetSystem` port, journals each mutation, and handles optimistic concurrency (409). | Infrastructure service | consumes → Plan; produces → Page Published, Drift Detected |
+
+### Infrastructure Services
+
+| Term | Meaning | Type | Relationships |
+|---|---|---|---|
+| **Push Executor** | Infrastructure service that performs ordered safe writes via the `TargetSystem` port, journals each mutation, and handles optimistic concurrency (409). Included here because it owns the journal/409 contract that the domain depends on. | Infrastructure service | consumes → Plan; produces → Page Published, Drift Detected |
 
 ## Context map
 
