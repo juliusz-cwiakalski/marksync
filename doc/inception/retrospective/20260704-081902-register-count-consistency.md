@@ -8,6 +8,8 @@ outcome: improve
 
 # Retrospective — Register count consistency
 
+> **ADOS outcome (2026-07-05):** NOT promoted — too narrow/operational (a one-off register-count fix, not a reusable inception behavior). No ticket.
+
 ## What happened
 
 While applying Phase 2 red-team findings, the assumption/risk registers changed

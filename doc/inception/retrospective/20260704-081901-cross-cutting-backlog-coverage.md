@@ -8,6 +8,8 @@ outcome: repeat
 
 # Retrospective — Cross-cutting backlog coverage
 
+> **ADOS outcome (2026-07-05):** → [GH-137](https://github.com/juliusz-cwiakalski/agentic-delivery-os/issues/137) (Practice 4 — cross-cutting coverage, genericized: concerns are project-derived, not a fixed list). Related delivery-time tickets: [GH-105](https://github.com/juliusz-cwiakalski/agentic-delivery-os/issues/105), epic [GH-104](https://github.com/juliusz-cwiakalski/agentic-delivery-os/issues/104).
+
 ## What happened
 
 ADOS issue [#105](https://github.com/juliusz-cwiakalski/agentic-delivery-os/issues/105) highlighted a failure mode: functional decomposition can hide

@@ -8,6 +8,8 @@ outcome: repeat
 
 # Retrospective — Measurable proxies over aspirations
 
+> **ADOS outcome (2026-07-05):** → [GH-137](https://github.com/juliusz-cwiakalski/agentic-delivery-os/issues/137) (Practice 3 — measurable-proxy discipline, encoded as conditional guidance triggered when metrics/NSMs/guardrails are authored).
+
 ## What happened
 
 The Phase 1 north star initially defined a strong but hard-to-measure North Star

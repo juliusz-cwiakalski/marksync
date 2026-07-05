@@ -1,5 +1,7 @@
 # Retrospective — Open questions as persisted in-git files
 
+> **ADOS outcome (2026-07-05):** → [GH-137](https://github.com/juliusz-cwiakalski/agentic-delivery-os/issues/137) (Practice 2 — per-phase open-questions files with stable `OPEN-Q<N>` IDs).
+
 **Date:** 2026-07-04
 **Phase:** 3
 **Topic:** Recording inception open questions in durable per-phase files instead of ephemeral PR comments.

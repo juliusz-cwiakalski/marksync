@@ -8,6 +8,8 @@ outcome: improve
 
 # Retrospective — ADOS glossary for process terms and acronyms
 
+> **ADOS outcome (2026-07-05):** → [GH-70](https://github.com/juliusz-cwiakalski/agentic-delivery-os/issues/70) (captured as a comment with the full process-term list; no new ticket — already inside #70's "doc/overview/glossary.md exists for ADOS" AC).
+
 ## What happened
 
 The owner asked what **NSM** means while reviewing the roadmap. The answer is

@@ -8,6 +8,8 @@ outcome: repeat
 
 # Retrospective — Make phase retrospectives a standing practice
 
+> **ADOS outcome (2026-07-05):** → [GH-137](https://github.com/juliusz-cwiakalski/agentic-delivery-os/issues/137) (Practice 1 — per-phase retrospective, PRIMARY).
+
 ## What happened
 
 The owner requested that inception capture process lessons continuously, not only
