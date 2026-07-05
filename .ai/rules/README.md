@@ -27,9 +27,11 @@ Agents (especially `@plan-writer` and `@coder`) should consult this index to det
 
 | Task/Context | Rule File | Description |
 |---|---|---|
-| Bash scripting | `bash.md` | Bash coding standards, safety rules, testing framework |
-| Installer scripts | `installer.md` | Cross-platform installer UX, PATH handling, dependency installation rules |
-| Testing strategy | `testing-strategy.md` | Test types, coverage requirements, framework conventions |
+| TypeScript / Bun coding | `typescript.md` | Module structure, naming, error handling, IO boundaries, linting, formatting, comments, dependency management |
+| Testing | `testing-strategy.md` | Test tiers, coverage requirements, snapshot rules, AI-agent over-mocking guardrail, CI wiring, BDD invariants |
+| Bash scripting | `bash.md` | Bash coding standards, safety rules, testing framework _(not yet created — create at `MS-0002` when Bash scripts are added)_ |
+| Installer scripts | `installer.md` | Cross-platform installer UX, PATH handling, dependency installation rules _(not yet created)_ |
+| Security | `../../doc/guides/security-baseline.md` | Secret management, redaction, dependency audit, converter injection safety _(in `doc/guides/` for visibility)_ |
 
 ## How agents use rules
 

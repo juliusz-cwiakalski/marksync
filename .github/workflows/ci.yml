@@ -1,0 +1,158 @@
+# MarkSync CI — fast loop (lint + typecheck + test on every push/PR)
+#
+# Runs on: Node 22 (Bun installed via setup-bun). E2E/lite-sandbox tests are
+# gated separately (run-e2e.yml) to keep the fast loop stable.
+#
+# Implements: TDR-0004 (bun:test primary runner), FSE-audit Attribute 5/6,
+# NFR-SEC-4 (dependency audit).
+#
+# Status: Phase 4 baseline. Scripts (lint, typecheck, test) assume the
+# package.json that will be created at MS-0002 implementation start. Until
+# then, CI will pass trivially (no source to lint/test).
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-progress runs for the same ref to save runner time.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fast-loop:
+    name: Lint + Typecheck + Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        # MS-0002 target: Linux + Windows. macOS deferred to MS-0003.
+        # Windows added at MS-0002 implementation start.
+        bun-version: ["1.2"]  # pin to a concrete patch at MS-0002 start (snapshot stability)
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ matrix.bun-version }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        continue-on-error: true # no package.json yet during inception
+
+      - name: Lint
+        run: bun run lint
+        continue-on-error: true # no linter configured yet during inception
+
+      - name: Typecheck
+        run: bun run typecheck
+        continue-on-error: true # no tsconfig.json yet during inception
+
+      - name: Test (unit + integration + golden — exclude E2E)
+        run: bun test tests/unit/ tests/integration/ tests/golden/ tests/bdd/ || true
+        # During inception there are no tests; `|| true` keeps CI green.
+        # Exclude E2E (live-sandbox) from the fast loop — Bun's --filter matches
+        # test names, not file paths, so we pass positional directory arguments.
+        # At MS-0002 start, remove `|| true`.
+
+      - name: Snapshot stability check
+        run: bun test tests/golden/ || true
+        # Verifies golden fixtures are byte-stable (ADR-0002 C-1).
+        # No golden fixtures during inception; `|| true` until MS-0002.
+
+  dependency-audit:
+    name: Dependency + License Audit
+    runs-on: ubuntu-latest
+    # Runs only when a lockfile changes or on release tags.
+    # Bun 1.2 defaults to bun.lock (text); legacy bun.lockb (binary) also accepted.
+    if: hashFiles('bun.lock') != '' || hashFiles('bun.lockb') != ''
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Determine lockfile name
+        id: lockfile
+        run: |
+          if [ -f bun.lock ]; then echo "name=bun.lock" >> "$GITHUB_OUTPUT"
+          elif [ -f bun.lockb ]; then echo "name=bun.lockb" >> "$GITHUB_OUTPUT"
+          else echo "No lockfile found" >&2; exit 1; fi
+
+      - name: Vulnerability scan (osv-scanner)
+        run: |
+          # osv-scanner scans the lockfile for known vulnerabilities (NFR-SEC-4)
+          npx @google/osv-scanner --lock-file "${{ steps.lockfile.outputs.name }}" || true
+        continue-on-error: true # advisory during inception; make blocking at MS-0002
+
+      - name: License audit
+        run: |
+          # Reject GPL/AGPL/LGPL/UNLICENSED dependencies (MarkSync is MIT)
+          npx license-checker --production --failOn "GPL;AGPL;LGPL;UNLICENSED" || true
+        continue-on-error: true # advisory during inception; make blocking at MS-0002
+
+  doc-yaml-lint:
+    name: YAML + Markdown lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate YAML files
+        run: |
+          # Validate all YAML files in the repo parse correctly (doc + workflows)
+          python3 -c "
+          import yaml, sys, glob
+          files = (
+            glob.glob('doc/**/*.yaml', recursive=True) +
+            glob.glob('doc/**/*.yml', recursive=True) +
+            glob.glob('.github/workflows/*.yml') +
+            glob.glob('.github/workflows/*.yaml')
+          )
+          errors = []
+          for f in files:
+            try:
+              yaml.safe_load(open(f))
+            except Exception as e:
+              errors.append(f'{f} — {e}')
+          if errors:
+            for e in errors:
+              print(f'FAIL: {e}', file=sys.stderr)
+            sys.exit(1)
+          print(f'OK: {len(files)} YAML files validated')
+          "
+
+      - name: Check Markdown links
+        run: |
+          # Basic check: every relative .md link in doc/ resolves to a file.
+          # Uses Python to avoid adding a dependency during inception.
+          python3 -c "
+          import re, os, sys, glob
+          link_re = re.compile(r'\[^[]]*\]\(([^)]+\.md[^)]*)\)')
+          errors = []
+          for md_file in glob.glob('doc/**/*.md', recursive=True):
+              dir_of = os.path.dirname(md_file)
+              with open(md_file) as f:
+                  for line_no, line in enumerate(f, 1):
+                      for match in link_re.finditer(line):
+                          target = match.group(1).split('#')[0].split(' ')[0]
+                          if target.startswith('http') or target.startswith('mailto'):
+                              continue
+                          resolved = os.path.normpath(os.path.join(dir_of, target))
+                          if not os.path.exists(resolved):
+                              errors.append(f'{md_file}:{line_no} — broken link: {target} (resolved: {resolved})')
+          if errors:
+              for e in errors[:50]:  # cap output
+                  print(f'BROKEN: {e}', file=sys.stderr)
+              if len(errors) > 50:
+                  print(f'... and {len(errors) - 50} more', file=sys.stderr)
+              sys.exit(1)
+          print('OK: all relative Markdown links resolve')
+          "
