@@ -6,7 +6,7 @@ id: PHASE-4-OPEN-QUESTIONS
 status: Draft
 created: 2026-07-05
 last_updated: 2026-07-05
-owners: [Juliusz Ćwiąkalski]
+owners: [ Juliusz Ćwiąkalski ]
 area: process
 document_classification: current-truth
 summary: "Phase 4 open questions — persisted in-git so answers are durable and reviewable. Answer inline; the bootstrapper incorporates answers into artifacts."
@@ -29,7 +29,7 @@ _Status values: `OPEN` (awaiting answer) · `ANSWERED` (incorporated) · `DEFERR
 
 ### [OPEN-Q1] Linter/formatter pick — Biome vs ESLint+Prettier
 
-**Status:** DEFERRED
+**Status:** ANSWERED
 
 **Question:** The FSE audit (Attribute 6) flags the linter pick as a Phase 4
 sub-decision. The typescript.md conventions file records Biome as preferred
@@ -52,16 +52,15 @@ ESLint+Prettier only if a needed plugin is unavailable.
 
 ### Answer
 
-_Deferred to `MS-0002` implementation start._
-
-_→ If you want to pick now, edit this section. Otherwise, the default is Biome at
-`MS-0002` start unless you say otherwise._
+Make a decision record for this decision using `@decision-advisor` agent.
+I'd prefer to take decision now in phase 4 before we move on.
+Have no real preferences - so can choose whatever will be evaluated as best option in the decision process.
 
 ---
 
 ### [OPEN-Q2] Import-boundary enforcement mechanism
 
-**Status:** DEFERRED
+**Status:** ANSWERED
 
 **Question:** The architecture defines tier rules (presentation → application →
 domain → infrastructure) and the dependency-direction matrix forbids upward
@@ -90,16 +89,17 @@ positives/negatives.
 
 ### Answer
 
-_Deferred to `MS-0002` implementation start._
-
-_→ If you want to pick now, edit this section. Otherwise, the default is linter
-rule at `MS-0002` start._
-
+I don't know available tools in typescript ecosystem.
+The `dependency cruisier` sounds reasonable but I'd like just to make a decision record for this topic and choose what will come out as best during the evaluation.
+What would be most important for me is that AI coding agents would receive clear feedback if they woudl violate the dependencies rules and this must be accurate.
+Make this decision via the `@decision-advisor` agent and choose the best option.
+I'd also prefer a battle tested solution that is easily maintainable in the long run rather than self maintaned custom scripting/solutions. Main driver is solid enforcement, ease of maintenance in the long run and AI first focus (clear feedback for AI coding agents.)
+Let's create decision record for this decision.
 ---
 
 ### [OPEN-Q3] Gherkin runner — `@cucumber/cucumber` vs thin wrapper
 
-**Status:** DEFERRED
+**Status:** ANSWERED
 
 **Question:** TDR-0004 specifies lifecycle-invariant BDD (INV-SAFE-1/2/3,
 INV-SEC-1) via `@cucumber/cucumber` "or a thin wrapper." The testing-strategy.md
@@ -121,15 +121,23 @@ the dependency proves heavy.
 
 ### Answer
 
-_Deferred to `MS-0002` implementation start._
-
-_→ If you want to pick now, edit this section._
+Again involve `@decision-advisor`. I prefer rock solid solution - if `@cucumber/cucumber` is battel tested and standard then let's use it.
+Driver here is long term maintainability. I don't mind dependencie (especially if they don't increase the end binary size).
+Let's record it as decision record.
 
 ---
 
 ## Answered this phase
 
-_(None yet.)_
+- **[OPEN-Q1]** Linter/formatter → ANSWERED. Decision record created: [TDR-0005](../../decisions/TDR-0005-linter-and-formatter.md) (Biome).
+- **[OPEN-Q2]** Import-boundary enforcement → ANSWERED. Decision record created: [TDR-0006](../../decisions/TDR-0006-import-boundary-enforcement.md) (dependency-cruiser).
+- **[OPEN-Q3]** Gherkin runner → ANSWERED. Decision record created: [TDR-0007](../../decisions/TDR-0007-gherkin-bdd-runner.md) (@cucumber/cucumber).
+- **[OPEN-Q4]** Accessibility baseline → ANSWERED. Document created: [`doc/guides/accessibility-baseline.md`](../../guides/accessibility-baseline.md). Focus: CLI/AI/CI usability; JSON output is the primary accessible path; not a hard compliance requirement.
+- **[OPEN-Q5]** Performance baseline → ANSWERED. Section added to [`testing-strategy.md`](../../../.ai/rules/testing-strategy.md). Minimal mock-based scenarios; deferred wiring to MS-0003+.
+- **[OPEN-Q6]** version.message limit → ANSWERED. Researched via @external-researcher: limit is undocumented; live API spike needed at MS-0002 start.
+- **[OPEN-Q7]** Conventional Commits → ANSWERED. Decision record created: [TDR-0008](../../decisions/TDR-0008-conventional-commits-enforcement.md) (commitlint + husky + CI).
+- **[OPEN-Q8]** keytar spike → DEFERRED to MS-0002 backlog planning.
+- **[OPEN-Q9]** CI unguard checklist → DEFERRED to MS-0002 implementation start.
 
 ---
 
@@ -139,9 +147,9 @@ _The Phase 4 anti-sycophancy technique is "unknown-unknowns." The red-team
 review identified gaps that are not Phase 4 blockers but must be tracked so
 they become known-knowns before `MS-0002` implementation._
 
-### [OPEN-Q4] Accessibility baseline for NFR-A11Y-2/3 — DEFERRED
+### [OPEN-Q4] Accessibility baseline for NFR-A11Y-2/3 — ANSWERED
 
-**Status:** DEFERRED
+**Status:** ANSWERED
 
 **Question:** NFR-A11Y-1 (no color dependency) is partially covered by
 `MARKSYNC_NO_COLOR` in `.env.example` and the non-interactive auto-detect in
@@ -161,13 +169,16 @@ path, and the provenance panel/footer content contract. Wire a
 
 ### Answer
 
-_Deferred to `MS-0002` implementation start._
+yeah - we can create this document.
+use best practices for color/no-color etc.
+however, accessible in our project context is not a hard requirement.
+more relevant is to make it easy to use via cli + for AI/CI
 
 ---
 
-### [OPEN-Q5] Performance measurement baseline for product NFRs — DEFERRED
+### [OPEN-Q5] Performance measurement baseline for product NFRs — ANSWERED
 
-**Status:** DEFERRED
+**Status:** ANSWERED
 
 **Question:** `testing-strategy.md` defines a repo-local **test-suite**
 benchmark (TDR-0004 §8) but there is no methodology or target artifact for the
@@ -188,13 +199,14 @@ at `MS-0002` end" even if targets are soft.
 
 ### Answer
 
-_Deferred to `MS-0002` implementation start._
+Let's desing limited performance test suite - we should mock confluece apis and only measure the start times, mem usage (if possible) and integration time per site etc (define some high level performance scenarios).
+Let's keep the performance test to a minimum and mayve even defer them to MS-0003 or later.
 
 ---
 
-### [OPEN-Q6] Provenance `version.message` length-limit spike — DEFERRED
+### [OPEN-Q6] Provenance `version.message` length-limit spike — ANSWERED
 
-**Status:** DEFERRED
+**Status:** ANSWERED
 
 **Question:** ADR-0006, ADR-0010, NFR-REL-9/11, and UNCERT-3 all depend on a
 **verification spike** for the Confluence `version.message` /
@@ -214,13 +226,24 @@ the verified limit number, which feeds NFR-REL-11 acceptance criteria.
 
 ### Answer
 
-_Deferred to `MS-0002` backlog planning._
+yeah, let's add this to MS-0002 backlog planning + we can research with `@external-researcher` if confluence API specifies it (maybe we don't need spike here)
+
+_→ Researched via @external-researcher (2026-07-05): The Confluence Cloud REST
+API v2 documentation does **not** specify a maximum length for the
+`version.message` field. No `maxLength` constraint is documented in the v2
+page update (PUT /pages/{id}) or version endpoints. The limit remains
+undocumented and requires a **live API spike** at `MS-0002` start to determine:_
+1. _The exact character/byte limit (by sending progressively longer messages)._
+2. _Whether the API truncates silently or returns an error._
+3. _The deterministic trimming strategy based on the verified limit._
+
+_Added to MS-0002 backlog planning as SPIKE-N prerequisite._
 
 ---
 
-### [OPEN-Q7] Conventional Commits enforcement — DEFERRED
+### [OPEN-Q7] Conventional Commits enforcement — ANSWERED
 
-**Status:** DEFERRED
+**Status:** ANSWERED
 
 **Question:** `typescript.md` §"Git conventions" mandates Conventional Commits
 (`type(scope): description`, ≤72 chars), but there is no `commitlint`, no CI
@@ -240,7 +263,9 @@ human-authored summaries, not per-commit messages).
 
 ### Answer
 
-_Deferred — enforcement at Phase 5 (PR template) or `MS-0002` start (commitlint)._
+I like the idea of commitlint tooling. we can enable it (guess it's some sort of pre-commit hook?).
+record this as decision record -> via @decision-advisor
+
 
 ---
 

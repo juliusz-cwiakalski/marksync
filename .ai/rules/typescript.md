@@ -10,7 +10,7 @@ owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
-  related_decisions: [ADR-0001, ADR-0006, ADR-0011, TDR-0002, TDR-0003, TDR-0004]
+  related_decisions: [ADR-0001, ADR-0006, ADR-0011, TDR-0002, TDR-0003, TDR-0004, TDR-0005, TDR-0006, TDR-0008]
   related_changes: []
   summary: "TypeScript + Bun conventions — module structure, naming, error handling, IO boundaries, linting, formatting for MarkSync."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
@@ -84,12 +84,8 @@ contextual comments)._
 
 ## TypeScript configuration (target)
 
-_Updated per 2026 TypeScript + Bun best-practices research. Key changes from
-initial draft: `verbatimModuleSyntax` replaces `esModuleInterop`; `isolatedModules`
-required for Bun; modern strict flags added._
-
 ```jsonc
-// tsconfig.json (target — established in Phase 4)
+// tsconfig.json
 {
   "compilerOptions": {
     "target": "ESNext",
@@ -264,7 +260,7 @@ a process/system boundary, it passes through a schema.
   internal path aliases (preferred over tsconfig `paths`):
 
 ```jsonc
-// package.json (target shape — created at MS-0002 start)
+// package.json
 {
   "type": "module",
   "exports": {
@@ -287,7 +283,7 @@ a process/system boundary, it passes through a schema.
 ### Bun configuration (`bunfig.toml`)
 
 ```toml
-# bunfig.toml (target — created at MS-0002 start)
+# bunfig.toml
 [test]
 # Test root and discovery
 root = "tests"
@@ -304,16 +300,15 @@ coverageDir = "./coverage"
 
 > **`bunfig.toml` vs CI flags:** `bunfig.toml` is the single source of truth for
 > test configuration. CI commands (`bun test`) pick it up automatically. The
-> `preload` entry fixes the Mermaid-DOM setup gap (red-team M-5) so CI does not
-> need a separate `--preload` flag.
+> `preload` entry ensures Mermaid-DOM tests work without passing `--preload` on
+> every invocation.
 
 ## Linting and formatting
 
-### Linter: Biome (2026 consensus)
+### Linter: Biome
 
-Per 2026 TS ecosystem research, **Biome** is the consensus choice for new
-TypeScript projects — single tool for lint + format, Rust-fast, zero config.
-ESLint + Prettier is the fallback only if a needed plugin is unavailable.
+**Biome** is the linter/formatter — single tool for lint + format, Rust-fast,
+zero config.
 
 | Tool | Role | Why |
 |---|---|---|
@@ -330,13 +325,12 @@ ESLint + Prettier is the fallback only if a needed plugin is unavailable.
 
 ### Import-boundary enforcement (dependency-cruiser)
 
-Per 2026 research, **dependency-cruiser** is the most effective tool for
-enforcing the tier rules (presentation → application → domain → infrastructure).
-It supports architecture rules as code and is more precise than linter-based
-`no-restricted-imports`. The linter (Biome) does not have this capability.
+**dependency-cruiser** is the module-boundary enforcement tool — purpose-built
+for architecture rules, rules-as-code, and clear violation feedback for AI
+agents.
 
 ```jsonc
-// .dependency-cruiser.cjs (target — created at MS-0002 start)
+// .dependency-cruiser.cjs
 module.exports = {
   forbidden: [
     {
@@ -363,12 +357,7 @@ module.exports = {
 };
 ```
 
-> **OPEN-Q2 resolution:** dependency-cruiser is now the recommended mechanism
-> (upgraded from "linter rule" in the initial draft). At `MS-0002` start, create
-> `.dependency-cruiser.cjs` with the rules above and wire `bun run
-> check:boundaries` into CI.
-
-### Pre-commit hooks (optional)
+### Pre-commit hooks
 
 - `husky` + `lint-staged` if the maintainer wants auto-format on commit.
 - Not mandatory; CI catches unformatted code regardless.
@@ -426,8 +415,8 @@ module.exports = {
 **No HTTP client library** (`axios`, `node-fetch`). Use native `fetch`.
 **No crypto library.** Use native `crypto.subtle`.
 **No coloring library** (`chalk`). If direct coloring is needed (the output
-service handles this centrally per ADR-0011), use `picocolors` — 14x smaller and
-2x faster than `chalk` (2026 consensus).
+service handles this centrally per ADR-0011), use `picocolors` — lightweight and
+fast.
 
 ## Git conventions
 

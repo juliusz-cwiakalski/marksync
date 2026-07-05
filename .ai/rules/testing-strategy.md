@@ -31,7 +31,7 @@ load and follow this file._
 | **Integration** | `bun:test` + `Bun.serve()` mock | Confluence adapter (HTTP mock), Git adapter (temp repo), lock/journal store, push executor, credential provider | Adapter boundary correctness; 409 drift detection; REST v2/v1 isolation | Every push |
 | **Golden fixture** | `bun:test` `toMatchSnapshot` / `toMatchInlineSnapshot` | Markdown → Storage renderer output (ADR-0005); Mermaid render SVG output (ADR-0002 C-1 determinism) | Byte-stable deterministic output; no silent snapshot regeneration | Every push |
 | **Mermaid-DOM** | `bun:test` + `happy-dom` (via `@happy-dom/global-registrator` + Bun preload) | Mermaid rendering via official lib in headless DOM | Renderer works in-process; deterministic SVG + IDs | Every push (if spike passes) |
-| **Gherkin / BDD** | `@cucumber/cucumber` or thin wrapper | **Lifecycle invariants only** (INV-SAFE-1, INV-SAFE-2, INV-SAFE-3, INV-SEC-1) | Release-blocking safety properties | Every push |
+| **Gherkin / BDD** | `@cucumber/cucumber` (TDR-0007) | **Lifecycle invariants only** (INV-SAFE-1, INV-SAFE-2, INV-SAFE-3, INV-SEC-1) | Release-blocking safety properties | Every push |
 | **E2E (live-sandbox)** | Thin runner script | Real Confluence test space: page CRUD, content properties, version-conflict 409, attachments | End-to-end correctness against real API | Separate CI gate (scheduled or labelled) |
 
 ## Naming and layout conventions
@@ -209,6 +209,36 @@ regressions.
 bun test tests/unit/ tests/integration/ tests/golden/ --time  # record timings
 # compare to .benchmarks/baseline.json
 ```
+
+## Product performance scenarios (minimal — deferred to MS-0003+)
+
+_Product NFRs (NFR-PERF-1 binary size, NFR-PERF-2 cold start, NFR-PERF-5
+conversion latency) are "desired, not hard" targets. The performance test suite
+is intentionally minimal and may be deferred to `MS-0003` or later._
+
+### High-level scenarios
+
+| Scenario | What it measures | How | Target |
+|---|---|---|---|
+| **Binary size** | `bun build --compile` output size per OS/arch | `ls -la dist/marksync-*` | ~90 MB (desired, not hard) |
+| **Cold start** | Time from binary launch to first output | `time ./marksync --version` on clean OS | ~2 s (desired, not hard) |
+| **Conversion latency** | Per-page Markdown→Storage render | Mock Confluence API; time the pipeline for ~10 pages | ≤200 ms p95 (informational) |
+| **Memory usage** | Peak RSS during a sync run | `/usr/bin/time -v` wrapper | Track only; no fixed target |
+
+### Implementation approach
+
+- **Mock Confluence APIs** — no live network calls; `Bun.serve()` mock HTTP.
+- **Small fixture set** — ~10 representative pages (headings, tables, code,
+  Mermaid, images), not the full 500-page scale.
+- **Commit-tracked** — results stored in `.benchmarks/baseline.json`; CI
+  reports deltas, not absolute pass/fail.
+- **Deferred wiring** — this suite is not blocking for `MS-0002`. First
+  measurement at `MS-0002` end or `MS-0003` start.
+
+> **Design principle:** keep performance testing minimal. The primary defense
+> against performance regressions is code review and the test-suite benchmark
+> gate above. Product-level performance scenarios exist to catch large
+> regressions, not to enforce micro-optimizations.
 
 ## Anti-patterns (rejected)
 
