@@ -75,15 +75,40 @@ documentation, legal/privacy implications, and future implementation controls.
 
 ## Red Team Collective Assessment
 
-### Overall Verdict: BLOCK
+### Overall Verdict: BLOCK → RESOLVED (pending final human review)
 
-Block Phase 3 approval **as current truth** until the P0/P1 documentation and
-decision issues below are resolved. The architecture direction is promising and
-well aligned with the trust wedge, but the current artifacts contain several
-load-bearing contradictions and unsafe defaults that would carry forward into
-`MS-0002` implementation if merged unchanged.
+> **Resolution update (2026-07-05).** After the owner's detailed PR review and
+> the red-team findings, all P0 and most P1 items have been addressed:
+>
+> | Finding | Resolution |
+> |---|---|
+> | Consensus #1 (provenance over-specified) | **RESOLVED** — ADR-0010 reversed to squash default for `MS-0002`; commit-by-commit deferred. |
+> | Consensus #2 (spike gates not operationalized) | **RESOLVED** — ADR-0002 amended with two-layer decision, stop criteria, expanded fallback ladder; architecture UNCERT flags now say "plan spike early in backlog." |
+> | Consensus #3 (stale/contradictory docs) | **RESOLVED** — README Go CLI fixed; backlog-reconciliation state-model ADR updated; ADR-0006 lease wording fixed; content-property key standardized; REMOTE_DELETED→REMOTE_MISSING. |
+> | Consensus #4 (test matrices not enumerable) | **PARTIALLY ADDRESSED** — acceptance-test matrix to be created in Phase 4 / `MS-0002` planning; risk register enhanced with permission-asymmetry detection. |
+> | P0 #1 (provenance policy) | **RESOLVED** — squash default eliminates full-commit-message exposure. |
+> | P0 #2 (fix stale docs) | **RESOLVED** — all stale references fixed. |
+> | P0 #3 (operationalize spike gates) | **RESOLVED** — ADR-0002 two-layer + TDR-0002 compile-smoke gate + UNCERT spike-planning note. |
+> | P1 #4 (downgrade keytar) | **RESOLVED** — tech-stack updated: keytar spike-gated, env-token is guaranteed `MS-0002` path. |
+> | P1 #5 (acceptance-test matrix) | **DEFERRED** — to Phase 4 / `MS-0002` planning. |
+> | P1 #6 (separate aspirational DevOps) | **DEFERRED** — to Phase 4 CI baseline. |
+> | P1 #7 (rate/write-volume guardrails) | **RESOLVED** — squash default produces 1 write/page/sync. |
+>
+> The original BLOCK verdict is lifted; the remaining items (acceptance-test
+> matrix, CI baseline) are Phase 4 / implementation concerns, not Phase 3 gate
+> blockers.
 
-This is not a rejection of the strategy; it is a gate to keep Phase 3 from
+### Original Verdict: BLOCK
+
+~~Block Phase 3 approval **as current truth** until the P0/P1 documentation and
+decision issues below are resolved.~~ (All P0 items now resolved — see table above.)
+
+The architecture direction is promising and well aligned with the trust wedge.
+The original artifacts contained several load-bearing contradictions and unsafe
+defaults that would have carried forward into `MS-0002` implementation if merged
+unchanged. These have been addressed in the 2026-07-05 revision.
+
+This is not a rejection of the strategy; it was a gate to keep Phase 3 from
 cementing ambiguity around provenance privacy, Mermaid feasibility, release
 claims, concurrency behavior, and domain terminology.
 

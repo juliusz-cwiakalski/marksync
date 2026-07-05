@@ -39,36 +39,36 @@ _→ Incorporated: ADR-0001…0005 moved to `doc/decisions/`; index updated._
 
 ---
 
-### [OPEN-Q2] CLI framework — ANSWERED (→ ADR-0007)
+### [OPEN-Q2] CLI framework — ANSWERED (→ TDR-0002)
 
 **Question:** `tech-stack.md` recommended Cliffy. Confirm Cliffy, or pick another?
 
 ### Answer
 Create a dedicated decision record for choosing the CLI stack, document options considered so far and recommendation. I'll evaluate and review the ADR (delegate to `@decision-advisor`).
 
-_→ Incorporated: `doc/decisions/ADR-0007-cli-framework.md` (Proposed) recommends Cliffy; awaiting your review._
+_→ Incorporated: `doc/decisions/TDR-0002-cli-framework.md` (Proposed) recommends Cliffy; awaiting your review._
 
 ---
 
-### [OPEN-Q3] Git adapter — ANSWERED (→ ADR-0008)
+### [OPEN-Q3] Git adapter — ANSWERED (→ TDR-0003)
 
 **Question:** Keep shell-Git (spec default) or switch to `isomorphic-git` for zero external runtime deps?
 
 ### Answer
 Probably any user of this tool would already have git, but maybe it would be easier to integrate with some native library for better git handling (+ less dependencies, keep single binary). Create a decision record, list all the alternatives and recommend the best one (delegate to `@decision-advisor`) — I'll review the decision record in the pull request.
 
-_→ Incorporated: `doc/decisions/ADR-0008-git-adapter.md` (Proposed) recommends shell-Git behind the `Repository` interface; awaiting your review._
+_→ Incorporated: `doc/decisions/TDR-0003-git-adapter.md` (Proposed) recommends shell-Git behind the `Repository` interface; awaiting your review._
 
 ---
 
-### [OPEN-Q4] Testing runner — ANSWERED (→ ADR-0009)
+### [OPEN-Q4] Testing runner — ANSWERED (→ TDR-0004)
 
 **Question:** Bun built-in test runner vs vitest?
 
 ### Answer
 No real preference here (no experience in this kind of setup). Create a decision record and properly evaluate options in context of MarkSync and suggest best choice for our case.
 
-_→ Incorporated: `doc/decisions/ADR-0009-testing-runner.md` (Proposed) recommends `bun:test` + thin E2E runner; awaiting your review._
+_→ Incorporated: `doc/decisions/TDR-0004-testing-runner.md` (Proposed) recommends `bun:test` + thin E2E runner; awaiting your review._
 
 ---
 

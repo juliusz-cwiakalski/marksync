@@ -29,8 +29,8 @@ binding. `MS-0002` NFRs are release-blocking guardrails unless marked
 
 | ID | Requirement | Target | Source / rationale |
 |---|---|---|---|
-| NFR-PERF-1 | Binary size | ≤ 90 MB per OS/arch | A-FEA-10; ADR-0001 accepted tradeoff |
-| NFR-PERF-2 | Cold-start time | ≤ 2 s on reference hardware | A-FEA-10; CI/agent operability |
+| NFR-PERF-1 | Binary size | ~90 MB per OS/arch (**desired**, not hard — larger acceptable if the job gets done) | ADR-0001 accepted tradeoff; owner direction (PR #4) |
+| NFR-PERF-2 | Cold-start time | ~2 s on reference hardware (**desired**, not hard — longer acceptable for intermittent CLI / async CI) | Owner direction (PR #4) |
 | NFR-PERF-3 | Managed-page scale | ≤ ~500 managed pages per target in `MS-0002` | A-FEA-10; correctness first; large-repo incremental deferred |
 | NFR-PERF-4 | Idempotent rerun | A second semantically-unchanged push performs 0 writes | Roadmap metric; R-FEA-8 |
 | NFR-PERF-5 | Conversion latency | Per-page Markdown→Storage render ≤ 200 ms (p95) at ≤500 pages | informational; validates subset performance |
@@ -58,7 +58,7 @@ binding. `MS-0002` NFRs are release-blocking guardrails unless marked
 | NFR-REL-6 | REMOTE_DELETED invariant | A remotely-deleted managed page is never silently re-created | INV-SAFE-2; roadmap invariant |
 | NFR-REL-7 | Partial-apply recoverability | An interrupted apply is recoverable via journal replay / `repair-state` without duplicates | R-FEA-4; spec §9.3/§9.8 |
 | NFR-REL-8 | Duplicate-UUID fatal | Two source docs with the same UUID halt before any write | INV-SAFE-3; ADR-0006 |
-| NFR-REL-9 | Per-version provenance | Each MarkSync-applied page version carries a clear MarkSync/Git prefix, commit id, and commit message in `version.message`; direct Confluence edits are identifiable (no marker). Squashed updates include a compact commit list. | ADR-0006; ADR-0010; OPEN-Q6 |
+| NFR-REL-9 | Per-version provenance | Each MarkSync-applied page version carries a clear MarkSync/Git prefix, head commit id, and compact commit summary in `version.message`; direct Confluence edits are identifiable (no marker). **Squash mode only for `MS-0002`**; commit-by-commit deferred to a future milestone. | ADR-0006; ADR-0010 (revised) |
 | NFR-REL-10 | Decentralized concurrency | Two runners on separate machines (no shared service) cannot silently overwrite (409 gates stale write) | ADR-0006 C-6 |
 | NFR-REL-11 | Version-message length handling | Confluence `version.message` / history-description length limit is verified before implementation; commit-by-commit and squashed messages trim deterministically with a clear marker when required | ADR-0010 |
 
@@ -76,12 +76,12 @@ binding. `MS-0002` NFRs are release-blocking guardrails unless marked
 
 | ID | Requirement | Target | Source / rationale |
 |---|---|---|---|
-| NFR-COMP-1 | Cross-OS support | Linux, macOS, Windows (amd64 + arm64 where supported) | ADR-0001 C-3; spec NFR-012 |
+| NFR-COMP-1 | Cross-OS support | **`MS-0002`: Linux + Windows** (amd64 + arm64 where supported). **macOS deferred to `MS-0003` or later.** | ADR-0001 C-3; owner direction (PR #4) |
 | NFR-COMP-2 | Single binary, no runtime | Clean-OS image runs the binary with no Node/Bun/Deno installed | ADR-0001 C-2; clean-OS smoke |
 | NFR-COMP-3 | Confluence Cloud only (`MS-0002`) | Data Center deferred (`MS-0009`) | Roadmap; R-VIA-1 |
-| NFR-COMP-4 | Git CLI prerequisite | Git is an explicit external prereq (read-only); `doctor` verifies it on `$PATH` | spec §9.4; ADR-0008 |
+| NFR-COMP-4 | Git CLI prerequisite | Git is an explicit external prereq (read-only); `doctor` verifies it on `$PATH` | spec §9.4; TDR-0003 |
 | NFR-COMP-5 | Branch restriction | Sync restricted to configured `allowBranches` (default `["main"]`); override via `MARKSYNC_ALLOW_BRANCHES` | ADR-0006; OPEN-Q5 |
-| NFR-COMP-6 | CI-cacheable cache dir | Single cache root `.marksync/` (overridable via `MARKSYNC_CACHE_DIR`); `.marksync/cache/` is CI-cacheable; deleting it changes no plan | ADR-0006 C-3; OPEN-Q5 |
+| NFR-COMP-6 | CI-cacheable cache dir | Single cache root `.marksync/` (**gitignored**; overridable via `MARKSYNC_CACHE_DIR`); `.marksync/cache/` is CI-cacheable; deleting it changes no plan | ADR-0006 C-3; owner direction (PR #4) |
 
 ## Privacy (`MS-0002` binding)
 
@@ -104,7 +104,7 @@ binding. `MS-0002` NFRs are release-blocking guardrails unless marked
 
 | ID | Requirement | Target | Source / rationale |
 |---|---|---|---|
-| NFR-A11Y-1 | No color dependency | Output readable without color; `--no-color` respected | North star / spec NFR |
+| NFR-A11Y-1 | No color dependency | Output readable without color; `--no-color`/`--color` flag respected; **non-interactive/scripted env (CI) auto-detected → color disabled by default** | North star / spec NFR; owner direction (PR #4) |
 | NFR-A11Y-2 | Plain-log compatible | Screen-reader/plain-text output mode | North star / spec NFR |
 | NFR-A11Y-3 | Visible provenance | Every managed page shows source path + Git revision + last-sync (panel/footer) | North star; A-USA-3 |
 
@@ -112,7 +112,7 @@ binding. `MS-0002` NFRs are release-blocking guardrails unless marked
 
 | ID | Requirement | Target | Source / rationale |
 |---|---|---|---|
-| NFR-LEGAL-1 | Nominative use only | "Confluence" appears only as a descriptor; non-affiliation notice present | ADR-0003; A-VIA-4 |
+| NFR-LEGAL-1 | Nominative use only | "Confluence" appears only as a descriptor; non-affiliation notice present | PDR-0001; A-VIA-4 |
 | NFR-LEGAL-2 | Formal trademark review | Completed before `MS-0008` public launch | A-VIA-4 |
 
 ## Traceability to risks/assumptions
@@ -127,4 +127,4 @@ binding. `MS-0002` NFRs are release-blocking guardrails unless marked
 | NFR-PERF-1..3 | A-FEA-10, ADR-0001 |
 | NFR-MAINT-1,4 | A-FEA-6, R-FEA-6 |
 | NFR-MAINT-2 | R-VIA-1, A-VIA-2 |
-| NFR-LEGAL-* | ADR-0003, A-VIA-4 |
+| NFR-LEGAL-* | PDR-0001, A-VIA-4 |

@@ -25,7 +25,7 @@ ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćw
 > motivation brain dump and the pre-inception decisions. Two material changes
 > from that draft: (1) the implementation language is **TypeScript compiled to a
 > single binary** (ADR-0001), not Go; (2) the product/brand is **"MarkSync"**
-> with Confluence as the **first adapter** (ADR-0003), so "Confluence" appears
+> with Confluence as the **first adapter** (PDR-0001), so "Confluence" appears
 > only as a descriptor under nominative use.
 >
 > **Trademark.** "Confluence" and Atlassian are trademarks of Atlassian Pty Ltd.
@@ -193,5 +193,5 @@ See [02-roadmap.md](./02-roadmap.md) for the full multi-phase plan (drafted in P
 
 | Date       | Author             | Change |
 | ---------- | ------------------ | ------ |
-| 2026-07-03 | Juliusz Ćwiąkalski | Canonical north star: reconciled motivation brain dump + 2026-06-16 draft + ADR-0001 (TypeScript) + ADR-0003 (MarkSync brand). Replaced Go-specific framing; added personas, four-risk awareness, OST link. |
+| 2026-07-03 | Juliusz Ćwiąkalski | Canonical north star: reconciled motivation brain dump + 2026-06-16 draft + ADR-0001 (TypeScript) + PDR-0001 (MarkSync brand). Replaced Go-specific framing; added personas, four-risk awareness, OST link. |
 | 2026-07-03 | Juliusz Ćwiąkalski | Red-team pass: added NSM measurement proxy, visible-provenance MVP deliverable, existing-corpus migration assumption, sponsor-persona cross-reference, trademark + AI-assistance notices; softened vision/feasibility/principle over-reach; standardized "reverse sync"; added competitor naming + decision-filter guardrail. |

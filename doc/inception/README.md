@@ -53,7 +53,8 @@ motivation/spec/strategy inputs above.
 
 | Path | Role | Priority / Recency |
 |---|---|---|
-| `decisions/` | Pre-inception **decision records** (`00-index.md` + ADR-0001…ADR-0005), all `status: Proposed`, pending human confirmation during formal ADOS inception. Covers: implementation language/runtime — TypeScript (ADR-0001); Mermaid rendering strategy (ADR-0002); product naming & architecture — "MarkSync" core + Confluence adapter (ADR-0003); run a scoped Confluence API validation spike (ADR-0004); page-body representation — write Storage, not ADF (ADR-0005, evidence-backed). | **Newest.** The first output of the validation spike. |
+| `../decisions/` | **Canonical decision records** (`00-index.md` + ADR-0001…ADR-0010), migrated from `doc/inception/decisions/` to `doc/decisions/` during Phase 3 inception. Covers: implementation language/runtime (ADR-0001); Mermaid rendering strategy (ADR-0002); product naming & architecture (PDR-0001); Confluence API validation spike (TDR-0001); page-body representation — Storage, not ADF (ADR-0005); document identity & state model (ADR-0006); CLI framework — Cliffy (TDR-0002); Git adapter (TDR-0003); testing runner (TDR-0004); Confluence page history provenance — squash default (ADR-0010). | **Canonical.** The authoritative decision registry. |
+| `decisions/` | Redirect index — pre-inception decision records have been migrated to `../decisions/`. The `00-index.md` here redirects to the canonical location. | **Historical.** Points to `doc/decisions/`. |
 | `integration-scenarios/` | **Evidence-backed Confluence Cloud integration scenarios** — index (`00-index.md`) + 18 scenario docs (auth, spaces, page create/read/update/delete, hierarchy, move, versions, Markdown→Storage rendering, content properties, attachments, labels, version-conflict/drift, CQL search, reverse sync, restrictions, pagination/errors/rate limits, OAuth 3LO). Each gives the current (non-deprecated) endpoint, a verbatim request, and a verbatim captured response, suitable for exact implementation and mocking integration tests. | **Newest.** Derived from the live spike. |
 | `tmp/confluence-api-validation-spike/` | Throwaway **live-validation spike** (gitignored via `doc/**/tmp/`) that produced the evidence behind the integration scenarios and ADR-0005. Holds runnable `.mjs` scenarios (`src/run.mjs`, `src/coverage.mjs`), captured redacted evidence (`evidence/raw/`), findings (`findings/`), the official API reference (`doc/research/atlassian-confluence-api-reference.md`), spike-local decisions (`doc/decisions/SPIKE-DEC-01…04`), and credentials guidance (`CREDENTIALS.md`). | **Newest.** Working artifact, not committed. |
 
@@ -151,9 +152,9 @@ anti-failure playbook.*
 ## What it is
 
 **MarkSync for Confluence** is an open-source, Git-native documentation
-synchronization tool. It will ship as a portable **Go CLI** (`marksync`)
-distributed as native binaries and a container image, plus a documented skill
-so AI agents can operate it safely.
+synchronization tool. It will ship as a portable **TypeScript + Bun single-binary
+CLI** (`marksync`) distributed as native binaries for Linux and Windows (macOS
+later), plus a documented skill so AI agents can operate it safely.
 
 It keeps **Markdown in Git as the authoritative engineering workspace** and
 treats **Confluence as a first-class publication surface** — bridging the two

@@ -46,7 +46,7 @@ revisit_triggers:
   - "The committed lock file causes unworkable merge conflicts for the target team sizes."
   - "Confluence content properties become unreliable for cross-checking the lock."
   - "Reverse sync (`MS-0005+`) requires a base representation the lock cannot express."
-  - "CI concurrency proves unachievable with a committed lock + lease alone."
+  - "CI concurrency proves unachievable with a committed lock + optimistic 409 concurrency alone."
 links:
   related_changes: []
   supersedes: []
@@ -54,7 +54,7 @@ links:
   spec: ["../inception/system-specification-draft-from-ai-brainstorm.md"]
   contracts: []
   diagrams: []
-  decisions: [ADR-0001, ADR-0004, ADR-0005]
+  decisions: [ADR-0001, TDR-0001, ADR-0005]
   experiments: ["../inception/tmp/confluence-api-validation-spike/findings/atlassian-api-spike-findings.md"]
   metrics: [NFR-REL-1, NFR-REL-5, NFR-REL-8]
   roadmap_items: [MS-0002]
@@ -140,7 +140,7 @@ separating:
 
 - **Statement:** Coordination/locking must work with multiple operators/CI runners syncing to the same target **without any shared service** — all exchange and locking lives purely in Git + Confluence.
 - **Source:** Owner directive (OPEN-Q5): "multiple people could sync and no shared service is required — all exchange/locking lives purely in git/confluence."
-- **Verification:** Two runners on separate machines, no shared filesystem/lease store, both sync to the same Confluence target → no silent overwrite (409 gates the stale write).
+- **Verification:** Two runners on separate machines, no shared service, both sync to the same Confluence target → no silent overwrite (409 gates the stale write).
 - **Negotiable:** no.
 
 ## Decision Drivers
@@ -162,7 +162,7 @@ separating:
 - **Separation of concerns:** identity ≠ shared base ≠ cache (premortem §5.1).
 - **Inversion:** "how could a silent overwrite happen?" → stale cache mistaken for the base; two CI runs racing on a stale base; title-based binding grabbing the wrong page. Each is closed by a distinct control below.
 - **Defense in depth:** the lock is the primary base, but the remote `marksync.metadata` content property is a cross-check that survives a lost/corrupted lock.
-- **Evidence weighting:** A-FEA-4 and A-FEA-5 are `validated` by the spike; the lock/lease design is `unvalidated` and must be acceptance-tested (A-FEA-7, A-FEA-9).
+- **Evidence weighting:** A-FEA-4 and A-FEA-5 are `validated` by the spike; the lock/concurrency design is `unvalidated` and must be acceptance-tested (A-FEA-7, A-FEA-9).
 
 ## Alternatives Considered
 
@@ -174,7 +174,7 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes with accepted cost.
 |----------|----------------|----------------------|------------------------|-----------------|-------------------|---------------------|
 | Alt 0    | ❌ (path/title = mutable) | ❌ (local cache only) | ✅ | ❌ | ❌ | ❌ |
 | Alt 1    | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Alt 2    | ✅ | ⚠️ (remote-only; offline/CI gap) | ✅ | ✅ | ⚠️ (depends on remote lease) | ✅ |
+| Alt 2    | ✅ | ⚠️ (remote-only; offline/CI gap) | ✅ | ✅ | ⚠️ (depends on remote-only coordination) | ✅ |
 
 ### Alternative 0 — Path/title/cache-based identity (do nothing / spec-as-misread)
 
@@ -191,9 +191,9 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes with accepted cost.
   - **Cache:** `.marksync/` (rendered bodies, asset cache, journal, conflict workspaces) is gitignored and disposable. Correctness depends only on Git + lock + Confluence.
   - **Cross-check:** the remote `marksync.metadata` content property (A-FEA-4) mirrors the lock's key fields; a lost/corrupted lock can be rebuilt from Confluence. Lock and property agree after a successful sync.
   - **Duplicate-UUID detection:** fatal before any write (C-4, INV-SAFE-3).
-  - **Concurrency control:** per-target serialization + repo/target lease + operation-ID dedup + stale-plan expiry (C-5; A-FEA-7).
+  - **Concurrency control:** decentralized optimistic concurrency — Confluence 409 on stale `version.number` + operation-ID dedup + stale-plan expiry (C-5; A-FEA-7).
 - **Pros:** Satisfies all constraints; separates identity/base/cache; offline-capable; recovery from Git+Confluence.
-- **Cons:** A committed lock file can cause merge conflicts when two branches publish to the same target concurrently (mitigated by the lease + serialized apply + a mergeable line-oriented format).
+- **Cons:** A committed lock file can cause merge conflicts when two branches publish to the same target concurrently (mitigated by serialized apply + a mergeable line-oriented format).
 - **Constraint compliance:** C-1 ✅; C-2 ✅; C-3 ✅; C-4 ✅; C-5 ✅.
 - **Why chosen:** The only alternative that satisfies all five constraints with a recovery path.
 
@@ -206,7 +206,7 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes with accepted cost.
 
 ## Decision
 
-**Recommendation: Alternative 1 — source-side immutable UUID + committed versioned lock file + disposable cache, with the remote content property as a cross-check and a lease-based concurrency control.**
+**Recommendation: Alternative 1 — source-side immutable UUID + committed versioned lock file + disposable cache, with the remote content property as a cross-check and optimistic 409-based concurrency control.**
 
 ### Identity
 
@@ -254,7 +254,7 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes with accepted cost.
 
 > **AI-assistance disclosure:** This analysis is AI-assisted and is
 > **evidence-backed** for the Confluence side (A-FEA-4, A-FEA-5 validated). The
-> lock/lease design itself is `unvalidated` and requires acceptance tests
+> lock/concurrency design itself is `unvalidated` and requires acceptance tests
 > (A-FEA-7, A-FEA-9). The human decider (Juliusz Ćwiąkalski) has **not yet**
 > confirmed. `status: Proposed` until human confirmation.
 
@@ -277,9 +277,9 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes with accepted cost.
 
 ### Negative Outcomes
 
-- A committed lock can cause merge conflicts when two branches publish concurrently to the same target. Mitigation: line-oriented mergeable format + the lease + serialized apply + `repair-state`.
+- A committed lock can cause merge conflicts when two branches publish concurrently to the same target. Mitigation: line-oriented mergeable format + serialized apply + `repair-state`.
 - UUID generation adds a first-publish step (`marksync init`/adopt).
-- The lock/lease design is `unvalidated` until `MS-0002` acceptance tests pass.
+- The lock/concurrency design is `unvalidated` until `MS-0002` acceptance tests pass.
 
 ### Unresolved Questions
 
@@ -287,34 +287,34 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes with accepted cost.
 - [x] **Lease backend:** resolved → **optimistic concurrency via Confluence 409 + operation-ID dedup + stale-plan expiry** (no pessimistic lease / no shared service; C-6). See Concurrency control section.
 - [ ] **Lock-file granularity:** single repo-wide lock vs per-target lock files. Per-target reduces merge conflicts but adds file count. (owner: JC — default assumption: per-target)
 - [ ] **Stale-plan expiry window:** default 15 min assumed; confirm. (owner: JC)
-- [x] **Default sync granularity:** resolved → commit-by-commit by default, squash opt-in. Full commit message where feasible; deterministic trimming and squashed commit-list strategy depend on verified Confluence `version.message` / history-description length. See ADR-0010 and `doc/inception/open-questions/phase-3-open-questions.md` OPEN-Q6.
+- [x] **Default sync granularity:** resolved → **squash by default for `MS-0002`**; commit-by-commit deferred to a future milestone. See ADR-0010 (revised).
 
 ## Implementation Plan
 
 1. **`marksync init` / first-publish** generates a UUID per document and writes it to front-matter.
 2. **Lock file** implemented per spec §9.3 schema v1; atomic write; line-oriented format for mergeability.
 3. **Content property** `marksync.metadata` written after a successful body update (cross-check).
-4. **Concurrency control** implemented in the push executor: lease acquisition, operation-ID dedup, stale-plan expiry.
+4. **Concurrency control** implemented in the push executor: optimistic 409 check, operation-ID dedup, stale-plan expiry.
 5. **`repair-state`** for stale locks + journal replay (R-USA-3).
-6. **Version-message provenance** implemented per ADR-0010: commit-by-commit default, squash opt-in, clear MarkSync/Git prefix, deterministic trimming after verifying Confluence message length.
-7. **Acceptance tests:** clone/CI/concurrency (A-FEA-9), duplicate-UUID fatal (INV-SAFE-3), cache-disposable (C-3), REMOTE_DELETED invariant (INV-SAFE-2), commit-by-commit and squashed history messages (ADR-0010).
+6. **Version-message provenance** implemented per ADR-0010: squash default for `MS-0002`, clear MarkSync/Git prefix, compact included-commit summary, deterministic trimming after verifying Confluence message length.
+7. **Acceptance tests:** clone/CI/concurrency (A-FEA-9), duplicate-UUID fatal (INV-SAFE-3), cache-disposable (C-3), REMOTE_MISSING invariant (INV-SAFE-2), squash history messages (ADR-0010).
 
 ## Verification Criteria
 
 - **Metric: Cache-disposable** — Target: delete `.marksync/`, rerun plan → identical output — Window: `MS-0002`.
 - **Metric: Duplicate-UUID fatal** — Target: duplicated-UUID fixture aborts with 0 writes — Window: `MS-0002`.
 - **Metric: Concurrency** — Target: two overlapping CI plans, older does not overwrite newer — Window: `MS-0002` (A-FEA-7).
-- **Metric: Decentralized concurrency** — Target: two runners on separate machines (no shared lease store) sync to the same target; the stale-version write is 409-rejected — Window: `MS-0002` (C-6).
-- **Metric: Per-version provenance** — Target: each MarkSync-applied page version carries a clear MarkSync/Git prefix, commit id, and commit message in `version.message` subject to verified length/trimming rules; a direct Confluence edit produces a version without that marker — Window: `MS-0002` (ADR-0010).
+- **Metric: Decentralized concurrency** — Target: two runners on separate machines (no shared service) sync to the same target; the stale-version write is 409-rejected — Window: `MS-0002` (C-6).
+- **Metric: Per-version provenance** — Target: each MarkSync-applied page version carries a clear MarkSync/Git prefix, head commit id, and compact commit summary in `version.message` subject to verified length/trimming rules; a direct Confluence edit produces a version without that marker — Window: `MS-0002` (ADR-0010).
 - **Metric: Branch restriction** — Target: a sync from a non-allowed branch exits non-zero; `MARKSYNC_ALLOW_BRANCHES` override works — Window: `MS-0002`.
 - **Metric: Cache layout** — Target: `.marksync/cache/` is CI-cacheable and reconstructable; deleting it changes no plan — Window: `MS-0002`.
 - **Metric: Re-clone recovery** — Target: a fresh clone reproduces the shared base from lock + Confluence — Window: `MS-0002`.
-- **Metric: REMOTE_DELETED invariant** — Target: a remotely-deleted managed page is never silently re-created — Window: `MS-0002` (INV-SAFE-2).
+- **Metric: REMOTE_MISSING invariant** — Target: a remotely-deleted managed page is never silently re-created — Window: `MS-0002` (INV-SAFE-2).
 
 ## Confidence Rating
 
 **Medium-High** on the identity + cache-separation principles (well-grounded in
-the premortem and spec). **Medium** on the lock/lease design specifics
+the premortem and spec). **Medium** on the lock/concurrency design specifics
 (`unvalidated`; requires `MS-0002` acceptance tests). The Confluence-side
 cross-check is `validated` (A-FEA-4, A-FEA-5).
 
@@ -328,8 +328,8 @@ TODO: Populate after implementation.
 - `../inception/marksync-failure-premortem-and-anti-failure-playbook-2026-07-02.md` — §4, §5.1, §5.2, §5.8, §14, §17 #4.
 - `../inception/analysis/assumptions.md` — A-FEA-4, A-FEA-5, A-FEA-7, A-FEA-9.
 - `../inception/analysis/risks.md` — R-VAL-4, R-FEA-3, R-FEA-4, R-FEA-7, R-USA-3.
-- `../inception/analysis/backlog-reconciliation.md` — "State model ADR (recommended, not yet written) — Must materialize in Phase 3."
+- `../inception/analysis/backlog-reconciliation.md` — "State model ADR" — now materialized as this record (ADR-0006).
 - Spike findings: `../inception/tmp/confluence-api-validation-spike/findings/atlassian-api-spike-findings.md` (content properties, 409 conflict).
 - `../inception/open-questions/phase-3-open-questions.md` — OPEN-Q5 (state-model refinements) and OPEN-Q6 (sync granularity, answered).
 - External research (2026-07-04): UUID v7 vs KSUID vs ULID; decentralized locking via 409; Confluence version limits + `version.message` provenance; commit-by-commit feasibility.
-- Related decisions: ADR-0001 (TS runtime), ADR-0004 (the spike), ADR-0005 (Storage body — the rendered hash input), ADR-0007 (CLI framework), ADR-0008 (Git adapter), ADR-0009 (testing runner), ADR-0010 (Confluence page history provenance and sync granularity).
+- Related decisions: ADR-0001 (TS runtime), TDR-0001 (the spike), ADR-0005 (Storage body — the rendered hash input), TDR-0002 (CLI framework), TDR-0003 (Git adapter), TDR-0004 (testing runner), ADR-0010 (Confluence page history provenance and sync granularity).

@@ -1,8 +1,8 @@
 ---
 # Copyright (c) 2025-2026 Juliusz Ćwiąkalski (https://www.cwiakalski.com | https://www.linkedin.com/in/juliusz-cwiakalski/ | https://x.com/cwiakalski)
 # MIT License - see LICENSE file for full terms
-id: ADR-0008
-decision_type: adr
+id: TDR-0003
+decision_type: tdr
 status: Proposed
 created: 2026-07-04
 decision_date: null
@@ -60,7 +60,7 @@ links:
   roadmap_items: [MS-0002]
 ---
 
-# ADR-0008: Git adapter — Shell-Git behind the Repository interface
+# TDR-0003: Git adapter — Shell-Git behind the Repository interface
 
 ## Context
 

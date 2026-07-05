@@ -1,12 +1,12 @@
 ---
 # Copyright (c) 2025-2026 Juliusz Ćwiąkalski (https://www.cwiakalski.com | https://www.linkedin.com/in/juliusz-cwiakalski/ | https://x.com/cwiakalski)
 # MIT License - see LICENSE file for full terms
-id: ADR-0003
+id: PDR-0001
 decision_type: pdr
 status: Proposed
 created: 2026-07-03
 decision_date: null
-last_updated: 2026-07-03
+last_updated: 2026-07-05
 summary: "Product/brand is 'MarkSync'; Confluence is the first adapter (not the brand), keeping 'Confluence' only in descriptors under nominative use."
 owners:
   - Juliusz Ćwiąkalski
@@ -59,7 +59,7 @@ links:
   roadmap_items: []
 ---
 
-# ADR-0003: Product naming and architecture — "MarkSync" core with Confluence as the first adapter
+# PDR-0001: Product naming and architecture — "MarkSync" core with Confluence as the first adapter
 
 ## Context
 
@@ -177,9 +177,15 @@ The recommended alternative (Alt 1) satisfies all documented constraints:
 
 - **C-1 — ✅ Full compliance:** The brand is "MarkSync"; "Confluence" is used only as a descriptor under nominative use with a non-affiliation notice.
 - **C-2 — ✅ Full compliance:** "Confluence" remains present in discoverable surfaces (title, topics, README subtitle, package descriptors).
-- **C-3 — ✅ Full compliance:** "MarkSync" does not collide with `kovetskiy/mark` or other inventoried projects.
+- **C-3 — ✅ Full compliance (prominent collisions); ⚠️ accepted-risk exception (minor collision):** "MarkSync" does not collide with the prominent/established project `kovetskiy/mark` (~1,500 stars) or any other *prominent* inventoried project. However, the external naming search surfaced a **minor** existing collision: a small project `yh1224/marksync` (1 GitHub star; described as a tool to "Synchronize Markdown documents to services," targeting Qiita, esa.io, and Zenn) already uses the npm global package name `marksync`. This does not violate C-3 as written — C-3 targets *prominent* collisions — but it invalidates any blanket claim that "MarkSync" has no relevant collision at all. The collision is acceptable because MarkSync's positioning, target adapter (Confluence), safety model, and audience are substantially different. See the "Minor name collision risk" + mitigation in Trade-offs & Consequences and the package-name open question in Unresolved Questions.
 
-No accepted-risk exceptions are required.
+### Web Presence
+
+Initial public web presence will be a lightweight landing page under the author's personal domain at **`cwiakalski.com/marksync`**. This keeps operational overhead low, associates the project with the author's professional/personal brand, and follows Atlassian's domain guidance (Atlassian discourages using its product marks in domains, so a Confluence-containing product domain is avoided).
+
+As the project matures and requires dedicated documentation, guides, examples, and product navigation, web presence will move to a dedicated subdomain at **`marksync.cwiakalski.com`**. This preserves the personal-brand association (via the parent domain) while creating a product-specific surface when justified by adoption and documentation complexity.
+
+Recommended migration triggers for the subdomain move: public releases exist; README becomes too large for onboarding; install/configuration/examples/architecture docs need their own navigation; the project receives external users or contributors; search discoverability justifies a structured docs site.
 
 ## Trade-offs & Consequences
 
@@ -193,11 +199,14 @@ No accepted-risk exceptions are required.
 
 - Marginally less keyword-discoverable than embedding "Confluence" in the brand (mitigated by descriptor usage).
 - Requires discipline: package/namespace naming (`@marksync/confluence`, `adapter-confluence`) must be consistent.
+- **Minor name collision risk:** A small existing project named `yh1224/marksync` already exists and uses the npm global package name `marksync`. This creates potential package-name and search-result ambiguity, although the project is small (1 GitHub star) and targets different services (Qiita, esa.io, Zenn — not Confluence). The collision is acceptable because MarkSync's positioning, target adapter, safety model, and audience are substantially different.
+- **Mitigation (name collision):** Use strong descriptors: "Git-native Markdown publishing for Confluence," "safe Markdown-to-Confluence publishing," "docs-as-code publishing for Confluence." Prefer scoped or explicit package names if unscoped `marksync` is unavailable (e.g., `@cwiakalski/marksync`, `@marksync/cli`, or `marksync-cli`). Keep author attribution visible on GitHub, README, landing page, and docs.
 
 ### Unresolved Questions
 
 - [ ] Should the GitHub repo URL migrate from `marksync-for-confluence` to `marksync` now, later, or never? (separate low-stakes ops decision — owner: Juliusz Ćwiąkalski)
 - [ ] Final package/namespace scheme (`@marksync/confluence` vs `marksync-confluence` vs monorepo package names) — decide during bootstrap (owner: Juliusz Ćwiąkalski).
+- [ ] Verify package naming before first public package release. Do not assume ownership of the unscoped `marksync` package in npm or other registries (it is already used by `yh1224/marksync`). Prefer scoped or explicit package names if the unscoped name is unavailable or confusing — e.g., `@cwiakalski/marksync`, `@marksync/cli`, or `marksync-cli` (owner: Juliusz Ćwiąkalski, pre-first-public-release).
 - [ ] Formal trademark review wording for the non-affiliation notice (owner: Juliusz Ćwiąkalski, pre-launch).
 
 ## Implementation Plan
@@ -216,7 +225,7 @@ No accepted-risk exceptions are required.
 
 ## Confidence Rating
 
-**High.** The recommendation cleanly satisfies all constraints, matches the name already in use, and aligns with the failure premortem's explicit "decide now" item (§21.1). Residual uncertainty is limited to the (deferred, low-stakes) repo-URL ops decision and formal trademark-review wording.
+**Medium-High.** The recommendation cleanly satisfies all constraints, matches the name already in use, and aligns with the failure premortem's explicit "decide now" item (§21.1). Confidence is reduced from High to **Medium-High** because the external naming search found a minor existing collision (`yh1224/marksync`, 1 GitHub star, targeting different services — Qiita/esa.io/Zenn) that uses the npm global package name `marksync`; this is mitigated via strong Confluence-focused descriptors and scoped/explicit package naming (see Trade-offs & Consequences). Residual uncertainty is otherwise limited to the (deferred, low-stakes) repo-URL ops decision, package-name verification before first public release (see Unresolved Questions), and formal trademark-review wording.
 
 ## Lessons Learned (Retrospective)
 
@@ -228,3 +237,14 @@ TODO: Populate after implementation.
 - `../inception/marksync-failure-premortem-and-anti-failure-playbook-2026-07-02.md` — §4.7 (name/language inconsistency), §21.1 (canonical name decision).
 - `../inception/marksync-category-leadership-strategy-report-2026-07-02.md` — §23 (community/adoption), §32 Epic A (canonical spelling + GitHub org strategy).
 - `../inception/open-source-git-markdown-confluence-sync-report-2026-07-02.md` — §3 (competitive inventory; `kovetskiy/mark` collision).
+- `tmp/decision-reviews/PDR-0001-review.md` — external naming review that surfaced the `yh1224/marksync` minor collision and the web-presence / package-name guidance applied in the 2026-07-05 amendment.
+
+## Revision History
+
+- **2026-07-03** — Initial proposed record (pre-inception migration from `doc/inception/decisions/` to the canonical ADOS home `doc/decisions/` during Phase 3 inception).
+- **2026-07-05** — Amended per decision review (`tmp/decision-reviews/PDR-0001-review.md`):
+  1. Acknowledged minor name collision with `yh1224/marksync` (1 GitHub star; targets Qiita/esa.io/Zenn); updated the C-3 attestation from a blanket "no collision" claim to an accepted-risk exception.
+  2. Lowered confidence from **High** to **Medium-High** (Confidence Rating) due to the external naming collision.
+  3. Added a "Minor name collision risk" entry plus its mitigation to Trade-offs & Consequences (Negative Outcomes).
+  4. Added a new "Web Presence" subsection: initial presence at `cwiakalski.com/marksync`, migrating to `marksync.cwiakalski.com` when justified.
+  5. Added a package-name verification open question (do not assume ownership of unscoped `marksync`; prefer scoped/explicit package names).

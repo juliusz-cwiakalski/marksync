@@ -1,7 +1,7 @@
 ---
 # Copyright (c) 2025-2026 Juliusz Ćwiąkalski (https://www.cwiakalski.com | https://www.linkedin.com/in/juliusz-cwiakalski/ | https://x.com/cwiakalski)
 # MIT License - see LICENSE file for full terms
-id: ADR-0004
+id: TDR-0001
 decision_type: tdr
 status: Proposed
 created: 2026-07-03
@@ -52,13 +52,13 @@ links:
   spec: ["../inception/system-specification-draft-from-ai-brainstorm.md"]
   contracts: []
   diagrams: []
-  decisions: [ADR-0001, ADR-0002, ADR-0003]
+  decisions: [ADR-0001, ADR-0002, PDR-0001]
   experiments: []
   metrics: []
   roadmap_items: []
 ---
 
-# ADR-0004: Run a scoped Atlassian Confluence Cloud API validation spike before implementation
+# TDR-0001: Run a scoped Atlassian Confluence Cloud API validation spike before implementation
 
 ## Context
 
@@ -232,4 +232,4 @@ TODO: Populate after implementation.
 - `../inception/system-specification-draft-from-ai-brainstorm.md` — §2.4 (assumptions needing validation), §2.5 (open questions: state model), §9.3 (remote property `marksync.metadata`), §9.7 (Confluence adapter), §12.4 (Required Discovery Before Implementation), §16 (API-change risk), §20.3 (External Reference Baseline — 2026-06-16).
 - `../inception/marksync-failure-premortem-and-anti-failure-playbook-2026-07-02.md` — §3 (strategic failure modes incl. "AI-generated false confidence"), §7 (auth/platform failure modes incl. "all authentication scenarios is an unbounded requirement"), §17 (testing strategy), §22 (do-not-do: mocks as primary evidence).
 - `../inception/marksync-category-leadership-strategy-report-2026-07-02.md` — §30 (anti-patterns: mocked Confluence tests), §33 (key hypotheses to validate early).
-- Related decisions: ADR-0001 (language — affects renderer target), ADR-0002 (Mermaid — uses attachments), ADR-0003 (naming — independent).
+- Related decisions: ADR-0001 (language — affects renderer target), ADR-0002 (Mermaid — uses attachments), PDR-0001 (naming — independent).
