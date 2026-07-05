@@ -62,7 +62,7 @@ links:
 
 ## Context
 
-> **Migration note:** This record was authored pre-inception in `doc/inception/decisions/` and migrated to the canonical ADOS home `doc/decisions/` during Phase 3 inception (2026-07-04). It remains `status: Proposed` pending human confirmation. Records are numbered in one sequence (ADR-0001…) regardless of `decision_type`.
+> **Migration note:** This record was authored pre-inception in `doc/inception/decisions/` and migrated to the canonical ADOS home `doc/decisions/` during Phase 3 inception (2026-07-04). It remains `status: Proposed` pending human confirmation. Records were originally numbered in one sequence regardless of `decision_type`; on 2026-07-05 they were reclassified so each type (ADR, PDR, TDR) has its own sequence per the ADOS decision-making guide.
 
 MarkSync's drift-detection + ownership model is **load-bearing on assumptions about Confluence Cloud REST API v2 behavior**. Those assumptions were checked against official Atlassian documentation on 2026-06-16 but have **never been exercised against a real tenant** (spec §20.3 "External Reference Baseline"; §2.4 assumptions flagged "Validation Needed"). The spec itself defines "Required Discovery Before Implementation" (§12.4), including sandbox spikes of Storage Format create/read/update, attachments, content properties, and Mermaid.
 

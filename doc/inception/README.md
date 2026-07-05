@@ -358,7 +358,7 @@ conversion failure remains.
 
 - **TDD + BDD + specification-driven**, delivered largely by autonomous AI
   agents against executable specifications.
-- **Ports-and-adapters architecture** in Go so Git, Confluence, HTTP, keyring,
+- **Ports-and-adapters architecture** in TypeScript so Git, Confluence, HTTP, keyring,
   filesystem, clock, and Mermaid renderer stay behind interfaces and
   testable with fakes.
 - **Test layers:** unit, golden, fuzz/property, integration (mocked Confluence

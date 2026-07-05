@@ -63,7 +63,7 @@ links:
 
 ## Context
 
-> **Migration note:** This record was authored pre-inception in `doc/inception/decisions/` and migrated to the canonical ADOS home `doc/decisions/` during Phase 3 inception (2026-07-04). It remains `status: Proposed` pending human confirmation. Records are numbered in one sequence (ADR-0001…) regardless of `decision_type`.
+> **Migration note:** This record was authored pre-inception in `doc/inception/decisions/` and migrated to the canonical ADOS home `doc/decisions/` during Phase 3 inception (2026-07-04). It remains `status: Proposed` pending human confirmation. Records were originally numbered in one sequence regardless of `decision_type`; on 2026-07-05 they were reclassified so each type (ADR, PDR, TDR) has its own sequence per the ADOS decision-making guide.
 
 Mermaid and other text diagrams must be rendered to images and attached to Confluence pages, with content-hash-based filenames so unchanged diagrams are not re-rendered or re-uploaded. This is a headline MVP feature and works **even when the target organization has no Confluence Mermaid plugin** (`../inception/motivation-and-goal-notes-brain-dump.md`; spec §7.5, §9.11).
 

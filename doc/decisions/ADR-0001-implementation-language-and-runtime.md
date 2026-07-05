@@ -63,7 +63,7 @@ links:
 
 ## Context
 
-> **Migration note:** This record was authored pre-inception in `doc/inception/decisions/` and migrated to the canonical ADOS home `doc/decisions/` during Phase 3 inception (2026-07-04). It remains `status: Proposed` pending human confirmation. Records are numbered in one sequence (ADR-0001…) regardless of `decision_type`.
+> **Migration note:** This record was authored pre-inception in `doc/inception/decisions/` and migrated to the canonical ADOS home `doc/decisions/` during Phase 3 inception (2026-07-04). It remains `status: Proposed` pending human confirmation. Records were originally numbered in one sequence regardless of `decision_type`; on 2026-07-05 they were reclassified so each type (ADR, PDR, TDR) has its own sequence per the ADOS decision-making guide.
 
 The system specification currently records "The implementation language is Go" as a **Decided** item, with Cobra, Goldmark, go-git, and GoReleaser as the implied follow-on stack (`../inception/system-specification-draft-from-ai-brainstorm.md` §2.2, §2.6, §6.1, §9.4, §9.5). The brain dump and North Star both describe a "portable native CLI" distributed as a "single binary" that must run flawlessly on Linux, macOS, and Windows with no mandatory language runtime for end users (`../inception/motivation-and-goal-notes-brain-dump.md`; `../inception/north-star-draft-to-be-refined.md`).
 

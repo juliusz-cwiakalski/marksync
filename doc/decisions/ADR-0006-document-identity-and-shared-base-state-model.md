@@ -6,7 +6,7 @@ decision_type: adr
 status: Proposed
 created: 2026-07-04
 decision_date: null
-last_updated: 2026-07-04
+last_updated: 2026-07-05
 summary: "Document identity = immutable source-side UUID v7; shared base = committed versioned lock file; cache = disposable (single CI-cacheable dir); duplicate-UUID is fatal before any write; decentralized coordination via Confluence 409 + operation-ID dedup (no shared service); commit ID recorded per Confluence page version; sync restricted to configured branches. Establishes the safety foundation for drift detection, concurrency control, and reverse sync."
 owners:
   - Juliusz Ćwiąkalski
@@ -240,8 +240,8 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes with accepted cost.
 
 ### Provenance in Confluence page history
 
-- The **commit ID + source path + revision** are recorded in each Confluence page **version's `message` field** (e.g. `marksync:commit=<sha> branch=<branch> path=<path>`), which is visible in the Confluence page-history UI and machine-parseable.
-- **Default sync granularity = commit-by-commit** (confirmed in OPEN-Q6 and recorded in ADR-0010): for N commits since the last sync, MarkSync creates N page versions, each carrying its commit SHA and Git commit message in `version.message` with a clear MarkSync/Git prefix. This makes Confluence page history mirror Git history and lets direct Confluence edits be identified later (a version entry **without** a MarkSync/Git marker = direct edit). A `--squash` opt-in creates a single version per sync for perf-sensitive/large-sync cases; squashed version messages include a compact list of included commits subject to the verified Confluence version-message length.
+- The **commit ID + source path + revision** are recorded in each Confluence page **version's `message` field** (e.g. `marksync:squash commit=<sha> branch=<branch> path=<path>`), which is visible in the Confluence page-history UI and machine-parseable.
+- **Default sync granularity = squash** for `MS-0002` (revised per owner PR review and recorded in ADR-0010): each sync creates **one Confluence page version** per changed page, carrying the head commit SHA and a compact included-commit summary in `version.message` with a clear MarkSync/Git prefix. This lets direct Confluence edits be identified later (a version entry **without** a MarkSync/Git marker = direct edit). Commit-by-commit sync (one version per Git commit, mirroring Git history in Confluence) is deferred to a future milestone as an opt-in option. See ADR-0010 for the full decision and revision history.
 - Content properties are per-page (not per-version), so `version.message` is the per-version provenance vehicle; `marksync.metadata` carries the latest-sync summary.
 
 ### Branch restriction (deployment-gate)

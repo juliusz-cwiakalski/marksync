@@ -72,7 +72,7 @@ MarkSync needs a testing framework that serves four distinct test tiers:
 - **Integration tests** — mocked Confluence adapter (HTTP mock server), Git adapter, lock/journal store.
 - **Golden-fixture tests** — Markdown→Storage renderer output (ADR-0005); the renderer must be deterministic (ADR-0002 C-1).
 - **A live-sandbox E2E tier** — a dedicated Confluence test space (not per-suite) exercising real page CRUD, content properties, and the version-conflict 409 (A-FEA-5).
-- **Gherkin/BDD** — for **lifecycle invariants only** (premortem §8.2): `INV-SAFE-1` (no silent overwrite), `INV-SAFE-2` (no silent re-create of `REMOTE_DELETED`), `INV-SAFE-3` (duplicate-UUID fatal), `INV-SEC-1` (no secrets in output).
+- **Gherkin/BDD** — for **lifecycle invariants only** (premortem §8.2): `INV-SAFE-1` (no silent overwrite), `INV-SAFE-2` (no silent re-create of `REMOTE_MISSING`), `INV-SAFE-3` (duplicate-UUID fatal), `INV-SEC-1` (no secrets in output).
 
 FACT: ADR-0001 fixed Bun as the dev runtime and single-binary compiler. FACT: the renderer determinism gate (ADR-0002 C-1) makes golden-fixture/snapshot support a correctness requirement, not a nicety. FACT: the Confluence adapter is the only module permitted to know REST v2/v1 distinctions (A-FEA-6 isolation), so its integration tests need a controllable HTTP mock server. FACT: the spec's CI-first contract requires the test suite to run in CI with stable, machine-parseable results.
 

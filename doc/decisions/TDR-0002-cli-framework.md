@@ -64,7 +64,7 @@ links:
 
 ## Context
 
-This is a sub-decision of ADR-0001 (implementation language and runtime). ADR-0001's Implementation Plan table explicitly parks the CLI framework choice for bootstrap: "Cobra → `cliffy` / `commander` / `clipanion` (pick during bootstrap)". The tech-stack draft (`doc/overview/tech-stack.md`) currently lists `@cliffy/commander` (Cliffy) as a provisional entry flagged `_Sub-decision — see OPEN-Q2_`.
+This is a sub-decision of ADR-0001 (implementation language and runtime). ADR-0001's Implementation Plan table explicitly parks the CLI framework choice for bootstrap: "Cobra → `cliffy` / `commander` / `clipanion` (pick during bootstrap)". The tech-stack draft (`doc/overview/tech-stack.md`) currently lists `@cliffy/command` (Cliffy) as a provisional entry flagged `_Sub-decision — see OPEN-Q2_`.
 
 MarkSync needs a CLI framework that supplies:
 

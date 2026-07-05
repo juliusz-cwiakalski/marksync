@@ -65,8 +65,8 @@ _Beachhead-critical items first (the wedge); validation apparatus is best-effort
 - Deterministic Markdown → Confluence Storage Format conversion for a documented canonical GFM subset (ADR-0005).
 - **Document identity & shared base:** immutable MarkSync document **UUID stored in source front-matter** (survives clones/branches/CI); Confluence page ID = remote identity; title/path are mutable attributes; **duplicate-UUID detection is fatal before any write** (premortem `§5.2`, `§17 #4`); a **committed (versioned) lock file** records the shared base; the `.marksync/` cache is disposable (premortem `§5.1` separation).
 - Page create / update / no-op / move with the identity above.
-- **Drift detection** via **canonical semantic hashing** (raw + canonical + normalized + attachment hashes, premortem `§5.4`); classify `NO_CHANGE` / `REMOTE_BEHIND` / `REMOTE_AHEAD` / `DIVERGED` / `REMOTE_DELETED`; block unsafe overwrites by default. **Invariant:** a remotely-deleted managed page is never silently re-created.
-- **Concurrency control** for CI-first operation: per-target serialization + repository/target lease + operation-ID deduplication + stale-plan expiry + CI concurrency-group templates (premortem `§5.8`) — so two overlapping CI plans can never let the older overwrite the newer.
+- **Drift detection** via **canonical semantic hashing** (raw + canonical + normalized + attachment hashes, premortem `§5.4`); classify `NO_CHANGE` / `REMOTE_BEHIND` / `REMOTE_AHEAD` / `DIVERGED` / `REMOTE_MISSING`; block unsafe overwrites by default. **Invariant:** a remotely-deleted managed page is never silently re-created.
+- **Concurrency control** for CI-first operation: decentralized optimistic concurrency — Confluence 409 on stale version.number + operation-ID deduplication + stale-plan expiry + CI concurrency-group templates (premortem `§5.8`, ADR-0006 C-6) — so two overlapping CI plans can never let the older overwrite the newer.
 - **Minimal repair surface** (in `MS-0002` / MVP, not deferred): `repair-state` for stale locks and interrupted-apply journal replay (premortem `§14` includes `repair` in the beachhead) — so a single stale lock or partial apply never blocks a whole subtree with no recovery.
 - Visible provenance (panel/footer: source path + Git revision + last-sync) plus machine content-property metadata.
 - Local images/attachments (path-safe, content-hashed, reused when unchanged).
@@ -256,7 +256,7 @@ knowledge is preserved._
 ### MS-0004 — Drift lifecycle completeness (Gate 2) — detail notes
 
 **Likely scope to refine later:** repair commands beyond `MS-0002`, stale-lock
-diagnostics, moved-page repair, missing-page / `REMOTE_DELETED` handling,
+diagnostics, moved-page repair, missing-page / `REMOTE_MISSING` handling,
 permission-asymmetry handling, partial-apply replay, per-document isolation.
 
 **Read before planning:**

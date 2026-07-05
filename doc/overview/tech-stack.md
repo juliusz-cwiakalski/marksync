@@ -51,7 +51,7 @@ Confluence contract; ADR-0005 settled Storage over ADF._
 
 | Library / framework | Version | Role |
 |---|---|---|
-| `@cliffy/command` + `@cliffy/prompt` (Cliffy) | v1.0.0-rc.7 (pin) | CLI framework: commands, flags, help, completions, interactive prompts (init/doctor). TS-native; Bun-compatible (TDR-0002) |
+| `@cliffy/command` + `@cliffy/prompt` + `@cliffy/flags` (Cliffy) | stable 1.x (pin post smoke-test per TDR-0002) | CLI framework: commands, flags, help, completions, interactive prompts (init/doctor). TS-native; Bun-compatible (TDR-0002) |
 | `remark` + `remark-gfm` (unified) | latest | Markdown → MDAST parser; GFM table/task-list/strikethrough support |
 | `rehype` + `remark-rehype` | latest | MDAST → HAST (HTML AST); the bridge to Storage rendering |
 | `jsdom` | latest | Headless DOM for in-process Mermaid `mermaid.render()` (spike-gated, ADR-0002). **Output = SVG** (byte-stable); enable `deterministicIds: true` + fixed `fontFamily` |

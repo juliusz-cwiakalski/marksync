@@ -84,7 +84,7 @@ documentation, legal/privacy implications, and future implementation controls.
 > |---|---|
 > | Consensus #1 (provenance over-specified) | **RESOLVED** — ADR-0010 reversed to squash default for `MS-0002`; commit-by-commit deferred. |
 > | Consensus #2 (spike gates not operationalized) | **RESOLVED** — ADR-0002 amended with two-layer decision, stop criteria, expanded fallback ladder; architecture UNCERT flags now say "plan spike early in backlog." |
-> | Consensus #3 (stale/contradictory docs) | **RESOLVED** — README Go CLI fixed; backlog-reconciliation state-model ADR updated; ADR-0006 lease wording fixed; content-property key standardized; REMOTE_DELETED→REMOTE_MISSING. |
+> | Consensus #3 (stale/contradictory docs) | **MOSTLY RESOLVED** — README Go CLI fixed (line 154); backlog-reconciliation state-model ADR updated; ADR-0006 lease wording fixed; content-property key standardized. **Partial:** README line 361 still said "Go" (fixed in round-2 propagation); REMOTE_DELETED→REMOTE_MISSING was initially incomplete (fixed in round-2 propagation). See round-2 report. |
 > | Consensus #4 (test matrices not enumerable) | **PARTIALLY ADDRESSED** — acceptance-test matrix to be created in Phase 4 / `MS-0002` planning; risk register enhanced with permission-asymmetry detection. |
 > | P0 #1 (provenance policy) | **RESOLVED** — squash default eliminates full-commit-message exposure. |
 > | P0 #2 (fix stale docs) | **RESOLVED** — all stale references fixed. |
@@ -234,7 +234,7 @@ claims, concurrency behavior, and domain terminology.
 - **Critical:** Content-property key terminology is inconsistent:
   `marksync.metadata` vs `marksync.metadata.v2`. Pick one canonical key and use
   it everywhere, with migration rules if the suffix is retained.
-- **High:** State names split between `REMOTE_DELETED` and `REMOTE_MISSING`.
+- **High:** State names split between `REMOTE_MISSING` and `REMOTE_MISSING`.
   Choose one ubiquitous-language term or define their distinct meanings.
 - **High:** ADR-0006 should remove contradictory lease phrasing now that the
   decision text says optimistic concurrency rather than pessimistic leasing.

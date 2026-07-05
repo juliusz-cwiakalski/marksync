@@ -202,7 +202,7 @@ For each sync, MarkSync creates **one Confluence page version** per changed page
 
 1. The target/head commit SHA.
 2. A compact summary of included commits — commit ID plus subject at minimum — subject to the verified Confluence version-message length limit.
-3. If the included-commit list is too long for `version.message`, MarkSync writes a deterministic truncated summary (e.g. first N commit subjects + "+M more") with an explicit truncation marker, and the full list is available in plan/apply output and `marksync.metadata`.
+3. If the included-commit list is too long for `version.message`, MarkSync writes a deterministic truncated summary (e.g. first N commit subjects + "+M more") with an explicit truncation marker. The same truncation policy applies to `marksync.metadata` — store only the head SHA + commit count + truncation marker, **not** the full commit-subject list — to prevent the full included-commit list (which may contain sensitive subjects: internal ticket URLs, customer names, incident IDs) from being published to a broader Confluence audience via a different channel. The full list is available only in local plan/apply output (terminal/JSON), never in Confluence.
 
 Before implementation, MarkSync must run a small verification spike to determine the actual usable Confluence `version.message` / history-description length limit. This ADR intentionally does **not** guess a number.
 

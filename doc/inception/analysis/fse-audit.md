@@ -44,7 +44,7 @@ how it will be met, and the gap/risk if not._
 
 ## Attribute 4: Semantic naming
 
-- **Target:** Stable ID prefixes per `id-prefix-catalog.md`; semantic command names (`plan`, `apply`, `doctor`, `repair-state`); typed error names (`Conflict`, `RemoteDeleted`, `UnsupportedConstruct`).
+- **Target:** Stable ID prefixes per `id-prefix-catalog.md`; semantic command names (`plan`, `apply`, `doctor`, `repair-state`); typed error names (`Conflict`, `RemoteMissing`, `UnsupportedConstruct`).
 - **How met:** Prefix catalog exists; command/error taxonomy defined in spec §9.1/§9.8.
 - **Gap/risk:** None. _Confidence: high._
 

@@ -91,7 +91,7 @@ _None at this time._
 
 ## Answered after initial PR review
 
-### [OPEN-Q6] Default sync granularity — commit-by-commit vs squashed — ANSWERED
+### [OPEN-Q6] Default sync granularity — commit-by-commit vs squashed — ANSWERED → AMENDED
 
 **Context (from OPEN-Q5 / external-researcher findings):** You want Confluence page history to reflect Git history and to identify direct Confluence edits (a version entry without a `marksync:commit=` marker = direct edit). The `version.message` field carries the commit ID per page version. Two granularity modes are feasible:
 
@@ -99,12 +99,25 @@ _None at this time._
 - **Squashed (fast-forward)**: one page version per sync, `version.message` = `marksync:commit=<HEAD-sha>`. Cheaper; history shows one "deploy" per sync rather than per commit.
 - **Hybrid**: default one way, opt-in flag the other.
 
-**Adopted decision:** commit-by-commit **by default**, with a squash option. Always embed Git provenance in Confluence page version history.
+**Original adopted decision:** commit-by-commit **by default**, with a squash option.
 
-### Answer
+### Answer (original — 2026-07-04)
 Aim for default commit-by-commit sync with an option to squash. Squashed updates should contain a list of commit identifiers (commit id + message, or at least the first line of the message if there are limits on the history entry length). The Confluence history-description entry limit must be verified; after verification, adopt a feasible strategy for efficient squashed history messages with the list of squashed commits. For commit-by-commit sync, put the full commit message in the Confluence history with a clear header/prefix to show it is coming from Git, trimming as required if a length limit exists.
 
-_→ Incorporated: `doc/decisions/ADR-0010-confluence-page-history-provenance-and-sync-granularity.md` records commit-by-commit by default, squash opt-in, clear `version.message` prefixes, deterministic trimming, and a required verification spike for the Confluence version-message/history-description length limit._
+### ⚠️ Amended (2026-07-05) — DECISION REVERSED
+
+**New adopted decision: squash by default for `MS-0002`. Commit-by-commit deferred to a future milestone as opt-in.**
+
+The owner reversed the decision during PR #4 review (see PR comments on `architecture-overview.md` and the Phase 3 red-team report). Rationale:
+1. Simplicity of implementation — one version per sync is the simplest model.
+2. Reduced rate-limit/burst risk — 1 write/page/sync, not N writes/page/sync.
+3. Questionable end-user value — detailed per-commit history remains in Git.
+4. Privacy/safety — compact summary, not full commit messages, reduces sensitive-metadata exposure.
+5. Scope discipline — commit-by-commit adds implementation/test scope beyond the `MS-0002` trust wedge.
+
+See ADR-0010 Revision History for the full reversal record.
+
+_→ Incorporated: `doc/decisions/ADR-0010-confluence-page-history-provenance-and-sync-granularity.md` records squash by default for `MS-0002`, commit-by-commit deferred, clear `version.message` prefixes, compact included-commit summary, deterministic trimming, and a required verification spike for the Confluence version-message/history-description length limit._
 
 ---
 

@@ -55,7 +55,7 @@ binding. `MS-0002` NFRs are release-blocking guardrails unless marked
 | NFR-REL-3 | Conflict false-positive rate | < 5% | Roadmap guardrail; R-FEA-8 |
 | NFR-REL-4 | Conversion fidelity | 100% of canonical GFM fixtures survive Markdown→Storage round-trip | Roadmap guardrail; ADR-0005 |
 | NFR-REL-5 | Concurrency safety | Two overlapping CI plans never let the older overwrite the newer | A-FEA-7; R-FEA-7 |
-| NFR-REL-6 | REMOTE_DELETED invariant | A remotely-deleted managed page is never silently re-created | INV-SAFE-2; roadmap invariant |
+| NFR-REL-6 | REMOTE_MISSING invariant | A remotely-deleted managed page is never silently re-created | INV-SAFE-2; roadmap invariant |
 | NFR-REL-7 | Partial-apply recoverability | An interrupted apply is recoverable via journal replay / `repair-state` without duplicates | R-FEA-4; spec §9.3/§9.8 |
 | NFR-REL-8 | Duplicate-UUID fatal | Two source docs with the same UUID halt before any write | INV-SAFE-3; ADR-0006 |
 | NFR-REL-9 | Per-version provenance | Each MarkSync-applied page version carries a clear MarkSync/Git prefix, head commit id, and compact commit summary in `version.message`; direct Confluence edits are identifiable (no marker). **Squash mode only for `MS-0002`**; commit-by-commit deferred to a future milestone. | ADR-0006; ADR-0010 (revised) |
