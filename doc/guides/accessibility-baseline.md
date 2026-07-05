@@ -109,7 +109,7 @@ page body:
 | NFR | Priority | Milestone |
 |---|---|---|
 | NFR-A11Y-1 (no color dependency) | **Binding** | `MS-0002` |
-| NFR-A11Y-2 (plain-log/JSON) | **Binding** (JSON output is a core feature) | `MS-0002` |
+| NFR-A11Y-2 (JSON/NDJSON machine output) | **Binding** | `MS-0002` |
 | NFR-A11Y-2 (screen-reader-specific mode) | Informational | Not planned (JSON mode serves this need) |
 | NFR-A11Y-3 (visible provenance) | **Binding** | `MS-0002` |
 

@@ -31,7 +31,7 @@ load and follow this file._
 | **Integration** | `bun:test` + `Bun.serve()` mock | Confluence adapter (HTTP mock), Git adapter (temp repo), lock/journal store, push executor, credential provider | Adapter boundary correctness; 409 drift detection; REST v2/v1 isolation | Every push |
 | **Golden fixture** | `bun:test` `toMatchSnapshot` / `toMatchInlineSnapshot` | Markdown → Storage renderer output (ADR-0005); Mermaid render SVG output (ADR-0002 C-1 determinism) | Byte-stable deterministic output; no silent snapshot regeneration | Every push |
 | **Mermaid-DOM** | `bun:test` + `happy-dom` (via `@happy-dom/global-registrator` + Bun preload) | Mermaid rendering via official lib in headless DOM | Renderer works in-process; deterministic SVG + IDs | Every push (if spike passes) |
-| **Gherkin / BDD** | `@cucumber/cucumber` (TDR-0007) | **Lifecycle invariants only** (INV-SAFE-1, INV-SAFE-2, INV-SAFE-3, INV-SEC-1) | Release-blocking safety properties | Every push |
+| **Gherkin / BDD** | `@cucumber/cucumber` via `bun run test:bdd` (TDR-0007) | **Lifecycle invariants only** (INV-SAFE-1, INV-SAFE-2, INV-SAFE-3, INV-SEC-1) | Release-blocking safety properties | Every push |
 | **E2E (live-sandbox)** | Thin runner script | Real Confluence test space: page CRUD, content properties, version-conflict 409, attachments | End-to-end correctness against real API | Separate CI gate (scheduled or labelled) |
 
 ## Naming and layout conventions
@@ -134,10 +134,10 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run lint
       - run: bun run typecheck
-      # Exclude E2E (live-sandbox) tests from the fast loop.
-      # Bun's `--filter` matches test NAMES, not file paths. To exclude by path,
-      # pass positional directory/glob arguments instead of --filter.
-      - run: bun test tests/unit/ tests/integration/ tests/golden/ tests/bdd/
+      # Exclude E2E (live-sandbox) and BDD (cucumber CLI) from the bun:test fast loop.
+      # BDD tests run via `bun run test:bdd` (cucumber CLI per TDR-0007).
+      - run: bun test tests/unit/ tests/integration/ tests/golden/
+      - run: bun run test:bdd
 ```
 
 ### E2E gate (separate)
@@ -165,7 +165,6 @@ jobs:
 > **Canonical E2E env-var set:** `.env.example` and
 > `.github/workflows/run-e2e.yml` are the single source of truth for the E2E
 > environment variables. The snippet above must stay in sync with them.
-```
 
 ### Live-sandbox hygiene
 

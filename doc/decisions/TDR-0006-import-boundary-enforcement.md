@@ -195,7 +195,7 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes only via an accepted-risk
 ### Alternative 1 — dependency-cruiser (RECOMMENDED)
 
 - **Eligibility:** Eligible (passes all five constraints).
-- **Summary:** A purpose-built, graph-resolving dependency analyser. Architecture rules are declarative ("rules as code") in `.dependency-cruiser.cjs` — the four `forbidden` rules in `typescript.md` map 1:1. Resolves the real module graph (re-exports, barrels, path aliases, transitive deps). Emits `from → to + rule` violations. CI-native (`depcruise` CLI), Bun-compatible, optional pre-commit/lint-staged.
+- **Summary:** A purpose-built, graph-resolving dependency analyser. Architecture rules are declarative ("rules as code") in `.dependency-cruiser.cjs` — the `forbidden` rules in `typescript.md` illustrate the format. Resolves the real module graph (re-exports, barrels, path aliases, transitive deps). Emits `from → to + rule` violations. CI-native (`depcruise` CLI), Bun-compatible, optional pre-commit/lint-staged.
 - **Constraint compliance:** C-1 ✅ (graph resolution); C-2 ✅ (named `from → to` + rule); C-3 ✅ (mature, active — re-verify); C-4 ✅ (`depcruise` in CI + optional pre-commit); C-5 ✅ (declarative config, no custom code).
 - **Driver fit:** Best — graph resolution is the headline driver (C-1); AI-first clear messages (C-2); battle-tested (C-3); CI-native (C-4); no custom maintenance (C-5). Composes with Biome (TDR-0005) without overlap.
 - **Pros:** Purpose-built for exactly this problem; declarative rules reviewable in PR diffs; graph resolution eliminates the regex false-negative class; clear violation messages; actively maintained.
@@ -237,7 +237,7 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes only via an accepted-risk
 
 **Recommendation: Alternative 1 — dependency-cruiser for import-boundary (architecture-tier) enforcement.**
 
-dependency-cruiser is driven by **C-1 (graph resolution → no false negatives)** and **C-2 (clear `from → to + rule` messages for AI agents)** — the user's two headline drivers — while also satisfying **C-3 (battle-tested)**, **C-4 (CI-native)**, and **C-5 (no custom script)**. It composes cleanly with Biome (TDR-0005): Biome owns lint+format; dependency-cruiser owns architecture boundaries. The four `forbidden` rules already drafted in `typescript.md` are written in dependency-cruiser's declarative format and map 1:1 to the architecture-overview dependency-direction matrix.
+dependency-cruiser is driven by **C-1 (graph resolution → no false negatives)** and **C-2 (clear `from → to + rule` messages for AI agents)** — the user's two headline drivers — while also satisfying **C-3 (battle-tested)**, **C-4 (CI-native)**, and **C-5 (no custom script)**. It composes cleanly with Biome (TDR-0005): Biome owns lint+format; dependency-cruiser owns architecture boundaries. The four `forbidden` rules drafted in `typescript.md` illustrate the rule format; the full rule set covering all forbidden cells of the architecture-overview matrix is derived at `MS-0002` lock.
 
 The regex-based alternatives (Alt 2, Alt 3) are rejected because they cannot satisfy C-1 for the constructs (`#imports` aliases, barrel files) MarkSync uses. `eslint-plugin-boundaries` (Alt 4) is eligible but is rejected as primary because it would force ESLint back into a Biome-primary stack solely to host the plugin — a composability cost dependency-cruiser (linter-independent) avoids.
 
@@ -256,7 +256,7 @@ The regex-based alternatives (Alt 2, Alt 3) are rejected because they cannot sat
 
 The recommended alternative (Alt 1 — dependency-cruiser) satisfies all documented constraints:
 
-- **C-1 — ✅ Full compliance:** dependency-cruiser resolves the real module dependency graph (statically, from import statements), following re-exports, barrel files, and path aliases. The four `forbidden` rules cover every cell of the architecture-overview dependency-direction matrix. A fixture suite with barrel/alias/transitive violations is the acceptance test.
+- **C-1 — ✅ Full compliance:** dependency-cruiser resolves the real module dependency graph (statically, from import statements), following re-exports, barrel files, and path aliases. The four `forbidden` rules in `typescript.md` illustrate the format; the full rule set (covering all 8 forbidden cells of the architecture-overview dependency-direction matrix) is derived at `MS-0002` lock. A fixture suite with barrel/alias/transitive violations is the acceptance test.
 - **C-2 — ✅ Full compliance:** Violations report the concrete `from` file, the `to` module, and the breached rule name/category — directly actionable by an AI agent.
 - **C-3 — ✅ Full compliance:** dependency-cruiser is a mature, purpose-built, actively maintained project (re-verify release cadence/issue responsiveness before lock).
 - **C-4 — ✅ Full compliance:** `depcruise` CLI runs as a `bun run check:boundaries` CI step and fails the pipeline on violations; optional pre-commit/lint-staged integration is available.

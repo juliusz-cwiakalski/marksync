@@ -136,7 +136,7 @@ _The rules that keep code and conversation using these terms consistently._
    `src/domain/binding/`. Cross-references go through the aggregate root, never
    directly to internal entities.
    - **Enforcement:** module-residence rules in `architecture-overview.md`;
-     ESLint/Biome import boundaries (Phase 4 conventions).
+     dependency-cruiser import boundaries (TDR-0006).
 
 5. **Domain events are typed.** Each domain event has a TypeScript discriminated
    union member. The push executor emits and the lock store consumes them.

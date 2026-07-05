@@ -54,12 +54,17 @@ jobs:
         run: bun run typecheck
         continue-on-error: true # no tsconfig.json yet during inception
 
-      - name: Test (unit + integration + golden — exclude E2E)
-        run: bun test tests/unit/ tests/integration/ tests/golden/ tests/bdd/ || true
+      - name: Test (unit + integration + golden — exclude E2E and BDD)
+        run: bun test tests/unit/ tests/integration/ tests/golden/ || true
         # During inception there are no tests; `|| true` keeps CI green.
-        # Exclude E2E (live-sandbox) from the fast loop — Bun's --filter matches
-        # test names, not file paths, so we pass positional directory arguments.
-        # Note: Mermaid-DOM tests need --preload; see M-5 / OPEN-Q2.
+        # Exclude E2E (live-sandbox) and BDD (cucumber CLI) from the bun:test fast loop.
+        # BDD tests run via `bun run test:bdd` (cucumber CLI per TDR-0007).
+        # At MS-0002 start, remove `|| true`.
+
+      - name: BDD lifecycle invariants (cucumber)
+        run: bun run test:bdd || true
+        # Runs @cucumber/cucumber for INV-SAFE-1/2/3 + INV-SEC-1 (TDR-0007).
+        # During inception there are no .feature files; `|| true` keeps CI green.
         # At MS-0002 start, remove `|| true`.
 
   dependency-audit:
@@ -135,32 +140,47 @@ jobs:
 
       - name: Check Markdown links
         run: |
-          # Check that every relative .md link in doc/ resolves to a file.
-          # Excludes doc/inception/tmp/ (vendored third-party repos with their own link contexts).
+          # Check that every relative .md link in project-authored docs resolves.
+          # Excludes ADOS-installed templates/guides (pre-existing broken refs)
+          # and doc/inception/tmp/ (vendored repos).
           python3 -c "
           import re, os, sys, glob
           link_re = re.compile(r'\[([^\]]+)\]\(([^)]+)\)')
+          # Project-authored paths only
+          scan_globs = [
+            'doc/overview/**/*.md',
+            'doc/decisions/**/*.md',
+            'doc/spec/**/*.md',
+            'doc/inception/open-questions/**/*.md',
+            'doc/inception/retrospective/**/*.md',
+            'doc/inception/README.md',
+            'doc/guides/dev-environment.md',
+            'doc/guides/security-baseline.md',
+            'doc/guides/accessibility-baseline.md',
+            '.ai/**/*.md',
+          ]
           errors = []
-          for md_file in glob.glob('doc/**/*.md', recursive=True):
+          for pattern in scan_globs:
+            for md_file in glob.glob(pattern, recursive=True):
               if 'doc/inception/tmp/' in md_file:
-                  continue
+                continue
               dir_of = os.path.dirname(md_file)
               with open(md_file, encoding='utf-8') as f:
-                  for line_no, line in enumerate(f, 1):
-                      for match in link_re.finditer(line):
-                          target = match.group(2).split()[0].split('#')[0]
-                          if target.startswith('http') or target.startswith('mailto'):
-                              continue
-                          if not target.endswith('.md'):
-                              continue
-                          resolved = os.path.normpath(os.path.join(dir_of, target))
-                          if not os.path.exists(resolved):
-                              errors.append(f'{md_file}:{line_no} — broken link: {target} (resolved: {resolved})')
+                for line_no, line in enumerate(f, 1):
+                  for match in link_re.finditer(line):
+                    target = match.group(2).split()[0].split('#')[0]
+                    if target.startswith('http') or target.startswith('mailto'):
+                      continue
+                    if not target.endswith('.md'):
+                      continue
+                    resolved = os.path.normpath(os.path.join(dir_of, target))
+                    if not os.path.exists(resolved):
+                      errors.append(f'{md_file}:{line_no} — broken link: {target} (resolved: {resolved})')
           if errors:
-              for e in errors[:50]:
-                  print(f'BROKEN: {e}', file=sys.stderr)
-              if len(errors) > 50:
-                  print(f'... and {len(errors) - 50} more', file=sys.stderr)
-              sys.exit(1)
+            for e in errors[:50]:
+              print(f'BROKEN: {e}', file=sys.stderr)
+            if len(errors) > 50:
+              print(f'... and {len(errors) - 50} more', file=sys.stderr)
+            sys.exit(1)
           print('OK: all relative Markdown links resolve')
           "

@@ -141,7 +141,7 @@ contextual comments)._
 
 ### When `any` is acceptable (rare)
 
-- In test helpers, only with an explicit `// eslint-disable-next-line` comment
+- In test helpers, only with an explicit `// biome-ignore lint/suspicious/noExplicitAny: <reason>` comment
   explaining why.
 - In third-party type shims (`.d.ts` files) where the library lacks types.
 - Never in production domain/application/infrastructure code.

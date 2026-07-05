@@ -57,7 +57,8 @@ bun install
 # 3. Verify the toolchain
 bun run lint
 bun run typecheck
-bun test tests/unit/ tests/integration/ tests/golden/ tests/bdd/
+bun test tests/unit/ tests/integration/ tests/golden/
+bun run test:bdd
 
 # 4. (Optional) Set up local credentials for live testing
 cp .env.example .env.local
@@ -77,10 +78,12 @@ start. They are documented here as the target contract._
 | `bun run typecheck` | `tsc --noEmit` or `bun tsc --noEmit` | CI gate; fails on type errors |
 | `bun test` | Run all tests (unit + integration + golden) | Fast loop; excludes E2E |
 | `bun test tests/golden/` | Golden-fixture tests only | Verify renderer determinism |
-| `bun test tests/unit/ tests/integration/ tests/golden/ tests/bdd/` | Fast loop (excludes E2E) | CI gate |
+| `bun test tests/unit/ tests/integration/ tests/golden/` | Fast loop (excludes E2E and BDD) | CI gate |
+| `bun run test:bdd` | Cucumber lifecycle invariants (TDR-0007) | CI gate |
 | `bun test tests/e2e/` | Live-sandbox E2E (requires credentials) | Separate gate |
 | `bun test --update-snapshots` | Update golden-fixture snapshots | Explicit, reviewed action |
 | `bun run build` | `bun build --compile` | Build single binary |
+| `bun run test:bdd` | Cucumber lifecycle invariants (TDR-0007) | CI gate |
 | `bun run bench` | Run repo-local benchmark gate (TDR-0004 §8) | Track test-suite performance |
 
 ## Local credentials (for live testing)
@@ -153,7 +156,8 @@ Settings (`.vscode/settings.json` target):
 
 ### `bun install` fails
 
-- **Lock-file mismatch:** delete `node_modules/` and `bun.lockb`, then
+- **Lock-file mismatch:** delete `node_modules/` and `bun.lock` (or legacy
+  `bun.lockb`), then
   `bun install`.
 - **Native module (keytar):** `keytar` is spike-gated; if it fails under Bun,
   use env-token auth (`MARKSYNC_API_TOKEN`) instead.

@@ -331,10 +331,8 @@ _Deferred — create the checklist at `MS-0002` implementation start._
 
 ## Notes
 
-- All three open questions are **deferred to `MS-0002` implementation start**
-  because no source code exists yet. The Phase 4 artifacts (conventions,
-  testing-strategy, CI) are scaffolded to work with any choice, and the CI uses
-  `continue-on-error` guards during inception.
-- If you prefer to resolve any of these now, edit the relevant `### Answer`
-  section above. The bootstrapper will incorporate the answer into
-  `typescript.md`, `testing-strategy.md`, and the CI workflow as needed.
+- **Q1–Q7 answered** this phase via decision records (TDR-0005–0008) and new
+  artifacts (accessibility-baseline.md, performance section, version.message
+  research).
+- **Q8–Q9 deferred** to `MS-0002` backlog planning / implementation start as
+  accepted by the owner.

@@ -42,7 +42,8 @@ Documentation Handbook §9 for the glossary-vs-UL distinction._
 | **Cloud** | Confluence Cloud — the Atlassian SaaS hosting model. The only supported target in `MS-0002` (NFR-COMP-3). | Confluence | — |
 | **Conflict** | A state where local and remote have diverged from the shared base and cannot be safely auto-resolved. Surfaced explicitly, never auto-resolved. | Process | Sync State |
 | **Content property** | A key-value pair attached to a Confluence page via the v2 API. MarkSync uses `marksync.metadata` for lock cross-check data. | Confluence | — |
-| **Credential** | Authentication material: API token or OAuth refresh token. Stored in OS keyring or env, never in project files. | Security | — || **Data Center** | Atlassian's self-hosted Confluence offering. Deferred to `MS-0009`. | Confluence | — |
+| **Credential** | Authentication material: API token or OAuth refresh token. Stored in OS keyring or env, never in project files. | Security | — |
+| **Data Center** | Atlassian's self-hosted Confluence offering. Deferred to `MS-0009`. | Confluence | — |
 | **Determinism** | The property that the same input always produces the same output. Required for the Storage renderer (ADR-0002 C-1) and Mermaid rendering. | Quality | — |
 | **Disposable cache** | The `.marksync/` directory, which is gitignored and never needed for correctness. Contains rendered bodies, journal, and conflict workspaces. | State | — |
 | **Doctor** | A health-check command that discovers capabilities, permissions, and visibility before any create/adopt. Minimal in `MS-0002`; full in `MS-0003`. | CLI | — |

@@ -272,7 +272,7 @@ No accepted-risk exceptions are required.
 ### Unresolved Questions
 
 - [ ] **Rule coverage audit:** before lock, confirm Biome's rule set covers every rule MarkSync needs (e.g., the strict-mode-adjacent rules in `typescript.md`) with no gap that would force a scoped ESLint escalation. (owner: Juliusz Ćwiąkalski)
-- [ ] **Non-TS formatting scope:** decide whether Biome also formats JSON/YAML/Markdown in the repo, or whether `dprint`/`prettier` retains a scoped role for Markdown (Biome's Markdown support is evolving — re-verify). (owner: Juliusz Ćwiękalski)
+- [ ] **Non-TS formatting scope:** decide whether Biome also formats JSON/YAML/Markdown in the repo, or whether `dprint`/`prettier` retains a scoped role for Markdown (Biome's Markdown support is evolving — re-verify). (owner: Juliusz Ćwiąkalski)
 - [ ] **Bun compatibility re-verification:** confirm the current Biome version runs cleanly under the pinned Bun version (OPEN-Q9 Bun-pin) before the CI gate is unguarded. (owner: Juliusz Ćwiąkalski)
 
 ### Four-risk awareness
