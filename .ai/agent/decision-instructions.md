@@ -24,7 +24,7 @@ may target other wiki platforms.
 4. **Maintainability** — battle-tested, easily replaceable dependencies over
    clever custom code; ports-and-adapters keeps the Confluence adapter swappable.
 5. **Cross-platform reach** — Linux + Windows in `MS-0002`; macOS deferred to
-   `MS-0003`.
+   `MS-0003` or later.
 
 ### Decision principles
 
@@ -44,7 +44,7 @@ may target other wiki platforms.
 
 - **Runtime**: TypeScript + Bun single-binary (`ADR-0001`); no Node, no Go.
 - **Target platform**: Confluence Cloud (v2 REST API primary; v1 for
-  attachments/labels/search only).
+  attachments/labels/search/restrictions only).
 - **Team**: solo developer + AI agents.
 - **Binary budget**: ~90 MB / ~2 s cold start are desired, not hard constraints.
 - **Milestone discipline**: `MS-0002` = MVP safe one-way publisher. Reverse-sync,
@@ -83,9 +83,10 @@ Examples: `ADR-0006-document-identity-and-shared-base-state-model.md`,
 Proposed → Under Review → Accepted → (Deprecated | Superseded)
 ```
 
-> During inception, records are `Proposed` until the human gate (PR merge)
-> confirms them. All current records remain `Proposed` pending human
-> confirmation at the readiness check (Phase 6).
+> During inception, all records stay `Proposed`; they advance to
+> `Under Review` / `Accepted` at the Phase 6 inception readiness check
+> (the inception-wide human gate). Per-phase PR merge does not, by itself,
+> accept a record.
 
 ### Labels and linking
 

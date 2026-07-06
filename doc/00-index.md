@@ -20,6 +20,7 @@ ados_distribution: project-generated
 | [Ubiquitous Language](overview/ubiquitous-language.md) | Bounded context — aggregates, entities, VOs, events |
 | [System Spec](spec/) | Current truth — feature specs, NFRs |
 | [Documentation Handbook](documentation-handbook.md) | How docs work — structure, conventions, workflow |
+| [Documentation Profile](documentation-profile.md) | Write-safety contract (engineering-repo) |
 
 ## Changing Behavior?
 

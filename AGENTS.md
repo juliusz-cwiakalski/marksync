@@ -127,6 +127,9 @@ Full definitions: `~/.ados/repo/.opencode/command/*.md` (global install)
 → /check-readiness <ref> → /run-plan <ref> → /sync-docs <ref> → /review <ref> → /check → /pr
 ```
 
+> `dod_check` (phase 10) is run by `@pm` before `/pr`; it has no dedicated
+> command — see [definition-of-done.md](doc/guides/definition-of-done.md).
+
 Guide: [doc/guides/opencode-agents-and-commands-guide.md](doc/guides/opencode-agents-and-commands-guide.md)
 
 ## Change artifacts

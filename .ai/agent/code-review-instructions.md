@@ -103,7 +103,9 @@ Ordered from most to least important for this repo:
 ## Special Patterns
 
 - **Result<T,E> is the error channel** — do not flag "missing try/catch" when a
-  function returns `Result`. This is intentional (ADR-0011, typescript.md).
+  function returns `Result`. This is intentional (see
+  [.ai/rules/typescript.md](../rules/typescript.md) → Result<T,E>). `CommandResult<T>`
+  (the CLI output wrapper) is a separate concern governed by ADR-0011.
 - **Disposable cache** — tests may delete `.marksync/cache/` freely; this is not
   a bug.
 - **Squash provenance** — `version.message` carries a compact summary, not

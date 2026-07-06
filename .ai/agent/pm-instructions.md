@@ -90,7 +90,11 @@ When human input is required mid-delivery:
 3. Apply the `blocked` label.
 4. **STOP** — do not proceed until the label is removed.
 
-## Definition of Ready (DoR)
+## Issue Intake Readiness
+
+> This is a lightweight pre-delivery checklist. The **formal DoR gate** is
+> phase 5 (`/check-readiness`, run by `@readiness-reviewer`) — see
+> [definition-of-ready.md](../../doc/guides/definition-of-ready.md).
 
 A work item is ready for delivery when:
 
