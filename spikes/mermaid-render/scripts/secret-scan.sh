@@ -17,8 +17,9 @@
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORKSPACE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-REPO_ROOT="$(cd "${WORKSPACE_ROOT}/.." && pwd)"
+# script lives at <repo-root>/spikes/mermaid-render/scripts/secret-scan.sh
+WORKSPACE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"        # …/spikes/mermaid-render
+REPO_ROOT="$(cd "${WORKSPACE_ROOT}/../.." && pwd)"       # the actual repo root
 FINDINGS_DIR="${REPO_ROOT}/findings"
 
 # Build the search list: workspace source + findings (if present), excluding
@@ -87,15 +88,18 @@ done
 
 # A conservative high-entropy heuristic for SOURCE files only (not the binary
 # lockfile): long runs of base64-ish characters that often indicate embedded
-# secrets. Kept conservative to avoid false positives on the golden SVGs.
+# secrets. Pure-hex runs of 60+ chars (e.g. sha256 digests committed as evidence)
+# are EXCLUDED via the second-stage `rg -v` — a real base64 secret is not pure
+# lowercase hex; hashes are not secrets.
 if [ "${SEARCHER}" = "rg" ]; then
   b64="$(
     rg -n --no-heading "${EXCLUDES[@]}" \
       --glob '*.ts' --glob '*.sh' --glob '*.md' --glob '*.mmd' \
-      -e '[A-Za-z0-9+/]{60,}={0,2}' "${SEARCH_ROOTS[@]}" 2>/dev/null || true
+      -e '[A-Za-z0-9+/]{60,}={0,2}' "${SEARCH_ROOTS[@]}" 2>/dev/null \
+      | rg -v '[0-9a-f]{60,}' || true
   )"
   if [ -n "${b64}" ]; then
-    echo "POSSIBLE high-entropy blob (>=60 base64 chars) in a source file — REVIEW:"
+    echo "POSSIBLE high-entropy blob (>=60 base64 chars, non-hex) in a source file — REVIEW:"
     echo "${b64}"
     echo
     matches_found=$((matches_found + 1))

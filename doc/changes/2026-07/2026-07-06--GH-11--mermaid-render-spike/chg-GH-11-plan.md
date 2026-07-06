@@ -728,49 +728,35 @@ wires the `probe:all` orchestrator.
 
 **Tasks**:
 
-- [ ] **8.1** Create `spikes/mermaid-render/probes/run-all.ts` that runs the full pipeline
+- [x] **8.1** Create `spikes/mermaid-render/probes/run-all.ts` that runs the full pipeline
   end-to-end under Bun (determinism → chromium-absence → security → fidelity → secrets), prints a
   combined summary, and records `bun --version` and the OS/platform. This orchestrator is itself
   H3 evidence: the fact that it completes via `bun run probe:all` with no Node-only fallback is the
   AC3/H3 verdict (test plan §8.3 / OQ-1).
-- [ ] **8.2** Run `bun run probe:all` (and individually, `probe:determinism`, `probe:chromium`,
+  - (Spawns each probe as an isolated Bun subprocess; all 5 stages exit 0; records
+    runtime=bun 1.1.34 platform=linux/x64. Also refined secret-scan.sh REPO_ROOT (was off by one
+    level) and excluded pure-hex sha256 digests from the base64 heuristic so findings/ scans clean.)
+- [x] **8.2** Run `bun run probe:all` (and individually, `probe:determinism`, `probe:chromium`,
   `probe:security`, `probe:fidelity`, `probe:secrets`, as needed) and capture all results.
-- [ ] **8.3** Create `findings/mermaid-render-spike-findings.md` (at the **repo root** under
+  - (All probes captured; verdicts: H1 PASS(caveat), H2 PASS, H3 PASS, H4 FAIL, H5 PASS, AC7 0 secrets.)
+- [x] **8.3** Create `findings/mermaid-render-spike-findings.md` (at the **repo root** under
   `findings/`, not under `spikes/`) with:
-  - **Executive summary** — overall verdict: **PASS** / **Partial** / **FAIL**, with a one-paragraph
-    rationale.
-  - **Per-hypothesis verdict table (H1–H5)** with evidence pointers (fixture paths, probe output
-    snippets, normalized SVG paths, scan counts):
-    | Hypothesis | Verdict | Evidence |
-    |---|---|---|
-    | H1 determinism | PASS/FAIL | `fixtures/*.expected.svg`; determinism probe digest table |
-    | H2 no Chromium | PASS/FAIL | `bun pm ls` capture; process-listing delta |
-    | H3 Bun compat | PASS/FAIL | `bun run probe:all` ran end-to-end; `bun --version`; OS/platform |
-    | H4 fidelity | PASS/FAIL | per-type non-empty/well-formed/label assertions |
-    | H5 security | PASS/FAIL | adversarial scan counts (all zero); `strict` confirmed active |
-  - **Forced ADR updates required** — e.g.:
-    - If PASS: ADR-0002 Part B advances Proposed → **spike-validated** (handled by `@doc-syncer`
-      in lifecycle phase 7, NOT by this coder).
-    - If FAIL on H2: ADR-0002 ladder descends to rung 7 (`code` policy) for MS-0002.
-    - If catastrophic FAIL: escalate to ADR-0001 language-level reconsideration; flag a decision
-      record is needed (deferred to lifecycle phase 7; flagged here as conditional).
-  - **Recommendation for MS2-E4-S1** — a single, clear statement: either proceed to E4-S1
-    in-process rendering, **or** fall back to the ADR-0002 `code` policy (rung 7) for MS-0002.
-    (Partial/shim outcomes recorded per spec §18.)
-  - **Golden SVG fixture pairs** — on PASS, confirm that `fixtures/<name>.expected.svg` pairs are
-    committed for MS2-E4-S1 / golden-test-tier reuse (spec G-7). List the committed pairs.
-  - **Normalization rules summary** — reiterate the five rules (from `normalize.ts` header /
-    test plan §5.3) so the findings doc is self-contained for E4-S1 reuse (spec G-8).
-  - **Secrets-hygiene note** — one-line verdict from Phase 7 ("0 secrets in committed artifacts").
-  - **Shim / per-OS-cache-key note** — record any shim used (RSK-5 escalation) or the per-OS-cache-
-    key finding (DEC-3) if cross-OS differs.
-- [ ] **8.4** Verify the findings doc passes the TC-MRSPIKE-007 structural check: it contains an
+  - Executive summary; per-hypothesis verdict table; per-hypothesis detail; forced ADR updates;
+    MS-0002 recommendation; golden pairs; normalization rules; secrets note; shim/per-OS note;
+    cross-OS result (same-OS only); DoR F1–F4; reproduction; catastrophic-failure assessment
+    (H1 did NOT fail catastrophically → ADR-0001 catastrophic-FAIL escalation NOT triggered; but the
+    faithful-render-needs-Chromium finding activates the ADR-0001 revisit trigger for owner review).
+- [x] **8.4** Verify the findings doc passes the TC-MRSPIKE-007 structural check: it contains an
   explicit PASS or FAIL for **each** of H1–H5, evidence pointers, exactly one MS-0002
   recommendation, the normalization-rules reference, and the golden-pair list (on PASS). A quick
   `rg -c 'PASS|FAIL' findings/mermaid-render-spike-findings.md` sanity check is acceptable.
-- [ ] **8.5** Note in the findings doc (and in a code comment) that the **actual** ADR-0002 /
+  - (`rg -c 'PASS|FAIL'` = 29 (≥5); all five H1–H5 verdict rows present with evidence; one MS-0002
+    recommendation in §10; normalization rules in §5; golden pairs in §6.)
+- [x] **8.5** Note in the findings doc (and in a code comment) that the **actual** ADR-0002 /
   feature-spec / story-status updates happen in lifecycle phase 7 (`@doc-syncer`), NOT in this
   spike — this coder only writes the findings doc and records its recommendation.
+  - (Findings intro + §4 explicitly state the coder did NOT edit any ADR/spec/story file; §4 lists
+    the phase-7 doc-update surface.)
 
 **Acceptance Criteria**:
 
