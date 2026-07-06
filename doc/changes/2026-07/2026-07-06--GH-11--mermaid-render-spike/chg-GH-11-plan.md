@@ -967,29 +967,42 @@ The DoR gate (`readiness-review/readiness-iter-1.md`) returned **READY** with fo
 
 ## Definition of Done
 
-- [ ] All 7 ACs (AC1–AC7) satisfied, each with an **evidence pointer** (per spec §17.1):
+- [x] All 7 ACs (AC1–AC7) satisfied, each with an **evidence pointer** (per spec §17.1):
   - AC1 → determinism probe output + `fixtures/*.expected.svg` (Phase 3).
+    - (H1 PASS-caveat: 2/5 renderable & byte-stable; 3/5 fail-to-render. Evidence in findings §3.)
   - AC2 → chromium-absence probe output (tree + process) (Phase 4).
+    - (H2 PASS: 0 forbidden in transitive tree; process delta 0. Findings §3.)
   - AC3 → `bun run probe:all` end-to-end under Bun, no Node fallback (Phase 8; seeded Phase 2).
+    - (H3 PASS: probe:all ran on Bun 1.1.34 linux/x64, all stages exit 0. Findings §3.)
   - AC4 → fidelity probe output (5/5 diagram types + labels) (Phase 6).
+    - (H4 FAIL 0/5: no `<svg>` root; degenerate layout; 3/5 throw. Findings §3.)
   - AC5 → security probe output (0 `<script>`/event-handler/`javascript:`; `strict` active)
     (Phase 5).
+    - (H5 PASS: all counts zero; strict active. Findings §3, scoped per DoR F2.)
   - AC6 → `findings/mermaid-render-spike-findings.md` (PASS/FAIL per H1–H5 + one MS-0002
     recommendation) (Phase 8).
+    - (Findings doc committed; structural check 29 PASS|FAIL; one MS-0002 recommendation in §10.)
   - AC7 → secrets-scan verdict (0 secrets) recorded in the findings doc (Phase 7 + 8).
-- [ ] `spikes/mermaid-render/` committed: code + fixtures + normalized golden SVGs + findings doc;
+    - (0 secrets in committed artifacts, reviewed 2026-07-06. Findings §7.)
+- [x] `spikes/mermaid-render/` committed: code + fixtures + normalized golden SVGs + findings doc;
   `node_modules/` and ephemeral outputs gitignored (spec §17.1).
-- [ ] Findings document (`findings/mermaid-render-spike-findings.md`) records explicit PASS/FAIL
+- [x] Findings document (`findings/mermaid-render-spike-findings.md`) records explicit PASS/FAIL
   per H1–H5 with evidence **and** a single clear MS-0002 recommendation (proceed to E4-S1
   in-process **or** `code` fallback) (spec §17.1).
-- [ ] On PASS: golden SVG fixture pair (source + normalized SVG) committed for each canonical
+  - (Recommendation: MS-0002 → ADR-0002 rung 7 `code` policy; E4-S1 must not proceed with happy-dom
+    as-is — needs Chromium or a validated layout shim.)
+- [x] On PASS: golden SVG fixture pair (source + normalized SVG) committed for each canonical
   fixture, for reuse by MS2-E4-S1 / the golden-test tier (spec G-7).
-- [ ] Normalization rules (and any shim / per-OS-cache-key finding) recorded for E4-S1 reuse (spec
+  - (PARTIAL: H4 did not fully PASS. Only the 2 renderable fixtures have golden pairs
+    (`flowchart.expected.svg`, `gantt.expected.svg`) — and they are DEGENERATE; sequence/class/state
+    have none because they do not render under happy-dom. Reuse value is limited until a faithful
+    render path exists. Findings §6.)
+- [x] Normalization rules (and any shim / per-OS-cache-key finding) recorded for E4-S1 reuse (spec
   G-8, DEC-2) — in `normalize.ts` header comment **and** reiterated in the findings doc.
-- [ ] **No production code under `src/` is touched** (spec NG-5; C-SPIKE-2). Verified by
+- [x] **No production code under `src/` is touched** (spec NG-5; C-SPIKE-2). Verified by
   `git diff` against the base branch showing only `spikes/mermaid-render/**` and
   `findings/mermaid-render-spike-findings.md`.
-- [ ] No CI/workflow/ADR/spec/story file is mutated by the coder (spec NG-6; C-SPIKE-6); the
+- [x] No CI/workflow/ADR/spec/story file is mutated by the coder (spec NG-6; C-SPIKE-6); the
   Doc-update coverage section lists what `@doc-syncer` reconciles in lifecycle phase 7.
 
 ## Artifacts and Links
@@ -1022,13 +1035,18 @@ The DoR gate (`readiness-review/readiness-iter-1.md`) returned **READY** with fo
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| Phase 0 | _(pending)_ | — | — | — | scaffolding |
-| Phase 1 | _(pending)_ | — | — | — | fixtures |
-| Phase 2 | _(pending)_ | — | — | — | render entrypoint |
-| Phase 3 | _(pending)_ | — | — | — | determinism probe + normalizer |
-| Phase 4 | _(pending)_ | — | — | — | chromium-absence probe |
-| Phase 5 | _(pending)_ | — | — | — | security probe |
-| Phase 6 | _(pending)_ | — | — | — | fidelity probe |
-| Phase 7 | _(pending)_ | — | — | — | secrets scan |
-| Phase 8 | _(pending)_ | — | — | — | run-all + findings doc (load-bearing) |
-| Phase 9 | _(pending)_ | — | — | — | README + run-book |
+| Phase 0 | DONE | 2026-07-06 | 2026-07-06 | 991a4f6 | scaffolding (workspace + change-folder baseline) |
+| Phase 1 | DONE | 2026-07-06 | 2026-07-06 | b1a8793 | fixtures (5 canonical + 3 adversarial) |
+| Phase 2 | DONE | 2026-07-06 | 2026-07-06 | 833f433 | render entrypoint; first H3 evidence |
+| Phase 3 | DONE | 2026-07-06 | 2026-07-06 | e7641fc | determinism probe + normalizer (H1 PASS-caveat) |
+| Phase 4 | DONE | 2026-07-06 | 2026-07-06 | db6ec6a | chromium-absence probe (H2 PASS) |
+| Phase 5 | DONE | 2026-07-06 | 2026-07-06 | f948dcd | security probe (H5 PASS) |
+| Phase 6 | DONE | 2026-07-06 | 2026-07-06 | 8388e22 | fidelity probe (H4 FAIL 0/5) |
+| Phase 7 | DONE | 2026-07-06 | 2026-07-06 | 5870727 | secrets scan (AC7: 0 secrets) |
+| Phase 8 | DONE | 2026-07-06 | 2026-07-06 | 160ed6f | run-all + findings doc (load-bearing) |
+| Phase 9 | DONE | 2026-07-06 | 2026-07-06 | 682c8d6 | README + run-book |
+
+**Overall spike verdict: PARTIAL (H4 FAIL drives `code`-policy fallback for MS-0002).**
+H1 PASS (caveat) · H2 PASS · H3 PASS · H4 FAIL · H5 PASS · AC7 0 secrets. NOT the catastrophic
+ADR-0001 escalation (deterministic path exists); the ADR-0001 revisit trigger is activated for
+owner review. See `findings/mermaid-render-spike-findings.md`.
