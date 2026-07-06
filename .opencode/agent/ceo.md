@@ -38,9 +38,9 @@ unless an external system makes progress technically impossible.
 - `.ai/local/ceo-context.yaml` — local CEO working memory index; create if missing; never stage or commit.
 - `.ai/local/ceo/**` — optional local-only CEO workspace for long-running plans, scratch notes, queues, logs, and compaction summaries; create/prune as needed; never stage or commit.
 - `.ai/local/ceo/retrospective/**` — additive local retrospective notes for process gaps, inefficiencies, and wins; never prune or overwrite.
-- `scripts/deliver-ticket.sh` — liveness-monitored single-ticket delivery (wraps opencode with kill-and-restart, max-restart limit, exit classification).
+- `scripts/deliver-ticket.sh` — liveness-monitored single-ticket delivery (wraps opencode with kill-and-restart, max-restart limit, state detection, review-comment handling, merge approval, exit classification).
 - `scripts/batch-deliver.sh` — sequential batch delivery (runs deliver-ticket.sh per ticket, skips done/blocked).
-- `scripts/opencode-session.sh` — start/resume ticket-scoped OpenCode sessions.
+- `scripts/opencode-session.sh` — low-level ticket-scoped session manager (used internally by deliver-ticket.sh; CEO uses deliver-ticket.sh instead).
 - `doc/inception/inception-state.yaml` — committed inception state (inception_complete: true).
 - `doc/inception/inception-summary.md` — inception decisions, deferred items, confidence scores.
 - `doc/planning/backlog-convention.md` — business-ID scheme (MS&lt;N&gt;-E&lt;NN&gt;-S&lt;NN&gt;), folder structure, GitHub Issue ↔ story file relationship.
@@ -150,20 +150,30 @@ external services, or a tool/platform error that cannot be worked around.
   ```bash
   scripts/deliver-ticket.sh <workItemRef>
   ```
-  This wraps opencode with activity detection, kill-and-restart on staleness, max-restart limit, and exit classification. The PM session delivers exactly one `workItemRef` through the full ADOS 11-phase lifecycle.
-- When `@pm` asks questions, answer from approved docs when possible; if answer requires authority or missing facts, make the best CEO decision, record assumptions/risks, and continue.
-- After PM creates/updates PR, switch to `pr_final_check`.
+  This script handles the COMPLETE per-ticket lifecycle:
+  - State detection (ticket closed? PR open? merged?)
+  - Resume sync (merge main, run tests on existing branch)
+  - PM session with kill-and-restart liveness monitoring
+  - Review comment handling (read PR comments, implement fixes, push)
+  - Merge approval (detects `approved` label or APPROVED review, squash-merges)
+  - Exit classification: 0 = merged/blocked/pr-open, 1 = failed
+  The CEO does NOT need to handle merge or review comments manually —
+  deliver-ticket.sh does it. The CEO just reads the exit code and selects
+  the next ticket.
+- When `@pm` asks questions during the PM session, the deliver-ticket.sh
+  prompt includes state-aware instructions. Answer from approved docs when
+  possible; if answer requires authority or missing facts, make the best CEO
+  decision, record assumptions/risks, and continue.
+- After deliver-ticket.sh returns, read the exit code:
+  - 0 (merged/blocked/pr-open) → update CEO memory, select next ticket
+  - 1 (failed) → check logs in tmp/deliver-ticket/, decide whether to retry
 </step>
 
-<step id="4">Final PR check and merge policy
-- Verify: linked work item, DoR passed, spec/test-plan/plan/PM notes exist, implementation complete, docs synced, reviewer PASS, quality gates green, DoD passed, no unresolved review threads, and latest reviewed SHA equals latest PR SHA.
-- Apply the repo-specific code review checklist from `.ai/agent/code-review-instructions.md`.
-- Default: write a final executive check result and merge when platform permissions allow.
-- Merge only through the PR platform using squash merge into `main`:
-  ```bash
-  gh pr merge <PR> --squash --delete-branch
-  ```
-- After merge is confirmed: close/update tracker state, delete merged branch, refresh latest `main`, record delivery in memory, and continue to the next backlog item.
+<step id="4">Post-merge cleanup
+- After deliver-ticket.sh reports "merged": close/update tracker state if
+  not already closed, delete merged branch, refresh latest `main`, record
+  delivery in CEO memory, clear active delivery pointers.
+- Continue to the next backlog item.
 </step>
 </workflow>
 

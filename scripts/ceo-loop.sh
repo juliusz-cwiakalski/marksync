@@ -44,9 +44,9 @@ Run in autonomous CEO mode using @.opencode/agent/ceo.md.
 Instructions:
 1. Read and update @.ai/local/ceo-context.yaml plus @.ai/local/ceo/** as working memory.
 2. Reconcile state with GitHub Issues, branches, PRs, and committed ADOS artifacts using @.ai/agent/pm-instructions.md and @.ai/agent/pr-instructions.md.
-3. If a ticket delivery is needed, always start/resume exactly one ticket-scoped PM session using @scripts/opencode-session.sh <workItemRef>; do not deliver multiple tickets in the CEO conversation.
-4. The PM ticket session must run the full ADOS 11-phase lifecycle for that one ticket, delegate to subagents, report done/merged/blocked, and stop without selecting another ticket.
-5. Prevent stale work before new tickets: list active GitHub issues/PRs, favor finishing pending branches/PRs, squash-merge ready PRs, close superseded work, delete merged branches, fetch/prune, checkout main, and pull --ff-only before new ticket work.
+3. If a ticket delivery is needed, always start/resume exactly one ticket-scoped delivery using @scripts/deliver-ticket.sh <workItemRef>; do not deliver multiple tickets in the CEO conversation. deliver-ticket.sh handles the complete lifecycle: state detection, PM session with liveness monitoring, review-comment handling, merge approval (approved label), and exit classification.
+4. The deliver-ticket.sh PM session must run the full ADOS 11-phase lifecycle for that one ticket, delegate to subagents, and stop without selecting another ticket.
+5. Prevent stale work before new tickets: list active GitHub issues/PRs, favor finishing pending branches/PRs, close superseded work, delete merged branches, fetch/prune, checkout main, and pull --ff-only before new ticket work.
 6. Keep delivery discipline: every product change goes ticket -> PR -> squash merge to main. Do not direct-push product work to main.
 7. For every process gap, inefficiency, failed experiment, or reusable win, create a new additive note in @.ai/local/ceo/retrospective/<YYYY-MM-DD>-<note-slug>.md; never edit/delete older retro notes.
 8. If all project work is complete, write ${LOG_DIR_REL}/stopped.txt with timestamp and reason, then stop.
