@@ -60,7 +60,12 @@ const depTreeOk = depTree.ok && depHits.length === 0;
 const platform = `${process.platform}/${process.arch}`;
 const ps = await runText(["ps", "aux"]);
 const psAvailable = ps.ok;
-const chromeRe = /\b(chrom|headless_shell|google-chrome|chromium-browser)\b/i;
+// Case-insensitive SUBSTRING match (consistent with the dep-tree check below):
+// matches `chrome`, `chromium`, `chromium-browser`, `/opt/google/chrome/chrome`,
+// `/usr/bin/chromium`, bare `chrome --headless`, etc. Plus `headless_shell`.
+// NOTE: this process-delta arm is best-effort / OS-specific by nature; NFR-DEP-1
+// (the transitive dep tree) is the load-bearing evidence for H2 / E4-S1.
+const chromeRe = /chrom(?:e|ium)?|headless_shell/i;
 const before = psAvailable
   ? ps.text.split("\n").filter((l) => chromeRe.test(l))
   : [];

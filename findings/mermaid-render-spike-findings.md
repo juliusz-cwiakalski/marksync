@@ -123,6 +123,14 @@ renderable output but practically moot* — the stable output is degenerate.
   happy-dom render path spawns no browser. (`ps` is POSIX; the probe degrades
   gracefully and never silently passes where `ps` is unavailable.)
 
+> **Process-regex limitation (best-effort arm, review-iter-1 finding 1):** the
+> runtime `ps` matcher is a case-insensitive substring scan
+> (`/chrom(?:e|ium)?|headless_shell/i` — broadened post-review to catch
+> `/opt/google/chrome/chrome`, `/usr/bin/chromium`, bare `chrome --headless`,
+> etc.). By nature a process-list check is best-effort and OS-specific; the
+> **load-bearing** evidence for H2 is NFR-DEP-1 (the transitive dependency tree:
+> 0 forbidden), which is the check MS2-E4-S1's stronger guarantee rests on.
+
 H2 is technically PASS — and this is the crux of the nuance: the no-Chromium path
 *works*, it just produces unfaithful output. The Chromium requirement arises only
 if you want *faithful* rendering, which is the H4 concern.

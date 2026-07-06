@@ -131,8 +131,13 @@ export function normalizeSvg(rawSvg: string): string {
   //   nested `<g>`. Operates AFTER Rule 2 (attr sort) so `class="today"` is in
   //   a stable position and AFTER Rule 4 (whitespace) so the block is compact.
   s = s.replace(/<g class="[^"]*today[^"]*">[\s\S]*?<\/g>/g, "");
-  //   Defensive: strip any remaining standalone element carrying a today class.
-  s = s.replace(/<[^>]*class="[^"]*today[^"]*"[^>]*>(<\/[^>]*>)?/g, "");
+  //   Defensive: strip any remaining standalone element whose class is EXACTLY
+  //   "today" (e.g. a stray `<line class="today" ...>`). Restricted to the exact
+  //   token so it does NOT over-match unrelated classes like `class="today-
+  //   special"`; the load-bearing gantt `<g class="today">` group is already
+  //   removed by the regex above. (Lift verbatim for MS2-E4-S1; revisit only if a
+  //   future Mermaid emits a variant today-marker form.)
+  s = s.replace(/<[^>]*class="today"[^>]*>(<\/[^>]*>)?/g, "");
   //   Final inter-tag tidy after the above substitutions.
   s = s.replace(/>\s+</g, "><").trim();
 

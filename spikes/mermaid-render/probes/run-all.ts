@@ -13,7 +13,7 @@
  */
 import { join } from "node:path";
 
-const WORKSPACE_ROOT = import.meta.dir.replace("/probes", "");
+const WORKSPACE_ROOT = join(import.meta.dir, "..");
 
 const STAGES = [
   { name: "determinism", cmd: ["bun", "run", "probes/determinism.ts"], cwd: WORKSPACE_ROOT },
