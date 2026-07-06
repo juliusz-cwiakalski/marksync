@@ -674,7 +674,7 @@ TC-MRSPIKE-006.
 
 **Tasks**:
 
-- [ ] **7.1** Create `spikes/mermaid-render/scripts/secret-scan.sh` — a grep-based scan (use `rg`
+- [x] **7.1** Create `spikes/mermaid-render/scripts/secret-scan.sh` — a grep-based scan (use `rg`
   if available, else `grep -r`) across `spikes/mermaid-render/` (excluding `node_modules/`, logs,
   and ephemeral outputs) plus the `findings/` directory, for common secret patterns:
   - API tokens / `Bearer ` / `xoxb-` (Slack) / `AKIA` (AWS prefixes)
@@ -682,11 +682,16 @@ TC-MRSPIKE-006.
   - high-entropy base64 blobs in fixture/script files
   - any `MARKSYNC_*` credential env-var **values** (keys/names are fine; values must be absent)
   - exit non-zero if any match is found; print the matches.
-- [ ] **7.2** Confirm the scan excludes `node_modules/` and ephemeral outputs (they are gitignored
+  - (rg with excludes for node_modules/ .spike-cache/ *.lockb *.log *.raw.svg repeat outputs;
+    patterns: AKIA, xoxb-, ghp_/gho_, Bearer, private-key headers, MARKSYNC_*=<value>, plus a
+    conservative >=60-char base64 heuristic on source files only.)
+- [x] **7.2** Confirm the scan excludes `node_modules/` and ephemeral outputs (they are gitignored
   and therefore not committed, so they are out of scan scope for "committed artifact").
-- [ ] **7.3** Run `bun run probe:secrets` (i.e. `bash scripts/secret-scan.sh`) and confirm it
+  - (Excludes confirmed via rg --glob '!…'; binary bun.lockb also excluded.)
+- [x] **7.3** Run `bun run probe:secrets` (i.e. `bash scripts/secret-scan.sh`) and confirm it
   reports 0 matches. The one-line verdict ("Secrets scan: 0 secrets in committed artifacts
   (reviewed <date>).") is recorded in the findings doc in Phase 8.
+  - (Phase-7 run: 0 secrets in the workspace (findings/ created in Phase 8 and re-scanned there).)
 
 **Acceptance Criteria**:
 
