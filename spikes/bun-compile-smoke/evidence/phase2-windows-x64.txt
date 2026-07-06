@@ -1,0 +1,29 @@
+# TC-BCS-002 evidence — Phase 2 (windows-x64 cross-compile, H1b)
+# generated: 2026-07-06T20:20:10Z
+# bun --version: 1.1.34
+
+## TC-BCS-002 — windows-x64 cross-compile (H1b)
+
+Invocation:
+  bun build --compile --target=bun-windows-x64 ./src/cli.ts --outfile marksync-win-x64.exe
+
+Build log:
+   [5ms]  bundle  1 modules
+  Decompressing...
+  [compile] marksync-win-x64.exe
+  build exit: 0 (verified independently: `bun build --compile --target=bun-windows-x64 ... ; echo $?` -> 0)
+
+file(1) classification:
+  marksync-win-x64.exe: PE32+ executable for MS Windows 6.00 (console), x86-64, 10 sections
+
+## DEC-3 deferral — clean-OS Windows RUN
+
+wine: NOT installed in this environment (DEC-3).
+  $ command -v wine || echo absent  ->  absent
+
+Therefore the win-x64 binary is PRODUCED and verified as a valid PE32+ Windows
+executable (above), but the clean-OS Windows RUN (executing marksync-win-x64.exe
+on a real Windows host / under wine) is DEFERRED to a Windows CI runner in
+MS2-E5-S4 (story methodology step-5 explicit fallback; spec DEC-3/RSK-3).
+
+H1's win-x64 PRODUCTION is fully validated here; only the run is deferred.

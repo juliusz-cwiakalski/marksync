@@ -350,20 +350,20 @@ fully testable here.
 
 **Tasks**:
 
-- [ ] **2.1** Run `bun run build:windows` (i.e.
+- [x] **2.1** Run `bun run build:windows` (i.e.
   `bun build --compile --target=bun-windows-x64 ./src/cli.ts --outfile marksync-win-x64.exe`) in
   `spikes/bun-compile-smoke/`. Confirm exit 0 and that `marksync-win-x64.exe` is produced.
   - *Contingency (RSK-1):* if the `bun-windows-x64` target is unavailable or renamed in Bun 1.1.34,
     record the exact error, mark H1b as DEFERRED (Windows CI runner build for E5-S4), and proceed —
-    linux-x64 production (Phase 1) and the signing story (Phase 5) remain valid. Do NOT block.
-- [ ] **2.2** Verify the output is a PE32+ executable: `file marksync-win-x64.exe` reports
-  `PE32+ executable (console) x86-64, ...` (a native Windows binary).
-- [ ] **2.3** Record the clean-OS Windows RUN deferral (DEC-3): `wine` is absent in this environment,
+    linux-x64 production (Phase 1) and the signing story (Phase 5) remain valid. Do NOT block. _(exit 0; marksync-win-x64.exe produced — bun-windows-x64 target IS available in 1.1.34; RSK-1 NOT triggered)_
+- [x] **2.2** Verify the output is a PE32+ executable: `file marksync-win-x64.exe` reports
+  `PE32+ executable (console) x86-64, ...` (a native Windows binary). _(`PE32+ executable for MS Windows 6.00 (console), x86-64, 10 sections` — confirmed)_
+- [x] **2.3** Record the clean-OS Windows RUN deferral (DEC-3): `wine` is absent in this environment,
   so the win-x64 binary is **produced + verified as PE32+** but NOT run under wine. The Windows
   runtime smoke is deferred to a Windows CI runner in MS2-E5-S4 (story step-5 explicit fallback).
-  This deferral is echoed in the Phase 7 findings doc.
-- [ ] **2.4** Capture the H1b evidence: the exact invocation, the `file(1)` PE32+ classification, the
-  exit status, and (if applicable) the RSK-1 deferral note. Persist to evidence.
+  This deferral is echoed in the Phase 7 findings doc. _(recorded in evidence/phase2-windows-x64.txt)_
+- [x] **2.4** Capture the H1b evidence: the exact invocation, the `file(1)` PE32+ classification, the
+  exit status, and (if applicable) the RSK-1 deferral note. Persist to evidence. _(captured to evidence/phase2-windows-x64.txt)_
 
 **Acceptance Criteria**:
 
@@ -971,7 +971,7 @@ any `doc/decisions/**`, `doc/spec/**`, or `doc/planning/**` file.
 |-------|--------|---------|-----------|--------|-------|
 | Phase 0 | DONE | 2026-07-06 | 2026-07-06 | 36d2c6c | scaffold workspace — bun 1.1.34 + docker 27.3.1 verified; cli prints marksync 0.0.0 |
 | Phase 1 | DONE | 2026-07-06 | 2026-07-06 | (this commit) | linux-x64 cross-compile H1a PASS (ELF x86-64, exit 0); TC-BCS-008 arm64 stretch: BOTH bun-linux-arm64 + bun-darwin-arm64 ACCEPTED in 1.1.34 (informational) |
-| Phase 2 | PENDING | — | — | — | windows-x64 cross-compile (H1) |
+| Phase 2 | DONE | 2026-07-06 | 2026-07-06 | (this commit) | windows-x64 cross-compile H1b PASS (PE32+ x86-64, exit 0); RSK-1 NOT triggered; DEC-3 Windows-run deferral recorded |
 | Phase 3 | PENDING | — | — | — | clean-OS linux docker smoke (H2) |
 | Phase 4 | PENDING | — | — | — | size + cold-start measurement (H3, H4) |
 | Phase 5 | PENDING | — | — | — | signing dry-run command (H5) |
