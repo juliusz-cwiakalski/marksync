@@ -10,7 +10,7 @@ estimate: 1d
 gh_issue: GH-17
 feature_spec: doc/spec/features/feature-cli.md
 decisions: []
-dependencies: { blocks: [MS2-E3-S4], blocked_by: [MS2-E2-S1] }
+dependencies: { blocks: [MS2-E3-S4, MS2-E5-S2], blocked_by: [MS2-E2-S1] }
 cross_cutting: [R-SEC-1, NFR-SEC-6]
 ---
 
@@ -24,13 +24,13 @@ Auth is consumed by the Confluence adapter (E3-S4) and `doctor` (E5-S2). The MS-
 
 ## Detailed scope (deliverables)
 1. **`src/app/credentials.ts`** — `CredentialProvider`:
-   - `resolveCredentials(): Result<ConfluenceCredentials, AuthError>` reads `MARKSYNC_CONFLUENCE_BASE_URL`, `MARKSYNC_CONFLUENCE_EMAIL`, `MARKSYNC_CONFLUENCE_TOKEN` (and optional `MARKSYNC_CONFLUENCE_API_TOKEN_SCOPED` + `MARKSYNC_CONFLUENCE_CLOUD_ID` for the scoped/gateway path — informational; classic path is primary for MS-0002).
+   - `resolveCredentials(): Result<ConfluenceCredentials, AuthError>` reads the **canonical env vars declared in `.env.example`** (the single source of truth per `AGENTS.md`/`testing-strategy.md`): `MARKSYNC_CONFLUENCE_BASE_URL`, `MARKSYNC_USER_EMAIL`, `MARKSYNC_API_TOKEN` (classic/direct auth — the guaranteed MS-0002 path).
    - Returns `{ baseUrl, authHeader }` where `authHeader = "Basic " + base64(email:token)`.
-   - Missing/empty required vars → `AuthError{kind:"MissingCredentials"; missing[]}` with AI-readable message listing which vars and how to set them.
+   - Missing/empty required vars → `AuthError{kind:"MissingCredentials"; missing[]}` with AI-readable message listing which vars and how to set them (link `.env.example`).
    - Malformed `baseUrl` (not https, not a Confluence host) → `AuthError{kind:"InvalidBaseUrl"}`.
+   - **Scoped-token/gateway path is deferred** (the MS-0001 spike deviation: a scoped token authenticated but lacked scopes). Do NOT read `*_SCOPED`/`*_CLOUD_ID` vars in MS-0002; classic API-token is the only supported auth path. OAuth 3LO and scoped tokens are post-MS-0002.
 2. **Validation probe** — `validateCredentials(creds): Result<{accountId, displayName}, AuthError>` issues `GET /wiki/api/v2/user/by-me` (or v1 `user/current`) and returns the account identity on 200; maps 401/403 → `AuthError{kind:"InvalidCredentials"}`, network errors → `AuthError{kind:"AuthUnreachable"}`. **No retry on 401/403** (spike rule: don't retry blindly).
-3. **Scoped-token awareness** — read the gateway path env vars; if classic token is absent but scoped+cloudId present, build the gateway base URL. Document that scoped-token scope-validation is deferred (spike deviation); classic path is primary.
-4. **`AuthError`** added to `MarkSyncError` (exhaustive union update).
+3. **`AuthError`** added to `MarkSyncError` (exhaustive union update).
 5. **Redaction integration** — the token is NEVER placed in any `CommandResult`, log, or thrown error. The provider returns an opaque `authHeader`; only `baseUrl`/`email` (masked: `j***@cwiakalski.com`) are safe to surface. Verify via the E2-S3 redactor tests.
 6. **`doctor` integration point** — expose `validateCredentials` so `doctor` (E5-S2) can call it; this story implements the capability, doctor wires the UI.
 

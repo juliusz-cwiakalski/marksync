@@ -10,7 +10,7 @@ estimate: 2d
 gh_issue: GH-32
 feature_spec: ""
 decisions: [ADR-0001]
-dependencies: { blocks: [], blocked_by: [MS2-E1-S3] }
+dependencies: { blocks: [], blocked_by: [MS2-E1-S3, MS2-E2-S1] }
 cross_cutting: [A-FEA-2, A-FEA-10, NFR-PERF-1, NFR-PERF-2, NFR-COMP-1]
 ---
 

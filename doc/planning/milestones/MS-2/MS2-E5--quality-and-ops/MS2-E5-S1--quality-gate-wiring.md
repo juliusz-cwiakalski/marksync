@@ -10,7 +10,7 @@ estimate: 2d
 gh_issue: GH-29
 feature_spec: ""
 decisions: [TDR-0004, TDR-0007]
-dependencies: { blocks: [], blocked_by: [MS2-E2-S1, MS2-E3-S6] }
+dependencies: { blocks: [], blocked_by: [MS2-E2-S1, MS2-E3-S6, MS2-E3-S7, MS2-E4-S1] }
 cross_cutting: [R-FEA-5, NFR-REL-1, NFR-REL-2, NFR-REL-8, INV-SEC-1]
 ---
 
@@ -23,13 +23,15 @@ Wire the full 6-tier testing strategy (testing-strategy.md): unit + integration 
 TDR-0004 (bun:test) + TDR-0007 (@cucumber/cucumber). testing-strategy.md §"CI wiring": BDD runs in the fast loop via `bun run test:bdd`; E2E is a separate scheduled/labelled gate. The over-mocking guardrail (testing-strategy.md) forbids mocking lifecycle invariants — they MUST run through integration/E2E paths. E2-S1 created the tier directories + smoke test; this story wires the real runners + the invariant scenarios.
 
 ## Detailed scope (deliverables)
-1. **`@cucumber/cucumber` wiring** — `tests/bdd/features/`, `tests/bdd/steps/`, `package.json` script `test:bdd` (TDR-0007 via bun). Features for the lifecycle invariants ONLY:
+1. **`@cucumber/cucumber` wiring** — `tests/bdd/features/`, `tests/bdd/steps/`, `package.json` script `test:bdd` (TDR-0007 via bun). The **mandatory floor** is the four lifecycle invariants per TDR-0007/testing-strategy (`INV-SAFE-1`, `INV-SAFE-2`, `INV-SAFE-3`, `INV-SEC-1`); two additive scenarios (`NFR-PERF-4` idempotency, `NFR-REL-5` concurrency) are included because they are release-blocking guardrails too:
    - `no-silent-overwrite.feature` (INV-SAFE-1)
    - `no-silent-recreate-remote-missing.feature` (INV-SAFE-2)
    - `duplicate-uuid-fatal.feature` (INV-SAFE-3)
    - `no-secret-in-output.feature` (INV-SEC-1)
-   - `idempotent-rerun.feature` (NFR-PERF-4)
-   - `overlapping-plans-older-loses.feature` (INV-SAFE-3/concurrency)
+   - `idempotent-rerun.feature` (NFR-PERF-4) — additive
+   - `overlapping-plans-older-loses.feature` (NFR-REL-5) — additive
+
+   > **Scope note (TDR-0007 alignment):** TDR-0007 §70-72 and testing-strategy.md scope BDD to "lifecycle invariants only" (the four INV-*). The two additive scenarios above extend that floor because NFR-PERF-4 and NFR-REL-5 are also release-blocking. If the BDD tier must stay literal to TDR-0007, move the two additive scenarios to the integration tier instead — either way they remain gated.
 2. **Step definitions** — drive the **real** sync engine (E3-S6) against a `Bun.serve` mock Confluence (integration-level — NOT mocked domain logic). Each scenario sets up local Git fixtures + mock remote state, runs plan+apply, asserts the invariant + zero-write/zero-overwrite behavior.
 3. **Golden-fixture runner** — wire `tests/golden/` snapshot tests (Storage from E3-S3, Mermaid SVG from E4-S1) into the fast loop; `--update-snapshots` is explicit (never in CI).
 4. **Mermaid-DOM preload** — confirm `tests/mermaid.preload.ts` registers happy-dom (used by E4-S1 tests).
@@ -48,7 +50,7 @@ TDR-0004 (bun:test) + TDR-0007 (@cucumber/cucumber). testing-strategy.md §"CI w
 
 ## Acceptance criteria (testable)
 - [ ] All 6 tiers wired: unit, integration, golden, mermaid-DOM, BDD, E2E — each runnable via its documented command.
-- [ ] `bun run test:bdd` passes all invariant features (INV-SAFE-1/2/3, INV-SEC-1, NFR-PERF-4) at integration level (real engine + mock target).
+- [ ] `bun run test:bdd` passes all invariant features (INV-SAFE-1/2/3, INV-SEC-1, NFR-PERF-4, NFR-REL-5) at integration level (real engine + mock target).
 - [ ] **Over-mocking guardrail honored:** no invariant scenario mocks the state classifier or sync engine; only the `TargetSystem` port is mocked.
 - [ ] Golden fixtures: committed; `--update-snapshots` not used in CI; a deliberate output change → CI fails until reviewed update.
 - [ ] E2E: `run-e2e.yml` triggers on label/schedule; runs against the sandbox; cleans up.

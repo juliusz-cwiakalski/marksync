@@ -20,17 +20,18 @@ control that refuses to silently overwrite remote work.
 - MS2-E3-S2: State manager (committed lock, disposable cache)
 - MS2-E3-S3: Markdown pipeline (remark/HAST → Storage Format)
 - MS2-E3-S4: Confluence adapter (TargetSystem port, v2/v1)
-- MS2-E3-S5: Drift classifier (5-state, canonical hashing)
+- MS2-E3-S5: Drift classifier (6-state, canonical hashing)
 - MS2-E3-S6: Sync engine (plan → apply, journal, provenance)
 - MS2-E3-S7: Concurrency control (409 + dedup + stale-plan)
 
 ## Success criteria
-- INV-SAFE-1: remotely-deleted managed page never silently re-created
-- INV-SAFE-2: duplicate UUID fatal before any write
-- INV-SAFE-3: overlapping CI plans — older must not overwrite newer
+- INV-SAFE-1: no silent overwrite of a remote edit (REMOTE_AHEAD/DIVERGED blocked)
+- INV-SAFE-2: remotely-deleted managed page never silently re-created (REMOTE_MISSING blocked)
+- INV-SAFE-3: duplicate UUID fatal before any write
+- NFR-REL-5: overlapping CI plans — older must not overwrite newer (decentralized 409)
 - INV-SEC-1: no credential in any output
 - Semantic idempotency: second unchanged push writes 0
-- Drift: 5 states correctly detected; false-positive < 5%
+- Drift: 6 states correctly detected; false-positive < 5%
 
 ## Cross-cutting
 - R-FEA-3 (state model), R-FEA-7 (concurrency), R-FEA-8 (false conflict), R-FEA-9 (corpus)

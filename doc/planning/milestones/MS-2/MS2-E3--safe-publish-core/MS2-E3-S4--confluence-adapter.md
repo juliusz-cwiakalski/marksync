@@ -10,7 +10,7 @@ estimate: 4d
 gh_issue: GH-21
 feature_spec: doc/spec/features/feature-confluence-adapter.md
 decisions: [ADR-0005, ADR-0006]
-dependencies: { blocks: [MS2-E3-S5, MS2-E3-S6], blocked_by: [MS2-E2-S4] }
+dependencies: { blocks: [MS2-E3-S5, MS2-E3-S6], blocked_by: [MS2-E2-S4, MS2-E3-S3] }
 cross_cutting: [R-FEA-6, R-FEA-10, NFR-MAINT-1]
 ---
 
@@ -23,12 +23,13 @@ Implement the `TargetSystem` port for Confluence Cloud: all REST v2/v1 distincti
 NFR-MAINT-1 / A-FEA-6: ALL Confluence REST v2/v1 distinctions live behind this adapter (dependency-cruiser-enforced). The MS-0001 spike VALIDATED every operation (H1–H6, blueprint §0). This story turns those validated facts into the port implementation. The domain calls the `TargetSystem` port; only this module knows Confluence exists.
 
 ## Detailed scope (deliverables)
-1. **`src/domain/target/port.ts`** — the `TargetSystem` port interface (the contract every adapter implements): `getPage(id)`, `createPage(req)`, `updatePage(req)` (returns `Conflict` on 409), `movePage(req)`, `getProperty(pageId,key)`, `putProperty(pageId,key,value)`, `uploadAttachment(pageId,artifact)`, `attachmentExists(pageId,hash)`, `listAttachments(pageId)`, `searchPages(cql)`, `getRestrictions(pageId)`. All return `Result<T, MarkSyncError>`. NO Confluence types in this interface.
+1. **`src/domain/target/port.ts`** — the `TargetSystem` port interface (the contract every adapter implements; matches `architecture-overview.md` §"Internal interface contracts"): `renderBody(mdast, opts)` → `{body, hash}` (the body-renderer is target-specific, so it lives behind the port), `getPage(id)`, `createPage(req)`, `updatePage(req)` (returns `Conflict` on 409), `movePage(req)`, `getProperty(pageId,key)`, `putProperty(pageId,key,value)`, `uploadAttachment(pageId,artifact)`, `attachmentExists(pageId,hash)`, `listAttachments(pageId)`, `searchPages(cql)`, `getRestrictions(pageId)`. All return `Result<T, MarkSyncError>`. NO Confluence types in this interface.
+   - `renderBody` is implemented by delegating to `src/infra/confluence/render/storage.ts` (built in E3-S3) — that's why this story is `blocked_by` E3-S3. The app layer (E3-S6) calls `target.renderBody(mdast)` and never imports the Confluence renderer directly.
 2. **`src/infra/confluence/client.ts`** — `ConfluenceClient`: native `fetch`; `v1(path)`/`v2(path)` URL builders (blueprint §0 endpoints); inject `authHeader` from E2-S4; `Content-Type: application/json`, `User-Agent: marksync/<ver>`; **redacted** request/response logging (via the E2-S3 Redactor — never log the token); 429 exponential-backoff (1s/2s/4s + jitter, `Retry-After` honored, max 3 retries); 5xx retry (max 3). No HTTP library (typescript.md).
 3. **`src/infra/confluence/pages.ts`** — `PageService` (v2): create `POST /wiki/api/v2/pages` (body `representation:"storage"`); read `GET /wiki/api/v2/pages/{id}?body-format=storage`; update `PUT /wiki/api/v2/pages/{id}` with `version:{number:N+1, message}`; move (parent change). Parse the H5 409: `errors[0].code==="CONFLICT"` → `Conflict{baseVersion; remoteVersion}`.
 4. **`src/infra/confluence/properties.ts`** — `PropertyService` (v2): `GET/POST /wiki/api/v2/pages/{id}/properties`, `GET /wiki/api/v2/pages/{id}/property/{key}`. Stores `marksync.metadata` as a **string** value (spike H2). 409 on key-conflict handled.
 5. **`src/infra/confluence/attachments.ts`** — `AttachmentService` (v1-only): `POST /wiki/rest/api/content/{id}/child/attachment` multipart (`X-Atlassian-Token: no-check`, `minorEdit:true`); the create endpoint's **400 "Cannot add a new attachment with the same file name"** is the **skip-if-exists / idempotency signal** (spike H4) → map to a "duplicate" result, not an error; update via `/child/attachment/{attId}/data` (version bump). Hash-named files (`marksync-mermaid-<hash>.svg`, `marksync-asset-<hash>.<ext>`).
-6. **`src/infra/confluence/labels.ts` / `search.ts` / `restrictions.ts`** — v1-only services (labels add/delete, CQL search, restrictions read). Minimal for MS-0002 (labels/search may be lightly used; restrictions read supports the 403/permission story).
+6. **`src/infra/confluence/search.ts` / `restrictions.ts`** — v1-only services kept minimal for MS-0002: CQL `searchPages` (used by `doctor`/discovery) and `getRestrictions` read (supports the 403/permission-awareness story, R-FEA-10). **Labels add/delete (`labels.ts`) are deferred to post-MS-0002** — not used by any MS-0002 flow (keeps the adapter surface narrow per NFR-MAINT-2).
 7. **403 handling** — a page that returns 403 (locked/inaccessible) → `Forbidden{pageId; operation}` mapped to **warn+skip** (NOT delete+recreate; ADR-0006, R-FEA-10, INV-SAFE-1). Distinguishing deleted vs inaccessible requires assuming the operator has read access (blueprint §0, architecture UNCERT-4).
 8. **`src/infra/confluence/provenance.ts`** — the `version.message` formatter (blueprint §5; ADR-0010) — consumed by E3-S6/E4-S3 but the formatter lives in the adapter (it's Confluence-specific). Uses the length limit from spike E1-S2.
 
@@ -52,6 +53,7 @@ NFR-MAINT-1 / A-FEA-6: ALL Confluence REST v2/v1 distinctions live behind this a
 - [ ] **Properties v2 (H2):** `putProperty` stores a string value; `getProperty` reads it back byte-equal; ~8KB works.
 - [ ] **429 backoff:** a mocked 429 with `Retry-After: 1` → the client waits then retries (max 3); exhausted → `RateLimited` error.
 - [ ] **INV-SEC-1:** no redacted log/request/response artifact contains the token (grep the captured mock logs).
+- [ ] **NFR-SEC-3 (no outbound telemetry):** the adapter issues `fetch` ONLY to the configured `baseUrl`; a test asserts no request targets any other host (local-first, privacy).
 - [ ] `bun run check` green.
 
 ## Test matrix

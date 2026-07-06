@@ -189,9 +189,9 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes only via an accepted-risk
 - **Constraint compliance:** C-1 ⚠️ (determinism must be verified, like all non-trivial rungs); C-2 ✅; C-3 ✅.
 - **Why ranked rung 2:** Better than shelling once per diagram (rung 3) but heavier than the in-process no-browser path (rung 1); kept as the second rung of the fallback ladder.
 
-### Alternative 2 — In-process official library via jsdom (PREFERRED; spike-gated)
+### Alternative 2 — In-process official library via a headless DOM (PREFERRED; spike-gated)
 
-- **Summary:** Run the official `mermaid` npm package in-process (made possible by ADR-0001), with jsdom providing the headless DOM, to render to SVG/PNG without bundling Chromium.
+- **Summary:** Run the official `mermaid` npm package in-process (made possible by ADR-0001), with a headless DOM library — **happy-dom preferred per TDR-0004** (Bun-compatible; used by the Mermaid-DOM test tier), **jsdom as fallback** — providing the DOM, to render to SVG/PNG without bundling Chromium.
 - **Pros:** No external Node/Chromium/container requirement for the common case; fastest; best fits the single-binary promise; reuses the official library.
 - **Cons:** Unproven — must be confirmed by a spike; Mermaid assumes a browser-like DOM and may need shims; determinism must be verified (C-1).
 - **Constraint compliance:** C-1 ✅ (conditional on spike confirming determinism); C-2 ✅ (via fallback ladder); C-3 ✅.
@@ -212,7 +212,7 @@ Remote rendering stays opt-in with a privacy warning at every layer (C-3).
 
 ### Spike-gated primary renderer (Part B — NOT accepted until the spike passes)
 
-The preferred primary renderer is an **in-process official Mermaid renderer using a headless DOM approach (jsdom)**, but it is **not** accepted as the production renderer until the ADR-0002 spike proves **all** of the following stop criteria:
+The preferred primary renderer is an **in-process official Mermaid renderer using a headless DOM library (happy-dom preferred per TDR-0004; jsdom as fallback)**, but it is **not** accepted as the production renderer until the ADR-0002 spike proves **all** of the following stop criteria:
 
 1. **Byte-stable SVG output** for unchanged input across **Linux, macOS, and Windows**.
 2. **No hidden browser/Chromium runtime dependency** is required to satisfy (1).
@@ -347,3 +347,4 @@ TODO: Populate after implementation.
   - Rewrote the **attachment-identity hash formula** to hash logical render input (`marksync-mermaid-render-v1` + normalized source + renderer family/version + output format + theme + security config + font policy + scale + background), with byte determinism tested separately.
   - Added **SVG-vs-PNG decision criteria** (default to SVG pending Confluence Cloud display/PDF/mobile/page-copy tests; per-diagram or global PNG fallback).
   - Status remains `Proposed` (human accepts Part A at PR merge; Part B stays spike-gated).
+- **2026-07-06** — Headless-DOM library clarified: **happy-dom is the preferred headless DOM for the in-process renderer and the Mermaid-DOM test tier** (per TDR-0004 and `.ai/rules/testing-strategy.md`, which post-date this ADR and chose happy-dom for Bun compatibility); **jsdom is the documented fallback/escalation** if happy-dom cannot shim a required Mermaid browser API. The ADR's earlier "jsdom" wording described the consideration space at authoring time; this amendment aligns the decision with the later tooling decisions without changing Part A/B semantics. The MS-0002 spike (E1-S1) and the production renderer (E4-S1) target happy-dom. (CEO-agent authorized under user-delegated autonomous authority; reconciles an inconsistency the owner already resolved in TDR-0004.)
