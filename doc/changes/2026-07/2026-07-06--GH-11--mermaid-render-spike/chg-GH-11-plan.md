@@ -622,7 +622,7 @@ F-4; AC4 / H4; TC-MRSPIKE-004.
 
 **Tasks**:
 
-- [ ] **6.1** Create `spikes/mermaid-render/probes/fidelity.ts` that:
+- [x] **6.1** Create `spikes/mermaid-render/probes/fidelity.ts` that:
   - For each of the 5 canonical diagram types (flowchart `graph TD`, `sequenceDiagram`,
     `classDiagram`, state, gantt), renders the fixture once via the real `render` helper.
   - Asserts each output is:
@@ -633,7 +633,10 @@ F-4; AC4 / H4; TC-MRSPIKE-004.
     (c) contains its expected node label(s) (from the Phase 1 table) as substring(s) of the SVG
         text.
   - Records the per-type PASS/FAIL and prints an overall H4 verdict (PASS requires 5/5).
-- [ ] **6.2** Run `bun run probe:fidelity` and capture the result.
+    - (Result: 0/5. flowchart + gantt are non-empty and contain their labels BUT lack an `<svg>`
+      root tag (happy-dom serialization returns an SVG FRAGMENT, not a standalone document) and
+      have degenerate layout; sequence/class/state THROW. H4 verdict: FAIL.)
+- [x] **6.2** Run `bun run probe:fidelity` and capture the result. (H4 verdict: FAIL — 0/5.)
 
 **Acceptance Criteria**:
 
