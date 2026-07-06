@@ -416,7 +416,7 @@ persists the golden normalized SVG. F-2; AC1 / H1; TC-MRSPIKE-001.
 
 **Tasks**:
 
-- [ ] **3.1** Create `spikes/mermaid-render/normalize.ts` — a single, pure, reusable SVG
+- [x] **3.1** Create `spikes/mermaid-render/normalize.ts` — a single, pure, reusable SVG
   normalizer module (no side effects) that MS2-E4-S1 can lift verbatim. It implements, **in
   order**, the normalization rules from the test plan §5.3:
   1. **XML comments stripped** — remove all `<!-- ... -->`.
@@ -433,26 +433,22 @@ persists the golden normalized SVG. F-2; AC1 / H1; TC-MRSPIKE-001.
      metadata.
   - The module MUST record these rules verbatim in a header comment so MS2-E4-S1 and the
     golden-test tier can reuse them without re-derivation (spec G-8, DEC-2, RSK-1 mitigation).
+    - (All five rules recorded verbatim in normalize.ts header; ids rewritten to eid{N} sequence.)
   - Export a pure function `normalizeSvg(rawSvg: string): string`.
-- [ ] **3.2** Create `spikes/mermaid-render/probes/determinism.ts` that:
+- [x] **3.2** Create `spikes/mermaid-render/probes/determinism.ts` that:
   - Imports the real `render` helper (from `render.ts`) and the real `normalizeSvg` (from
     `normalize.ts`) — no mocking (C-SPIKE-3).
-  - For each of the 5 canonical fixtures (`flowchart.mmd`, `sequence.mmd`, `class.mmd`,
-    `state.mmd`, `gantt.mmd`):
-    1. Render the source `N=5` times sequentially via the real `render` on the **same OS**.
-    2. Pass each raw SVG through `normalizeSvg`.
-    3. Compute a digest (e.g. `sha256`) of each normalized SVG; assert all 5 digests are
-       byte-identical **within the run, per fixture**.
-    4. Persist the normalized SVG of the first repeat as the golden fixture
-       `fixtures/<name>.expected.svg` (commit-tracked; reused by MS2-E4-S1 and the golden-test
-       tier).
-    5. Emit a per-fixture PASS/FAIL with the digest and the byte-stability verdict.
-  - (Stretch — cross-OS, NFR-DET-2) Where a second OS is available, repeat once and record the
-    result as PASS or a documented known-delta (the per-OS-cache-key contingency per spec DEC-3
-    applies, not a fail).
-  - Print a summary table and an overall H1 verdict (PASS if 5/5 canonical fixtures byte-stable).
-- [ ] **3.3** Run `bun run probe:determinism` and capture the result. (The findings doc is
+  - For each of the 5 canonical fixtures: render N=5, normalize, sha256, byte-compare within run;
+    persist `fixtures/<name>.expected.svg`; emit per-fixture PASS/FAIL.
+  - RESULT (Bun 1.1.34): flowchart + gantt render and are byte-stable normalized (digests stable
+    across N=5); sequence/class/state THROW under happy-dom (`svg element not in render tree` /
+    `Could not find a suitable point for the given distance`) → recorded as FAIL-to-render
+    (cannot be determinism-tested), NOT massaged.
+- [x] **3.3** Run `bun run probe:determinism` and capture the result. (The findings doc is
   written in Phase 8; here only capture the raw probe output.)
+  - (Captured: 2/5 renderable & byte-stable; 3/5 fail-to-render. Golden SVGs persisted for the
+    2 renderable fixtures: fixtures/flowchart.expected.svg, fixtures/gantt.expected.svg.)
+  - (Stretch cross-OS: same-OS only — single Linux host available; recorded in findings Phase 8.)
 
 **Acceptance Criteria**:
 
