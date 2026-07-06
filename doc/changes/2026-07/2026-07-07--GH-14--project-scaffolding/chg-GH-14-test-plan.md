@@ -2,9 +2,9 @@
 # Copyright (c) 2025-2026 Juliusz Ćwiąkalski (https://www.cwiakalski.com | https://www.linkedin.com/in/juliusz-cwiakalski/ | https://x.com/cwiakalski)
 # MIT License - see LICENSE file for full terms
 id: chg-GH-14-test-plan
-status: Proposed
+status: Updated
 created: 2026-07-07T00:00:00Z
-last_updated: 2026-07-07T00:00:00Z
+last_updated: 2026-07-07T12:00:00Z
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 labels: [MS-0002, MS2-E2, foundation, OPEN-Q9, critical]
@@ -94,7 +94,7 @@ genuine and that each gate independently fails when its contract is broken.
 
 ### 3.1 Functional Coverage (F-#, AC-#)
 
-All 15 acceptance criteria from the spec are mapped. None is left unassigned.
+All 16 acceptance criteria from the spec are mapped. None is left unassigned.
 
 | AC ID | Criterion (abbreviated) | TC ID(s) | Status |
 |-------|---------------------------|----------|--------|
@@ -106,6 +106,7 @@ All 15 acceptance criteria from the spec are mapped. None is left unassigned.
 | AC-F3-2 | scratch `domain → infra` import FAILS with named `from → to + rule`; removing restores green | TC-BOUNDARIES-002 | Covered (verify-then-remove) |
 | AC-F4-1 | husky `commit-msg` accepts `feat(scaffolding): init` | TC-COMMITS-001 | Covered (local) |
 | AC-F4-2 | husky `commit-msg` rejects `bad message` with rule-named diagnostic | TC-COMMITS-002 | Covered (local) |
+| AC-F4-3 | CI commit-message-lint job rejects a `--no-verify` bad commit (TDR-0008 C-2 authoritative-CI half) | TC-COMMITS-003 | Covered (CI run is the proof) |
 | AC-F5-1 | skeleton tier dirs + barrels exist per blueprint §1 | TC-SKELETON-001 | Covered |
 | AC-F6-1 | `Result<T,E>` + 12-kind `MarkSyncError` compile under strict mode | TC-PRIMITIVES-001, TC-TOOLCHAIN-002 | Covered |
 | AC-F6-2 | exhaustive `never`-switch compiles (union complete, extension-safe) | TC-PRIMITIVES-001 | Covered |
@@ -183,6 +184,7 @@ filtering; there is no `@ui`/`@api`/`@perf` surface in this story.
 | TC-TOOLCHAIN-005 | CLI entrypoint prints `marksync 0.0.0` | Happy Path | Important | Medium | AC-F7-1 |
 | TC-COMMITS-001 | commitlint accepts a Conventional Commits message | Happy Path | Important | Medium | AC-F4-1 |
 | TC-COMMITS-002 | commitlint rejects a malformed message | Negative | Important | Medium | AC-F4-2 |
+| TC-COMMITS-003 | CI commit-lint rejects a `--no-verify` bad commit (TDR-0008 C-2) | Negative | Critical | High | AC-F4-3 |
 | TC-SKELETON-001 | Module skeleton matches blueprint §1 map | Happy Path | Important | Medium | AC-F5-1 |
 | TC-CI-001 | CI is unguarded and the PR run is green | Happy Path | Critical | High | AC-F9-1 |
 | TC-DEPS-001 | No runtime deps; license-audit configured to reject copyleft | Happy Path | Important | High | AC-F10-1 |
@@ -501,6 +503,47 @@ filtering; there is no `@ui`/`@api`/`@perf` surface in this story.
 
 ---
 
+#### TC-COMMITS-003 - CI commit-lint rejects a `--no-verify` bad commit (TDR-0008 C-2)
+
+**Scenario Type**: Negative
+**Impact Level**: Critical
+**Priority**: High
+**Related IDs**: F-4, AC-F4-3, TDR-0008 (C-2), RSK-6
+**Test Type(s)**: Manual
+**Automation Level**: Manual (one-shot verification — the PR's own CI run is the evidence; not a `bun:test` scenario)
+**Target Layer / Location**: CI `commit-lint` job in `.github/workflows/ci.yml` (lints every pushed commit message)
+**Tags**: @ci, @toolchain
+
+**Preconditions**:
+
+- A CI commit-message-lint job exists in `.github/workflows/ci.yml` and runs on every push/PR with **no** `continue-on-error` (wired by this story per the resolved OQ-TP-2).
+- The local husky `commit-msg` hook is installed (TC-COMMITS-001) — this procedure deliberately bypasses it with `--no-verify`.
+
+**Steps**:
+
+1. On the PR branch, make a trivial change and commit it **bypassing** the local hook: `git commit --no-verify -m "bad message"`.
+2. Push the commit to the PR branch (or open the PR).
+3. **Observe** the CI `commit-lint` job: it **FAILS** on the non-Conventional message (`bad message` violates `type-enum` / `subject-empty`), proving the local-hook bypass is caught authoritatively (TDR-0008 C-2).
+4. Amend the commit message to a valid Conventional Commits message — e.g. `git commit --amend -m "fix(scaffolding): test"` — and push.
+5. **Observe** the CI `commit-lint` job now **passes** and the PR's overall CI run returns green.
+
+**Expected Outcome**:
+
+- Step 3 → CI `commit-lint` job FAILS with a rule-named diagnostic for the malformed message. The `--no-verify` local bypass does **not** escape enforcement — CI is authoritative (AC-F4-3, TDR-0008 C-2).
+- Step 5 → CI `commit-lint` job passes once the message is Conventional.
+
+**Postconditions**:
+
+- The final pushed commit on the PR branch carries a Conventional Commits message; the PR's CI run is green.
+
+**Notes / Clarifications**:
+
+- This is the **authoritative-CI-half** proof that complements the local-hook tests (TC-COMMITS-001 / TC-COMMITS-002). It is a **one-shot manual verification** whose evidence is the PR's own CI run — **not** an automated `bun:test` (CI commit-message linting is a platform job, not a unit scenario).
+- Resolves **OQ-TP-2**: PM decided the CI commit-lint job is **in scope** for GH-14 — the spec's G-4 / DEC-3 / F-4 "CI (authoritative)" claim is now backed by a real AC (AC-F4-3) + a CI job + this TC.
+- Inception squash-merge history is grandfathered (TDR-0008 C-5); enforcement applies to new commits from this story forward only.
+
+---
+
 #### TC-SKELETON-001 - Module skeleton matches blueprint §1 map
 
 **Scenario Type**: Happy Path
@@ -617,6 +660,7 @@ filtering; there is no `@ui`/`@api`/`@perf` surface in this story.
 | TC-TOOLCHAIN-005 | `src/cli/index.ts` (new) | `bun run src/cli/index.ts` | None | To Implement |
 | TC-COMMITS-001 | `.husky/commit-msg` + `commitlint.config.js` (new) | `git commit -m "feat(scaffolding): init"` | None | To Implement (hook + config) |
 | TC-COMMITS-002 | (same as TC-COMMITS-001) | `git commit -m "bad message"` | None | Manual Only (uses same hook) |
+| TC-COMMITS-003 | CI `commit-lint` job in `.github/workflows/ci.yml` (new) | PR CI run — push a `--no-verify` bad commit (observe fail), amend to Conventional (observe pass) | None | Manual Only (one-shot — PR CI run is the evidence) |
 | TC-SKELETON-001 | `src/**` directory tree (new) | manual `ls` / tree inspection | None | To Implement (skeleton creation) |
 | TC-CI-001 | `.github/workflows/ci.yml` (updated — unguard + add check:boundaries step) | PR CI run | None | Existing – Update (remove guards, add step) |
 | TC-DEPS-001 | `package.json` + CI `dependency-audit` job | `license-checker --production --failOn …` (CI) | None | Existing – Update (make blocking) |
@@ -653,7 +697,7 @@ review). This matches the story's Test matrix exactly: Unit = one smoke; all oth
 | ID | Question | Blocking? | Owner | Notes |
 |----|----------|-----------|-------|-------|
 | OQ-TP-1 | Should a **permanent** boundary negative-fixture (`tests/architecture/boundary-negative.test.ts` that runs dep-cruiser against a committed `tests/architecture/fixtures/domain-to-infra/` violation and asserts it is reported) be added to make NFR-8 regression-proof? | No (for this story) | @plan-writer / @coder (follow-up) | AC-F3-2 requires only the verify-then-remove procedure, which this plan honours (TC-BOUNDARIES-002). A permanent fixture would guard against a future rule being silently disabled — recommended as a small follow-up, **not** a scope expansion of GH-14. |
-| OQ-TP-2 | Spec F-4 states "CI (authoritative)" for commit enforcement, but no AC or scope item wires a **commitlint CI action**, and none exists in `ci.yml` today (verified). Is a commitlint CI action in scope for GH-14, or deferred? | Clarify before delivery | @pm / @spec-writer | If deferred, AC-F4-1/F4-2 (local hook only) stand as written and TC-COMMITS-001/002 remain Manual. If in scope, add an AC + a CI step + an automated TC. The local hook + the story's intent imply CI should eventually enforce, but the current ACs do not require it. |
+| OQ-TP-2 | **RESOLVED (DoR iter-2, 2026-07-07).** PM decided the CI commit-message-lint job is **in scope** for GH-14. _Original question:_ spec F-4/G-4/DEC-3 claim "CI (authoritative)" for commit enforcement, but no AC or scope item wired a commitlint CI action and none existed in `ci.yml`. _Resolution:_ spec now carries **AC-F4-3** (CI rejects a `--no-verify` bad commit — TDR-0008 C-2 authoritative-CI half); this plan adds **TC-COMMITS-003** (manual/one-shot — the PR's CI run is the evidence, not a `bun:test`). TC-COMMITS-001/002 remain Manual (local hook). No longer a gap. | No (resolved) | @pm (decided) / @spec-writer / @test-plan-writer | Closed 2026-07-07. The "CI authoritative gate — see OQ-TP-2" pointers in TC-COMMITS-001/002 and §4 now resolve to TC-COMMITS-003. |
 | OQ-TP-3 | (Mirrors spec OQ-1.) Can the 0.80 coverage threshold (NFR-4) be met by the type-only scaffolding + one smoke test, or must a lower MS-0002-start baseline be set? | No | @coder (delivery-time tuning) | If `bun test` fails the threshold, set a documented lower baseline and revisit at MS-0002 end. Coverage threshold is a bunfig concern, not a TC. |
 | OQ-TP-4 | (Mirrors spec OQ-2.) osv-scanner lockfile flag spelling (`--lock-file` vs `-L`/`--lockfile`)? | No | @coder (delivery) | Resolve by checking the installed osv-scanner version's flag. Affects the `dependency-audit` job only. |
 
@@ -662,6 +706,7 @@ review). This matches the story's Test matrix exactly: Unit = one smoke; all oth
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-07 | test-plan-writer (GH-14) | Initial test plan — derived from `chg-GH-14-spec.md`, story MS2-E2-S1, blueprint §1/§2, testing-strategy.md, and typescript.md. 13 TCs cover all 15 ACs + 8 NFRs (NFR-4 deferred as TODO per spec OQ-1). Single automated unit smoke; remainder are CI gates or manual/semi-automated procedures per the story's Test matrix. |
+| 1.1 | 2026-07-07 | test-plan-writer (GH-14, DoR iter-2) | DoR iter-2 remediation (NOT_READY → target Ready). Added **TC-COMMITS-003** (manual/one-shot; PR CI run is the evidence) tracing to new **AC-F4-3** — CI commit-message-lint job rejects a `--no-verify` bad commit (TDR-0008 C-2 authoritative-CI-half proof). Added AC-F4-3 → TC-COMMITS-003 to the §3.1 traceability table (15 → 16 ACs) and to the Scenario Index (5.1), Scenario Details (5.2), and Automation Plan (7). **Resolved OQ-TP-2** — PM decided the CI commit-lint job is in scope for GH-14. No other AC/NFR mappings, no over-mocking note, and no other TC coverage changed. |
 
 ## 10. Test Execution Log
 
