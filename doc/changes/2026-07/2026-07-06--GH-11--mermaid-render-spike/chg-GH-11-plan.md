@@ -559,23 +559,31 @@ TC-MRSPIKE-003.
 
 **Tasks**:
 
-- [ ] **5.1** Create `spikes/mermaid-render/probes/security.ts` that:
+- [x] **5.1** Create `spikes/mermaid-render/probes/security.ts` that:
   - Confirms `securityLevel:"strict"` is the **active** configuration by reading back the
     initialized Mermaid config object after `initialize` (e.g. via `mermaid.getConfig()` or the
     equivalent 11.x API; assert the initialization did not reject `strict` and was not silently
     overridden). Document the API used in a comment.
+    - (Uses `mermaid.mermaidAPI.getConfig()`; reads back securityLevel=strict, htmlLabels=false,
+      deterministicIds=true, fontFamily=sans-serif — no silent override.)
   - Renders each adversarial fixture (`adversarial-xss.mmd`, `adversarial-script.mmd`) via the
     real `render` helper under `securityLevel:"strict"` + `htmlLabels:false` +
     `deterministicIds:true` (no mocking — C-SPIKE-3).
+    - (Also renders the optional `adversarial-external-ref.mmd` per DoR finding F2.)
   - Normalizes each rendered output via the real `normalizeSvg` (reuse from Phase 3).
   - Scans each normalized output for:
     (a) `<script` tags (count must be 0);
     (b) inline event-handler substrings `onerror` and `onload` (count must be 0);
     (c) `javascript:` URIs (count must be 0).
+    - (Scans the LIVE forms: `<script\b`, `\bonerror\s*=`, `\bonload\s*=`, `javascript:`. Also
+      reports bare substring counts for transparency — inert HTML-escaped display text is NOT a
+      security issue and is not gated.)
   - Persists the scan counts per adversarial fixture (evidence for the findings doc).
   - Prints per-fixture scan counts and an overall H5 verdict (PASS requires all counts zero AND
     `strict` confirmed active).
-- [ ] **5.2** Run `bun run probe:security` and capture the result.
+    - (Result: all three adversarial fixtures PASS — 0 script tags, 0 live onerror=/onload=, 0
+      javascript:, 0 bare substrings; strict active. H5 PASS, scoped per F2.)
+- [x] **5.2** Run `bun run probe:security` and capture the result. (H5 verdict: PASS.)
 
 **Acceptance Criteria**:
 
