@@ -489,9 +489,13 @@ classify_result() {
     fi
   fi
 
-  # Check for merged PR
+  # Check for merged PR (branch-scoped, NOT free-text search).
+  # m-8: `--search "${ticket_ref}"` is free-text across titles+bodies; PR #33's
+  # body contains "GH-11..GH-32", so it matched EVERY MS-0002 ticket and caused
+  # false "merged" → silent abort. Use `--head "${branch}"` (same as the open-PR
+  # check above) so only a PR for THIS branch counts.
   local merged_json
-  merged_json="$(_gh pr list --search "${ticket_ref}" --state closed --json mergedAt 2>/dev/null)" || merged_json='[]'
+  merged_json="$(_gh pr list --head "${branch}" --state closed --json mergedAt 2>/dev/null)" || merged_json='[]'
   if printf '%s' "${merged_json}" | _jq -e '.[0].mergedAt' >/dev/null 2>&1; then
     printf 'merged'
     return 0
