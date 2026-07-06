@@ -811,7 +811,7 @@ documentation).
 
 **Tasks**:
 
-- [ ] **9.1** Rewrite `spikes/mermaid-render/README.md` (replace the Phase 0 stub) with:
+- [x] **9.1** Rewrite `spikes/mermaid-render/README.md` (replace the Phase 0 stub) with:
   - **Purpose** — one paragraph (what the spike validates; pointer to the findings doc).
   - **Prerequisites** — Bun runtime; `bun install` in this directory.
   - **How to run** — the exact commands: `bun install`, `bun run render`, `bun run probe:all`,
@@ -826,9 +826,13 @@ documentation).
     in lifecycle phase 7, and that the spike is NOT wired into CI.
   - **E4-S1 reuse notes** — call out the reusable artifacts: `normalize.ts` (lift verbatim), the
     golden `fixtures/*.expected.svg` pairs, and the recorded normalization rules.
-- [ ] **9.2** Verify the README's commands match the actual `package.json` script names (no drift).
-- [ ] **9.3** Final workspace sanity check: `git status` shows only spike files + findings touched;
+- [x] **9.2** Verify the README's commands match the actual `package.json` script names (no drift).
+  - (README `bun run …` references == package.json scripts: render, probe:determinism, probe:chromium,
+    probe:security, probe:fidelity, probe:secrets, probe:all. No drift.)
+- [x] **9.3** Final workspace sanity check: `git status` shows only spike files + findings touched;
   `src/` is untouched; `node_modules/` is gitignored; golden SVGs + `bun.lock` are tracked.
+  - (node_modules/ gitignored; fixtures/*.expected.svg + bun.lockb tracked; src/ untouched — see
+    final verification below.)
 
 **Acceptance Criteria**:
 
