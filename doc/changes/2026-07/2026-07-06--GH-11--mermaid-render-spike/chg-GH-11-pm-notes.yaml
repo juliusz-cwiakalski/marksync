@@ -11,16 +11,22 @@ phases:
   test_planning: { started: "2026-07-06T00:11:00Z", completed: "2026-07-06T00:18:00Z" }
   delivery_planning: { started: "2026-07-06T00:19:00Z", completed: "2026-07-06T00:30:00Z" }
   dor_check: { started: "2026-07-06T00:28:00Z", completed: "2026-07-06T00:32:00Z" }
-  delivery: { started: "2026-07-06T00:33:00Z", completed: null }
-  system_spec_update: { started: null, completed: null }
-  review_fix: { started: null, completed: null }
-  quality_gates: { started: null, completed: null }
+  delivery: { started: "2026-07-06T00:33:00Z", completed: "2026-07-06T01:20:00Z" }
+  system_spec_update: { started: "2026-07-06T01:21:00Z", completed: "2026-07-06T01:35:00Z" }
+  review_fix: { started: "2026-07-06T01:36:00Z", completed: "2026-07-06T01:55:00Z" }
+  quality_gates: { started: "2026-07-06T01:56:00Z", completed: null }
   dod_check: { started: null, completed: null }
   pr_creation: { started: null, completed: null, url: null }
 
 decisions: []
 
-open_questions: []
+open_questions:
+  - text: "CEO decision required (deferred until after PR merge): does the H4 finding (no faithful no-Chromium Mermaid render via happy-dom/jsdom) force an ADR-0001 fundamental reconsideration, or do we proceed with options 2 (validated SVG-layout shim spike) or 3 (accept code policy as MS-0002 default; defer full render)?"
+    date: "2026-07-06"
+  - text: "MS2-E4-S1 story needs re-planning before delivery (scope assumed spike PASS). Three options on the table: Chromium / shim / defer."
+    date: "2026-07-06"
+  - text: "If owner wants to preserve no-Chromium path: a follow-up spike must validate svgdom or canvas-measured getBBox polyfill. No spike issue exists yet."
+    date: "2026-07-06"
 
 blockers: []
 
@@ -61,4 +67,22 @@ notes:
     date: "2026-07-06"
   - text: "RETRO: DoR caught a load-bearing documentation-handoff gap (§F1: ADR-0002 stop-criterion #1 / C-1 wording vs spike's same-OS gate + per-OS cache key) that the plan reduced to 'Part B wording'. For load-bearing spikes, the plan's Doc-update coverage table should pre-enumerate the specific rewording expected, not a one-liner. Process improvement: spec-writer/plan-writer should flag when an AC relies on a CEO-resolved assumption (DEC-3) that diverges from the literal ADR text — that divergence is always a phase-7 reconciliation item, never a silent drift."
     type: "retro"
+    date: "2026-07-06"
+  - text: "DELIVERY COMPLETE (12 commits). Spike verdict: PARTIAL. H1 PASS (caveat: 2/5 render), H2 PASS, H3 PASS, H4 FAIL (0/5 — happy-dom has no SVG layout engine; getBBox returns 0×0; sequence/class/state throw, flowchart/gantt degenerate), H5 PASS. Cross-run drift catch: gantt <line class='today'> marker is date-dependent — coder enhanced normalize.ts Rule 5 to strip it from digest form. Findings doc: findings/mermaid-render-spike-findings.md (362 lines)."
+    type: "info"
+    date: "2026-07-06"
+  - text: "MS-0002 recommendation from findings: adopt ADR-0002 rung 7 'code' policy (preserve raw code block) — does NOT block MS-0002. MS2-E4-S1 must NOT use happy-dom in-process as-is; options: (1) Chromium (violates ADR-0001 single-binary), (2) validated SVG-layout shim svgdom/canvas-getBBox (needs follow-up spike), (3) accept code policy as MS-0002 default. Catastrophic-FAIL escalation NOT triggered; ADR-0001 revisit trigger IS activated — flag for CEO decision in phase 7."
+    type: "decision"
+    date: "2026-07-06"
+  - text: "RETRO: spike did exactly what it was designed to do — surfaced a load-bearing fidelity gap (H4 FAIL) BEFORE MS2-E4-S1 committed to happy-dom. The within-run N=5 determinism probe alone would NOT have caught the cross-run gantt drift; the coder's proactive 3-process-run reproducibility re-check did. Process improvement: for any determinism probe with N>1 in-window repeats, also run K>1 out-of-window process invocations to catch time/date-dependent output."
+    type: "retro"
+    date: "2026-07-06"
+  - text: "DOC-SYNC COMPLETE (commit b5962a5). 7 docs reconciled in one commit: ADR-0002 (§F1 stop-criterion #1 + C-1 reworded + H4 FAIL recorded + MS-0002 → rung 7 + §F4 status mismatch reconciled keeping Accepted), ADR-0001 (revisit-trigger entry + CEO-decision flag, NOT reconsidered autonomously), TDR-0004 (happy-dom insufficiency recorded + §F4 reconciled), feature-mermaid-rendering.md (5 normalization rules + code policy default + Spike-gated AC satisfied), MS2-E1-S1 story (status todo→done + outcome banner), MS2-E4-S1 story (flagged for re-planning), decisions/00-index.md (traceability note)."
+    type: "info"
+    date: "2026-07-06"
+  - text: "RESIDUAL CEO-LEVEL gaps surfaced (not blockable in-change): (1) ADR-0001 fundamental reconsideration — does H4 finding force language-level rethink? (2) MS2-E4-S1 re-scoping required before delivery. (3) Follow-up svgdom/getBBox-shim spike if owner wants to preserve no-Chromium path. All routed to OPEN-QUESTIONS in pm-notes; will surface to user at PR creation."
+    type: "info"
+    date: "2026-07-06"
+  - text: "REVIEW PASS (iter-1). 6 findings (0 blocker, 0 major, 1 minor, 5 nits) — all advisory. Reviewer independently reproduced probe:all and verified goldens byte-identical. PM fixed #5 (duplicate YAML key). @coder applied #1-#4 in commit f86e601 (broadened chromium regex, tightened normalize Rule 5, fixed path-fragile WORKSPACE_ROOT, set verbatimModuleSyntax:true). Coder transparently flagged F1 consequence: broadened regex now sees host Chrome, NFR-DEP-2 informational delta reads false-positive on this host — NFR-DEP-1 (dep tree) still PASS, all stages exit 0, findings doc note frames this. No re-review needed (was PASS, cleanups advisory)."
+    type: "info"
     date: "2026-07-06"

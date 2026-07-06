@@ -16,7 +16,7 @@ change:
   risk_level: high
   dependencies:
     internal: [MS2-E4-S1, src/infra/mermaid (future consumer, untouched by this spike)]
-    external: [mermaid (npm 11.x), happy-dom, @happy-dom/global-registrator, Bun runtime]
+    external: ["mermaid (npm 11.x)", "happy-dom", "@happy-dom/global-registrator", "Bun runtime"]
 ---
 
 # CHANGE SPECIFICATION
