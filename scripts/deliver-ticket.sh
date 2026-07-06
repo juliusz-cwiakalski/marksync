@@ -175,7 +175,9 @@ Deliver ${ticket_ref} end-to-end using ADOS. Detect state at the top, then act.
 ## State Detection (run first, every time)
 1. Check GitHub: gh issue view ${issue_num} --json state,labels
 2. Check for open PR: gh pr list --head ${branch:-<ticket-branch>} --state open --json number,title
-3. Check for merged PR: gh pr list --search "${ticket_ref}" --state closed --json mergedAt
+3. Check for merged PR: gh pr list --head ${branch:-<ticket-branch>} --state closed --json mergedAt
+   (Use --head <branch>, NOT --search "${ticket_ref}" — free-text search matches
+   sibling PRs whose bodies mention the ticket number, causing false "merged".)
 
 ## Resume Sync (if existing branch with commits — not a brand-new branch)
 If the current branch already has commits (i.e., this is a resume, not a fresh start):
