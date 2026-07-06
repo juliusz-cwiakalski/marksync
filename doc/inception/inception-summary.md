@@ -27,7 +27,8 @@ summary: "Inception summary — MarkSync for Confluence. 8 phases (0–7), 15 de
 - **Phases:** 8 (0–7), one PR per phase (squash-merged to `main`)
 - **Decision records:** 15 (6 ADR, 1 PDR, 8 TDR) — all `Accepted`
 - **Feature specs produced:** 4 (for MS-0002 scope)
-- **ADOS framework improvement proposals:** 6
+- **Initial backlog produced:** `doc/planning/backlog-MS-0002.md` (3 spikes + 19 work items, dependency-ranked)
+- **ADOS framework improvement proposals:** 7
 
 ## Decisions made (with rationale)
 
@@ -60,6 +61,7 @@ summary: "Inception summary — MarkSync for Confluence. 8 phases (0–7), 15 de
 | Reverse sync (drift capture, reconciliation) | Trust wedge (one-way publish) must be proven first | JC | MS-0004+ gates |
 | OAuth 2.0 3LO browser-based auth | API-token is the MS-0002 path; OAuth is later browser-based feature | JC | Post-MS-0002 |
 | 6 ADOS framework improvement proposals | Upstream ADOS repo changes (installer, bash rules, threat modeling, backlog pattern, questions pattern, doc-profile template, README template) | JC | ADOS repo issues/PRs |
+| Initial backlog creation missing from Phase 7 activities | Ambiguity in inception guide — "verify coverage" was not "create backlog" | JC | ADOS guide update |
 
 ## Artifact confidence scores
 
@@ -125,3 +127,4 @@ summary: "Inception summary — MarkSync for Confluence. 8 phases (0–7), 15 de
 - Decision records: [`doc/decisions/`](../decisions/)
 - Feature specs: [`doc/spec/features/`](../spec/features/)
 - Roadmap: [`doc/overview/02-roadmap.md`](../overview/02-roadmap.md)
+- **MS-0002 backlog:** [`doc/planning/backlog-MS-0002.md`](../planning/backlog-MS-0002.md)

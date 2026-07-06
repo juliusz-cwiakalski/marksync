@@ -97,6 +97,7 @@ artifacts:
   feature_specs_mermaid: { status: draft, path: "doc/spec/features/feature-mermaid-rendering.md", confidence: 0.80 }
   feature_specs_cli: { status: draft, path: "doc/spec/features/feature-cli.md", confidence: 0.82 }
   cross_cutting_coverage: { status: draft, path: "doc/inception/analysis/phase-7-cross-cutting-coverage.md", confidence: 0.88 }
+  backlog_ms0002:     { status: draft, path: "doc/planning/backlog-MS-0002.md", confidence: 0.82 }
 
 decisions:
   # Phase 0 classifications (pending Gate 0 confirmation via PR merge)
