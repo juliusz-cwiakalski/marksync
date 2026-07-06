@@ -1,0 +1,699 @@
+---
+# Copyright (c) 2025-2026 Juliusz Ćwiąkalski (https://www.cwiakalski.com | https://www.linkedin.com/in/juliusz-cwiakalski/ | https://www.x.com/cwiakalski)
+# MIT License - see LICENSE file for full terms
+id: chg-GH-14-project-scaffolding
+status: Proposed
+created: 2026-07-07T00:00:00Z
+last_updated: 2026-07-07T00:00:00Z
+owners: [Juliusz Ćwiąkalski]
+service: marksync-cli
+labels: [MS-0002, MS2-E2, foundation, OPEN-Q9, critical]
+links:
+  change_spec: ./chg-GH-14-spec.md
+  story_file: ../../../planning/milestones/MS-2/MS2-E2--foundation/MS2-E2-S1--scaffolding.md
+  test_plan: ./chg-GH-14-test-plan.md
+  conventions:
+    - ../../.ai/rules/typescript.md
+    - ../../.ai/rules/testing-strategy.md
+  blueprint: ../../.ai/local/ceo/ms-0002-blueprint.md
+  decisions:
+    - ../../../decisions/TDR-0005-linter-and-formatter.md
+    - ../../../decisions/TDR-0006-import-boundary-enforcement.md
+    - ../../../decisions/TDR-0008-conventional-commits-enforcement.md
+  open_question_q9: ../../../inception/open-questions/phase-4-open-questions.md
+summary: >
+  The first implementation story of MS-0002 and epic MS2-E2 (Foundation). Stands
+  up the entire greenfield TypeScript+Bun dev toolchain — the ESM project manifest
+  with `#imports`-field aliases, the strict TS compiler config, the Bun test config,
+  Biome lint/format (TDR-0005), dependency-cruiser import-boundary enforcement
+  (TDR-0006), and commitlint+husky Conventional Commits enforcement (TDR-0008) —
+  plus the ports-and-adapters module skeleton and the two shared domain primitives
+  (`Result<T,E>` + the exhaustive 12-kind `MarkSyncError`). The load-bearing outcome
+  is OPEN-Q9: removing every `continue-on-error` / `|| true` advisory CI guard and
+  pinning Bun to a concrete patch so CI becomes binding (not silently masked).
+version_impact: none
+---
+
+# IMPLEMENTATION PLAN — GH-14: [MS2-E2-S1] Project scaffolding — TS+Bun tooling, ports-and-adapters skeleton, CI unguard
+
+## Context and Goals
+
+This plan delivers the **first implementation story of MS-0002** from a
+greenfield (doc-only) state: no `package.json`, `tsconfig.json`, Biome,
+dependency-cruiser, commitlint, `src/`, or `tests/` exist yet. It establishes
+the complete dev toolchain, the ports-and-adapters module skeleton, and the two
+cross-cutting shared primitives (`Result<T,E>` + the exhaustive 12-kind
+`MarkSyncError`) that every later domain story compiles against. Critically, it
+executes **OPEN-Q9** — the CI-unguard checklist — so that every subsequent
+story's lint/typecheck/test/boundary/audit signal is **binding**, not silently
+masked by inception-era `continue-on-error` / `|| true` guards.
+
+**Why ordering matters:** this story is unblocked and unblocks **all** of
+MS2-E2-S2/S3/S4 and MS2-E3. Until CI is unguarded, no story has an
+authoritative quality gate. Therefore the CI unguard is placed **last** (Phase 8)
+so the PR that removes the guards is itself provably green under those guards
+removed — the green CI run on this PR is the evidence that unguarding is safe.
+
+**Authoritative sources for exact config contents** (the coder copies verbatim
+from these; this plan does not paraphrase them):
+
+- **TS compiler config, project manifest `imports`/`exports`, Bun test config,
+  dependency-cruiser rule sketch, Biome scripts** → `typescript.md` (the
+  authoritative convention file, listed in `links.conventions`).
+- **Target `src/` tier tree + `Result<T,E>` / `MarkSyncError` definitions** →
+  blueprint §1/§2 (`links.blueprint`, CEO working memory / shared contract).
+- **Test tiers + CI wiring** → `testing-strategy.md`.
+- **Tool selections** → TDR-0005 (Biome), TDR-0006 (dependency-cruiser),
+  TDR-0008 (commitlint + husky); runtime stack → ADR-0001.
+- **CI-unguard checklist** → OPEN-Q9 (`links.open_question_q9`).
+
+**CEO pre-resolutions carried in (no escalation needed):**
+
+- **R1** — Mermaid preload is a no-op stub now; E4-S1 (MS2-E4) populates the
+  happy-dom registrant (spec DEC-5).
+- **R2** — dependency-cruiser `#imports`-alias resolution is verified in-story;
+  if unresolved, add an explicit alias mapping (`resolved`/`tsConfig`/`webpackConfig`)
+  in `.dependency-cruiser.cjs`; never disable a rule (spec RSK-1).
+- **Q1** — commitlint (not Biome) for commit messages, wired via husky's
+  `commit-msg` hook (not `pre-commit`); CI authoritative (spec DEC-3).
+
+**Open questions (delivery-time verification/tuning — no `@decision-advisor`
+escalation unless they block delivery):**
+
+- **OQ-1 (coverage threshold):** the `bunfig.toml` baseline is
+  `lines/functions = 0.80` per typescript.md. Near-empty/type-only scaffolding
+  may not meet it. Verify in Phase 7; if the smoke test cannot meet 80%, set a
+  documented lower MS-0002-start baseline and revisit at MS-0002 end.
+- **OQ-2 (osv-scanner flag):** the existing ci.yml inline comment flags
+  `--lock-file` vs `-L`/`--lockfile`. Verify against the installed osv-scanner
+  version's flag in Phase 8.
+- **Bun patch:** local is `1.1.34`; CI floats `"1.2"`. Align both to a concrete
+  current stable **1.2.x** patch (snapshot stability, ADR-0002 C-1 / spec DEC-6)
+  — resolve the exact patch in Phase 1 (coder checks latest stable 1.2.x).
+
+## Scope
+
+### In Scope
+
+- **F-1** TS + Bun strict foundation: project manifest (ESM, `exports`,
+  `#imports` aliases, scripts, `engines` Bun pin, devDependencies only), strict
+  TS compiler config, Bun test config.
+- **F-2** Biome lint + format config + `lint`/`format`/`format:check` scripts
+  (TDR-0005, recommended rules only).
+- **F-3** dependency-cruiser config — the four ports-and-adapters tier rules +
+  `check:boundaries` script (TDR-0006); `#imports`-alias resolution verified.
+- **F-4** commitlint config + husky `commit-msg` hook + `prepare` script
+  (TDR-0008).
+- **F-5** Ports-and-adapters module skeleton: empty tier directories + barrel
+  files per blueprint §1.
+- **F-6** Shared primitives `Result<T,E>` and the exhaustive 12-kind
+  `MarkSyncError` with the `never`-check pattern (blueprint §2).
+- **F-7** Trivial CLI entrypoint printing `marksync 0.0.0`.
+- **F-8** Five test-tier directories + a passing smoke test + no-op Mermaid
+  preload stub.
+- **F-9 / OPEN-Q9** CI unguard: remove all `continue-on-error: true` and
+  `|| true`; pin Bun to a concrete patch in CI; make dependency/license audit
+  blocking; add the `check:boundaries` CI step.
+- **F-10** `.gitignore` additions + committed `bun.lock` + `engines` Bun pin.
+- Minimal "under construction" README project section (full README out of scope).
+
+### Out of Scope
+
+- [OUT] Any domain logic — identity, config loading, state classification,
+  binding, hierarchy, markdown, render, assets, mermaid, git, target
+  (MS2-E2-S2 onward).
+- [OUT] Real CLI commands, `CommandResult<T>`, output formatters, redaction
+  (MS2-E2-S3).
+- [OUT] `bun build --compile` binary target / release pipeline (MS2-E5-S4;
+  MS2-E1-S3 validated the mechanism).
+- [OUT] Any runtime dependencies (markdown pipeline, mermaid, uuid, ajv, zod,
+  pino, etc.) — land in the stories that use them.
+- [OUT] Bespoke Biome lint rules (recommended rules only).
+- [OUT] `SyncState` / state classifier (owned by the state-classifier story).
+- [OUT] README polish/badges/full docs (post-MS-0002 / MS-0008).
+- [OUT] Reopening ADR-0001 or any accepted decision.
+- [OUT] OPEN-Q9 item 10 (YAML-lint frontmatter validation) — the doc-lint job is
+  preserved as-is.
+
+### Constraints
+
+- **Strict TS is non-negotiable:** all eight strict flags (NFR-3) must be enabled
+  exactly as in `typescript.md` §"TypeScript configuration (target)"; never
+  weaken a flag to satisfy a linter.
+- **`#imports` field, not tsconfig `paths`:** runtime-respected and
+  `bun build --compile`-safe (spec DEC-2).
+- **commit-msg hook, not pre-commit:** husky runs commitlint on the
+  `commit-msg` hook; CI is the authoritative gate (spec DEC-3).
+- **No runtime dependencies:** devDependencies only; lockfile committed so
+  `--frozen-lockfile` is reproducible (NFR-5/NFR-7).
+- **Rules are never disabled to make CI green:** if dep-cruiser cannot resolve
+  aliases, add an explicit mapping (RSK-1); if a legitimate commit is blocked,
+  add it to `ignores`, never weaken the convention.
+- **Each phase is one Conventional Commit** (imperative, lowercase, ≤72-char
+  subject) — verifiable by the `commit-msg` hook installed in Phase 5.
+- **Bun pinned to a concrete 1.2.x patch** in both `engines` and CI (NFR-6).
+
+### Risks
+
+- **RSK-1 (dep-cruiser alias resolution):** dependency-cruiser may not resolve
+  Bun `#imports` aliases out of the box → false negatives. **Mitigated by** the
+  Phase 6 negative-test (AC-F3-2): add a `domain→infra` scratch import, observe
+  FAIL with a named `from → to + rule`, remove it, observe PASS. If unresolved,
+  add an explicit alias mapping; never disable a rule.
+- **RSK-3 (Bun version misalignment):** local `1.1.34` vs CI floating `"1.2"`.
+  **Mitigated by** pinning both `engines` and CI to one concrete 1.2.x patch
+  (Phase 1 + Phase 8).
+- **RSK-4 (Mermaid preload warns):** stub the preload as a no-op import (DEC-5);
+  E4-S1 populates it.
+- **RSK-5 (coverage threshold):** the 0.80 baseline may be unsatisfiable on
+  type-only modules. **Mitigated by** OQ-1 fallback (documented lower baseline).
+- **RSK-6 (hook absent on fresh clones/agents):** CI is authoritative
+  (TDR-0008 C-2); `prepare` installs hooks on `bun install`.
+- **RSK-7 (osv-scanner flag drift):** resolve by checking the installed
+  version's flag (OQ-2, Phase 8).
+
+### Success Metrics
+
+| Metric | Target | Source |
+|--------|--------|--------|
+| `bun run check` (lint + typecheck + test + boundaries) | exits 0, single-digit seconds | AC-F2-1/F1-2/F3-1/F8-1 |
+| Reproducible install | `bun install --frozen-lockfile` succeeds from a fresh clone | AC-F1-1 |
+| Boundary accuracy | a deliberate `domain→infra` scratch import is detected (zero false negatives) | AC-F3-2 |
+| Commit enforcement | malformed message rejected by `commit-msg` hook; Conventional accepted | AC-F4-1/F4-2 |
+| CI binding | zero `continue-on-error: true` and zero `|| true` remain; green PR run | AC-F9-1 |
+| Primitives compile | `Result<T,E>` + 12-kind `MarkSyncError` + `never`-switch typecheck strict | AC-F6-1/F6-2 |
+| Entrypoint runs | `bun run src/cli/index.ts` prints `marksync 0.0.0` | AC-F7-1 |
+| Dependency hygiene | no runtime deps; license-audit rejects GPL/AGPL/LGPL/UNLICENSED | AC-F10-1 |
+
+## Phases
+
+### Phase 1: Project manifest, repo hygiene & dependency install
+
+**Goal**: Create the ESM project manifest with `#imports`-field aliases and all
+npm scripts, the `engines` Bun pin, the devDependencies (tooling only — no
+runtime deps), the `.gitignore` hygiene entries, and the committed lockfile —
+the foundation every later phase compiles/installs against.
+
+**Tasks**:
+
+- [ ] **1.1** Resolve the concrete stable **1.2.x** Bun patch (coder checks the
+      latest stable 1.2.x release) and record it; this single value pins both
+      `package.json#engines` and CI (NFR-6 / DEC-6).
+- [ ] **1.2** Create `package.json` per `typescript.md`: `"type": "module"`;
+      `"exports"` (public surface); `"imports"` aliases `#domain/*`, `#app/*`,
+      `#infra/*`, `#shared/*` (DEC-2 — runtime-respected, `bun build --compile`-safe);
+      scripts `lint`, `format`, `format:check`, `typecheck`, `test`, `test:bdd`,
+      `check` (lint + format:check + typecheck + test + check:boundaries),
+      `check:boundaries`, `prepare`; `engines.bun` pinned to the 1.2.x patch.
+      **devDependencies only**: `@biomejs/biome`, `dependency-cruiser`,
+      `@commitlint/cli`, `@commitlint/config-conventional`, `husky`. **No
+      runtime dependencies** (NFR-7). Exact manifest shape (imports/exports,
+      script command bodies) copied from `typescript.md`.
+- [ ] **1.3** Add `.gitignore` entries: `node_modules/`, `dist/`, `coverage/`,
+      `.marksync/`, `*.tsbuildinfo`. The current `.gitignore` is Go-oriented
+      legacy — **add** the TS entries; do **not** remove existing entries.
+      (`node_modules/` must be ignored before the install in 1.4.)
+- [ ] **1.4** Run `bun install` to generate/refresh the lockfile; commit
+      `bun.lock` (required for `--frozen-lockfile` reproducibility — NFR-5).
+      Run `bun install --frozen-lockfile` once to confirm it is reproducible.
+
+**Acceptance Criteria**:
+
+- Must: `package.json` is ESM with the four `#imports` aliases and no runtime
+  dependencies (AC-F10-1); `bun install --frozen-lockfile` succeeds (AC-F1-1);
+  `bun.lock` is committed.
+- Should: `engines.bun` reflects the resolved 1.2.x patch.
+
+**Files and modules**:
+
+- Code areas: `package.json` (new), `.gitignore` (updated), `bun.lock` (new).
+- System docs: none (system spec is doc-only until domain stories land).
+
+**Tests**:
+
+- `bun install --frozen-lockfile` exits 0 from the committed lockfile.
+
+**Completion signal**: `feat(scaffolding): add package manifest, gitignore hygiene and lockfile`
+
+---
+
+### Phase 2: TypeScript & Bun test configuration
+
+**Goal**: Create the strict TS compiler config (the eight non-negotiable flags,
+copied verbatim from `typescript.md`) and the Bun test config (test root,
+Mermaid preload, coverage baseline) plus the no-op preload stub.
+
+**Tasks**:
+
+- [ ] **2.1** Create `tsconfig.json` **exactly** as `typescript.md`
+      §"TypeScript configuration (target)" — copy the target config verbatim;
+      do **not** weaken any flag. The eight non-negotiable strict flags (NFR-3)
+      must all be enabled: `strict`, `verbatimModuleSyntax`, `isolatedModules`,
+      `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`,
+      `noImplicitOverride`, `noUncheckedSideEffectImports`, `types:["bun"]`
+      (plus `noUnusedLocals`, `noUnusedParameters`, `noImplicitReturns`,
+      `noFallthroughCasesInSwitch`, `skipLibCheck`,
+      `forceConsistentCasingInFileNames`). `include: ["src/**/*.ts"]`,
+      `exclude: ["node_modules", "dist", "tests"]`.
+- [ ] **2.2** Create `bunfig.toml` per `typescript.md`: `[test] root = "tests"`,
+      `preload = ["./tests/mermaid.preload.ts"]`, `coverage = true`,
+      `coverageThreshold = { lines = 0.80, functions = 0.80 }`,
+      `coverageDir = "./coverage"`. (OQ-1: the 0.80 baseline is the declared
+      MS-0002 baseline; if unsatisfiable on type-only modules, set a documented
+      lower baseline in Phase 7 and revisit at MS-0002 end.)
+- [ ] **2.3** Create `tests/mermaid.preload.ts` as a **no-op stub** (DEC-5 / R1)
+      — an empty module / harmless import with a comment that E4-S1 (MS2-E4)
+      populates the happy-dom global registrant here. Must not warn or fail under
+      the pinned Bun.
+- [ ] **2.4** Confirm `bun run typecheck` and `bun test` are resolvable scripts
+      (the green runs are verified in Phase 6/7 once `src/` files exist — `tsc`
+      emits TS18003 "No inputs were found" on an empty `src/**/*.ts` include glob,
+      so the typecheck-pass gate is intentionally deferred to Phase 6).
+
+**Acceptance Criteria**:
+
+- Must: `tsconfig.json` matches the `typescript.md` target config with all eight
+  strict flags (NFR-3); `bunfig.toml` matches `typescript.md`.
+- Should: the no-op preload produces no Bun warning/failure when loaded.
+
+**Files and modules**:
+
+- Code areas: `tsconfig.json` (new), `bunfig.toml` (new),
+  `tests/mermaid.preload.ts` (new — stub).
+- System docs: none.
+
+**Tests**:
+
+- Manual diff of `tsconfig.json`/`bunfig.toml` against `typescript.md` (no
+  flag drift). Typecheck/test green runs verified in Phase 6/7.
+
+**Completion signal**: `feat(scaffolding): add strict tsconfig and bun test config`
+
+---
+
+### Phase 3: Biome lint & format gate (TDR-0005)
+
+**Goal**: Establish the single-tool lint + format gate with recommended rules
+only (no bespoke rules — DEC-4), wiring the `lint` / `format` / `format:check`
+scripts.
+
+**Tasks**:
+
+- [ ] **3.1** Create `biome.json` — Biome recommended lint + format rules
+      (DEC-4: enable recommended rules only; do **not** add bespoke rules).
+      Scope lint/format to the project source/test surface as appropriate.
+- [ ] **3.2** Confirm the `lint`, `format`, and `format:check` script bodies in
+      `package.json` invoke the Biome CLI correctly (per `typescript.md`
+      §"Linting and formatting").
+- [ ] **3.3** Run `bun run format` to normalize any existing files, then
+      `bun run lint` and `bun run format:check`; confirm both exit 0 on the
+      present tree.
+
+**Acceptance Criteria**:
+
+- Must: `bun run lint` exits 0 (AC-F2-1); `bun run format:check` exits 0
+  (AC-F2-2).
+- Should: Biome diagnostics, where present, are rule-named and AI-actionable
+  (TDR-0005 driver).
+
+**Files and modules**:
+
+- Code areas: `biome.json` (new), `package.json` (scripts confirmed).
+- System docs: none.
+
+**Tests**:
+
+- `bun run lint && bun run format:check` exits 0.
+
+**Completion signal**: `feat(scaffolding): add Biome lint and format gate`
+
+---
+
+### Phase 4: dependency-cruiser boundary enforcement (TDR-0006)
+
+**Goal**: Configure the graph-resolving architecture guard — the four
+ports-and-adapters tier rules from `typescript.md` — with `#imports`-alias
+resolution, and wire `check:boundaries`.
+
+**Tasks**:
+
+- [ ] **4.1** Create `.dependency-cruiser.cjs` with the **four `forbidden` tier
+      rules** exactly as in `typescript.md` §"Import-boundary enforcement":
+      `domain-may-not-import-infra`, `domain-may-not-import-app`,
+      `presentation-may-not-import-domain`,
+      `presentation-may-not-import-infra` (matching the architecture-overview
+      dependency-direction matrix and blueprint §1's tier invariant).
+- [ ] **4.2** Configure `#imports`-field alias resolution (R2). dependency-cruiser
+      may not resolve the `#domain/*` etc. aliases out of the box; if it does
+      not, add an explicit alias mapping in the config (`resolved` / `tsConfig`
+      / `webpackConfig` per TDR-0006 implementation guidance). **Never disable a
+      rule to make CI green** (RSK-1).
+- [ ] **4.3** Confirm the `check:boundaries` script body wraps the `depcruise`
+      CLI over `src/` (per `typescript.md`); run `bun run check:boundaries` and
+      confirm it exits 0 (no violations; "nothing to check" is acceptable on the
+      not-yet-populated skeleton — the real negative test runs in Phase 6 once
+      `src/` has domain + infra files).
+
+**Acceptance Criteria**:
+
+- Must: `.dependency-cruiser.cjs` declares all four tier rules (AC-F3-1);
+  `check:boundaries` exits 0 on the clean tree.
+- Should: aliases resolve without false negatives (verified decisively in
+  Phase 6 via AC-F3-2).
+
+**Files and modules**:
+
+- Code areas: `.dependency-cruiser.cjs` (new), `package.json` (script confirmed).
+- System docs: none (the tier invariant itself is in `architecture-overview.md`,
+  already authoritative).
+
+**Tests**:
+
+- `bun run check:boundaries` exits 0. (Boundary accuracy negative-test: Phase 6.)
+
+**Completion signal**: `feat(scaffolding): add dependency-cruiser boundary enforcement`
+
+---
+
+### Phase 5: Conventional Commits enforcement — commitlint + husky (TDR-0008)
+
+**Goal**: Wire commitlint (the linter) via husky's `commit-msg` hook (local
+feedback) with the `prepare` script; CI is added as the authoritative gate in
+Phase 8.
+
+**Tasks**:
+
+- [ ] **5.1** Create `commitlint.config.js` extending
+      `@commitlint/config-conventional`; set `header-max-length: 72` and the
+      imperative-mood rule; add merge/automated-commit exemptions (`ignores`
+      for `Merge …`, `[skip ci]`, bot commits — TDR-0008 C-4/C-5). Inception
+      squash-merge history is **grandfathered** (not retroactively linted).
+- [ ] **5.2** Add the husky `commit-msg` hook via the `prepare` script
+      (`bun install` / `bunx husky init` then write `.husky/commit-msg` running
+      `bunx commitlint --edit "$1"`). **Note: this is the `commit-msg` hook, NOT
+      `pre-commit`** (DEC-3 — `commit-msg` fires after the message is written).
+      Ensure `prepare` is in `package.json` (added in Phase 1).
+- [ ] **5.3** Verify locally: a Conventional message (e.g. `feat(scaffolding): init`)
+      is **accepted** (AC-F4-1); a malformed message (e.g. `bad message`) is
+      **rejected** with a rule-named diagnostic (AC-F4-2). Test with a throwaway
+      commit or `bunx commitlint --edit` against a temp message file (no
+      malformed commit lands in history).
+
+**Acceptance Criteria**:
+
+- Must: a Conventional message is accepted (AC-F4-1); a malformed message is
+  rejected with a named rule (AC-F4-2); the hook is `commit-msg`, not
+  `pre-commit`.
+- Should: merge/automated commits pass without confusing errors (TDR-0008 C-4).
+
+**Files and modules**:
+
+- Code areas: `commitlint.config.js` (new), `.husky/commit-msg` (new),
+  `package.json` (`prepare` confirmed).
+- System docs: none.
+
+**Tests**:
+
+- Local accept/reject verification (per test plan `chg-GH-14-test-plan.md`).
+
+**Completion signal**: `feat(scaffolding): enforce conventional commits via commitlint and husky`
+
+---
+
+### Phase 6: Ports-and-adapters skeleton & shared primitives
+
+**Goal**: Create the empty tier directory tree per blueprint §1 (residence
+contract for every later story), the two shared domain primitives (`Result<T,E>`
++ the exhaustive 12-kind `MarkSyncError` with the `never`-check pattern), and the
+trivial CLI entrypoint — then run the **first** green `bun run typecheck` and
+`bun run check:boundaries`, plus the boundary negative-test (AC-F3-2).
+
+**Tasks**:
+
+- [ ] **6.1** Create the skeleton tier directories per blueprint §1, preserving
+      empty dirs with `.gitkeep` or barrel `index.ts` where natural:
+      `src/cli/{commands,output}/`, `src/app/`,
+      `src/domain/{identity,config,binding,state,hierarchy,markdown,render,assets,mermaid,git,target}/`,
+      `src/infra/{git,mermaid,lock,push,confluence}/`, `src/shared/`. No domain
+      logic lands here — directories only (F-5 / AC-F5-1).
+- [ ] **6.2** Create `src/domain/result.ts` — `Result<T, E>` type, copied
+      verbatim from blueprint §2 / `typescript.md` (`{ ok: true; value: T } |
+      { ok: false; error: E }`). (DM-1)
+- [ ] **6.3** Create `src/domain/errors.ts` — the exhaustive **12-kind**
+      `MarkSyncError` discriminated union from blueprint §2 (DEC-1 — the superset
+      of the 8-kind typescript.md excerpt): `Conflict`, `RemoteMissing`,
+      `DuplicateUuid`, `UnsupportedConstruct`, `Forbidden`, `LockDirty`,
+      `ConcurrentWrite`, `RenderUnavailable`, `StalePlan`, `ForbiddenBranch`,
+      `TooLarge`, `UnresolvedLink` — each with its blueprint §2 field shape.
+      **Include the exhaustive `never`-check pattern** so adding a future kind is
+      a compile error until every handler is updated. (DM-2 / AC-F6-1 / AC-F6-2)
+- [ ] **6.4** Create `src/cli/index.ts` — a trivial entrypoint that prints
+      `marksync 0.0.0` (F-7). Proves the toolchain compiles and executes.
+- [ ] **6.5** Run `bun run typecheck` → first green strict compile of the
+      primitives (AC-F6-1/F6-2); run `bun run src/cli/index.ts` → prints
+      `marksync 0.0.0` (AC-F7-1).
+- [ ] **6.6** Run the **boundary negative-test (AC-F3-2)**:       temporarily add a
+      scratch file under `src/domain/` that imports from `#infra/*` (or a
+      relative `src/infra/...` path); run `bun run check:boundaries` → observe FAIL
+      with a named `from → to + rule` violation (zero false negatives — RSK-1/R2
+      closure); remove the scratch; observe PASS. If the scratch is **not**
+      detected, the `#imports` alias mapping from Phase 4 is incomplete — fix it
+      (never disable the rule).
+
+**Acceptance Criteria**:
+
+- Must: all tier dirs/barrels exist per blueprint §1 (AC-F5-1);
+  `Result<T,E>` + 12-kind `MarkSyncError` + `never`-switch typecheck strict
+  (AC-F6-1/F6-2); `bun run src/cli/index.ts` prints `marksync 0.0.0` (AC-F7-1);
+  `bun run typecheck` exits 0 (AC-F1-2); `bun run check:boundaries` exits 0 on
+  the clean skeleton (AC-F3-1) and FAILS on the scratch (AC-F3-2).
+- Should: barrel files keep import paths clean without violating tier rules.
+
+**Files and modules**:
+
+- Code areas: `src/cli/index.ts` (new), `src/domain/result.ts` (new),
+  `src/domain/errors.ts` (new), tier directories + `.gitkeep`/barrels (new).
+- System docs: none (the tier tree is already authoritative in blueprint §1 and
+  `architecture-overview.md`).
+
+**Tests**:
+
+- `bun run typecheck` green; `bun run check:boundaries` clean; CLI prints the
+  version string; boundary scratch negative-test (per test plan).
+
+**Completion signal**: `feat(scaffolding): add module skeleton, Result and MarkSyncError primitives`
+
+---
+
+### Phase 7: Test-tier skeleton & smoke test
+
+**Goal**: Create the five test-tier directories and a trivial passing smoke test
+asserting the `Result` shape and the `MarkSyncError` exhaustive-switch — so
+`bun test` is green and the Bun harness + Mermaid preload are wired.
+
+**Tasks**:
+
+- [ ] **7.1** Create the test-tier directories: `tests/unit/`,
+      `tests/integration/`, `tests/golden/`, `tests/bdd/`, `tests/e2e/`
+      (testing-strategy.md tiers). Preserve empty dirs with `.gitkeep`.
+- [ ] **7.2** Add a smoke test (e.g. `tests/unit/primitives.smoke.test.ts`)
+      asserting `Result.ok` / `Result.err` shape and that a `MarkSyncError`
+      exhaustive `switch` compiles (F-8 / AC-F8-1). Keep it type-and-shape only
+      — no domain behavior under test (NG-1).
+- [ ] **7.3** Run `bun test` → exits 0 (AC-F8-1). Handle **OQ-1**: if the
+      `0.80` coverage threshold (Phase 2 `bunfig.toml`) is unsatisfiable on
+      type-only scaffolding modules, set a documented lower MS-0002-start
+      baseline (record the value + rationale in `bunfig.toml`/a comment) and
+      note "revisit at MS-0002 end"; do **not** disable coverage silently.
+
+**Acceptance Criteria**:
+
+- Must: `bun test` exits 0 with the smoke test passing (AC-F8-1).
+- Should: coverage config is honest about the MS-0002-start baseline (OQ-1).
+
+**Files and modules**:
+
+- Code areas: `tests/unit/primitives.smoke.test.ts` (new), test-tier dirs +
+  `.gitkeep` (new).
+- System docs: none.
+
+**Tests**:
+
+- `bun test` green (smoke test); this is the first real `bun test` run.
+
+**Completion signal**: `test(scaffolding): add test-tier skeleton and primitives smoke test`
+
+---
+
+### Phase 8: CI unguard — make CI binding (OPEN-Q9)
+
+**Goal**: The load-bearing outcome. Edit `.github/workflows/ci.yml` to remove
+every `continue-on-error: true` and `|| true` advisory guard, pin Bun to the
+concrete 1.2.x patch, make the dependency/license audit blocking, and add the
+`check:boundaries` CI step — then confirm the full `bun run check` is locally
+green before the CI run.
+
+**Tasks**:
+
+- [ ] **8.1** Edit `.github/workflows/ci.yml` **fast-loop job**: remove
+      `continue-on-error: true` from the Install / Lint / Typecheck steps; remove
+      `|| true` from the Test (`bun test tests/unit/ tests/integration/
+      tests/golden/`) and BDD (`bun run test:bdd`) steps. Keep the step
+      structure and the BDD-in-fast-loop wiring (testing-strategy.md §"CI
+      wiring"); E2E stays in `run-e2e.yml` (not this file).
+- [ ] **8.2** Pin the CI `bun-version` matrix value to the same concrete 1.2.x
+      patch resolved in Phase 1 (replace the floating `"1.2"` — NFR-6 / DEC-6);
+      update the inline "pin to a concrete patch" comment to reflect the pin.
+- [ ] **8.3** Add a `check:boundaries` step to the fast-loop job (`bun run
+      check:boundaries`) so tier violations fail the build (OPEN-Q9 item 7).
+- [ ] **8.4** In the **dependency-audit job**: remove `continue-on-error: true`
+      from the osv-scanner and license-audit steps so both are **blocking**
+      (NFR-7 / OPEN-Q9 items 2 + 8). Resolve **OQ-2**: verify the osv-scanner
+      lockfile flag against the installed version (`--lock-file` vs
+      `-L`/`--lockfile`) and correct the command; fix the inline comment. Keep
+      the step-level lockfile-conditional (`if: steps.lockfile.outputs.exists`)
+      as-is (it correctly no-ops when no lockfile — now there always is one).
+- [ ] **8.5** Run the full `bun run check` locally (lint + format:check +
+      typecheck + test + check:boundaries) → all green, single-digit seconds
+      (NFR-1) — this is the local proof that unguarding exposes no latent issue
+      (RSK-2).
+- [ ] **8.6** Verify the OPEN-Q9 checklist closure for this story (items 1–9;
+      item 10 YAML-frontmatter lint remains out of scope — spec Appendix A).
+
+**Acceptance Criteria**:
+
+- Must: zero `continue-on-error: true` and zero `|| true` remain in
+  `.github/workflows/ci.yml` (AC-F9-1 / NFR-2); CI pins the concrete 1.2.x
+  patch; license-audit is blocking and rejects GPL/AGPL/LGPL/UNLICENSED
+  (AC-F10-1); `check:boundaries` is a CI step; `bun run check` is locally green.
+- Should: the osv-scanner flag is correct for the installed version (OQ-2).
+
+**Files and modules**:
+
+- Code areas: `.github/workflows/ci.yml` (updated — guards removed, Bun pinned,
+  `check:boundaries` added).
+- System docs: none (the unguard is the system-observability change itself).
+
+**Tests**:
+
+- `bun run check` green locally; the green **CI run on the PR** is the evidence
+  that unguarding is safe (AC-F9-1).
+
+**Completion signal**: `ci(scaffolding): unguard CI and pin Bun per OPEN-Q9`
+
+---
+
+### Phase 9: Finalize — README section, verification & spec reconciliation
+
+**Goal**: Add the minimal "under construction" README project section, run the
+final whole-repo `bun run check`, confirm there is no version bump
+(`version_impact: none`), and hand system-doc reconciliation to the
+`system_spec_update` lifecycle phase (doc-syncer).
+
+**Tasks**:
+
+- [ ] **9.1** Add a minimal "under construction" project section to `README.md`
+      (what MarkSync is in one line + the dev-loop pointer). Full README,
+      badges, and docs are out of scope (NG-4).
+- [ ] **9.2** Run the final `bun run check` (lint + format:check + typecheck +
+      test + check:boundaries) → all green; confirm the four Phase 4 "re-verify
+      before lock" items (Biome strict compat, dep-cruiser alias resolution,
+      commitlint hook, osv-scanner flag) are closed by execution.
+- [ ] **9.3** Confirm **no version bump** — `version_impact: none` (no released
+      artifact / binary target in this story; the CLI prints `0.0.0` as a
+      placeholder, not a release).
+- [ ] **9.4** **Spec reconciliation handoff**: note for the
+      `system_spec_update` lifecycle phase (doc-syncer, lifecycle phase 7) that
+      `doc/guides/dev-environment.md` likely needs the script-table update
+      (`lint`/`format`/`typecheck`/`test`/`check`/`check:boundaries`) and that
+      OPEN-Q9 is now closed. No `doc/spec/**` feature change is introduced by
+      this story (it is tooling + skeleton + primitives only).
+- [ ] **9.5** Populate the Execution Log below with phase statuses/commits.
+
+**Acceptance Criteria**:
+
+- Must: final `bun run check` green (NFR-1); OPEN-Q9 closed; no version bump
+  recorded.
+- Should: dev-environment.md script-table reconciliation is tracked for the
+  doc-syncer phase.
+
+**Files and modules**:
+
+- Code areas: `README.md` (updated — minimal section only).
+- System docs: `doc/guides/dev-environment.md` (handoff note — updated in the
+  `system_spec_update` lifecycle phase, not in delivery).
+
+**Tests**:
+
+- Final `bun run check` green; PR CI green with guards removed (AC-F9-1).
+
+**Completion signal**: `docs(scaffolding): add minimal README section and close OPEN-Q9`
+
+---
+
+## Test Scenarios
+
+> Detailed procedures (step-by-step, expected output, rollback) live in the
+> companion test plan `chg-GH-14-test-plan.md`. This table maps scenarios to
+> phases and acceptance criteria.
+
+| ID | Scenario | Phases | AC |
+|----|----------|--------|----|
+| TS-1 | `bun install --frozen-lockfile` succeeds from a fresh clone | 1 | AC-F1-1 |
+| TS-2 | `bun run typecheck` exits 0 under all eight strict flags | 6 | AC-F1-2, AC-F6-1, AC-F6-2 |
+| TS-3 | `bun run lint` exits 0 (Biome recommended rules) | 3 | AC-F2-1 |
+| TS-4 | `bun run format:check` exits 0 (no unformatted files) | 3 | AC-F2-2 |
+| TS-5 | `bun run check:boundaries` exits 0 on the clean skeleton | 6 | AC-F3-1 |
+| TS-6 | A `domain→infra` scratch import FAILS with a named `from → to + rule`; removing it restores green | 6 | AC-F3-2, NFR-8 |
+| TS-7 | A Conventional Commits message (`feat(scaffolding): init`) is accepted by the `commit-msg` hook | 5 | AC-F4-1 |
+| TS-8 | A malformed message (`bad message`) is rejected with a rule-named diagnostic | 5 | AC-F4-2 |
+| TS-9 | All blueprint §1 tier directories + barrels exist | 6 | AC-F5-1 |
+| TS-10 | `Result<T,E>` + 12-kind `MarkSyncError` + `never`-switch typecheck strict | 6 | AC-F6-1, AC-F6-2 |
+| TS-11 | `bun run src/cli/index.ts` prints `marksync 0.0.0` | 6 | AC-F7-1 |
+| TS-12 | `bun test` exits 0 (smoke test green) | 7 | AC-F8-1 |
+| TS-13 | CI has zero `continue-on-error` / `|| true`; PR CI run is green | 8 | AC-F9-1, NFR-2 |
+| TS-14 | No runtime dependencies; license-audit rejects GPL/AGPL/LGPL/UNLICENSED | 1, 8 | AC-F10-1 |
+| TS-15 | Full `bun run check` green in single-digit seconds | 9 | NFR-1 |
+
+## Artifacts and Links
+
+| Artifact | Location | Type |
+|----------|----------|------|
+| Change specification | `./chg-GH-14-spec.md` | Spec (source of truth) |
+| Change test plan | `./chg-GH-14-test-plan.md` | Test plan (verification procedures) |
+| Authoritative story | `../../../planning/milestones/MS-2/MS2-E2--foundation/MS2-E2-S1--scaffolding.md` | Story (12 deliverables) |
+| TS conventions | `../../.ai/rules/typescript.md` | Convention (exact configs) |
+| Testing strategy | `../../.ai/rules/testing-strategy.md` | Convention (tiers + CI) |
+| MS-0002 blueprint | `../../.ai/local/ceo/ms-0002-blueprint.md` | Working memory (§1 tree, §2 primitives) |
+| TDR-0005 (Biome) | `../../../decisions/TDR-0005-linter-and-formatter.md` | Decision (Accepted) |
+| TDR-0006 (dep-cruiser) | `../../../decisions/TDR-0006-import-boundary-enforcement.md` | Decision (Accepted) |
+| TDR-0008 (commitlint+husky) | `../../../decisions/TDR-0008-conventional-commits-enforcement.md` | Decision (Accepted) |
+| OPEN-Q9 (CI unguard) | `../../../inception/open-questions/phase-4-open-questions.md` | Open question (closed by this story) |
+| CI workflow (edited) | `../../.github/workflows/ci.yml` | CI config (unguarded) |
+| `package.json` / `bun.lock` | repo root | Manifest + lockfile (new) |
+| `tsconfig.json` / `bunfig.toml` / `biome.json` | repo root | Tool config (new) |
+| `.dependency-cruiser.cjs` / `commitlint.config.js` / `.husky/commit-msg` | repo root + `.husky/` | Tool config + hook (new) |
+| `src/` skeleton + primitives | `src/cli/index.ts`, `src/domain/result.ts`, `src/domain/errors.ts`, tier dirs | Code (new) |
+| `tests/` skeleton + smoke | `tests/**`, `tests/mermaid.preload.ts` | Test (new) |
+
+## Plan Revision Log
+
+| Version | Date | Author | Changes |
+|---------|------|--------|---------|
+| 1.0 | 2026-07-07 | plan-writer (GH-14) | Initial plan — 9 dependency-ordered phases derived from the spec (F-1..F-10), story MS2-E2-S1 (12 deliverables), blueprint §1/§2, typescript.md/testing-strategy.md, and decisions TDR-0005/0006/0008 + ADR-0001. Config contents are cited from `typescript.md`/blueprint, not reproduced. CI unguard (OPEN-Q9) placed last so the PR is its own green-CI proof. |
+
+## Execution Log
+
+<!-- Populated during execution by @coder via /run-plan GH-14 -->
+
+| Phase | Status | Started | Completed | Commit | Notes |
+|-------|--------|---------|-----------|--------|-------|
+| 1 — manifest, hygiene, install | pending | | | | |
+| 2 — tsconfig + bunfig | pending | | | | typecheck green verified in Phase 6 (TS18003) |
+| 3 — Biome | pending | | | | |
+| 4 — dependency-cruiser | pending | | | | negative-test in Phase 6 |
+| 5 — commitlint + husky | pending | | | | |
+| 6 — skeleton + primitives | pending | | | | first green typecheck + boundary negative-test |
+| 7 — test skeleton + smoke | pending | | | | first green bun test; OQ-1 coverage check |
+| 8 — CI unguard (OPEN-Q9) | pending | | | | OQ-2 osv-scanner flag check |
+| 9 — finalize + README | pending | | | | no version bump (version_impact: none) |
