@@ -55,8 +55,12 @@ repo:juliusz-cwiakalski/marksync label:change -label:blocked is:open sort:create
 ## Per-Milestone Backlog
 
 Each milestone has a ranked backlog at
-`doc/planning/backlog-MS-<NNNN>.md` — an ordered table (top = highest
-priority) that drives delivery sequence within that milestone.
+`doc/planning/milestones/MS-<N>/backlog-MS-<N>.md` — an ordered table (top =
+highest priority) that drives delivery sequence within that milestone.
+
+**Convention:** see [backlog-convention.md](../../doc/planning/backlog-convention.md)
+for the business-ID scheme (`MS<N>-E<NN>-S<NN>` for stories, `MS<N>-B<NNN>` for
+bugs), folder structure, and GitHub Issue ↔ story-file relationship.
 
 - **Prepare the backlog before starting milestone work** (typically when the
   previous milestone is completing or complete). Do not prepare backlogs far
@@ -69,6 +73,8 @@ priority) that drives delivery sequence within that milestone.
   or dependency changes during delivery warrant re-ranking.
 - **PM reviews prioritization on a regular basis** (every few tickets
   delivered) to ensure the plan is not drifting too far from reality.
+- **Git files are authoritative** for story scope; GitHub Issues are short
+  summaries that link to the story files. Title prefix: `[MS2-E3-S1] Title`.
 - Archive completed milestone backlogs to `doc/planning/archive/`.
 
 ## Conventions
