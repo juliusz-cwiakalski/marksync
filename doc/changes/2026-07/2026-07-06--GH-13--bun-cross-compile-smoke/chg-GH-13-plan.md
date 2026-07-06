@@ -405,21 +405,21 @@ runtime" promise (ADR-0001 C-2; NFR-COMP-2). F-2; AC2; story methodology step-4.
 
 **Tasks**:
 
-- [ ] **3.1** Create `spikes/bun-compile-smoke/probes/clean-os-debian.sh` that runs the linux-x64
+- [x] **3.1** Create `spikes/bun-compile-smoke/probes/clean-os-debian.sh` that runs the linux-x64
   binary inside a clean `debian:slim` container and asserts the result:
   `docker run --rm -v "$PWD":/x -w /x debian:slim ./marksync-linux-x64 --version`
-  - Assert exit code is 0 AND the output contains `marksync` (the version string).
-- [ ] **3.2** Verify the `debian:slim` image has **no** Bun/Node installed (NFR-COMP-2):
+  - Assert exit code is 0 AND the output contains `marksync` (the version string). _(created; NOTE: real Docker Hub tag is `debian:stable-slim` — `debian:slim` is not published; reconciliation recorded in probe header + findings. exit 0 + `marksync 0.0.0`.)_
+- [x] **3.2** Verify the `debian:slim` image has **no** Bun/Node installed (NFR-COMP-2):
   `docker run --rm debian:slim sh -c 'command -v bun node || echo "none"'` → prints `none` (i.e. no
-  language runtime is present; the binary runs purely on the embedded Bun runtime).
-- [ ] **3.3** Create `spikes/bun-compile-smoke/probes/clean-os-alpine.sh` (stretch) that repeats the
+  language runtime is present; the binary runs purely on the embedded Bun runtime). _(verified: `command -v bun node deno` → exit=127, none present)_
+- [x] **3.3** Create `spikes/bun-compile-smoke/probes/clean-os-alpine.sh` (stretch) that repeats the
   run inside `alpine`:
   `docker run --rm -v "$PWD":/x -w /x alpine ./marksync-linux-x64 --version`
   - Record the result. If alpine (musl) cannot run the glibc-linked Bun binary (dynamic-link
     failure), record the exact musl/glibc failure mode and fall back to `debian:slim` (RSK-4). NFR-RUN-1
-    is satisfied by `debian:slim`; alpine is informational only.
-- [ ] **3.4** Capture the H2 verdict: `debian:slim` PASS (exit 0 + version + no runtime) is the
-  gate; `alpine` is recorded as PASS or a documented musl/glibc failure mode. Persist to evidence.
+    is satisfied by `debian:slim`; alpine is informational only. _(created; RSK-4 failure recorded: `exec ./marksync-linux-x64: no such file or directory` = glibc dynamic loader `/lib64/ld-linux-x86-64.so.2` absent under musl; non-blocking)_
+- [x] **3.4** Capture the H2 verdict: `debian:slim` PASS (exit 0 + version + no runtime) is the
+  gate; `alpine` is recorded as PASS or a documented musl/glibc failure mode. Persist to evidence. _(captured to evidence/phase3-clean-os.txt; H2 PASS)_
 
 **Acceptance Criteria**:
 
@@ -972,7 +972,7 @@ any `doc/decisions/**`, `doc/spec/**`, or `doc/planning/**` file.
 | Phase 0 | DONE | 2026-07-06 | 2026-07-06 | 36d2c6c | scaffold workspace — bun 1.1.34 + docker 27.3.1 verified; cli prints marksync 0.0.0 |
 | Phase 1 | DONE | 2026-07-06 | 2026-07-06 | (this commit) | linux-x64 cross-compile H1a PASS (ELF x86-64, exit 0); TC-BCS-008 arm64 stretch: BOTH bun-linux-arm64 + bun-darwin-arm64 ACCEPTED in 1.1.34 (informational) |
 | Phase 2 | DONE | 2026-07-06 | 2026-07-06 | (this commit) | windows-x64 cross-compile H1b PASS (PE32+ x86-64, exit 0); RSK-1 NOT triggered; DEC-3 Windows-run deferral recorded |
-| Phase 3 | PENDING | — | — | — | clean-OS linux docker smoke (H2) |
+| Phase 3 | DONE | 2026-07-06 | 2026-07-06 | (this commit) | clean-OS H2 PASS on debian:stable-slim (exit 0 + version, no runtime); alpine stretch RSK-4 musl/glibc failure recorded (non-blocking) |
 | Phase 4 | PENDING | — | — | — | size + cold-start measurement (H3, H4) |
 | Phase 5 | PENDING | — | — | — | signing dry-run command (H5) |
 | Phase 6 | PENDING | — | — | — | build-binaries.sh skeleton (F-7) |
