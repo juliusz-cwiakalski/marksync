@@ -590,23 +590,23 @@ reference the committed skeleton.
 
 **Tasks**:
 
-- [ ] **6.1** Create `scripts/build-binaries.sh` at the repo root that wraps the two validated
+- [x] **6.1** Create `scripts/build-binaries.sh` at the repo root that wraps the two validated
   compile invocations:
   - `bun build --compile --target=bun-linux-x64 ./src/cli.ts --outfile "$OUT_DIR"/marksync-linux-x64`
   - `bun build --compile --target=bun-windows-x64 ./src/cli.ts --outfile "$OUT_DIR"/marksync-win-x64.exe`
   - (The skeleton points at a placeholder entry — `./src/cli.ts` — that E5-S4 will repoint to the
     real CLI entry from E2-S1/E2-S3. Add a header comment noting it is an **E5-S4 skeleton refined
-    from the GH-13 spike**, not a production script yet.)
-- [ ] **6.2** Add **argument parsing**: target selection (`--target linux|windows|all`, default
+    from the GH-13 spike**, not a production script yet.) _(created; header documents origin + validated-by + entry placeholder)_
+- [x] **6.2** Add **argument parsing**: target selection (`--target linux|windows|all`, default
   `all`), output directory (`--out-dir DIR`, default `./dist`), and a `--help` usage string. Keep
-  it POSIX-sh / bash-portable (no exotic deps).
-- [ ] **6.3** Add **checksum generation**: `sha256sum` per produced binary, written to
-  `$OUT_DIR/SHA256SUMS` (mirrors the E5-S4 release-artifact contract).
-- [ ] **6.4** Add a clearly-marked **TODO marker for signing** that references the Phase 5
+  it POSIX-sh / bash-portable (no exotic deps). _(--target/--out-dir/--entry/--help + =value forms + BUILD_OUT_DIR/BUILD_ENTRY env fallbacks; validated)_
+- [x] **6.3** Add **checksum generation**: `sha256sum` per produced binary, written to
+  `$OUT_DIR/SHA256SUMS` (mirrors the E5-S4 release-artifact contract). _(SHA256SUMS with basenames; validated for --target all)_
+- [x] **6.4** Add a clearly-marked **TODO marker for signing** that references the Phase 5
   `osslsigncode` command block (e.g. `# TODO(E5-S4): wire osslsigncode sign — see
-  spikes/bun-compile-smoke/probes/signing-dry-run.md`). Do NOT invoke signing (no cert, DEC-4).
-- [ ] **6.5** Make the script executable (`chmod +x`) and add a brief header comment documenting
-  that it is the E5-S4 skeleton, its inputs/outputs, and that it is validated by the GH-13 spike.
+  spikes/bun-compile-smoke/probes/signing-dry-run.md`). Do NOT invoke signing (no cert, DEC-4). _(TODO(E5-S4) marker + runtime "signing: SKIPPED" pointer to signing-dry-run.md)_
+- [x] **6.5** Make the script executable (`chmod +x`) and add a brief header comment documenting
+  that it is the E5-S4 skeleton, its inputs/outputs, and that it is validated by the GH-13 spike. _(chmod +x; header documents E5-S4 skeleton origin + validated-by + inputs/outputs)_
 
 **Acceptance Criteria**:
 
@@ -976,6 +976,6 @@ any `doc/decisions/**`, `doc/spec/**`, or `doc/planning/**` file.
 | Phase 3 | DONE | 2026-07-06 | 2026-07-06 | (this commit) | clean-OS H2 PASS on debian:stable-slim (exit 0 + version, no runtime); alpine stretch RSK-4 musl/glibc failure recorded (non-blocking) |
 | Phase 4 | DONE | 2026-07-06 | 2026-07-06 | (this commit) | H3 sizes recorded (linux 96.90 MB, win 105.12 MB — FLAGGED not blocking DEC-5); H4 cold-start 0.010s median (PASS); RSS ~34.7 MB |
 | Phase 5 | DONE | 2026-07-06 | 2026-07-06 | (this commit) | H5 signing dry-run documented (osslsigncode sign/verify/extract-signature + cert plug-in + macOS out-of-scope); DEC-4 doc-only |
-| Phase 6 | PENDING | — | — | — | build-binaries.sh skeleton (F-7) |
+| Phase 6 | DONE | 2026-07-06 | 2026-07-06 | (this commit) | scripts/build-binaries.sh skeleton (F-7): --target/--out-dir/--entry/--help + sha256sum SHA256SUMS + signing TODO; validated end-to-end for --target all (commit type `build(scripts)` per DoR #5) |
 | Phase 7 | PENDING | — | — | — | probe runner + findings doc (load-bearing) |
 | Phase 8 | PENDING | — | — | — | secret hygiene + README close-out |
