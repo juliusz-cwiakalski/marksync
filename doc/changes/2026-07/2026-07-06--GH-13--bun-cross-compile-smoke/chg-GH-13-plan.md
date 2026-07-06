@@ -225,7 +225,7 @@ compile/probe phase runnable via `bun run`. F-1 (partial); story methodology ste
 
 **Tasks**:
 
-- [ ] **0.1** Create `spikes/bun-compile-smoke/package.json` with:
+- [x] **0.1** Create `spikes/bun-compile-smoke/package.json` with: _(done — incl. probe:arm64 + probe:secrets; commit 36d2c6c)_
   - `"type": "module"`, `"private": true`
   - no `"name"` that collides with the main package (keep it self-contained, e.g.
     `"name": "marksync-bun-compile-smoke"`)
@@ -240,25 +240,25 @@ compile/probe phase runnable via `bun run`. F-1 (partial); story methodology ste
     - `"probe:all": "bash run-probes.sh"`
   - No runtime dependencies required for a plain-`console.log` smoke binary. (Cliffy is optional; if
     used, pin a minimal version and record the choice — a smoke binary does not need a CLI framework.)
-- [ ] **0.2** Create `spikes/bun-compile-smoke/src/cli.ts` — a minimal smoke CLI that prints
+- [x] **0.2** Create `spikes/bun-compile-smoke/src/cli.ts` — a minimal smoke CLI that prints _(done — plain console.log, honors --version/version; commit 36d2c6c)_
   `marksync 0.0.0` (plain `console.log("marksync 0.0.0")` is sufficient; this is a smoke binary, NOT
   the real CLI — spec NG-3). Honor a `--version`/`version` arg by printing the same string (the
   clean-OS smoke invokes `./marksync-linux-x64 --version`).
-- [ ] **0.3** Create `spikes/bun-compile-smoke/.gitignore` ignoring:
+- [x] **0.3** Create `spikes/bun-compile-smoke/.gitignore` ignoring: _(done — node_modules/, marksync-linux-x64, marksync-win-x64.exe, arm64/darwin binaries, dist/, *.log; commit 36d2c6c)_
   - `node_modules/`
   - the ephemeral ~90 MB build outputs: `marksync-linux-x64`, `marksync-win-x64.exe`
   - the evidence capture dir if kept local-only: `evidence/` (or commit small logs — coder's call,
     but binaries STAY gitignored)
   - any logs (`*.log`)
-- [ ] **0.4** Create `spikes/bun-compile-smoke/README.md` stub with: purpose (one paragraph — what
+- [x] **0.4** Create `spikes/bun-compile-smoke/README.md` stub with: _(done — stub; finalized Phase 8; commit 36d2c6c)_ purpose (one paragraph — what
   the spike validates; pointer to the findings doc), prerequisites (Bun 1.1.34; Docker for H2), and
   the quick-start commands (`bun run build:linux`, `bun run build:windows`, `bun run probe:all`).
   Note that the full run-book is finalized in Phase 8.
-- [ ] **0.5** Verify the environment: `bun --version` reports **1.1.34** (DEC-2); `docker version`
+- [x] **0.5** Verify the environment: `bun --version` reports **1.1.34** (DEC-2); `docker version`
   reports the daemon reachable (Docker 27.3.1); `bun run cli` prints `marksync 0.0.0`. Record the
-  Bun version (it goes into the findings doc in Phase 7).
-- [ ] **0.6** Verify no file under the repo-root `src/` is touched (C-SPIKE-2); verify `node_modules/`
-  and the binaries are gitignored (C-SPIKE-10).
+  Bun version (it goes into the findings doc in Phase 7). _(VERIFIED: bun 1.1.34, docker 27.3.1, `bun run cli` → `marksync 0.0.0`; commit 36d2c6c)_
+- [x] **0.6** Verify no file under the repo-root `src/` is touched (C-SPIKE-2); verify `node_modules/`
+  and the binaries are gitignored (C-SPIKE-10). _(VERIFIED: no root src/ exists — pre-scaffolding; .gitignore excludes binaries + node_modules; commit 36d2c6c)_
 
 **Acceptance Criteria**:
 
@@ -300,16 +300,16 @@ the first half of the load-bearing cross-compile evidence.
 
 **Tasks**:
 
-- [ ] **1.1** Run `bun run build:linux` (i.e.
+- [x] **1.1** Run `bun run build:linux` (i.e.
   `bun build --compile --target=bun-linux-x64 ./src/cli.ts --outfile marksync-linux-x64`) in
-  `spikes/bun-compile-smoke/`. Confirm exit 0 and that `marksync-linux-x64` is produced.
-- [ ] **1.2** Verify the output is an ELF executable: `file marksync-linux-x64` reports
-  `ELF 64-bit LSB executable, x86-64, ...` (i.e. a native Linux binary, not a script).
-- [ ] **1.3** Smoke-run the produced binary on the dev host: `./marksync-linux-x64 --version` prints
-  `marksync 0.0.0` and exits 0 (a first sanity check before the clean-OS run in Phase 3).
-- [ ] **1.4** Capture the H1a evidence: the exact `bun build --compile` invocation, `bun --version`
+  `spikes/bun-compile-smoke/`. Confirm exit 0 and that `marksync-linux-x64` is produced. _(exit 0; bundle 1 module [8ms], compile [126ms])_
+- [x] **1.2** Verify the output is an ELF executable: `file marksync-linux-x64` reports
+  `ELF 64-bit LSB executable, x86-64, ...` (i.e. a native Linux binary, not a script). _(ELF 64-bit LSB executable, x86-64, dynamically linked — confirmed)_
+- [x] **1.3** Smoke-run the produced binary on the dev host: `./marksync-linux-x64 --version` prints
+  `marksync 0.0.0` and exits 0 (a first sanity check before the clean-OS run in Phase 3). _(prints `marksync 0.0.0`, exit 0)_
+- [x] **1.4** Capture the H1a evidence: the exact `bun build --compile` invocation, `bun --version`
   (1.1.34), the `file(1)` classification, and the exit status. Persist to evidence (this feeds the
-  Phase 7 findings doc and the `run-probes.sh` aggregation).
+  Phase 7 findings doc and the `run-probes.sh` aggregation). _(captured to evidence/phase1-linux-x64.txt)_
 
 **Acceptance Criteria**:
 
@@ -969,8 +969,8 @@ any `doc/decisions/**`, `doc/spec/**`, or `doc/planning/**` file.
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| Phase 0 | PENDING | — | — | — | scaffold workspace |
-| Phase 1 | PENDING | — | — | — | linux-x64 cross-compile (H1) |
+| Phase 0 | DONE | 2026-07-06 | 2026-07-06 | 36d2c6c | scaffold workspace — bun 1.1.34 + docker 27.3.1 verified; cli prints marksync 0.0.0 |
+| Phase 1 | DONE | 2026-07-06 | 2026-07-06 | (this commit) | linux-x64 cross-compile H1a PASS (ELF x86-64, exit 0); TC-BCS-008 arm64 stretch: BOTH bun-linux-arm64 + bun-darwin-arm64 ACCEPTED in 1.1.34 (informational) |
 | Phase 2 | PENDING | — | — | — | windows-x64 cross-compile (H1) |
 | Phase 3 | PENDING | — | — | — | clean-OS linux docker smoke (H2) |
 | Phase 4 | PENDING | — | — | — | size + cold-start measurement (H3, H4) |
