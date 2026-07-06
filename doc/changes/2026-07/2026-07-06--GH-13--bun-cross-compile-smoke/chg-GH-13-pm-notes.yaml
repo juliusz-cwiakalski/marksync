@@ -10,8 +10,9 @@ phases:
   specification: { started: "2026-07-06T22:03:00Z", completed: "2026-07-06T22:12:00Z" }
   test_planning: { started: "2026-07-06T22:13:00Z", completed: "2026-07-06T22:22:00Z" }
   delivery_planning: { started: "2026-07-06T22:13:00Z", completed: "2026-07-06T22:23:00Z" }
-  dor_check: { started: "2026-07-06T22:24:00Z", completed: null }
-  delivery: { started: null, completed: null }
+  dor_check: { started: "2026-07-06T22:24:00Z", completed: "2026-07-06T22:40:00Z" }
+  delivery: { started: "2026-07-06T22:41:00Z", completed: "2026-07-06T23:10:00Z" }
+  system_spec_update: { started: "2026-07-06T23:11:00Z", completed: null }
   system_spec_update: { started: null, completed: null }
   review_fix: { started: null, completed: null }
   quality_gates: { started: null, completed: null }
@@ -62,4 +63,19 @@ notes:
     date: "2026-07-06"
   - text: "Plan written by @plan-writer (chg-GH-13-plan.md, 980 lines, commit 52f5431). 9 phases (0-8), 45 checkboxes (38 tasks + 7 DoD), one commit per phase. Doc-update coverage section explicitly lists ADR-0001 (C-2/C-3 evidence, do NOT reconsider language), MS2-E1-S3 story (status flip), MS2-E5-S4 (unblock note + deferrals), nonfunctional.md (optional evidence pointer, NO rewording), conditional catastrophic-fail escalation. Guardrail: no main src/ touched; only repo-root artifacts are scripts/build-binaries.sh + findings/. Commit types chore(spike)/test(spike)/docs(spike)/feat(scripts). Plan-writer confirmed no upfront decision needed (DEC-1..5 resolved); conditional @decision-advisor only on catastrophic fail."
     type: "info"
+    date: "2026-07-06"
+  - text: "DoR READY (iter-1, verdict persisted to readiness-review/readiness-iter-1.md). 10/10 facets PASS. 5 findings all minor/nit, none blocking: (1) plan probe-summary mislabels TC-BCS-008/009 vs test-plan's TC-BCS-EVID/SEC + TC-BCS-008=arm64 — fold into coder (align findings-doc probe IDs to test-plan), (2) arm64 stretch probe TC-BCS-008 has no scheduled phase task (non-gated, spec NG-2) — coder to add an informational arm64 attempt or explicitly note deferral, (3) nit: pm-notes 'commitlint+husky TDR-0008' — tooling not yet installed (pre-scaffolding); commit types advisory, (4) nit: plan 'sole repo-root code artifact' wording, (5) nit: feat(scripts) vs build(scripts)/chore(scripts). All handled inline during delivery; no phase reopen."
+    type: "info"
+    date: "2026-07-06"
+  - text: "RETRO: DoR caught probe-ID divergence between plan and test-plan (finding #1) — same class of cross-artifact drift GH-11's plan-writer exhibited. For spikes where the test-plan-writer and plan-writer run in parallel, the plan-writer should read the LANDED test-plan file (not assume probe IDs) before finalizing its probe-summary table. Process improvement: when PM runs spec+test-plan+plan delegates in parallel, add a light 'probe-ID reconciliation' check before DoR (or run plan strictly after test-plan lands). Low cost, prevents the recurring drift."
+    type: "retro"
+    date: "2026-07-06"
+  - text: "DELIVERY COMPLETE (9 spike commits d3f085a..f0a6bf4, plus 4 change-mgmt). Verdict: PASS (H1-H5 all PASS). H1: both linux-x64 + win-x64 cross-compile succeed (ELF + PE32+ via file(1)). H2: linux-x64 runs on clean debian:stable-slim with NO bun/node installed (exit 0 + 'marksync 0.0.0'); alpine stretch fails (musl/glibc loader — RSK-4, expected, non-blocking). H3: linux 96.90 MB + win 105.12 MB — exceed ≤90 MB desired but FLAGGED-not-blocking (DEC-5 / story R2 / PR #4). H4: cold-start median 0.010 s on clean OS (~200x inside 2 s budget), max RSS ~34.7 MB. H5: osslsigncode sign/verify/extract-signature recipe documented (dry-run, DEC-4). Deferrals: Windows runtime run → E5-S4 Windows CI runner (DEC-3, wine absent); macOS → MS-0003; real signing cert → E5-S4. arm64 stretch: both bun-linux-arm64 + bun-darwin-arm64 ARE valid targets in 1.1.34 (informational). Catastrophic-fail escalation NOT triggered."
+    type: "info"
+    date: "2026-07-06"
+  - text: "MS-0002 / MS2-E5-S4 recommendation from findings: PROCEED to MS2-E5-S4 (cross-platform binary builds) with scripts/build-binaries.sh skeleton as starting point. Cross-compile mechanism validated for linux-x64 + win-x64; ADR-0001 C-2 (no-runtime) holds empirically; signing recipe documented; size exceedance flagged-not-blocking (DEC-5). Carry-forwards: (a) clean-OS Windows RUN → Windows CI runner in E5-S4 (H1 win-x64 PRODUCTION already validated here); (b) real Authenticode cert for production signing (H5 was dry-run). No ADR-0001 language-level reconsideration warranted."
+    type: "decision"
+    date: "2026-07-06"
+  - text: "DELIVERY NOTE: coder session was interrupted mid-phase-7 during the first attempt (tool execution interrupted). State-detection on resume correctly identified the partially-committed state (phases 0-6 committed; phase-7 deliverables uncommitted on disk). Resume delegated a focused 'finish phases 7-8' task to a fresh coder, which committed phase 7 (118fe79) + phase 8 (f0a6bf4) cleanly. No work lost; no rework needed. Lesson: the spike workspace's gitignored-binaries + committed-evidence split made the resume trivially resumable — the deliverables were durable on disk even though the agent session was not."
+    type: "retro"
     date: "2026-07-06"
