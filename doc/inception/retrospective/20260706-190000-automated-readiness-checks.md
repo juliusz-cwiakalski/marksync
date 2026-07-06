@@ -12,7 +12,8 @@ outcome: repeat
 
 Phase 6 ran six automated checks (artifact existence, ghost references,
 cross-document consistency, FSE coverage, four-risk coverage, assumption
-tagging) instead of relying on manual spot-checks. The automated approach:
+tagging) plus one remediation action (decision-status correction) instead of
+relying on manual spot-checks. The automated approach:
 
 - **Artifact catalog:** Python script parsed `inception-state.yaml` and verified
   every registered artifact path exists — 41 passes, 0 misses.

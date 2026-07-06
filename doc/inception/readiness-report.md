@@ -13,7 +13,7 @@ summary: "Phase 6 inception readiness check — PASS. All artifact-catalog, cons
 
 ## 1. Artifact catalog completeness — ✅ PASS
 
-**41 artifacts verified present.** 7 expected skips (conditional or not-yet-produced):
+**41 artifacts verified present.** 8 expected skips (conditional or not-yet-produced):
 
 | Skipped artifact | Reason |
 |---|---|
@@ -27,9 +27,11 @@ All Phase 0–5 artifacts exist at their registered paths with non-zero confiden
 
 ## 2. Ghost reference check — ✅ PASS
 
-**243 markdown links checked** across all project-authored files
-(`doc/overview/**`, `doc/spec/**`, `doc/decisions/**`, `doc/inception/**`,
-`.ai/**`, `AGENTS.md`, `README.md`, `doc/00-index.md`, `doc/documentation-profile.md`).
+**203 markdown links checked** across all project-authored files
+(`doc/overview/**`, `doc/spec/**`, `doc/decisions/**`, project-authored
+`doc/inception/**`, `.ai/**`, `AGENTS.md`, `README.md`, `doc/00-index.md`,
+`doc/documentation-profile.md`, `doc/documentation-handbook.md`). This scope is
+CI-reproducible (`.github/workflows/ci.yml` link-checker).
 
 **1 broken link found — in a stale input file, not a project artifact:**
 - `doc/inception/north-star-draft-to-be-refined.md:122` → `./02-roadmap.md`
@@ -39,6 +41,9 @@ All Phase 0–5 artifacts exist at their registered paths with non-zero confiden
 **0 broken links in project artifacts.** ✅
 
 ## 3. Cross-document consistency — ✅ PASS
+
+> Manual judgment check (not automated). Based on spot-verification of
+> cross-cutting facts across files.
 
 | Check | Result |
 |---|---|
@@ -51,6 +56,9 @@ All Phase 0–5 artifacts exist at their registered paths with non-zero confiden
 | Documentation profile write roots ↔ agent write paths | Consistent — 18 roots cover all `@doc-syncer` paths |
 
 ## 4. Full-Stack Environment verification — ✅ PASS
+
+> Manual judgment check (not automated). Based on tracing each attribute to
+> its implementing artifact.
 
 All 10 FSE attributes from `doc/inception/analysis/fse-audit.md` are addressed:
 
@@ -75,7 +83,7 @@ All four risk types represented for MS-0002:
 |---|---|---|
 | **Value** | R-VAL-1 through R-VAL-4 (4) | A-VAL-1 through A-VAL-3 (3) |
 | **Usability** | R-USA-1 through R-USA-3 (3) | A-USA-1 through A-USA-3 (3) |
-| **Feasibility** | R-FEA-1 through R-FEA-11 (11) | A-FEA-1 through A-FEA-10 (9) |
+| **Feasibility** | R-FEA-1..10 + R-SEC-1 (11) | A-FEA-1..7, A-FEA-9..10 (9; note: A-FEA-8 gap in sequence) |
 | **Viability** | R-VIA-1 through R-VIA-3 (3) | A-VIA-1 through A-VIA-4 (4) |
 
 **21 risks total**, **19 assumptions total** — all tagged with `risk_type` and `validation_status`.
@@ -84,9 +92,9 @@ All four risk types represented for MS-0002:
 
 | Validation status | Count |
 |---|---|
-| Validated | 5 (A-FEA-3 round-trip, A-FEA-4 content properties, A-FEA-5 409, A-VIA-3 no-distortion, spike K1 GFM) |
+| Validated | 4 (A-FEA-3 round-trip, A-FEA-4 content properties, A-FEA-5 409, A-VIA-3 no-distortion) |
 | Testing | 2 (A-VAL-2 corpus, A-FEA-1 Mermaid) |
-| Unvalidated | 12 (tracked in risk register with validation plans) |
+| Unvalidated | 13 (tracked in risk register with validation plans) |
 | Invalidated | 0 |
 
 No invalidated assumptions. All unvalidated assumptions have documented validation plans tied to milestones.
