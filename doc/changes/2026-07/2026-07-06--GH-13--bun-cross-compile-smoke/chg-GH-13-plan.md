@@ -526,7 +526,7 @@ only**; no execution. macOS notarization is out of scope (deferred).
 
 **Tasks**:
 
-- [ ] **5.1** Author the exact `osslsigncode` **sign** command block (placeholder cert/pkey paths,
+- [x] **5.1** Author the exact `osslsigncode` **sign** command block (placeholder cert/pkey paths,
   timestamp URL, hash algo) into the spike's signing reference (this lands in the Phase 7 findings
   doc, but the canonical command text is authored here so Phase 7 can reference it verbatim). A
   representative form:
@@ -540,13 +540,14 @@ only**; no execution. macOS notarization is out of scope (deferred).
     -in marksync-win-x64.exe \
     -out marksync-win-x64-signed.exe
   ```
-- [ ] **5.2** Author the **verify** and **extract-signature** companion commands, e.g.
+  _(authored in probes/signing-dry-run.md; both PKCS#12 and PEM cert+key forms documented)_
+- [x] **5.2** Author the **verify** and **extract-signature** companion commands, e.g.
   `osslsigncode verify -in marksync-win-x64-signed.exe` and
-  `osslsigncode extract-signature -in marksync-win-x64-signed.exe -out marksync-win-x64.pkcs7`.
-- [ ] **5.3** Document where a **real Authenticode cert** plugs in (the `-pkcs12`/`-pass` inputs and
+  `osslsigncode extract-signature -in marksync-win-x64-signed.exe -out marksync-win-x64.pkcs7`. _(both authored, incl. optional -turl timestamp-assisted verify)_
+- [x] **5.3** Document where a **real Authenticode cert** plugs in (the `-pkcs12`/`-pass` inputs and
   the timestamp URL), note that the actual production signing occurs in E5-S4 with a real cert, and
   explicitly note **macOS notarization is out of scope** (deferred to MS-0003 / a later signing
-  story). Record that `osslsigncode` is not installed in this environment (DEC-4 — H5 is doc-only).
+  story). Record that `osslsigncode` is not installed in this environment (DEC-4 — H5 is doc-only). _(cert plug-in point table authored; macOS-out-of-scope explicit; DEC-4 caveats recorded)_
 
 **Acceptance Criteria**:
 
@@ -974,7 +975,7 @@ any `doc/decisions/**`, `doc/spec/**`, or `doc/planning/**` file.
 | Phase 2 | DONE | 2026-07-06 | 2026-07-06 | (this commit) | windows-x64 cross-compile H1b PASS (PE32+ x86-64, exit 0); RSK-1 NOT triggered; DEC-3 Windows-run deferral recorded |
 | Phase 3 | DONE | 2026-07-06 | 2026-07-06 | (this commit) | clean-OS H2 PASS on debian:stable-slim (exit 0 + version, no runtime); alpine stretch RSK-4 musl/glibc failure recorded (non-blocking) |
 | Phase 4 | DONE | 2026-07-06 | 2026-07-06 | (this commit) | H3 sizes recorded (linux 96.90 MB, win 105.12 MB — FLAGGED not blocking DEC-5); H4 cold-start 0.010s median (PASS); RSS ~34.7 MB |
-| Phase 5 | PENDING | — | — | — | signing dry-run command (H5) |
+| Phase 5 | DONE | 2026-07-06 | 2026-07-06 | (this commit) | H5 signing dry-run documented (osslsigncode sign/verify/extract-signature + cert plug-in + macOS out-of-scope); DEC-4 doc-only |
 | Phase 6 | PENDING | — | — | — | build-binaries.sh skeleton (F-7) |
 | Phase 7 | PENDING | — | — | — | probe runner + findings doc (load-bearing) |
 | Phase 8 | PENDING | — | — | — | secret hygiene + README close-out |
