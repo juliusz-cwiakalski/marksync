@@ -14,9 +14,9 @@ phases:
   delivery: { started: "2026-07-06T00:33:00Z", completed: "2026-07-06T01:20:00Z" }
   system_spec_update: { started: "2026-07-06T01:21:00Z", completed: "2026-07-06T01:35:00Z" }
   review_fix: { started: "2026-07-06T01:36:00Z", completed: "2026-07-06T01:55:00Z" }
-  quality_gates: { started: "2026-07-06T01:56:00Z", completed: null }
-  dod_check: { started: null, completed: null }
-  pr_creation: { started: null, completed: null, url: null }
+  quality_gates: { started: "2026-07-06T01:56:00Z", completed: "2026-07-06T02:30:00Z" }
+  dod_check: { started: "2026-07-06T02:31:00Z", completed: "2026-07-06T02:40:00Z" }
+  pr_creation: { started: "2026-07-06T02:41:00Z", completed: null, url: null }
 
 decisions: []
 
@@ -84,5 +84,11 @@ notes:
     type: "info"
     date: "2026-07-06"
   - text: "REVIEW PASS (iter-1). 6 findings (0 blocker, 0 major, 1 minor, 5 nits) — all advisory. Reviewer independently reproduced probe:all and verified goldens byte-identical. PM fixed #5 (duplicate YAML key). @coder applied #1-#4 in commit f86e601 (broadened chromium regex, tightened normalize Rule 5, fixed path-fragile WORKSPACE_ROOT, set verbatimModuleSyntax:true). Coder transparently flagged F1 consequence: broadened regex now sees host Chrome, NFR-DEP-2 informational delta reads false-positive on this host — NFR-DEP-1 (dep tree) still PASS, all stages exit 0, findings doc note frames this. No re-review needed (was PASS, cleanups advisory)."
+    type: "info"
+    date: "2026-07-06"
+  - text: "QUALITY GATES: initial run YELLOW — chg-GH-11-spec.md frontmatter had unquoted @happy-dom/global-registrator (PyYAML rejected; would block CI doc-yaml-lint). PM applied trivial YAML quote fix (doc-formatting, not source code), re-verified all 15 repo YAML files validate, committed via @committer as 1e23665. Final: GREEN. Scope check: ALL_CHANGES_IN_SCOPE (38 files: spikes/, findings/, doc/changes/...GH-11.../, doc/decisions/, doc/spec/features/feature-mermaid-rendering.md, doc/planning/milestones/MS-2/, doc/decisions/00-index.md). Secrets: 0. Markdown links: OK. Spike probes: all 5 exit 0; goldens byte-stable."
+    type: "info"
+    date: "2026-07-06"
+  - text: "DOD PASS. 7/7 ACs satisfied with evidence pointers (spec §17.1 + plan DoD §968). All 44 plan checkboxes ticked; 0 unchecked. 15 commits on branch. Findings doc committed with PASS/FAIL per H1-H5 + MS-0002 recommendation (rung 7 code policy). Spike workspace + golden SVG pairs (flowchart + gantt; degenerate but persisted) committed. Doc-sync phase 7 complete: ADR-0001/0002/TDR-0004/feature-spec/stories/00-index reconciled. No pending TODOs."
     type: "info"
     date: "2026-07-06"
