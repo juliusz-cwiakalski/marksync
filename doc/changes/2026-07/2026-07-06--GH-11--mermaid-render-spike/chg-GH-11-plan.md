@@ -498,20 +498,26 @@ render process contain no hidden browser runtime. F-3; AC2 / H2; TC-MRSPIKE-002.
 
 **Tasks**:
 
-- [ ] **4.1** Create `spikes/mermaid-render/probes/chromium-absence.ts` that performs two
+- [x] **4.1** Create `spikes/mermaid-render/probes/chromium-absence.ts` that performs two
   **independent** checks (per spec F-3/AC2, either failing alone is enough to FAIL H2):
   1. **Dependency-tree check (NFR-DEP-1):** capture `bun pm ls` output for the spike workspace
      (e.g. via `Bun.spawn(["bun", "pm", "ls"], { cwd: ... })`) and assert the resolved dependency
      tree contains **zero** occurrences of the substrings `puppeteer`, `playwright`, and
      `chromium` (case-insensitive). Persist the filtered `bun pm ls` capture to evidence.
+     - (Uses the TRANSITIVE listing `bun pm ls --all` per DoR finding F3; 117 lines scanned;
+       zero forbidden-substring occurrences. Evidence printed by the probe.)
   2. **Runtime process check (NFR-DEP-2):** immediately before rendering a representative fixture,
      snapshot the OS process listing; render via the real `render` helper; immediately after,
      snapshot again. Assert **no** Chromium/chrome process appears in the delta during the render.
      The process check may use `Bun.spawn` to run `pgrep`/`ps` — **note in the probe if this is
      OS-specific and degraded on some platforms** (e.g. `pgrep` absent on some Windows/WSL setups;
      record the platform and degrade gracefully rather than silently passing).
+     - (Uses `ps aux` (POSIX); platform=linux/x64. 2 pre-existing chrome procs on the host before
+       AND after render; DELTA=0 → render spawns no chromium. Degraded gracefully if `ps` absent.)
   - Print both verdicts and an overall H2 verdict (PASS requires both checks clean).
-- [ ] **4.2** Run `bun run probe:chromium` and capture the result.
+- [x] **4.2** Run `bun run probe:chromium` and capture the result.
+  - (Result: dep-tree PASS (0 forbidden), process PASS (delta 0). H2 verdict: PASS. The spike's
+    no-Chromium render path works — it just produces degenerate output, which is the H4 problem.)
 
 **Acceptance Criteria**:
 
