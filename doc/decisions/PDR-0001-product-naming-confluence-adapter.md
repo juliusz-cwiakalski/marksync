@@ -3,7 +3,7 @@
 # MIT License - see LICENSE file for full terms
 id: PDR-0001
 decision_type: pdr
-status: Proposed
+status: Accepted
 created: 2026-07-03
 decision_date: null
 last_updated: 2026-07-05

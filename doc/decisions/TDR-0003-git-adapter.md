@@ -3,7 +3,7 @@
 # MIT License - see LICENSE file for full terms
 id: TDR-0003
 decision_type: tdr
-status: Proposed
+status: Accepted
 created: 2026-07-04
 decision_date: null
 last_updated: 2026-07-04
