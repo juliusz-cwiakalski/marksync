@@ -352,23 +352,31 @@ subsequent probes (TC-MRSPIKE-005 partial).
 
 **Tasks**:
 
-- [ ] **2.1** Create `spikes/mermaid-render/render.ts` that:
+- [x] **2.1** Create `spikes/mermaid-render/render.ts` that:
   - Registers happy-dom globally via `@happy-dom/global-registrator` BEFORE importing Mermaid:
     `import { GlobalRegistrator } from "@happy-dom/global-registrator"; GlobalRegistrator.register();`
     (this ordering is load-bearing — Mermaid probes `window`/`document` at import time).
+    - (Implemented via a dynamic `await import("mermaid")` AFTER `GlobalRegistrator.register()`
+      so ESM static-import hoisting cannot run mermaid's module top-level before registration.)
   - Then imports Mermaid (`import mermaid from "mermaid";`).
   - Calls `await mermaid.initialize({ startOnLoad: false, securityLevel: "strict", htmlLabels: false, deterministicIds: true, fontFamily: "<fixed policy>" })` exactly once, where `<fixed policy>` is a
     single concrete font family string (pin it, e.g. a generic family, and record the choice in a
     comment — this is part of the hash input per ADR-0002).
+    - (FIXED_FONT_FAMILY = "sans-serif" — OS-agnostic generic family; part of the ADR-0002
+      content-hash input; choice documented in render.ts.)
   - Exposes an async helper `render(source: string, id: string): Promise<string>` that wraps
     `await mermaid.render(id, source)` and returns the SVG string. (Accept whichever overload
     shape Mermaid 11.x exposes; document the chosen call in a comment.)
+    - (mermaid.render(id, text) -> { svg, bindFunctions } in 11.x; documented in render.ts.)
   - When run directly as `bun run render.ts`, performs a single smoke render of a trivial
     in-source diagram and prints the SVG length (so `bun run render` is a runnable smoke check).
-- [ ] **2.2** Confirm `bun run render` executes under Bun (not Node) and prints a non-zero SVG
+- [x] **2.2** Confirm `bun run render` executes under Bun (not Node) and prints a non-zero SVG
   length — this is the first H3 evidence (TC-MRSPIKE-005).
-- [ ] **2.3** Confirm `mermaid.initialize` accepts `securityLevel:"strict"` (no thrown error, no
+  - (Result: runtime=bun, bunVersion=1.1.34, smokeSvgLength=10745, exit 0. First H3 evidence.)
+- [x] **2.3** Confirm `mermaid.initialize` accepts `securityLevel:"strict"` (no thrown error, no
   silent override) — record this so Phase 5 can assert it programmatically.
+  - (Confirmed: getActiveConfig() reads back securityLevel="strict", htmlLabels=false,
+    deterministicIds=true, fontFamily="sans-serif"; no silent override.)
 
 **Acceptance Criteria**:
 
