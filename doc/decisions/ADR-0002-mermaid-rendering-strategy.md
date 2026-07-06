@@ -6,7 +6,7 @@ decision_type: adr
 status: Accepted
 created: 2026-07-03
 decision_date: null
-last_updated: 2026-07-05
+last_updated: 2026-07-06
 summary: "Reuse the official Mermaid library with content-hash attachment naming; defer the exact headless-rendering mechanism to a spike with a documented fallback ladder."
 owners:
   - Juliusz Ćwiąkalski
@@ -47,7 +47,7 @@ revisit_triggers:
   - "Mermaid upstream changes break headless/jdom rendering in a way that forces a container dependency."
   - "A higher-fidelity or lower-dependency rendering path becomes available (e.g., a maintained WASM build of Mermaid)."
 links:
-  related_changes: []
+  related_changes: ["GH-11"]
   supersedes: []
   superseded_by: []
   spec: ["../inception/system-specification-draft-from-ai-brainstorm.md"]
@@ -84,9 +84,9 @@ Reframed: lock the principles and the naming scheme now; defer the mechanism to 
 
 ### C-1: Deterministic output (idempotency)
 
-- **Statement:** The same Mermaid source + render options must produce the same image bytes and therefore the same content hash, cross-platform and cross-runs. Unchanged diagrams must never be re-rendered or re-uploaded.
-- **Source:** Spec §2.2 ("Mermaid uses content hashing"), FR-AST-003/006, NFR-002/003 (idempotency, determinism).
-- **Verification:** Golden-fixture tests: identical inputs produce byte-identical outputs across OSes; a second unchanged sync performs zero attachment writes.
+- **Statement:** The same Mermaid source + render options must produce the same attachment identity and therefore the same content hash, so unchanged diagrams are never re-rendered or re-uploaded. The hash is computed over the **normalized logical render input** (see [Attachment identity (hash formula)](#attachment-identity-hash-formula)), so "same bytes cross-platform" is satisfied via **logical-input hashing**, not via raw byte-equality of the rendered SVG. Byte-stability of the rendered output is verified **same-OS** (the gate); cross-OS rendered-byte drift, if any, is absorbed by a **per-OS cache key** folded into the hash input (DEC-3 / spec Q1) so the attachment identity remains stable per OS without abandoning the in-process path.
+- **Source:** Spec §2.2 ("Mermaid uses content hashing"), FR-AST-003/006, NFR-002/003 (idempotency, determinism); GH-11 spike clarified the same-OS-vs-cross-OS split.
+- **Verification:** Golden-fixture tests: identical inputs produce byte-identical **normalized** SVG on a given OS; the hash is identical across OSes for identical logical input; a second unchanged sync performs zero attachment writes.
 - **Negotiable:** no.
 
 ### C-2: No silent failure (explicit fallback policy)
@@ -199,7 +199,7 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes only via an accepted-risk
 
 ## Decision
 
-ADR-0002 is structured in **two layers** with materially different confidence profiles. The frontmatter remains `status: Proposed` until the human decider accepts at PR merge, but the intended acceptance state — per `tmp/decision-reviews/ADR-0002-review.md` — is: **Part A = accepted-direction; Part B = spike-gated.**
+ADR-0002 is structured in **two layers** with materially different confidence profiles. The record is governance-`Accepted` (the containing PR merged to `main`; see `00-index.md` migration note). The **substantive** acceptance state is split: **Part A = accepted-direction; Part B = spike-gated.** The GH-11 spike (2026-07-06) produced a PARTIAL verdict — Part A holds; Part B's fidelity stop criterion FAILED, so Part B does not advance to `spike-validated` (see the "Spike outcome" subsection below) and MS-0002 descends to fallback rung 7 (`code` policy).
 
 ### Accepted invariant (Part A — accepted-direction)
 
@@ -214,13 +214,27 @@ Remote rendering stays opt-in with a privacy warning at every layer (C-3).
 
 The preferred primary renderer is an **in-process official Mermaid renderer using a headless DOM library (happy-dom preferred per TDR-0004; jsdom as fallback)**, but it is **not** accepted as the production renderer until the ADR-0002 spike proves **all** of the following stop criteria:
 
-1. **Byte-stable SVG output** for unchanged input across **Linux, macOS, and Windows**.
+1. **Byte-stable normalized SVG output** for unchanged input on a given OS (same-OS byte-stability is the gate); cross-OS stability is **hash-stable** via a per-OS cache key folded into the hash input (per [Attachment identity (hash formula)](#attachment-identity-hash-formula) and DEC-3), not raw byte-equality of the rendered SVG.
 2. **No hidden browser/Chromium runtime dependency** is required to satisfy (1).
 3. **Bun single-binary compatibility** (ADR-0001) is preserved.
 4. **Acceptable rendering fidelity** for the canonical Mermaid subset.
 5. **Safe Mermaid configuration defaults** (see [Security Requirements](#security-requirements)).
 
 Until the spike passes, Part B remains an **unresolved implementation choice**; the MVP baseline is "official Mermaid output via whichever fallback rung passes determinism + security tests," not "in-process jsdom."
+
+#### Spike outcome (GH-11, 2026-07-06) — PARTIAL; Part B does **NOT** advance to `spike-validated`
+
+The GH-11 spike ([findings](../../findings/mermaid-render-spike-findings.md)) produced a **PARTIAL** verdict. Against the five stop criteria:
+
+| # | Stop criterion | Verdict | Note |
+|---|---|---|---|
+| 1 | Byte-stable normalized SVG (same-OS) | **PASS (caveat)** | Byte-stable for the 2/5 fixtures that render (flowchart, gantt). Cross-run drift on the gantt `today` line is normalized away (Rule 5). Cross-OS was **not** exercised (single Linux/x64 host); the per-OS cache key (DEC-3) is the documented mechanism for cross-OS idempotency. |
+| 2 | No hidden Chromium dependency | **PASS** | `bun pm ls --all` (transitive) → 0 `puppeteer`/`playwright`/`chromium`; runtime process delta 0. |
+| 3 | Bun single-binary compatibility | **PASS** | Full pipeline runs under Bun 1.1.34, no Node-only fallback. |
+| 4 | Acceptable rendering fidelity | **FAIL (0/5)** | happy-dom has **no SVG layout engine** — `SVGElement.prototype.getBBox` returns `{0,0,0,0}`. Sequence/class/state throw during render; flowchart/gantt produce degenerate output (no `<svg>` root, default 60×30 boxes, gantt negative widths). jsdom (next escalation rung) would also fail — no layout engine either. |
+| 5 | Safe Mermaid defaults | **PASS** | `securityLevel:"strict"` active; 0 `<script>`/event-handler/`javascript:` in adversarial output. Scope: validates Mermaid default-config XSS/script safety only; full SVG sanitization is deferred to MS2-E4-S1. |
+
+**Consequence:** stop criterion #4 (fidelity) FAILS, so **Part B does NOT advance to `spike-validated`**. For **MS-0002**, MarkSync descends the fallback ladder to **rung 7 — the `code` policy** (preserve the raw Mermaid code block instead of rendering). This **does not block MS-0002**. The catastrophic-FAIL escalation (no deterministic path at all) is **not** triggered — a deterministic path exists for the renderable fixtures; however, the finding that *faithful* no-Chromium rendering is not achievable with happy-dom or jsdom activates the ADR-0001 revisit trigger for owner review (see ADR-0001). A faithful in-process render would require either a Chromium-based path (violates ADR-0001's single-binary/no-Chromium promise — owner decision) or a validated SVG-layout shim (`svgdom` / canvas-measured `getBBox` polyfill — needs a follow-up spike).
 
 ### Fallback ladder (ordered, from preferred to last resort)
 
@@ -264,11 +278,11 @@ hash = sha256(
 - **Allow PNG fallback** per diagram or globally when SVG rendering/export is poor for a given renderer + Confluence combination.
 - The hash input includes `output_format`, so an SVG↔PNG switch for the same source produces a distinct (and correct) attachment identity.
 
-> **AI-assistance disclosure:** This analysis is AI-assisted. The human decider (Juliusz Ćwiąkalski) has **not yet** accepted at PR merge. `status: Proposed` until human confirmation; on acceptance, Part A is accepted-direction and Part B remains spike-gated.
+> **AI-assistance disclosure:** This analysis is AI-assisted. The record is governance-`Accepted` (merged PR). Substantively, Part A is accepted-direction and Part B remains spike-gated; the GH-11 spike FAILED Part B's fidelity stop criterion, so MS-0002 ships fallback rung 7 (`code` policy) — see the Spike outcome above and the Revision History.
 
 ### Constraint Compliance Attestation
 
-- **C-1 (deterministic / idempotent) — ⚠️ Conditionally satisfied only after the renderer spike passes.** Until the spike proves byte-stable cross-OS output for the chosen rung, Part B remains an unresolved implementation choice and C-1 cannot be claimed as fully met. The hash-formula design (logical input) and the cross-OS golden-fixture plan are the mechanisms intended to satisfy C-1; they are evidence of **design intent**, not of compliance.
+- **C-1 (deterministic / idempotent) — ⚠️ Conditionally satisfied; same-OS byte-stability evidenced, cross-OS via per-OS hash key.** The GH-11 spike (2026-07-06) evidenced **same-OS byte-stable normalized SVG** for the renderable fixtures on a single Linux/x64 host; **cross-OS was not exercised** (single host). Cross-OS idempotency is provided by the hash-formula design (logical-input hashing) plus a per-OS cache key (DEC-3), so identical logical render input yields identical attachment identity per OS even if raw rendered bytes drift across OSes. Part B still does not advance to `spike-validated` because C-1's underlying renderer is gated on **all** stop criteria, and stop criterion #4 (fidelity) FAILED.
 - **C-2 (no silent failure) — ✅ Full compliance (design):** a missing/failed renderer follows the configured `error`/`code`/`macro` policy; the fallback ladder guarantees no silent drop.
 - **C-3 (privacy: remote opt-in) — ✅ Full compliance (design):** remote rendering (public Kroki) is off by default and requires explicit opt-in with a privacy warning; self-hosted Kroki keeps content in-environment.
 
@@ -290,9 +304,10 @@ Because C-1 is conditional on the spike, **accepted-risk exceptions may be requi
 
 ### Unresolved Questions
 
-- [ ] Can `mermaid.render()` produce deterministic SVG headless via jsdom without Chromium? (spike — owner: Juliusz Ćwiąkalski)
+- [x] Can `mermaid.render()` produce deterministic SVG headless via happy-dom/jsdom without Chromium? — **Resolved by GH-11 (2026-07-06):** the in-process path runs and is same-OS byte-stable (H1/H2/H3 PASS), but it does **not** produce faithful output (H4 FAIL 0/5) because happy-dom and jsdom lack an SVG layout engine (`getBBox` returns zeros). Faithful rendering requires Chromium or a validated SVG-layout shim.
 - [ ] Which output format is the v1 default (SVG vs PNG) considering Confluence attachment fidelity + determinism? (owner: Juliusz Ćwiąkalski)
-- [ ] How to normalize Mermaid source for a stable hash without altering semantics? (owner: Juliusz Ćwiąkalski)
+- [ ] How to normalize Mermaid source for a stable hash without altering semantics? (owner: Juliusz Ćwiąkalski) — partial: the spike's digest-normalization rules (incl. the gantt `today`-line strip) are recorded in the GH-11 findings §5 for MS2-E4-S1 reuse.
+- [ ] **Owner decision (CEO-level):** given the H4 FAIL, is a faithful no-Chromium in-process render still viable for ADR-0001/ADR-0002 (via a validated SVG-layout shim such as `svgdom`/canvas `getBBox`), or does MS2-E4-S1 require a Chromium-based path that breaks ADR-0001's single-binary promise? Surfaced by GH-11; tracked in ADR-0001's revisit-trigger note.
 
 ## Implementation Plan
 
@@ -346,5 +361,12 @@ TODO: Populate after implementation.
   - Expanded the **fallback ladder** to seven rungs and **split Kroki** into self-hosted (privacy-compatible, rung 5) vs public (opt-in with privacy warning, rung 6).
   - Rewrote the **attachment-identity hash formula** to hash logical render input (`marksync-mermaid-render-v1` + normalized source + renderer family/version + output format + theme + security config + font policy + scale + background), with byte determinism tested separately.
   - Added **SVG-vs-PNG decision criteria** (default to SVG pending Confluence Cloud display/PDF/mobile/page-copy tests; per-diagram or global PNG fallback).
-  - Status remains `Proposed` (human accepts Part A at PR merge; Part B stays spike-gated).
+  - Status (governance) remains `Accepted` (merged PR); substantively Part A is accepted-direction and Part B stays spike-gated.
+- **2026-07-06 (GH-11, lifecycle phase 7 reconciliation)** — Reconciled ADR-0002 with the GH-11 Mermaid headless-render spike (`findings/mermaid-render-spike-findings.md`):
+  - **§F1 (MAJOR):** reworded Part B **stop criterion #1** from "byte-stable SVG across Linux, macOS, and Windows" to **same-OS byte-stable normalized SVG; cross-OS hash-stable via per-OS cache key in the hash input** (DEC-3); clarified **C-1** so "cross-platform same bytes" is satisfied via the hash formula (logical-input hashing), not raw byte-equality of rendered SVG. The spike gates on same-OS (the story-authoritative bar); cross-OS idempotency is the per-OS cache key.
+  - **Cross-OS attestation:** recorded the actual cross-OS result in the Constraint Compliance Attestation — **same-OS only** (single Linux/x64 host); per-OS cache key (DEC-3) is the documented mechanism for cross-OS idempotency.
+  - **H4 FAIL consequence (load-bearing):** Part B does **NOT** advance to `spike-validated`. The spike produced a PARTIAL verdict — H1/H2/H3/H5 PASS, **H4 (fidelity) FAIL (0/5)** because happy-dom/jsdom lack an SVG layout engine (`getBBox` returns zeros). **MS-0002 descends the fallback ladder to rung 7 (`code` policy)**; this does not block MS-0002. Added a "Spike outcome" subsection and an Unresolved-Question owner-decision flag for ADR-0001/ADR-0002.
+  - **§F4:** reconciled the pre-existing frontmatter-vs-body status mismatch. The record is governance-`Accepted` (consistent with `00-index.md` migration note — merged PR); the body now states this explicitly and distinguishes governance status from the substantive Part A (accepted-direction) / Part B (spike-gated-FAIL) split, instead of the stale "remains `Proposed`" wording.
+  - Resolved the first Unresolved Question (deterministic headless SVG) per the spike; `last_updated` bumped to 2026-07-06; `links.related_changes` extended with `GH-11`.
+  - The catastrophic-FAIL ADR-0001 escalation is **not** triggered, but the ADR-0001 revisit trigger **is** activated (see ADR-0001).
 - **2026-07-06** — Headless-DOM library clarified: **happy-dom is the preferred headless DOM for the in-process renderer and the Mermaid-DOM test tier** (per TDR-0004 and `.ai/rules/testing-strategy.md`, which post-date this ADR and chose happy-dom for Bun compatibility); **jsdom is the documented fallback/escalation** if happy-dom cannot shim a required Mermaid browser API. The ADR's earlier "jsdom" wording described the consideration space at authoring time; this amendment aligns the decision with the later tooling decisions without changing Part A/B semantics. The MS-0002 spike (E1-S1) and the production renderer (E4-S1) target happy-dom. (CEO-agent authorized under user-delegated autonomous authority; reconciles an inconsistency the owner already resolved in TDR-0004.)

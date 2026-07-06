@@ -1,0 +1,94 @@
+change_id: GH-11
+title: "[MS2-E1-S1] Mermaid headless-render spike"
+story_ref: doc/planning/milestones/MS-2/MS2-E1--spikes/MS2-E1-S1--mermaid-render-spike.md
+feature_spec: doc/spec/features/feature-mermaid-rendering.md
+decisions_refs: [ADR-0001, ADR-0002, TDR-0004]
+branch: spike/GH-11/mermaid-render-spike
+
+phases:
+  clarify_scope: { started: "2026-07-06T00:00:00Z", completed: "2026-07-06T00:01:00Z" }
+  specification: { started: "2026-07-06T00:02:00Z", completed: "2026-07-06T00:10:00Z" }
+  test_planning: { started: "2026-07-06T00:11:00Z", completed: "2026-07-06T00:18:00Z" }
+  delivery_planning: { started: "2026-07-06T00:19:00Z", completed: "2026-07-06T00:30:00Z" }
+  dor_check: { started: "2026-07-06T00:28:00Z", completed: "2026-07-06T00:32:00Z" }
+  delivery: { started: "2026-07-06T00:33:00Z", completed: "2026-07-06T01:20:00Z" }
+  system_spec_update: { started: "2026-07-06T01:21:00Z", completed: "2026-07-06T01:35:00Z" }
+  review_fix: { started: "2026-07-06T01:36:00Z", completed: "2026-07-06T01:55:00Z" }
+  quality_gates: { started: "2026-07-06T01:56:00Z", completed: "2026-07-06T02:30:00Z" }
+  dod_check: { started: "2026-07-06T02:31:00Z", completed: "2026-07-06T02:40:00Z" }
+  pr_creation: { started: "2026-07-06T02:41:00Z", completed: null, url: null }
+
+decisions: []
+
+open_questions:
+  - text: "CEO decision required (deferred until after PR merge): does the H4 finding (no faithful no-Chromium Mermaid render via happy-dom/jsdom) force an ADR-0001 fundamental reconsideration, or do we proceed with options 2 (validated SVG-layout shim spike) or 3 (accept code policy as MS-0002 default; defer full render)?"
+    date: "2026-07-06"
+  - text: "MS2-E4-S1 story needs re-planning before delivery (scope assumed spike PASS). Three options on the table: Chromium / shim / defer."
+    date: "2026-07-06"
+  - text: "If owner wants to preserve no-Chromium path: a follow-up spike must validate svgdom or canvas-measured getBBox polyfill. No spike issue exists yet."
+    date: "2026-07-06"
+
+blockers: []
+
+doc_risks:
+  - path: doc/decisions/ADR-0002-mermaid-rendering-strategy.md
+    risk: "Status field (Proposed) and Part B may need update based on spike outcome (PASS → spike-validated; FAIL → fallback decision)."
+  - path: doc/spec/features/feature-mermaid-rendering.md
+    risk: "May need reconciliation if spike surfaces normalization rules, security findings, or output-format decisions."
+  - path: doc/planning/milestones/MS-2/MS2-E1--spikes/MS2-E1-S1--mermaid-render-spike.md
+    risk: "Story status field (todo) should reflect spike outcome once findings are in."
+  - path: doc/planning/milestones/MS-2/MS2-E4--features/MS2-E4-S1--mermaid-rendering.md
+    risk: "Downstream story depends on spike outcome; may need linkage to findings doc."
+
+notes:
+  - text: "Loaded authoritative story context: 5 hypotheses (H1-H5), explicit methodology, 7 ACs, spike workspace under spikes/mermaid-render/ (gitignored artifacts; committed code+fixtures+findings). CEO already resolved R1/Q1 in story frontmatter."
+    type: "info"
+    date: "2026-07-06"
+  - text: "Cross-checked story vs system spec: ADR-0002 Part B is spike-gated (this is the spike); feature-mermaid-rendering.md 'spike-gated' AC is consistent; TDR-0004 chose happy-dom (matches story methodology); ADR-0002 2026-07-06 amendment confirms happy-dom preference. No contradictions found."
+    type: "info"
+    date: "2026-07-06"
+  - text: "Repo state: post-inception pre-implementation. No package.json at repo root; no spikes/ dir; Bun 1.1.34 installed locally. Spike must be a self-contained workspace (own package.json) — does NOT touch main src/ tree per story Out-of-scope."
+    type: "info"
+    date: "2026-07-06"
+  - text: "Spec written by @spec-writer (chg-GH-11-spec.md, 387 lines). 7 ACs in Given/When/Then form, each tied to ≥1 F-/NFR- ID and one of H1-H5. DoD captures spike-specific evidence-pointer + golden-fixture-pair requirements. No decisions surfaced for @decision-advisor (CEO resolved R1/Q1; H1-H5 are resolved by running the spike)."
+    type: "info"
+    date: "2026-07-06"
+  - text: "Commit-type note for @committer: change.type=spike is outside conventional-commits type set. Spike workspace code → 'chore(spike):' or 'test(spike):'; findings doc → 'docs(spike):'. Will pick at commit time."
+    type: "info"
+    date: "2026-07-06"
+  - text: "Test plan written by @test-plan-writer. 7 probes (TC-MRSPIKE-001..007) under spikes/mermaid-render/, full AC→probe→fixture→evidence traceability, normalization rules recorded for MS2-E4-S1 reuse, anti-over-mocking guardrail encoded as HARD requirement, no CI wiring (spike runs locally)."
+    type: "info"
+    date: "2026-07-06"
+  - text: "Plan written by @plan-writer (10 phases 0-9, each one commit). All code under spikes/mermaid-render/ (no src/ touched). Doc-update coverage section lists ADR-0002/TDR-0004/ADR-0001(feature spec)/MS2-E1-S1 story/MS2-E4-S1 story/(conditional fallback DR) for phase 7."
+    type: "info"
+    date: "2026-07-06"
+  - text: "DoR READY with 4 findings (1 major §F1, 3 minor §F2-§F4). All pointed at delivery_planning for phase-7 handoff specificity. Verdict READY = proceed to delivery. Narrow reopen of delivery_planning to enrich Doc-update coverage with §F1-§F4 handoff requirements so @doc-syncer cannot miss the load-bearing ADR-0002 stop-criterion-#1 + C-1 rewording (cross-OS byte-stable → same-OS-byte-stable + cross-OS-hash-stable via per-OS cache key)."
+    type: "info"
+    date: "2026-07-06"
+  - text: "RETRO: DoR caught a load-bearing documentation-handoff gap (§F1: ADR-0002 stop-criterion #1 / C-1 wording vs spike's same-OS gate + per-OS cache key) that the plan reduced to 'Part B wording'. For load-bearing spikes, the plan's Doc-update coverage table should pre-enumerate the specific rewording expected, not a one-liner. Process improvement: spec-writer/plan-writer should flag when an AC relies on a CEO-resolved assumption (DEC-3) that diverges from the literal ADR text — that divergence is always a phase-7 reconciliation item, never a silent drift."
+    type: "retro"
+    date: "2026-07-06"
+  - text: "DELIVERY COMPLETE (12 commits). Spike verdict: PARTIAL. H1 PASS (caveat: 2/5 render), H2 PASS, H3 PASS, H4 FAIL (0/5 — happy-dom has no SVG layout engine; getBBox returns 0×0; sequence/class/state throw, flowchart/gantt degenerate), H5 PASS. Cross-run drift catch: gantt <line class='today'> marker is date-dependent — coder enhanced normalize.ts Rule 5 to strip it from digest form. Findings doc: findings/mermaid-render-spike-findings.md (362 lines)."
+    type: "info"
+    date: "2026-07-06"
+  - text: "MS-0002 recommendation from findings: adopt ADR-0002 rung 7 'code' policy (preserve raw code block) — does NOT block MS-0002. MS2-E4-S1 must NOT use happy-dom in-process as-is; options: (1) Chromium (violates ADR-0001 single-binary), (2) validated SVG-layout shim svgdom/canvas-getBBox (needs follow-up spike), (3) accept code policy as MS-0002 default. Catastrophic-FAIL escalation NOT triggered; ADR-0001 revisit trigger IS activated — flag for CEO decision in phase 7."
+    type: "decision"
+    date: "2026-07-06"
+  - text: "RETRO: spike did exactly what it was designed to do — surfaced a load-bearing fidelity gap (H4 FAIL) BEFORE MS2-E4-S1 committed to happy-dom. The within-run N=5 determinism probe alone would NOT have caught the cross-run gantt drift; the coder's proactive 3-process-run reproducibility re-check did. Process improvement: for any determinism probe with N>1 in-window repeats, also run K>1 out-of-window process invocations to catch time/date-dependent output."
+    type: "retro"
+    date: "2026-07-06"
+  - text: "DOC-SYNC COMPLETE (commit b5962a5). 7 docs reconciled in one commit: ADR-0002 (§F1 stop-criterion #1 + C-1 reworded + H4 FAIL recorded + MS-0002 → rung 7 + §F4 status mismatch reconciled keeping Accepted), ADR-0001 (revisit-trigger entry + CEO-decision flag, NOT reconsidered autonomously), TDR-0004 (happy-dom insufficiency recorded + §F4 reconciled), feature-mermaid-rendering.md (5 normalization rules + code policy default + Spike-gated AC satisfied), MS2-E1-S1 story (status todo→done + outcome banner), MS2-E4-S1 story (flagged for re-planning), decisions/00-index.md (traceability note)."
+    type: "info"
+    date: "2026-07-06"
+  - text: "RESIDUAL CEO-LEVEL gaps surfaced (not blockable in-change): (1) ADR-0001 fundamental reconsideration — does H4 finding force language-level rethink? (2) MS2-E4-S1 re-scoping required before delivery. (3) Follow-up svgdom/getBBox-shim spike if owner wants to preserve no-Chromium path. All routed to OPEN-QUESTIONS in pm-notes; will surface to user at PR creation."
+    type: "info"
+    date: "2026-07-06"
+  - text: "REVIEW PASS (iter-1). 6 findings (0 blocker, 0 major, 1 minor, 5 nits) — all advisory. Reviewer independently reproduced probe:all and verified goldens byte-identical. PM fixed #5 (duplicate YAML key). @coder applied #1-#4 in commit f86e601 (broadened chromium regex, tightened normalize Rule 5, fixed path-fragile WORKSPACE_ROOT, set verbatimModuleSyntax:true). Coder transparently flagged F1 consequence: broadened regex now sees host Chrome, NFR-DEP-2 informational delta reads false-positive on this host — NFR-DEP-1 (dep tree) still PASS, all stages exit 0, findings doc note frames this. No re-review needed (was PASS, cleanups advisory)."
+    type: "info"
+    date: "2026-07-06"
+  - text: "QUALITY GATES: initial run YELLOW — chg-GH-11-spec.md frontmatter had unquoted @happy-dom/global-registrator (PyYAML rejected; would block CI doc-yaml-lint). PM applied trivial YAML quote fix (doc-formatting, not source code), re-verified all 15 repo YAML files validate, committed via @committer as 1e23665. Final: GREEN. Scope check: ALL_CHANGES_IN_SCOPE (38 files: spikes/, findings/, doc/changes/...GH-11.../, doc/decisions/, doc/spec/features/feature-mermaid-rendering.md, doc/planning/milestones/MS-2/, doc/decisions/00-index.md). Secrets: 0. Markdown links: OK. Spike probes: all 5 exit 0; goldens byte-stable."
+    type: "info"
+    date: "2026-07-06"
+  - text: "DOD PASS. 7/7 ACs satisfied with evidence pointers (spec §17.1 + plan DoD §968). All 44 plan checkboxes ticked; 0 unchecked. 15 commits on branch. Findings doc committed with PASS/FAIL per H1-H5 + MS-0002 recommendation (rung 7 code policy). Spike workspace + golden SVG pairs (flowchart + gantt; degenerate but persisted) committed. Doc-sync phase 7 complete: ADR-0001/0002/TDR-0004/feature-spec/stories/00-index reconciled. No pending TODOs."
+    type: "info"
+    date: "2026-07-06"

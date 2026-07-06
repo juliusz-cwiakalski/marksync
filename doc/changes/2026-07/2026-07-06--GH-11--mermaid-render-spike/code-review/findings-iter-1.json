@@ -1,0 +1,131 @@
+{
+  "review_meta": {
+    "work_item_ref": "GH-11",
+    "change_folder": "doc/changes/2026-07/2026-07-06--GH-11--mermaid-render-spike/",
+    "lifecycle_phase": "review_fix (phase 8)",
+    "iteration": 1,
+    "mode": "local",
+    "base": "main",
+    "head": "spike/GH-11/mermaid-render-spike",
+    "date": "2026-07-06",
+    "reviewer": "reviewer",
+    "previous_iterations": []
+  },
+  "verdict": "PASS",
+  "verdict_rationale": "The spike was executed rigorously and documented honestly. Scope discipline is sound (only spikes/, findings/, and the expected doc/ areas touched; no src/, tests/, or .github/). The anti-over-mocking guardrail held (real mermaid.render() against real happy-dom). The H4 FAIL (0/5) is the designed, informative output, recorded with root cause and ecosystem corroboration. All findings are minor/nit and do not affect the spike's conclusion. Reproducibility was independently verified: probe:all re-run produced byte-identical goldens (incl. the Rule-5 gantt today-line fix) and the exact digests cited in the findings doc. DoR findings F1-F4 were all addressed in lifecycle phase-7 doc reconciliation. The CEO-level open decisions (ADR-0001 reconsideration, MS2-E4-S1 re-scoping, possible follow-up shim spike) are correctly deferred and not auto-decided.",
+  "severity_counts": { "blocker": 0, "major": 0, "minor": 1, "nit": 5 },
+  "findings": [
+    {
+      "id": 1,
+      "severity": "minor",
+      "confidence": "high",
+      "file": "spikes/mermaid-render/probes/chromium-absence.ts",
+      "line": 63,
+      "title": "H2 process-detection regex under-matches canonical chrome/chromium process names",
+      "description": "chromeRe = /\\b(chrom|headless_shell|google-chrome|chromium-browser)\\b/i does NOT match '/opt/google/chrome/chrome', '/usr/bin/chromium', '/snap/bin/chromium', or bare 'chrome --headless' (verified empirically: \\bchrom\\b needs a word boundary after 'm', but 'chrome' has 'e' there). This weakens the NFR-DEP-2 process-delta arm: a real chromium spawn could go undetected, so the 'two independent checks' design is overstated for that arm. The H2 PASS verdict itself is sound because (a) the dependency-tree check (NFR-DEP-1) is the load-bearing half and uses robust substring matching against the transitive tree (0 forbidden), and (b) Mermaid under happy-dom is pure-JS and spawns no process by construction. The findings doc's claim '2 pre-existing chrome processes on the host' is reported via this insensitive regex.",
+      "suggested_fix": "Broaden the process regex to a substring match consistent with the dep-tree check, e.g. /chrom(?:e|ium)?/i or /(\\bchrom(e|ium)?\\b|headless_shell)/i. Add a one-line note in findings section 3 (H2) acknowledging the process-regex limitation and stating that NFR-DEP-1 (transitive dep tree) is the primary evidence for E4-S1's stronger check.",
+      "owner": "@coder (spike) + findings-doc note",
+      "affects_verdict": false
+    },
+    {
+      "id": 2,
+      "severity": "nit",
+      "confidence": "high",
+      "file": "spikes/mermaid-render/normalize.ts",
+      "line": 135,
+      "title": "Rule 5 defensive regex over-matches any class containing the substring 'today'",
+      "description": "The second defensive regex /<[^>]*class=\"[^\"]*today[^\"]*\"[^>]*>(<\\/[^>]*>)?/g matches e.g. class=\"today-special\", broader than the comment ('any element carrying a today class') implies. Operates only on the digest form and works for current Mermaid gantt output (which emits exactly class=\"today\"); the load-bearing first regex /<g class=\"...today...\">...</g>/ already strips the gantt today-group. Reproducibility verified: the committed gantt golden is byte-identical after a re-run on a different wall-clock date.",
+      "suggested_fix": "Either tighten to class=\"today\" exact, or drop the defensive regex and rely on the first one; either way document the over-match risk for MS2-E4-S1 (the normalizer is documented 'lift verbatim').",
+      "owner": "@coder (spike) / note for MS2-E4-S1",
+      "affects_verdict": false
+    },
+    {
+      "id": 3,
+      "severity": "nit",
+      "confidence": "high",
+      "file": "spikes/mermaid-render/probes/run-all.ts",
+      "line": 16,
+      "title": "WORKSPACE_ROOT computed via fragile string-replace rather than path.join",
+      "description": "WORKSPACE_ROOT = import.meta.dir.replace(\"/probes\", \"\") breaks if any path segment contains '/probes' or on non-Linux path separators. chromium-absence.ts:25 uses the robust join(import.meta.dir, \"..\") for the same purpose; the two probes are inconsistent.",
+      "suggested_fix": "Use join(import.meta.dir, \"..\") for consistency and portability.",
+      "owner": "@coder (spike)",
+      "affects_verdict": false
+    },
+    {
+      "id": 4,
+      "severity": "nit",
+      "confidence": "medium",
+      "file": "spikes/mermaid-render/tsconfig.json",
+      "line": 20,
+      "title": "verbatimModuleSyntax relaxed to false without an inline justification",
+      "description": "The typescript rules mark verbatimModuleSyntax:true as non-negotiable for the main project; the spike relaxes it to false. The plan said 'relax the minimum necessary flag and document the reason in a comment.' The tsconfig header comment justifies the overall standalone posture but not this specific relaxation. The spike's imports contain no type-only cases that obviously require the relaxation.",
+      "suggested_fix": "Either set verbatimModuleSyntax:true (likely works given the current imports), or add an inline // reason: comment next to the flag explaining why it is relaxed for the spike.",
+      "owner": "@coder (spike)",
+      "affects_verdict": false
+    },
+    {
+      "id": 5,
+      "severity": "nit",
+      "confidence": "high",
+      "file": "doc/changes/2026-07/2026-07-06--GH-11--mermaid-render-spike/chg-GH-11-pm-notes.yaml",
+      "line": 24,
+      "title": "Duplicate open_questions: YAML key",
+      "description": "The working-tree pm-notes has 'open_questions: []' immediately followed by a second 'open_questions:' mapping with the real list. Most YAML parsers let the second shadow the first, so data is likely fine, but it is invalid YAML hygiene in a change-management artifact.",
+      "suggested_fix": "Delete the empty 'open_questions: []' line so only the populated mapping remains.",
+      "owner": "@pm (change artifact)",
+      "affects_verdict": false
+    },
+    {
+      "id": 6,
+      "severity": "nit",
+      "confidence": "medium",
+      "file": "spikes/mermaid-render/tsconfig.json",
+      "line": 10,
+      "title": "Standalone tsc --noEmit cannot resolve 'bun' types (informational)",
+      "description": "tsconfig references \"types\": [\"bun\"] but the spike has no @types/bun/bun-types devDep, so a standalone `tsc --noEmit` fails with TS2688 'Cannot find type definition file for bun'. Runs fine under Bun (ambient types). The plan requires execution via `bun run` (not tsc) and defines no typecheck script, so this is not a defect; flagged only so it is not a surprise if a typecheck step is ever added.",
+      "suggested_fix": "No action required for the spike. If a typecheck is desired later, add @types/bun as a devDep or document that typechecking is Bun-runtime-only.",
+      "owner": "informational",
+      "affects_verdict": false
+    }
+  ],
+  "ac_coverage": {
+    "AC1": { "hypothesis": "H1 determinism", "status": "satisfied (caveat)", "evidence": "findings sec 2/3 (H1); probes/determinism.ts; fixtures/flowchart.expected.svg + gantt.expected.svg. Reproduced: digests 88a55f72...52f887 (flowchart), cd94ccce...630d9 (gantt) match findings doc exactly. 2/5 render & byte-stable; 3/5 fail-to-render (same root cause as H4), recorded honestly." },
+    "AC2": { "hypothesis": "H2 no Chromium", "status": "satisfied", "evidence": "findings sec 3 (H2); probes/chromium-absence.ts. Reproduced: bun pm ls --all transitive (117 lines, 0 forbidden); process delta 0. Caveat: process-detection regex under-matches canonical chrome (finding 1); dep-tree check is sound and load-bearing." },
+    "AC3": { "hypothesis": "H3 Bun compat", "status": "satisfied", "evidence": "findings sec 3 (H3); probes/run-all.ts. Reproduced: probe:all ran end-to-end on Bun 1.1.34 linux/x64, all 5 stages exit 0, no Node fallback." },
+    "AC4": { "hypothesis": "H4 fidelity", "status": "satisfied-as-documented (FAIL with evidence)", "evidence": "findings sec 3 (H4); probes/fidelity.ts. Reproduced: 0/5; flowchart/gantt degenerate (no <svg> root, negative gantt widths); sequence/class/state throw with the exact messages recorded. Per task framing, FAIL-with-evidence satisfies this AC." },
+    "AC5": { "hypothesis": "H5 security", "status": "satisfied", "evidence": "findings sec 3 (H5); probes/security.ts. Reproduced: securityLevel=strict active (read back); 0 <script>/onerror=/onload=/javascript: across 3 adversarial fixtures; scoped per DoR F2 (default-config XSS/script only; full SVG sanitization deferred to MS2-E4-S1)." },
+    "AC6": { "hypothesis": "-", "status": "satisfied", "evidence": "findings/mermaid-render-spike-findings.md: explicit PASS/FAIL per H1-H5, evidence pointers, single MS-0002 recommendation (sec 10), normalization rules (sec 5), golden-pair list (sec 6), catastrophic-failure assessment (sec 1)." },
+    "AC7": { "hypothesis": "-", "status": "satisfied", "evidence": "findings sec 7; scripts/secret-scan.sh. Reproduced: 0 secrets in committed artifacts." }
+  },
+  "phase_completion": {
+    "Phase 0 (scaffolding)": { "status": "DONE", "commit": "991a4f6" },
+    "Phase 1 (fixtures)": { "status": "DONE", "commit": "b1a8793", "note": "bonus 3rd adversarial fixture (adversarial-external-ref.mmd) per DoR F2" },
+    "Phase 2 (render entrypoint)": { "status": "DONE", "commit": "833f433" },
+    "Phase 3 (determinism + normalizer)": { "status": "DONE", "commit": "e7641fc", "note": "post-phase correction d80a1ea: Rule 5 strips gantt today-line (cross-run drift fix)" },
+    "Phase 4 (chromium-absence)": { "status": "DONE", "commit": "db6ec6a" },
+    "Phase 5 (security)": { "status": "DONE", "commit": "f948dcd" },
+    "Phase 6 (fidelity)": { "status": "DONE", "commit": "8388e22" },
+    "Phase 7 (secrets scan)": { "status": "DONE", "commit": "5870727" },
+    "Phase 8 (run-all + findings)": { "status": "DONE", "commit": "160ed6f" },
+    "Phase 9 (README + run-book)": { "status": "DONE", "commit": "682c8d6" },
+    "lifecycle phase 7 (doc-sync)": { "status": "DONE", "commit": "b5962a5", "note": "ADR-0001/0002, TDR-0004, feature spec, both stories, 00-index reconciled" }
+  },
+  "plan_gaps": {
+    "OPEN_TASKS": "none (all phase 0-9 tasks checked)",
+    "DONE_BUT_UNCHECKED": "none",
+    "CHECKED_BUT_MISSING": "none"
+  },
+  "dor_findings_addressed": {
+    "F1": "YES - ADR-0002 stop-criterion #1 reworded to same-OS-byte-stable + cross-OS-hash-stable via per-OS cache key (ADR-0002 line 217); C-1 clarified to logical-input hashing not raw byte equality (lines 85-90); actual cross-OS result recorded in Constraint Compliance Attestation (same-OS only).",
+    "F2": "YES - H5 scope note in findings sec 11/13 (default-config XSS/script only; full SVG sanitization deferred to MS2-E4-S1 SVGSanitizer); optional 3rd adversarial fixture added and rendered.",
+    "F3": "YES - chromium-absence probe uses bun pm ls --all (transitive); 117 lines, 0 forbidden. Recorded in findings sec 3 (H2).",
+    "F4": "YES - ADR-0002 and TDR-0004 frontmatter (Accepted) vs body (Proposed) mismatch reconciled; bodies now explicitly state governance-Accepted and distinguish from substantive Part B state."
+  },
+  "reproducibility_verification": {
+    "verified": true,
+    "method": "Ran `bun run probe:all` (and individual probes) in spikes/mermaid-render on Bun 1.1.34 linux/x64.",
+    "results": "All 5 stages exit 0. H1 digests match findings doc exactly (flowchart 88a55f72..., gantt cd94ccce...). H2 dep-tree 117 lines / 0 forbidden, process delta 0. H4 0/5 with exact error messages. H5 all counts zero, strict active. AC7 0 secrets. The determinism probe rewrites fixtures/*.expected.svg; after re-run `git diff --stat fixtures/` is empty = goldens byte-identical (Rule-5 gantt today-line fix confirmed reproducible across a different wall-clock date)."
+  },
+  "surfaced_decisions_needing_human_input": "None beyond the already-flagged CEO items (ADR-0001 fundamental reconsideration; MS2-E4-S1 re-scoping; possible follow-up svgdom/getBBox-shim spike). These are correctly captured in pm-notes open_questions and findings sec 4/10, and correctly NOT auto-decided by the doc-sync.",
+  "next_step": "PROCEED. Optional cleanup of the 1 minor + 5 nit findings can be folded into a single chore(spike) commit before PR creation if desired, but is not required to pass review."
+}

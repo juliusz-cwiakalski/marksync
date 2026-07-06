@@ -1,7 +1,7 @@
 ---
 id: MS2-E1-S1
 title: "mermaid-render-spike"
-status: todo
+status: done
 type: spike
 priority: critical
 epic: MS2-E1
@@ -15,6 +15,12 @@ cross_cutting: [R-FEA-1, A-FEA-1]
 ---
 
 # MS2-E1-S1 — Mermaid headless-render spike
+
+> **Spike outcome (2026-07-06, GH-11): PARTIAL.** Findings:
+> [`findings/mermaid-render-spike-findings.md`](../../../../../findings/mermaid-render-spike-findings.md).
+> H1 PASS (caveat: 2/5 render byte-stably), H2 PASS, H3 PASS, **H4 FAIL (0/5)**
+> — happy-dom/jsdom have no SVG layout engine (`getBBox` returns zeros); sequence/class/state throw, flowchart/gantt degenerate. H5 PASS.
+> **MS-0002 recommendation:** adopt ADR-0002 rung 7 (`code` policy) — does **not** block MS-0002. **MS2-E4-S1 must not proceed with happy-dom in-process as-is.** The catastrophic-FAIL ADR-0001 escalation is **not** triggered, but the ADR-0001 revisit trigger **is** activated for owner review (faithful no-Chromium rendering is not achievable with happy-dom/jsdom). ADR-0002 Part B stays spike-gated (does not advance to `spike-validated`).
 
 ## Goal
 Prove the official Mermaid library renders **deterministically** in-process (happy-dom + Bun) **without Chromium**, so ADR-0001 (TypeScript) and ADR-0002 Part B hold.

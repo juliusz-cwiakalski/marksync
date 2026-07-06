@@ -1,0 +1,34 @@
+{
+  // Standalone spike workspace (GH-11). Targets Bun; NOT coupled to the main
+  // marksync-cli tsconfig. ESM + strict conventions from .ai/rules/typescript.md
+  // are followed where reasonable; the spike is standalone.
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": ["bun"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    // verbatimModuleSyntax stays TRUE: a manual audit of the spike's imports
+    // found NO type-only imports mixed with values (all imports are runtime
+    // values: render/normalizeSvg/join/GlobalRegistrator; the lone type export
+    // `Mermaid` uses a `typeof import("mermaid")` type query, which is
+    // type-only and compliant). Verified by `bun run probe:all` (all stages
+    // exit 0). Relaxed ONLY if a future type-only import is added without an
+    // `import type` annotation.
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "allowJs": false,
+    "noEmit": true
+  },
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules"]
+}

@@ -16,11 +16,25 @@ cross_cutting: [R-FEA-1, NFR-SEC-5, NFR-PRIV-2]
 
 # MS2-E4-S1 — Mermaid rendering (in-process, content-hashed)
 
+> **⚠️ RE-PLANNING REQUIRED (flagged by GH-11, 2026-07-06).** The MS2-E1-S1 spike
+> returned a **PARTIAL** verdict that invalidates this story's core assumption
+> ("in-process render via happy-dom + Bun per spike E1-S1"). See
+> [`findings/mermaid-render-spike-findings.md`](../../../../../findings/mermaid-render-spike-findings.md).
+> **happy-dom in-process is NOT viable as-is** (H4 FAIL 0/5: no SVG layout engine,
+> `getBBox` returns zeros). This story must be re-scoped before delivery to choose
+> one of: (1) **Chromium-based render** (`mmdc`/Puppeteer) — faithful but violates
+> ADR-0001's single-binary/no-Chromium promise (owner decision); (2) **validated
+> SVG-layout shim** (`svgdom` / canvas-measured `getBBox`) — could preserve the
+> no-Chromium path but is unvalidated and **needs a follow-up spike**; or
+> (3) **accept the `code` policy as the MS-0002 default** and defer full rendering
+> to a later milestone. The ADR-0001 revisit trigger is activated — an owner
+> (CEO) decision is pending. Do not start delivery against the current scope.
+
 ## Goal
-Production Mermaid rendering wired into the Markdown pipeline: detect ```` ```mermaid ```` fences, render to **deterministic SVG** via the official library in-process (happy-dom + Bun per spike E1-S1), sanitize, content-hash, attach to the page, and reuse unchanged diagrams (no re-upload). Fallback ladder with `code` policy as the MS-0002 floor.
+Production Mermaid rendering wired into the Markdown pipeline: detect ```` ```mermaid ```` fences, render to **deterministic SVG** via the official library in-process, sanitize, content-hash, attach to the page, and reuse unchanged diagrams (no re-upload). Fallback ladder with `code` policy as the MS-0002 floor. *(The "in-process via happy-dom" mechanism is blocked by the GH-11 spike outcome — see the re-planning banner above; the renderer path must be re-chosen.)*
 
 ## Background
-Implements ADR-0002 Part B (spike-validated by E1-S1) + the Mermaid feature spec. The spike produced the determinism/security evidence and golden SVG fixtures; this story turns that into the `Renderer` port impl + the artifact manager. Content-hash naming (blueprint §6) gives idempotency.
+Implements ADR-0002 Part B + the Mermaid feature spec. **Per GH-11 (2026-07-06), ADR-0002 Part B did NOT advance to `spike-validated`** — H4 (fidelity) FAILED because happy-dom/jsdom lack an SVG layout engine. The spike's determinism/security evidence and the two degenerate golden SVG fixtures (flowchart, gantt) plus the digest-normalization rules (esp. Rule 5: strip the gantt `today` line) remain reusable substrates **once a faithful render path is chosen**. Content-hash naming (blueprint §6) gives idempotency. **This story assumed the spike would PASS; it must be re-planned.**
 
 ## Detailed scope (deliverables)
 1. **`src/domain/render/port.ts`** — the `Renderer` port: `render(source, opts): Result<Artifact, MarkSyncError>` where `Artifact={bytes; mime; hash}`.

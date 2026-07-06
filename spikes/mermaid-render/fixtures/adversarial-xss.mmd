@@ -1,0 +1,6 @@
+%% GH-11 adversarial fixture — XSS payload inside a node label.
+%% No expected fidelity labels (output must be sanitized under securityLevel:"strict" — AC5).
+%% Validates the XSS neutralization path: an <img src=x onerror=...> attempt must NOT
+%% survive as a live inline event handler in the rendered SVG.
+graph TD
+    A["<img src=x onerror=alert(1)>"] --> B[safe]

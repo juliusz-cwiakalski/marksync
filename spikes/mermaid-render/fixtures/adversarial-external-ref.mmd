@@ -1,0 +1,8 @@
+%% GH-11 adversarial fixture — external-resource reference attempt (DoR finding F2, optional).
+%% No expected fidelity labels. Exercises an external-resource / <use href="http://..."> style
+%% payload inside a node label. NOTE (per findings doc H5 scope): full external-resource
+%% blocking (incl. <use href>, remote fonts/images) is DEFERRED to MS2-E4-S1 (SVGSanitizer);
+%% this fixture only records what Mermaid's default-config (securityLevel:"strict") does with
+%% such a payload, and does NOT by itself validate complete SVG sanitization.
+graph TD
+    A["<use href='http://evil.example/external.svg#frag'/>"] --> B[safe]

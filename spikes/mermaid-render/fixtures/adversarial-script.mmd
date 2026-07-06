@@ -1,0 +1,6 @@
+%% GH-11 adversarial fixture — <script> injection attempt inside a node label.
+%% No expected fidelity labels (output must be sanitized under securityLevel:"strict" — AC5).
+%% Validates that a <script> injection attempt does NOT survive as a live <script> element
+%% in the rendered SVG.
+graph TD
+    A["<script>alert('xss')<\\/script>"] --> B[safe]

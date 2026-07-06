@@ -1,0 +1,7 @@
+%% GH-11 fixture — state diagram (stateDiagram-v2).
+%% Expected fidelity labels (AC4): "Idle", "Active".
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Active: start
+    Active --> Idle: stop
+    Idle --> [*]

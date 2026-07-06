@@ -6,7 +6,7 @@ decision_type: tdr
 status: Accepted
 created: 2026-07-04
 decision_date: null
-last_updated: 2026-07-05
+last_updated: 2026-07-06
 summary: "Use bun:test for unit/integration/golden-fixture tests (native, toolchain-coherent, snapshots+mocks+Bun.serve controllable local HTTP server); bun:test + happy-dom as the default Mermaid-DOM smoke-test path (Vitest only as a last-resort escalation if Bun's happy-dom setup cannot run the Mermaid DOM path; Playwright only if real browser layout/graphics are required); a thin E2E runner for the live-sandbox tier; @cucumber/cucumber (or a thin wrapper) for lifecycle-invariant Gherkin only."
 owners:
   - Juliusz Ćwiąkalski
@@ -48,7 +48,7 @@ revisit_triggers:
   - "Bun.serve-based HTTP mock server cannot reproduce a Confluence 409/version-conflict scenario needed for drift-detection tests."
   - "The live-sandbox E2E tier outgrows a thin runner script and needs a framework with first-class concurrency/isolation."
 links:
-  related_changes: []
+  related_changes: ["GH-11"]
   supersedes: []
   superseded_by: []
   spec: []
@@ -238,6 +238,8 @@ The following were considered but are **not primary candidates** for MarkSync; t
 
 1. **Primary — `bun:test` for unit/integration/golden.** Native, zero extra dependency, Jest-compatible API, directionally fastest cold start (external benchmark; not decision-critical). Snapshots (`toMatchSnapshot`/`toMatchInlineSnapshot`) serve the golden-fixture tier for the Storage renderer (ADR-0002 C-1). `mock()`/`spyOn()` + `Bun.serve()` controllable local HTTP server serve the Confluence-adapter integration tier (including scripted 409/version-conflict for drift detection — A-FEA-5).
 2. **Default DOM path — `bun:test` + `happy-dom` for Mermaid-DOM smoke tests.** Use `bun:test` + `happy-dom` (via `@happy-dom/global-registrator` + Bun preload, as Bun documents) as the **default** Mermaid-DOM smoke-test setup. Escalate to Vitest only if Bun's `happy-dom` setup cannot execute the required Mermaid DOM path reliably. Escalate to Playwright only if the renderer requires actual browser layout/graphics behavior that DOM simulation cannot validate.
+
+   > **GH-11 finding (2026-07-06) — happy-dom is insufficient for text-measuring diagram types.** The default `bun:test` + **happy-dom** Mermaid-DOM path **runs** the DOM path reliably (Mermaid initializes and renders under Bun + happy-dom with zero Chromium), so the original "can it execute the DOM path?" gate is met. **However**, happy-dom has **no SVG layout engine** — `SVGElement.prototype.getBBox` returns `{0,0,0,0}`. Mermaid's layout path needs real `getBBox()` to measure text, so the text-measuring diagram types (sequence/class/state) **throw** during render and flowchart/gantt produce degenerate output (GH-11 H4 FAIL 0/5). **jsdom (the documented escalation rung) is also insufficient** — it likewise has no layout engine and returns zeros for `getBBox`. The viable options for *faithful* Mermaid rendering are a real layout engine (Chromium via Playwright, or `mmdc`) or a `getBBox` shim (`svgdom` / canvas-measured polyfill); both need follow-up evaluation before MS2-E4-S1 commits to a renderer. For MS-0002, Mermaid ships the ADR-0002 rung 7 `code` policy, so the Mermaid-DOM test tier is not blocked by this gap. The Vitest escalation is **not** a remedy for the H4 fidelity gap (it is a DOM-problem, not a runner-problem).
 3. **E2E — a thin runner script for the live-sandbox tier.** A dedicated Confluence test space (not per-suite) exercised by a small script, not a heavy framework. Keeps the live-sandbox tier isolated from the fast unit/integration/golden loop.
 4. **Gherkin/BDD — `@cucumber/cucumber` (or a thin wrapper) for lifecycle-invariant tests only.** Limited to `INV-SAFE-1`, `INV-SAFE-2`, `INV-SAFE-3`, `INV-SEC-1` (premortem §8.2). Gherkin is not used for the whole suite — only for the high-value release-blocking invariants.
 
@@ -245,14 +247,18 @@ The primary choice (`bun:test`) is driven by **C-1 (Bun-native; see the C-1 tran
 
 > **AI-assistance disclosure:** This analysis is AI-assisted, grounded in
 > external-researcher findings (2026-07-04), the existing ADR-0001/ADR-0002
-> constraints, and a decision-record review (2026-07-05). The owner has approved
+> constraints, and a decision-record review (2026-07-05). The owner approved
 > `bun:test` as the primary runner **pending the amendments applied in this
 > revision** (see Revision History). Run-time benchmarks are **directional
 > external** figures (PkgPulse et al.), not measured guarantees for MarkSync's
 > workload, and must be re-verified via the repo-local benchmark gate before the
 > runner is locked. Feature-coverage figures should be re-verified against the
-> live `bun:test` / `vitest` docs. `status: Proposed` until the ADR-0002 spike
-> confirms the default `happy-dom` path and the owner signs off.
+> live `bun:test` / `vitest` docs. The record is governance-`Accepted` (merged
+> PR, per `00-index.md` migration note). The default `happy-dom` path was
+> exercised by the GH-11 spike (2026-07-06): it runs the DOM path but is
+> insufficient for *faithful* rendering of text-measuring diagram types (see
+> Decision §2); this does not change the runner choice but constrains what the
+> Mermaid-DOM tier can validate until a layout engine or shim is chosen.
 
 ### Constraint Compliance Attestation
 
@@ -292,7 +298,7 @@ This is operationalized in the Implementation Plan (golden-fixture tier, 409 int
 
 ### Unresolved Questions
 
-- [ ] **Mermaid-DOM gate:** confirm at the ADR-0002 spike whether the default `bun:test` + `happy-dom` setup (via `@happy-dom/global-registrator` + preload) executes the required Mermaid DOM path reliably. Escalate to Vitest only if it cannot; escalate to Playwright only if real browser layout/graphics behavior is required. (owner: Juliusz Ćwiąkalski)
+- [x] **Mermaid-DOM gate:** confirm at the ADR-0002 spike whether the default `bun:test` + `happy-dom` setup (via `@happy-dom/global-registrator` + preload) executes the required Mermaid DOM path reliably. **Resolved by GH-11 (2026-07-06):** the DOM path **runs** reliably (Mermaid initializes and renders under Bun + happy-dom). The escalation to Vitest is **not** needed for execution. **However**, happy-dom has no SVG layout engine (`getBBox` returns zeros), so the tier cannot validate *faithful* rendering of text-measuring diagram types (sequence/class/state throw; flowchart/gantt degenerate) — and jsdom is no better. Vitest escalation is not a remedy (it is a DOM/layout problem, not a runner problem). A real layout engine (Chromium/Playwright or `mmdc`) or a `getBBox` shim is required for faithful-render tests; this is a follow-up evaluation for MS2-E4-S1, not a TDR-0004 runner change. (owner: Juliusz Ćwiąkalski)
 - [ ] **Snapshot stability across Bun versions:** verify golden-fixture snapshots are stable across Bun minor versions (renderer determinism — ADR-0002 C-1). (owner: Juliusz Ćwiąkalski)
 - [ ] **Gherkin scope:** confirm `@cucumber/cucumber` vs a thin custom wrapper for the four lifecycle invariants — `@cucumber/cucumber` adds a dependency; a thin wrapper avoids it. (owner: Juliusz Ćwiąkalski)
 - [ ] **Live-sandbox isolation:** define the dedicated Confluence test-space hygiene policy (cleanup cadence, concurrency limits) so the E2E tier does not flap. (owner: Juliusz Ćwiąkalski)
@@ -364,4 +370,8 @@ TODO: Populate after implementation.
   6. **Added AI-agent test-quality guardrail** against over-mocking (arXiv 2602.00409), with an environment-flakiness reference (arXiv 2602.19098).
   7. **Added omitted-alternatives appendix** — AVA, Mocha, TAP, Playwright Test (and Cucumber-JS scoped note) as considered-but-rejected / non-primary.
 
-  Status remains `Proposed`; `last_updated` bumped to 2026-07-05. Acceptance to `Accepted` is a separate owner sign-off after the ADR-0002 spike confirms the default `happy-dom` path.
+  Status (governance) is `Accepted` (merged PR, per `00-index.md` migration note); `last_updated` was bumped to 2026-07-05. The substantive "default happy-dom path" question was subsequently exercised by the GH-11 spike — see the 2026-07-06 entry below.
+- **2026-07-06 (GH-11, lifecycle phase 7 reconciliation)** — Recorded the GH-11 spike outcome against the Mermaid-DOM gate:
+  - The default `bun:test` + **happy-dom** Mermaid-DOM path **runs** the DOM path reliably (no Vitest escalation needed for execution), so the runner choice (`bun:test`) stands.
+  - **However**, happy-dom has **no SVG layout engine** (`SVGElement.prototype.getBBox` returns `{0,0,0,0}`); the text-measuring diagram types (sequence/class/state) throw and flowchart/gantt produce degenerate output (GH-11 H4 FAIL 0/5). **jsdom (the documented escalation rung) is also insufficient** — it likewise lacks a layout engine. The Vitest escalation is **not** a remedy (this is a DOM/layout problem, not a runner problem); only a real layout engine (Chromium/Playwright/`mmdc`) or a `getBBox` shim can validate *faithful* rendering. That evaluation is deferred to MS2-E4-S1.
+  - **§F4:** reconciled the pre-existing frontmatter (`Accepted`) vs body (`Proposed`) status mismatch. The record is governance-`Accepted` (consistent with `00-index.md`); the body now states this explicitly instead of the stale "`status: Proposed` until the ADR-0002 spike confirms the default `happy-dom` path" wording. Resolved the Mermaid-DOM-gate Unresolved Question per the spike. `last_updated` bumped to 2026-07-06; `links.related_changes` extended with `GH-11`.
