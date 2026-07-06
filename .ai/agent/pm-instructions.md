@@ -40,16 +40,36 @@
 | `MS-0002` / `MS-0003` … | Milestone tag (monotonic per roadmap) |
 | `in-progress` | Work actively underway |
 | `review` | PR open, awaiting review/merge |
-| `blocked` | Waiting on human or external input |
+| `blocked` | Waiting on a dependency or external input |
+| `human-input-needed` | Waiting on a human answer or decision |
 
 ## Backlog Source of Truth
 
-**GitHub Issues is the only backlog.** Do not create or rely on local backlog
-files. Query for ADOS work:
+**GitHub Issues is the canonical backlog.** Per-milestone ranked backlogs live
+in `doc/planning/` (see Per-Milestone Backlog below). Query for ADOS work:
 
 ```
 repo:juliusz-cwiakalski/marksync label:change -label:blocked is:open sort:created-asc
 ```
+
+## Per-Milestone Backlog
+
+Each milestone has a ranked backlog at
+`doc/planning/backlog-MS-<NNNN>.md` — an ordered table (top = highest
+priority) that drives delivery sequence within that milestone.
+
+- **Prepare the backlog before starting milestone work** (typically when the
+  previous milestone is completing or complete). Do not prepare backlogs far
+  into the future — each milestone delivery surfaces new knowledge that
+  reshapes the next backlog.
+- The backlog ranking reflects: dependencies/blockers, value delivered,
+  priority labels, and risk. Blocking issues inherit the priority of what they
+  block (see Priority & Selection Rules).
+- **Backlogs are subject to constant reprioritization.** New facts, learnings,
+  or dependency changes during delivery warrant re-ranking.
+- **PM reviews prioritization on a regular basis** (every few tickets
+  delivered) to ensure the plan is not drifting too far from reality.
+- Archive completed milestone backlogs to `doc/planning/archive/`.
 
 ## Conventions
 
@@ -63,17 +83,37 @@ repo:juliusz-cwiakalski/marksync label:change -label:blocked is:open sort:create
 Before starting any issue, verify:
 
 1. `change` label is applied.
-2. Status is not `blocked`.
+2. Status is not `blocked`. **If `blocked`:** inspect the blocking reason — it
+   may be a stale label (e.g., was blocked by a dependency ticket that has since
+   been delivered). If the blocker is resolved, remove the `blocked` label.
 3. Acceptance criteria exist in the issue body (or linked spec).
 4. The issue is tagged with the correct milestone (`MS-0002`, etc.).
 5. Dependencies (linked issues / "blocked by") are resolved.
 
+### Cascade unblock check
+
+When a ticket is resolved (merged), PM must check whether it was blocking other
+tickets. For each blocked ticket:
+
+1. Check **all** its blockers — not just the one that was resolved.
+2. If **all** blockers are now resolved → remove the `blocked` label.
+3. **WARNING:** Do not remove `blocked` blindly when only one of several
+   blockers is resolved. A ticket with multiple blockers stays `blocked` until
+   the last blocker clears.
+
 ## Priority & Selection Rules
 
-1. `blocked` issues are skipped (do not pick up).
+1. `blocked` issues are skipped (do not pick up) — unless the block is stale
+   (see Issue Validation Checklist).
 2. `in-progress` takes precedence (finish before starting new).
-3. Within a milestone, `priority:high` → `medium` → `low`.
-4. Ties broken by oldest created date.
+3. **Blocking issues inherit priority.** If a `priority:high` issue is blocked
+   by issue X, then X is effectively `priority:high` regardless of its own
+   label — delivering X unblocks the high-priority work.
+4. Within a milestone, `priority:high` → `medium` → `low` (adjusted by the
+   blocking-inheritance rule above).
+5. Ties broken by oldest created date.
+6. Selection follows the per-milestone backlog ranking
+   (`doc/planning/backlog-MS-<NNNN>.md`) when it exists.
 
 ## Quality Gate References
 
@@ -85,10 +125,27 @@ job list. Scripts are wired in [doc/guides/dev-environment.md](../../doc/guides/
 
 When human input is required mid-delivery:
 
-1. Post the question as a comment on the GitHub issue.
-2. Assign the issue to the human owner.
-3. Apply the `blocked` label.
-4. **STOP** — do not proceed until the label is removed.
+1. Record the question in `chg-<workItemRef>-questions.md` in the change folder
+   (alongside spec/plan/test-plan). Use a structured format with a placeholder
+   for the answer so it is as easy as possible for the human to respond:
+   ```markdown
+   ## OPEN-Q1: <question title>
+
+   **Question:** <the question, with context>
+
+   **Why:** <why this is blocking>
+
+   ### Answer
+   <!-- Human: provide your answer here (or reply inline on the PR) -->
+   ```
+2. Post a comment on the GitHub issue linking to the questions file (and
+   specific inline PR comments if the question is about specific files/lines).
+3. Apply the `human-input-needed` label (and `blocked` if delivery cannot
+   proceed).
+4. Assign the issue to the human owner.
+5. **STOP** — do not proceed until the answer is provided. The human may answer
+   inline on the PR, directly in the file from their IDE, or via an issue
+   comment. Fold the answer into the file and remove the labels.
 
 ## Issue Intake Readiness
 
@@ -110,7 +167,20 @@ A work item is ready for delivery when:
 - **Squash-merge only** to `main` (branch protection enforces).
 - PR title = Conventional Commit summary (commitlint-validated).
 - PR body must list: acceptance criteria status, test tiers run, ADRs touched.
-- Human review required before merge (no auto-merge).
+
+### Review modes
+
+This repo accepts two review modes:
+
+1. **Human review** (default) — the human owner reviews and merges each PR.
+2. **Auto-delivery via `@ceo`** — the owner may delegate PR review/approval to
+   the `@ceo` agent, which acts on behalf of the human. In this mode, `@ceo`
+   reviews the PR against the spec/plan/quality gates and approves or requests
+   changes autonomously.
+
+The owner chooses the mode per delivery batch: either start delivery and review
+PRs personally, or ask `@ceo` to deliver a batch of tickets and handle
+review/approval.
 
 ## Decision Documentation
 

@@ -80,13 +80,22 @@ Examples: `ADR-0006-document-identity-and-shared-base-state-model.md`,
 ### Status lifecycle
 
 ```
-Proposed → Under Review → Accepted → (Deprecated | Superseded)
+Proposed → Accepted → (Deprecated | Superseded)
 ```
 
-> During inception, all records stay `Proposed`; they advance to
-> `Under Review` / `Accepted` at the Phase 6 inception readiness check
-> (the inception-wide human gate). Per-phase PR merge does not, by itself,
-> accept a record.
+- **Proposed** — intermediate state: the decision record is being constructed,
+  research or evaluation is still in progress. This status exists only while the
+  record is a draft (not yet finalized).
+- **Accepted** — the decision record is final and its containing PR has merged
+  to `main`. Decision records are `Accepted` as soon as creation is final; there
+  is no separate "Under Review" gate for individual records.
+- **Deprecated / Superseded** — the decision is no longer current, either
+  retired (`Deprecated`) or replaced by a newer record (`Superseded`, with a
+  `Superseded by` link).
+
+> During a PR, a decision record may be `Proposed` while research/evaluation is
+> in progress. When the record is finalized and the PR merges, flip it to
+> `Accepted`. Do not leave records in `Proposed` after merge.
 
 ### Labels and linking
 

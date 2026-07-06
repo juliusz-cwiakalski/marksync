@@ -77,6 +77,7 @@ artifacts:
   editor_config:     { status: draft, path: ".editorconfig", confidence: 0.85 }
   # Phase 5 artifacts
   agents_md:         { status: draft, path: "AGENTS.md", confidence: 0.85 }
+  readme_md:         { status: draft, path: "README.md", confidence: 0.82 }
   pm_instructions:   { status: draft, path: ".ai/agent/pm-instructions.md", confidence: 0.85 }
   pr_instructions:   { status: draft, path: ".ai/agent/pr-instructions.md", confidence: 0.85 }
   decision_instructions: { status: draft, path: ".ai/agent/decision-instructions.md", confidence: 0.85 }

@@ -14,6 +14,20 @@ allowed_write_roots:
   - doc/spec
   - doc/decisions
   - doc/meetings
+  - doc/guides
+  - doc/overview
+  - doc/contracts
+  - doc/domain
+  - doc/quality
+  - doc/ops
+  - doc/diagrams
+  - doc/templates
+  - doc/tools
+  - doc/examples
+  - doc/analytics
+  - doc/i18n
+  - doc/planning
+  - doc/inception
 forbidden_write_roots:
   - doc/business
 owners:
