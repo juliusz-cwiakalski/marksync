@@ -1,0 +1,11 @@
+TC-BCS-003 clean-OS Linux smoke (PRIMARY) — image: debian:stable-slim
+image digest: debian@sha256:ee12ffb55625b99d62837a72f037d9b2f18fd0c787a89c2b9a4f09666c48776c
+
+--- [1] verify NO bun/node in the image (NFR-COMP-2) ---
+exit=127
+
+--- [2] run the binary on the clean OS ---
+marksync 0.0.0
+
+TC-BCS-003 result: run exit=0
+PASS: linux-x64 binary runs on clean debian:stable-slim with no Bun/Node installed (H2 / NFR-RUN-1 / NFR-COMP-2).

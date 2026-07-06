@@ -1,0 +1,3 @@
+   [6ms]  bundle  1 modules
+ [101ms] compile  marksync-win-x64.exe bun-windows-x64-v1.1.34
+marksync-win-x64.exe: PE32+ executable for MS Windows 6.00 (console), x86-64, 10 sections

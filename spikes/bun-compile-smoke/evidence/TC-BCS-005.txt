@@ -1,0 +1,7 @@
+TC-BCS-005 binary size measurement (H3 / NFR-SIZE-1 -> NFR-PERF-1)
+convention: 1 MB = 1048576 bytes (binary); desired budget <= 90 MB (DEC-5: desired, not hard)
+
+  marksync-linux-x64              101604521 bytes    96.90 MB  FLAG (exceeds 90 MB desired — DEC-5: recorded, NOT blocking)
+  marksync-win-x64.exe            110224195 bytes   105.12 MB  FLAG (exceeds 90 MB desired — DEC-5: recorded, NOT blocking)
+
+TC-BCS-005 done — sizes recorded (exceedance flagged, not blocking).
