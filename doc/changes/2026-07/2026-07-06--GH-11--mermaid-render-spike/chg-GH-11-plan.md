@@ -1027,6 +1027,7 @@ The DoR gate (`readiness-review/readiness-iter-1.md`) returned **READY** with fo
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-06 | plan-writer (GH-11) | Initial implementation plan. 10 phases (0–9), each one commit. Derived from `chg-GH-11-spec.md` (AC1–AC7, F-1…F-6, NFR-DET/DEP/RUN/FID/SEC/EVID, H1–H5, DEC-1…DEC-4) and `chg-GH-11-test-plan.md` (TC-MRSPIKE-001…007, fixtures, normalization rules §5.3, anti-over-mocking guardrail). Includes Phase→AC→Probe mapping, Doc-update coverage (lifecycle phase 7), Code-area coverage, and Definition of Done per spec §17.1. All code confined to `spikes/mermaid-render/`; `src/` untouched; not CI-wired. |
+| 1.1 | 2026-07-06 | coder (GH-11) | Post-Phase-9 correction. The final `probe:all` reproducibility re-run surfaced cross-run drift on the gantt golden: the `<line class="today" x1=…>` marker is date-dependent and drifted (−27937 → −27938) across process invocations (within-run N=5 still stable). Enhanced `normalize.ts` Rule 5 to strip the time-dependent `<g class="today">…</g>` marker from the *digest* form (rendered SVG untouched); regenerated `fixtures/gantt.expected.svg` (digest now `cd94ccce…630d9`, verified stable across 3 separate runs); updated findings §2/§3/§5. H1 verdict unchanged (PASS caveat). This is a load-bearing insight for MS2-E4-S1 (§3 H1, §5 Rule 5). |
 
 ## Execution Log
 

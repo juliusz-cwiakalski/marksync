@@ -26,7 +26,15 @@
  *  5. Font / system metadata normalized or stripped — canonicalize every
  *     `font-family:…` / `font-family="…"` declaration to a single fixed token,
  *     and strip any renderer version/build strings, timestamps, or
- *     locale-dependent metadata if present.
+ *     locale-dependent metadata if present. ALSO strips time-dependent layout
+ *     markers — notably the gantt `today` line (`<g class="today">…</g>` and
+ *     any `class="today"` element), whose coordinates are a function of the
+ *     current date/time and therefore drift ACROSS runs even though the
+ *     within-run N=5 output is byte-identical. Stripping it from the NORMALIZED
+ *     (digest) form does not alter the rendered SVG the user sees — it only
+ *     removes an ephemeral time-dependent marker so the golden/digest is
+ *     reproducible. (Observed in the spike: x1 drifted −27937 → −27938 between
+ *     two runs minutes apart.)
  *
  *  NON-GOAL: normalization is for DIGEST STABILITY, not for altering rendered
  *  semantics. The persisted `fixtures/<name>.expected.svg` is the normalized
@@ -116,6 +124,15 @@ export function normalizeSvg(rawSvg: string): string {
   //   Strip any embedded renderer version / build / timestamp markers if present.
   s = s.replace(/data-mermaid-version="[^"]*"/gi, "");
   s = s.replace(/\b20\d{2}-\d{2}-\d{2}T[\d:.Z+-]+/g, "TS"); // ISO timestamps
+  //   Strip time-dependent gantt markers: the `<g class="today">…</g>` group
+  //   (whose inner `<line class="today" x1=… x2=…>` coordinates are a function
+  //   of the current date/time and drift ACROSS runs). Non-greedy to the first
+  //   `</g>` — safe because mermaid's today group contains only a `<line>`, no
+  //   nested `<g>`. Operates AFTER Rule 2 (attr sort) so `class="today"` is in
+  //   a stable position and AFTER Rule 4 (whitespace) so the block is compact.
+  s = s.replace(/<g class="[^"]*today[^"]*">[\s\S]*?<\/g>/g, "");
+  //   Defensive: strip any remaining standalone element carrying a today class.
+  s = s.replace(/<[^>]*class="[^"]*today[^"]*"[^>]*>(<\/[^>]*>)?/g, "");
   //   Final inter-tag tidy after the above substitutions.
   s = s.replace(/>\s+</g, "><").trim();
 

@@ -69,7 +69,7 @@ getBBox — needs a follow-up spike).** (See §11 for detail.)
 
 | Hypothesis | Verdict | Evidence |
 |---|---|---|
-| **H1** determinism (same-OS) | **PASS (caveat)** | `spikes/mermaid-render/probes/determinism.ts`; golden normalized SVGs `fixtures/flowchart.expected.svg`, `fixtures/gantt.expected.svg`. Normalized sha256 (5/5 byte-identical per fixture): flowchart `88a55f72…52f887` (len 10038); gantt `34c47710…399e19` (len 7946). **Caveat:** only 2/5 fixtures render (sequence/class/state throw), so the determinism claim holds for renderable output but that output is degenerate (see H4). |
+| **H1** determinism (same-OS) | **PASS (caveat)** | `spikes/mermaid-render/probes/determinism.ts`; golden normalized SVGs `fixtures/flowchart.expected.svg`, `fixtures/gantt.expected.svg`. Normalized sha256 (5/5 byte-identical per fixture, verified stable across 3 separate process runs): flowchart `88a55f72…52f887` (len 10038); gantt `cd94ccce…630d9` (len 7858). **Caveat:** only 2/5 fixtures render (sequence/class/state throw), so the determinism claim holds for renderable output but that output is degenerate (see H4). **Cross-run drift finding:** the gantt `today` line is date-dependent and drifted across runs (x1 −27937 → −27938); it is now normalized away (§5 Rule 5) so goldens are reproducible — a load-bearing insight for MS2-E4-S1 (§3 H1). |
 | **H2** no Chromium | **PASS** | `probes/chromium-absence.ts`; `bun pm ls --all` (transitive, DoR F3) → 117 lines, **0** occurrences of `puppeteer`/`playwright`/`chromium`; runtime process delta around a real render → **0** new chrome/chromium processes (2 pre-existing chrome procs on the host, unchanged). NFR-DEP-1 + NFR-DEP-2 both clean. |
 | **H3** Bun single-binary compat | **PASS** | `probes/run-all.ts` (`bun run probe:all`) executed the full pipeline end-to-end under Bun 1.1.34 on linux/x64 with **no** Node-only fallback; all 5 stages exited 0. Runtime invocation is the evidence (test-plan OQ-1). |
 | **H4** fidelity | **FAIL (0/5)** | `probes/fidelity.ts`. flowchart + gantt: non-empty and contain expected labels, BUT **no `<svg>` root** (happy-dom serializes a fragment) and degenerate layout (default `60×30` rects; gantt negative widths `-37.5`/`-150`). sequence/class/state: THROW (`"svg element not in render tree"` / dagre `"Could not find a suitable point for the given distance"`). |
@@ -91,11 +91,27 @@ normalizer additionally neutralizes id prefixes, attribute order, whitespace, an
 font metadata (§5). Per-fixture, all 5 normalized digests were identical:
 
 - `flowchart`: sha256 `88a55f72622a25b1130f0f49ebdfac575c2f4601c769c54d6827d7d24652f887`
-- `gantt`: sha256 `34c477104481099cc64dd4912198a9b7fc4c1515e7a781350344efbee7399e19`
+- `gantt`: sha256 `cd94ccce0d842afced25bae6b44ce7b6789160bf02edf67b799f65c79e1630d9`
 
 3 of 5 fixtures (sequence/class/state) cannot be determinism-tested because they
 do not render under happy-dom (H4). The determinism claim is therefore *true for
 renderable output but practically moot* — the stable output is degenerate.
+
+> **Cross-run drift finding (load-bearing for MS2-E4-S1).** The final
+> reproducibility re-run of `probe:all` surfaced that the gantt golden was NOT
+> byte-stable **across** process invocations: the gantt `<line class="today"
+> x1=… x2=…>` marker is computed from the current date/time and drifted
+> (`x1="-27937"` → `x1="-27938"`) between two runs minutes apart. The within-run
+> N=5 test (AC1) passed because the 5 repeats occur within milliseconds
+> (`new Date()` effectively constant), but the committed golden would have
+> drifted on every re-run — silently breaking the golden-test tier and causing
+> cache-key thrash in production. **Mitigation:** Rule 5 of the normalizer
+> (§5) now strips the `<g class="today">…</g>` time-dependent marker from the
+> *digest* form (the rendered SVG the user sees is untouched). After the fix,
+> the gantt digest was verified identical across **3 separate process runs**
+> (`cd94ccce…630d9`). **E4-S1 must carry this rule** — any gantt golden/cache
+> key that does not normalize away the `today` line is inherently
+> non-reproducible.
 
 ### H2 — No Chromium: PASS
 
@@ -215,7 +231,13 @@ normalizer (lift verbatim). It applies, **in order**:
    whitespace (`> <` → `><`), trim.
 5. **Font / system metadata normalized or stripped** — canonicalize every
    `font-family:…` declaration (CSS and attribute) to a fixed token; strip any
-   `data-mermaid-version`/ISO-timestamp markers if present.
+   `data-mermaid-version`/ISO-timestamp markers if present. **Also strips
+   time-dependent layout markers** — the gantt `<g class="today">…</g>` group
+   (inner `<line class="today" x1=… x2=…>` whose coordinates are a function of
+   the current date/time). This was added after the spike observed cross-run
+   drift on the gantt golden (§3 H1); it operates on the *digest* form only and
+   does not alter the rendered SVG. **MS2-E4-S1 must carry this rule** or its
+   gantt goldens/cache keys will be non-reproducible.
 
 **Non-goal:** normalization is for *digest stability*, not for altering rendered
 semantics. The persisted `fixtures/<name>.expected.svg` is the normalized form.
