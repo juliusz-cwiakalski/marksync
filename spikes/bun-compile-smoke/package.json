@@ -1,0 +1,20 @@
+{
+  "name": "marksync-bun-compile-smoke",
+  "version": "0.0.0-spike",
+  "private": true,
+  "description": "GH-13 / MS2-E1-S3 — Bun single-binary cross-compile smoke spike (standalone, not published). Validates ADR-0001 C-2/C-3 (single binary, cross-platform) for the MS-0002 Linux+Windows slice.",
+  "type": "module",
+  "//": "Standalone spike workspace for GH-13 (MS2-E1-S3). Self-contained; intentionally NOT coupled to the main marksync-cli package (no root package.json yet — repo is pre-scaffolding). Run via Bun 1.1.34 (DEC-2) only.",
+  "scripts": {
+    "cli": "bun run src/cli.ts",
+    "build:linux": "bun build --compile --target=bun-linux-x64 ./src/cli.ts --outfile marksync-linux-x64",
+    "build:windows": "bun build --compile --target=bun-windows-x64 ./src/cli.ts --outfile marksync-win-x64.exe",
+    "probe:clean-os-debian": "bash probes/clean-os-debian.sh",
+    "probe:clean-os-alpine": "bash probes/clean-os-alpine.sh",
+    "probe:size": "bash probes/measure-size.sh",
+    "probe:cold-start": "bash probes/measure-cold-start.sh",
+    "probe:arm64": "bash probes/arm64-stretch.sh",
+    "probe:secrets": "bash scripts/secret-scan.sh",
+    "probe:all": "bash run-probes.sh"
+  }
+}

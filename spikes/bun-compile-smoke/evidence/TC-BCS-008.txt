@@ -1,0 +1,12 @@
+TC-BCS-008 arm64 stretch (informational, spec NG-2; NON-GATED)
+bun: 1.1.34
+
+--- attempt: bun build --compile --target=bun-linux-arm64 ---
+  ACCEPTED (exit 0): bun-linux-arm64 is a valid target in 1.1.34
+  marksync-linux-arm64: ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux-aarch64.so.1, for GNU/Linux 3.7.0, BuildID[xxHash]=65ede078c57d897e, not stripped
+
+--- attempt: bun build --compile --target=bun-darwin-arm64 ---
+  ACCEPTED (exit 0): bun-darwin-arm64 is a valid target in 1.1.34
+  marksync-darwin-arm64: Mach-O 64-bit arm64 executable, flags:<NOUNDEFS|DYLDLINK|TWOLEVEL|BINDS_TO_WEAK|PIE|HAS_TLV_DESCRIPTORS>
+
+TC-BCS-008 done — informational; E5-S4 may pick up arm64 if the x64 path is clean.

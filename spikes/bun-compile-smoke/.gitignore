@@ -1,0 +1,22 @@
+# Gitignore for the standalone bun-compile-smoke spike workspace (GH-13).
+# Ephemera + deps + the ~50-90 MB compiled binaries are NOT committed.
+# Only the smoke CLI source, package.json, probe scripts, README, and
+# (small text) evidence logs are committed. Binary SIZES go in the findings
+# doc, NOT in git (C-SPIKE-10).
+
+# Dependencies
+node_modules/
+
+# Ephemeral compiled single-binaries (~50-90 MB each) — produced by `bun build --compile`
+marksync-linux-x64
+marksync-win-x64.exe
+marksync-linux-arm64
+marksync-darwin-arm64
+/dist/
+
+# Logs (large/noisy ad-hoc runs); committed evidence lives under evidence/ as small text
+*.log
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db

@@ -1,0 +1,13 @@
+TC-BCS-006 cold-start measurement (H4 / NFR-START-1 -> NFR-PERF-2)
+image: debian:stable-slim  |  binary: ./marksync-linux-x64  |  repeats: 5  |  desired: <= 2 s (DEC-5)
+method: fresh-process wall-clock via /usr/bin/time -v (GNU time installed ephemerally in the container)
+
+  repeat    wall-clock(s)       max-RSS(KiB) vs 2s desired
+  1                 0.010              34748 within 2s desired
+  2                 0.020              34672 within 2s desired
+  3                 0.010              34772 within 2s desired
+  4                 0.010              34704 within 2s desired
+  5                 0.010              34812 within 2s desired
+
+  summary: min=0.010s  median=0.010s  max=0.020s  (n=5, fresh processes)
+TC-BCS-006 done — cold-start recorded (directional; container page-cache imperfect).

@@ -1,0 +1,39 @@
+# TC-BCS-003 + TC-BCS-004 evidence — Phase 3 (clean-OS Linux Docker smoke, H2)
+# generated: 2026-07-06T20:21:50Z
+
+============================================================
+## TC-BCS-003 — clean-OS debian:stable-slim (PRIMARY)
+============================================================
+TC-BCS-003 clean-OS Linux smoke (PRIMARY) — image: debian:stable-slim
+image digest: debian@sha256:ee12ffb55625b99d62837a72f037d9b2f18fd0c787a89c2b9a4f09666c48776c
+
+--- [1] verify NO bun/node in the image (NFR-COMP-2) ---
+exit=127
+
+--- [2] run the binary on the clean OS ---
+marksync 0.0.0
+
+TC-BCS-003 result: run exit=0
+PASS: linux-x64 binary runs on clean debian:stable-slim with no Bun/Node installed (H2 / NFR-RUN-1 / NFR-COMP-2).
+
+============================================================
+## TC-BCS-004 — clean-OS alpine (STRETCH, non-blocking)
+============================================================
+TC-BCS-004 clean-OS Linux smoke (STRETCH) — image: alpine:latest
+image digest: 
+(local; pull for digest)
+
+--- [1] verify NO bun/node in the image ---
+Unable to find image 'alpine:latest' locally
+latest: Pulling from library/alpine
+55afa1ecc21d: Already exists
+Digest: sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+Status: Downloaded newer image for alpine:latest
+exit=127
+
+--- [2] attempt the run on the clean OS (musl) ---
+exec ./marksync-linux-x64: no such file or directory
+
+TC-BCS-004 result: run exit=1
+RECORDED (non-blocking): alpine (musl) run exited 1 — expected musl/glibc note (RSK-4).
+NFR-RUN-1 remains satisfied by the PRIMARY debian:stable-slim probe (TC-BCS-003).
