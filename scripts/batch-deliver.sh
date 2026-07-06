@@ -123,6 +123,19 @@ load_tickets_file() {
   done <"${file}"
 }
 
+# Resolve the recorded delivery branch for a ticket from the session mapping
+# (mirrors deliver-ticket.sh resolve_branch). Prints branch or empty string.
+# PURE-ish: reads a file, no mutation.
+resolve_recorded_branch() {
+  local -r ticket_ref="$1"
+  local -r mapping_file="${ROOT_DIR}/.ai/local/opencode-sessions/${ticket_ref}.json"
+  if [[ -f "${mapping_file}" ]]; then
+    _jq -r '.branch // empty' "${mapping_file}" 2>/dev/null || true
+  else
+    printf ''
+  fi
+}
+
 # ============================================================================
 # PRE-FLIGHT CHECK
 # ============================================================================
@@ -153,12 +166,19 @@ should_skip_ticket() {
     return 0
   fi
 
-  # Merged PR → skip
-  local merged_json
-  merged_json="$(_gh pr list --search "${ticket_ref}" --state closed --json mergedAt 2>/dev/null)" || merged_json='[]'
-  if printf '%s' "${merged_json}" | _jq -e '.[0].mergedAt' >/dev/null 2>&1; then
-    printf 'merged'
-    return 0
+  # Merged PR → skip (branch-scoped to avoid free-text false matches; see m-8 in
+  # deliver-ticket.sh). If no branch is recorded yet (first run), skip this
+  # check — the issue-state CLOSED check above is the authoritative skip signal,
+  # and a first-run ticket cannot have a merged PR for an unrecorded branch.
+  local branch
+  branch="$(resolve_recorded_branch "${ticket_ref}")"
+  if [[ -n "${branch}" ]]; then
+    local merged_json
+    merged_json="$(_gh pr list --head "${branch}" --state closed --json mergedAt 2>/dev/null)" || merged_json='[]'
+    if printf '%s' "${merged_json}" | _jq -e '.[0].mergedAt' >/dev/null 2>&1; then
+      printf 'merged'
+      return 0
+    fi
   fi
 
   return 1  # Don't skip
