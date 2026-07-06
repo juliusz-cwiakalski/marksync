@@ -7,7 +7,7 @@ priority: critical
 epic: MS2-E2
 milestone: MS-0002
 estimate: null
-gh_issue: null
+gh_issue: GH-16
 feature_spec: doc/spec/features/feature-cli.md
 decisions: [ADR-0011, TDR-0002]
 dependencies: { blocks: [MS2-E3, MS2-E5-S2], blocked_by: [MS2-E2-S1] }
