@@ -463,25 +463,25 @@ AC3, AC4; story methodology step-6. Exceedance is **recorded + flagged, NEVER bl
 
 **Tasks**:
 
-- [ ] **4.1** Create `spikes/bun-compile-smoke/probes/measure-size.sh` that records the binary size:
+- [x] **4.1** Create `spikes/bun-compile-smoke/probes/measure-size.sh` that records the binary size:
   - `stat -c %s marksync-linux-x64` (bytes) and `stat -c %s marksync-win-x64.exe` (bytes) on the
     produced binaries.
   - Convert bytes → MB using the convention **1 MB = 1,048,576 bytes** (record the convention in the
     probe header and the findings doc — it is the binary-size convention for this spike).
   - Compare each to the ≤90 MB desired budget (NFR-PERF-1). Flag if exceeded; **do NOT fail the
-    probe** (DEC-5 — desired, not hard).
-- [ ] **4.2** Create `spikes/bun-compile-smoke/probes/measure-cold-start.sh` that records cold-start
+    probe** (DEC-5 — desired, not hard). _(created; LC_ALL=C for dot decimals; linux 96.90 MB + win 105.12 MB both FLAGGED, not blocking)_
+- [x] **4.2** Create `spikes/bun-compile-smoke/probes/measure-cold-start.sh` that records cold-start
   on the **clean-OS Linux container** (fresh process each invocation):
   - `docker run --rm -v "$PWD":/x -w /x debian:slim /usr/bin/time -v ./marksync-linux-x64 --version`
   - Capture `Elapsed (wall clock) time` (cold-start) and `Maximum resident set size` (informational
     RSS). Run a few samples (e.g. 3–5) and record the range/median.
   - Note: `/usr/bin/time` may not be present in `debian:slim` by default — install it inside the
     ephemeral container (`apt-get update && apt-get install -y --no-install-recommends time`) or use
-    a `bash`-based wall-clock measurement if `time` is unavailable. Record which method was used.
-- [ ] **4.3** Compare the cold-start to the ≤2 s desired budget (NFR-PERF-2). Document if longer;
-  **do NOT fail the probe** (DEC-5).
-- [ ] **4.4** Capture the H3 + H4 measured values (size MB per target, cold-start wall-clock range,
-  RSS) to evidence — this is the baseline that E5-S4 and the release pipeline reference.
+    a `bash`-based wall-clock measurement if `time` is unavailable. Record which method was used. _(created; uses debian:stable-slim + ephemerally installs GNU `time`; 5 fresh-process samples; parses GNU time's tab-indented output)_
+- [x] **4.3** Compare the cold-start to the ≤2 s desired budget (NFR-PERF-2). Document if longer;
+  **do NOT fail the probe** (DEC-5). _(median 0.010s — well within 2s; H4 PASS)_
+- [x] **4.4** Capture the H3 + H4 measured values (size MB per target, cold-start wall-clock range,
+  RSS) to evidence — this is the baseline that E5-S4 and the release pipeline reference. _(captured to evidence/phase4-measurements.txt; RSS ~34.7 MB)_
 
 **Acceptance Criteria**:
 
@@ -973,7 +973,7 @@ any `doc/decisions/**`, `doc/spec/**`, or `doc/planning/**` file.
 | Phase 1 | DONE | 2026-07-06 | 2026-07-06 | (this commit) | linux-x64 cross-compile H1a PASS (ELF x86-64, exit 0); TC-BCS-008 arm64 stretch: BOTH bun-linux-arm64 + bun-darwin-arm64 ACCEPTED in 1.1.34 (informational) |
 | Phase 2 | DONE | 2026-07-06 | 2026-07-06 | (this commit) | windows-x64 cross-compile H1b PASS (PE32+ x86-64, exit 0); RSK-1 NOT triggered; DEC-3 Windows-run deferral recorded |
 | Phase 3 | DONE | 2026-07-06 | 2026-07-06 | (this commit) | clean-OS H2 PASS on debian:stable-slim (exit 0 + version, no runtime); alpine stretch RSK-4 musl/glibc failure recorded (non-blocking) |
-| Phase 4 | PENDING | — | — | — | size + cold-start measurement (H3, H4) |
+| Phase 4 | DONE | 2026-07-06 | 2026-07-06 | (this commit) | H3 sizes recorded (linux 96.90 MB, win 105.12 MB — FLAGGED not blocking DEC-5); H4 cold-start 0.010s median (PASS); RSS ~34.7 MB |
 | Phase 5 | PENDING | — | — | — | signing dry-run command (H5) |
 | Phase 6 | PENDING | — | — | — | build-binaries.sh skeleton (F-7) |
 | Phase 7 | PENDING | — | — | — | probe runner + findings doc (load-bearing) |

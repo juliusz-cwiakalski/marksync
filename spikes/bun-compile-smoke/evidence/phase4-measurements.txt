@@ -1,0 +1,30 @@
+# TC-BCS-005 + TC-BCS-006 evidence — Phase 4 (size + cold-start, H3 + H4)
+# generated: 2026-07-06T20:32:30Z
+
+================================================================
+## TC-BCS-005 — binary size measurement (H3 / NFR-SIZE-1)
+================================================================
+TC-BCS-005 binary size measurement (H3 / NFR-SIZE-1 -> NFR-PERF-1)
+convention: 1 MB = 1048576 bytes (binary); desired budget <= 90 MB (DEC-5: desired, not hard)
+
+  marksync-linux-x64              101604521 bytes    96.90 MB  FLAG (exceeds 90 MB desired — DEC-5: recorded, NOT blocking)
+  marksync-win-x64.exe            110224195 bytes   105.12 MB  FLAG (exceeds 90 MB desired — DEC-5: recorded, NOT blocking)
+
+TC-BCS-005 done — sizes recorded (exceedance flagged, not blocking).
+
+================================================================
+## TC-BCS-006 — cold-start measurement (H4 / NFR-START-1)
+================================================================
+TC-BCS-006 cold-start measurement (H4 / NFR-START-1 -> NFR-PERF-2)
+image: debian:stable-slim  |  binary: ./marksync-linux-x64  |  repeats: 5  |  desired: <= 2 s (DEC-5)
+method: fresh-process wall-clock via /usr/bin/time -v (GNU time installed ephemerally in the container)
+
+  repeat    wall-clock(s)       max-RSS(KiB) vs 2s desired
+  1                 0.010              34788 within 2s desired
+  2                 0.010              34624 within 2s desired
+  3                 0.010              34808 within 2s desired
+  4                 0.010              34828 within 2s desired
+  5                 0.010              34624 within 2s desired
+
+  summary: min=0.010s  median=0.010s  max=0.010s  (n=5, fresh processes)
+TC-BCS-006 done — cold-start recorded (directional; container page-cache imperfect).
