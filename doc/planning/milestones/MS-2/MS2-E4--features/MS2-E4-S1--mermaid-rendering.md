@@ -7,7 +7,7 @@ priority: high
 epic: MS2-E4
 milestone: MS-0002
 estimate: null
-gh_issue: null
+gh_issue: GH-25
 feature_spec: doc/spec/features/feature-mermaid-rendering.md
 decisions: [ADR-0002]
 dependencies: { blocks: [], blocked_by: [MS2-E1-S1, MS2-E3-S6] }

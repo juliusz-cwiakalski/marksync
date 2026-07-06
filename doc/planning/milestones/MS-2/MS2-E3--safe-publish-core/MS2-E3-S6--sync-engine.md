@@ -7,7 +7,7 @@ priority: critical
 epic: MS2-E3
 milestone: MS-0002
 estimate: null
-gh_issue: null
+gh_issue: GH-23
 feature_spec: doc/spec/features/feature-safe-publish.md
 decisions: [ADR-0006, ADR-0010, ADR-0011]
 dependencies: { blocks: [], blocked_by: [MS2-E1-S2, MS2-E3-S1, MS2-E3-S2, MS2-E3-S3, MS2-E3-S4, MS2-E3-S5] }

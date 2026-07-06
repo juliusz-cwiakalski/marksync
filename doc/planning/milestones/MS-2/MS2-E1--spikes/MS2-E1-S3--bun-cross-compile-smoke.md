@@ -7,7 +7,7 @@ priority: high
 epic: MS2-E1
 milestone: MS-0002
 estimate: null
-gh_issue: null
+gh_issue: GH-13
 feature_spec: 
 decisions: [ADR-0001]
 dependencies: { blocks: [MS2-E5-S4], blocked_by: [] }

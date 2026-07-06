@@ -7,7 +7,7 @@ priority: medium
 epic: MS2-E5
 milestone: MS-0002
 estimate: null
-gh_issue: null
+gh_issue: GH-31
 feature_spec: 
 decisions: []
 dependencies: { blocks: [], blocked_by: [MS2-E3-S3, MS2-E3-S5] }
