@@ -45,6 +45,7 @@ Detail: [doc/guides/change-lifecycle.md](doc/guides/change-lifecycle.md)
 ## Agent team
 
 ### Orchestration
+- `ceo` — **autonomous executive**: manages the backlog, delivers tickets, reviews and merges PRs on behalf of the human. Invoke with `@ceo continue project delivery`. Definition: [.opencode/agent/ceo.md](.opencode/agent/ceo.md)
 - `pm` — orchestrate changes; manage tickets via MCP; never implements code
 - `decision-advisor` — decisions of all types (architecture, product, business, technical, operating); decision record authoring (ADR/PDR/TDR/BDR/ODR) _(formerly `architect`)_
 
@@ -120,6 +121,12 @@ Full definitions: `~/.ados/repo/.opencode/command/*.md` (global install)
 @pm deliver change GH-<number>
 ```
 
+**Autonomous CEO** — `@ceo` manages the full delivery loop (backlog → ticket → PR → review → merge):
+
+```
+@ceo continue project delivery
+```
+
 **Manual** — you trigger each step:
 
 ```
@@ -161,6 +168,9 @@ Before creating new documentation areas, agents should inspect [doc/documentatio
 ```
 .
 ├── AGENTS.md                        # this file — delivery system bootstrap
+├── README.md                        # project README (badges, what/why, tech stack)
+├── .opencode/
+│   └── agent/                       # project-local agents (CEO)
 ├── .ai/
 │   ├── agent/                        # PM/PR/decision/code-review instructions (committed)
 │   ├── local/                        # git-ignored ephemeral agent state
@@ -195,6 +205,7 @@ Before creating new documentation areas, agents should inspect [doc/documentatio
 
 | Document | Description |
 |----------|-------------|
+| [.opencode/agent/ceo.md](.opencode/agent/ceo.md) | CEO agent — autonomous delivery executive |
 | [doc/overview/01-north-star.md](doc/overview/01-north-star.md) | Product north star, proxy metrics, guardrails |
 | [doc/overview/02-roadmap.md](doc/overview/02-roadmap.md) | Milestone roadmap (MS-0001 spike done; MS-0002 MVP active) |
 | [doc/overview/tech-stack.md](doc/overview/tech-stack.md) | Technology stack decisions |
