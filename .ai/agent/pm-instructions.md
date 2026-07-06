@@ -77,6 +77,31 @@ bugs), folder structure, and GitHub Issue ↔ story-file relationship.
   summaries that link to the story files. Title prefix: `[MS2-E3-S1] Title`.
 - Archive completed milestone backlogs to `doc/planning/archive/`.
 
+## Story Context Loading (mandatory before delivery)
+
+When a ticket has a business-ID title prefix (e.g., `[MS2-E3-S1]`), **read the
+story file before starting the ADOS lifecycle**. The story file is the
+authoritative scope; the GitHub Issue is a short summary.
+
+1. **Find the story file:** the business ID maps to a file at
+   `doc/planning/milestones/MS-<N>/<EpicID>--<slug>/<StoryID>--<slug>.md`.
+   Use `rg "<business_id>" doc/planning/milestones/` if the path is unclear.
+2. **Read the story frontmatter** for: `feature_spec`, `decisions`,
+   `cross_cutting`, `dependencies`.
+3. **Load the referenced docs:**
+   - Feature spec (e.g., `doc/spec/features/feature-safe-publish.md`)
+   - Decision records (e.g., `doc/decisions/ADR-0006-*.md`)
+   - Epic doc (same folder, `<EpicID>--epic.md`)
+4. **Always load coding rules:** [.ai/rules/typescript.md](../rules/typescript.md)
+   and [.ai/rules/testing-strategy.md](../rules/testing-strategy.md).
+5. **Load architecture context:** [architecture-overview.md](../../doc/overview/architecture-overview.md)
+   and [nonfunctional.md](../../doc/spec/nonfunctional.md).
+
+The spec-writer should use the story file's Goal/Scope/AC as the seed for the
+change spec (`chg-<workItemRef>-spec.md`). The coder should follow the coding
+rules and architecture constraints. The reviewer should use
+[code-review-instructions.md](code-review-instructions.md).
+
 ## Conventions
 
 - **workItemRef**: `GH-<number>` (e.g., `GH-42`)
