@@ -1,0 +1,65 @@
+change_id: GH-13
+title: "[MS2-E1-S3] Bun single-binary cross-compile smoke"
+story_ref: doc/planning/milestones/MS-2/MS2-E1--spikes/MS2-E1-S3--bun-cross-compile-smoke.md
+feature_spec: ""  # story has no feature_spec; cross_cutting refs are NFR-driven (NFR-PERF-1/2, NFR-COMP-1/2)
+decisions_refs: [ADR-0001]
+branch: spike/GH-13/bun-cross-compile-smoke
+
+phases:
+  clarify_scope: { started: "2026-07-06T21:55:00Z", completed: "2026-07-06T22:02:00Z" }
+  specification: { started: "2026-07-06T22:03:00Z", completed: "2026-07-06T22:12:00Z" }
+  test_planning: { started: "2026-07-06T22:13:00Z", completed: "2026-07-06T22:22:00Z" }
+  delivery_planning: { started: "2026-07-06T22:13:00Z", completed: "2026-07-06T22:23:00Z" }
+  dor_check: { started: "2026-07-06T22:24:00Z", completed: null }
+  delivery: { started: null, completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+
+decisions:
+  - text: "wine is NOT installed in this environment. Per story methodology step 5 (explicit fallback): the win-x64 binary will be PRODUCED and its production logged, but the clean-OS Windows RUN is deferred to a Windows CI runner (MS2-E5-S4). Findings doc records this deferral. H1 (cross-compile) is still fully testable; only the Windows runtime smoke is deferred."
+    date: "2026-07-06"
+  - text: "osslsigncode is NOT installed. H5 only requires DOCUMENTING the exact osslsigncode dry-run command that WOULD sign the Windows binary (no real cert). No installation needed — the command is recorded as a reference string. H5 satisfied."
+    date: "2026-07-06"
+
+open_questions: []
+
+blockers: []
+
+doc_risks:
+  - path: doc/decisions/ADR-0001-implementation-language-and-runtime.md
+    risk: "Spike validates ADR-0001 C-2 (single binary, no runtime) + C-3 (cross-platform) + NFR-PERF-1/2 budget. On PASS, ADR-0001 Unresolved Question 'binary signing/notarization tooling meets enterprise trust bar' gains evidence (H5). On size/cold-start exceedance, NFR-PERF-1/2 'desired not hard' language (PR #4) is reaffirmed — no ADR change. Phase 7 doc-sync may add a cross-compile verification pointer."
+  - path: doc/planning/milestones/MS-2/MS2-E5--quality-and-ops/MS2-E5-S4--binary-builds.md
+    risk: "Downstream story blocked_by this spike. Findings + scripts/build-binaries.sh skeleton feed E5-S4. Story status field (todo) should reflect spike outcome once findings are in."
+  - path: doc/planning/milestones/MS-2/MS2-E1--spikes/MS2-E1-S3--bun-cross-compile-smoke.md
+    risk: "Story status field (todo) should reflect spike outcome (done/PARTIAL) once findings are committed."
+  - path: doc/spec/nonfunctional.md
+    risk: "NFR-PERF-1 (≤90 MB) and NFR-PERF-2 (≤2 s) are 'desired not hard'. Spike records actual measurements; may add an evidence pointer footnote. No NFR rewording expected unless measurement is wildly off (story R2 already waives hard gate)."
+
+notes:
+  - text: "State detection: GH-13 OPEN, no open PR, no merged PR, on main @ 2ba2fa1 (post GH-11 merge). Fresh full 11-phase delivery. Story loaded (authoritative scope): 5 hypotheses H1-H5, explicit 8-step methodology, 6 ACs, standalone spike workspace under spikes/bun-compile-smoke/, scripts/build-binaries.sh skeleton deliverable, findings doc deliverable."
+    type: "info"
+    date: "2026-07-06"
+  - text: "Cross-checked story vs system spec: ADR-0001 C-2 (single binary no runtime) + C-3 (Linux/macOS/Windows) — this spike validates the Linux+Windows slice (macOS deferred to MS-0003 per NFR-COMP-1, consistent with story Out-of-scope). NFR-PERF-1 (≤90 MB desired) + NFR-PERF-2 (≤2 s desired) match story H3/H4. NFR-COMP-2 (clean-OS run) matches H2. No contradictions. Story R2 (waive NFR-PERF-1 hard gate) is consistent with nonfunctional.md 'desired, not hard' wording."
+    type: "info"
+    date: "2026-07-06"
+  - text: "Environment: Bun 1.1.34 (matches GH-11 pin), Docker 27.3.1 daemon reachable (H2 clean-OS Linux smoke CAN run), wine NOT installed (story-allowed fallback for Windows run), ossslsigncode NOT installed (H5 is doc-only dry-run, no install needed). No blockers — all fallbacks are explicitly documented in story methodology. PM-decided; recorded in decisions[]."
+    type: "info"
+    date: "2026-07-06"
+  - text: "Repo state: pre-scaffolding (no root package.json). Spike will be standalone workspace under spikes/bun-compile-smoke/ with own package.json, consistent with GH-11 precedent. .gitignore has legacy Go entries + *.exe (Windows binary won't be committed regardless — it's an ephemeral build output ~90MB; findings doc records sizes). Main src/ tree untouched (story Out-of-scope)."
+    type: "info"
+    date: "2026-07-06"
+  - text: "Precedent: GH-11 spike (mermaid-render) delivered end-to-end with identical structure (standalone spikes/ workspace, findings/ doc, no src/ touch). This spike follows the same pattern. Branch spike/GH-13/bun-cross-compile-smoke created from main."
+    type: "info"
+    date: "2026-07-06"
+  - text: "Spec written by @spec-writer (chg-GH-13-spec.md, 387 lines, commit 1c8798d). 7 ACs in Given/When/Then mapped to H1-H5 + AC6 findings + AC7 secret-hygiene. 7 NFRs, 5 DECs (DEC-1 standalone workspace, DEC-2 pin Bun 1.1.34, DEC-3 wine absent→defer Windows run, DEC-4 osslsigncode absent→doc-only, DEC-5 NFR-PERF-1 desired-not-hard), 6 RSKs. Spec-writer flagged 3 advisory items: (1) change.type=spike outside conventional-commits (GH-11 precedent, reconcile at DoR if needed), (2) RSK-3 wine-absence is a fact not a probability (routed via DEC-3, harmless), (3) catastrophic-fail escalation mirrors GH-11 (non-blocking, documented not pre-decided). No PM action required."
+    type: "info"
+    date: "2026-07-06"
+  - text: "Test plan written by @test-plan-writer (chg-GH-13-test-plan.md, 703 lines, commit 48cebeb). 10 probes TC-BCS-001..008 + TC-BCS-EVID + TC-BCS-SEC. All 7 ACs fully traced. Local execution only (no CI wiring — E5-S4's job). Measurement conventions fixed: size bytes→MB (1 MB = 1,048,576), cold-start = fresh-process wall-clock. Anti-over-mocking guardrail explicitly NOT applicable (real builds + real Docker); secret hygiene DOES apply."
+    type: "info"
+    date: "2026-07-06"
+  - text: "Plan written by @plan-writer (chg-GH-13-plan.md, 980 lines, commit 52f5431). 9 phases (0-8), 45 checkboxes (38 tasks + 7 DoD), one commit per phase. Doc-update coverage section explicitly lists ADR-0001 (C-2/C-3 evidence, do NOT reconsider language), MS2-E1-S3 story (status flip), MS2-E5-S4 (unblock note + deferrals), nonfunctional.md (optional evidence pointer, NO rewording), conditional catastrophic-fail escalation. Guardrail: no main src/ touched; only repo-root artifacts are scripts/build-binaries.sh + findings/. Commit types chore(spike)/test(spike)/docs(spike)/feat(scripts). Plan-writer confirmed no upfront decision needed (DEC-1..5 resolved); conditional @decision-advisor only on catastrophic fail."
+    type: "info"
+    date: "2026-07-06"
