@@ -1,0 +1,22 @@
+{
+  "name": "mermaid-render-spike",
+  "version": "0.0.0-spike",
+  "private": true,
+  "description": "GH-11 / MS2-E1-S1 — Mermaid headless-render spike (standalone, not published).",
+  "type": "module",
+  "//": "Standalone spike workspace for GH-11 (MS2-E1-S1). Self-contained; intentionally NOT coupled to the main marksync-cli package (no shared package name). Run via Bun only.",
+  "scripts": {
+    "render": "bun run render.ts",
+    "probe:determinism": "bun run probes/determinism.ts",
+    "probe:chromium": "bun run probes/chromium-absence.ts",
+    "probe:security": "bun run probes/security.ts",
+    "probe:fidelity": "bun run probes/fidelity.ts",
+    "probe:secrets": "bash scripts/secret-scan.sh",
+    "probe:all": "bun run probes/run-all.ts"
+  },
+  "dependencies": {
+    "@happy-dom/global-registrator": "^15.11.5",
+    "happy-dom": "^15.11.5",
+    "mermaid": "^11.16.0"
+  }
+}

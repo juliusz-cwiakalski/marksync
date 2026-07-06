@@ -1,0 +1,64 @@
+change_id: GH-11
+title: "[MS2-E1-S1] Mermaid headless-render spike"
+story_ref: doc/planning/milestones/MS-2/MS2-E1--spikes/MS2-E1-S1--mermaid-render-spike.md
+feature_spec: doc/spec/features/feature-mermaid-rendering.md
+decisions_refs: [ADR-0001, ADR-0002, TDR-0004]
+branch: spike/GH-11/mermaid-render-spike
+
+phases:
+  clarify_scope: { started: "2026-07-06T00:00:00Z", completed: "2026-07-06T00:01:00Z" }
+  specification: { started: "2026-07-06T00:02:00Z", completed: "2026-07-06T00:10:00Z" }
+  test_planning: { started: "2026-07-06T00:11:00Z", completed: "2026-07-06T00:18:00Z" }
+  delivery_planning: { started: "2026-07-06T00:19:00Z", completed: "2026-07-06T00:30:00Z" }
+  dor_check: { started: "2026-07-06T00:28:00Z", completed: "2026-07-06T00:32:00Z" }
+  delivery: { started: "2026-07-06T00:33:00Z", completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+
+decisions: []
+
+open_questions: []
+
+blockers: []
+
+doc_risks:
+  - path: doc/decisions/ADR-0002-mermaid-rendering-strategy.md
+    risk: "Status field (Proposed) and Part B may need update based on spike outcome (PASS → spike-validated; FAIL → fallback decision)."
+  - path: doc/spec/features/feature-mermaid-rendering.md
+    risk: "May need reconciliation if spike surfaces normalization rules, security findings, or output-format decisions."
+  - path: doc/planning/milestones/MS-2/MS2-E1--spikes/MS2-E1-S1--mermaid-render-spike.md
+    risk: "Story status field (todo) should reflect spike outcome once findings are in."
+  - path: doc/planning/milestones/MS-2/MS2-E4--features/MS2-E4-S1--mermaid-rendering.md
+    risk: "Downstream story depends on spike outcome; may need linkage to findings doc."
+
+notes:
+  - text: "Loaded authoritative story context: 5 hypotheses (H1-H5), explicit methodology, 7 ACs, spike workspace under spikes/mermaid-render/ (gitignored artifacts; committed code+fixtures+findings). CEO already resolved R1/Q1 in story frontmatter."
+    type: "info"
+    date: "2026-07-06"
+  - text: "Cross-checked story vs system spec: ADR-0002 Part B is spike-gated (this is the spike); feature-mermaid-rendering.md 'spike-gated' AC is consistent; TDR-0004 chose happy-dom (matches story methodology); ADR-0002 2026-07-06 amendment confirms happy-dom preference. No contradictions found."
+    type: "info"
+    date: "2026-07-06"
+  - text: "Repo state: post-inception pre-implementation. No package.json at repo root; no spikes/ dir; Bun 1.1.34 installed locally. Spike must be a self-contained workspace (own package.json) — does NOT touch main src/ tree per story Out-of-scope."
+    type: "info"
+    date: "2026-07-06"
+  - text: "Spec written by @spec-writer (chg-GH-11-spec.md, 387 lines). 7 ACs in Given/When/Then form, each tied to ≥1 F-/NFR- ID and one of H1-H5. DoD captures spike-specific evidence-pointer + golden-fixture-pair requirements. No decisions surfaced for @decision-advisor (CEO resolved R1/Q1; H1-H5 are resolved by running the spike)."
+    type: "info"
+    date: "2026-07-06"
+  - text: "Commit-type note for @committer: change.type=spike is outside conventional-commits type set. Spike workspace code → 'chore(spike):' or 'test(spike):'; findings doc → 'docs(spike):'. Will pick at commit time."
+    type: "info"
+    date: "2026-07-06"
+  - text: "Test plan written by @test-plan-writer. 7 probes (TC-MRSPIKE-001..007) under spikes/mermaid-render/, full AC→probe→fixture→evidence traceability, normalization rules recorded for MS2-E4-S1 reuse, anti-over-mocking guardrail encoded as HARD requirement, no CI wiring (spike runs locally)."
+    type: "info"
+    date: "2026-07-06"
+  - text: "Plan written by @plan-writer (10 phases 0-9, each one commit). All code under spikes/mermaid-render/ (no src/ touched). Doc-update coverage section lists ADR-0002/TDR-0004/ADR-0001(feature spec)/MS2-E1-S1 story/MS2-E4-S1 story/(conditional fallback DR) for phase 7."
+    type: "info"
+    date: "2026-07-06"
+  - text: "DoR READY with 4 findings (1 major §F1, 3 minor §F2-§F4). All pointed at delivery_planning for phase-7 handoff specificity. Verdict READY = proceed to delivery. Narrow reopen of delivery_planning to enrich Doc-update coverage with §F1-§F4 handoff requirements so @doc-syncer cannot miss the load-bearing ADR-0002 stop-criterion-#1 + C-1 rewording (cross-OS byte-stable → same-OS-byte-stable + cross-OS-hash-stable via per-OS cache key)."
+    type: "info"
+    date: "2026-07-06"
+  - text: "RETRO: DoR caught a load-bearing documentation-handoff gap (§F1: ADR-0002 stop-criterion #1 / C-1 wording vs spike's same-OS gate + per-OS cache key) that the plan reduced to 'Part B wording'. For load-bearing spikes, the plan's Doc-update coverage table should pre-enumerate the specific rewording expected, not a one-liner. Process improvement: spec-writer/plan-writer should flag when an AC relies on a CEO-resolved assumption (DEC-3) that diverges from the literal ADR text — that divergence is always a phase-7 reconciliation item, never a silent drift."
+    type: "retro"
+    date: "2026-07-06"

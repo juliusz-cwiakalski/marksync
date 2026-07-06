@@ -1,0 +1,22 @@
+# Gitignore for the standalone mermaid-render spike workspace (GH-11).
+# Ephemera + cache + deps are NOT committed. Only code, fixtures, the
+# normalized golden SVGs (*.expected.svg), the lockfile, and (at repo root)
+# the findings doc are committed.
+
+# Dependencies
+node_modules/
+
+# Spike-local cache
+.spike-cache/
+
+# Ephemeral per-repeat render outputs (NOT the golden *.expected.svg pairs)
+*.raw.svg
+fixtures/*.repeat-*.svg
+fixtures/*.raw-*.svg
+
+# Logs
+*.log
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
