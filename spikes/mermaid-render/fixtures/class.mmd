@@ -1,0 +1,11 @@
+%% GH-11 fixture — class diagram.
+%% Expected fidelity labels (AC4): "Animal", "Dog".
+classDiagram
+    class Animal {
+        +String name
+        +sound()
+    }
+    class Dog {
+        +fetch()
+    }
+    Dog --|> Animal

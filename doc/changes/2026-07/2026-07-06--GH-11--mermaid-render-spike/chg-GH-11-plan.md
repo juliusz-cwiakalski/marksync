@@ -276,24 +276,27 @@ inputs. F-4, F-5.
 
 **Tasks**:
 
-- [ ] **1.1** Create `spikes/mermaid-render/fixtures/flowchart.mmd` — a `graph TD` flowchart
+- [x] **1.1** Create `spikes/mermaid-render/fixtures/flowchart.mmd` — a `graph TD` flowchart
   containing the expected labels `Hello` and `World` (e.g. `graph TD\n  A[Hello] --> B[World]`).
-- [ ] **1.2** Create `spikes/mermaid-render/fixtures/sequence.mmd` — a `sequenceDiagram` with
+- [x] **1.2** Create `spikes/mermaid-render/fixtures/sequence.mmd` — a `sequenceDiagram` with
   actor names (e.g. `Alice` and `Bob`) as the expected labels.
-- [ ] **1.3** Create `spikes/mermaid-render/fixtures/class.mmd` — a `classDiagram` with class
+- [x] **1.3** Create `spikes/mermaid-render/fixtures/class.mmd` — a `classDiagram` with class
   names (e.g. `Animal` and `Dog`) as the expected labels.
-- [ ] **1.4** Create `spikes/mermaid-render/fixtures/state.mmd` — a `stateDiagram-v2` (or
+- [x] **1.4** Create `spikes/mermaid-render/fixtures/state.mmd` — a `stateDiagram-v2` (or
   `stateDiagram`) with state labels (e.g. `Idle` and `Active`) as the expected labels.
-- [ ] **1.5** Create `spikes/mermaid-render/fixtures/gantt.mmd` — a `gantt` with task/section
+- [x] **1.5** Create `spikes/mermaid-render/fixtures/gantt.mmd` — a `gantt` with task/section
   labels (e.g. a section `Build` with a task `Spike`) as the expected labels.
-- [ ] **1.6** Create `spikes/mermaid-render/fixtures/adversarial-xss.mmd` — an adversarial
+- [x] **1.6** Create `spikes/mermaid-render/fixtures/adversarial-xss.mmd` — an adversarial
   fixture embedding an XSS payload `<img src=x onerror=alert(1)>` inside a node label (the
   malformed input used to validate sanitization under `securityLevel:"strict"`). No expected
   fidelity labels (output must be sanitized — AC5).
-- [ ] **1.7** Create `spikes/mermaid-render/fixtures/adversarial-script.mmd` — an adversarial
+- [x] **1.7** Create `spikes/mermaid-render/fixtures/adversarial-script.mmd` — an adversarial
   fixture with a `<script>` injection attempt inside a node label. No expected fidelity labels.
-- [ ] **1.8** Document the pinned expected labels (per fixture) in a short comment at the top of
+- [x] **1.8** Document the pinned expected labels (per fixture) in a short comment at the top of
   each canonical fixture file, so Phase 6 has a single source of truth for the labels it asserts.
+  - (Bonus: added the optional 3rd adversarial fixture `fixtures/adversarial-external-ref.mmd`
+    per DoR finding F2 to exercise an external-resource/`<use href="http://...">` payload;
+    full external-resource blocking is deferred to MS2-E4-S1.)
 
 **Expected labels table (single source of truth — test plan §6 / OQ-3 resolution):**
 
