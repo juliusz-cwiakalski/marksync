@@ -8,14 +8,23 @@ source: https://github.com/juliusz-cwiakalski/agentic-delivery-os/blob/main/doc/
 All decision records for this repository, ordered by number.
 
 > **Migration note (Phase 3, 2026-07-04; reclassified 2026-07-05; statuses
-> corrected 2026-07-06).** ADR-0001 and ADR-0002 were authored pre-inception in
+> corrected 2026-07-06; ADR-0001/ADR-0002/TDR-0004 reconciled with the Mermaid
+> spike 2026-07-06).** ADR-0001 and ADR-0002 were authored pre-inception in
 > `doc/inception/decisions/` and migrated to this canonical home
 > (`doc/decisions/`). Subsequent records were created during Phase 3 inception.
 > On 2026-07-05, records were reclassified per the updated ADOS decision-making
 > guide: each type has its own sequence (ADR, PDR, TDR). On 2026-07-06 (Phase 6
 > readiness check), all records were flipped from `Proposed` to `Accepted` —
 > their containing PRs had merged to `main`, which per the corrected lifecycle
-> (Phase 5) means they are final.
+> (Phase 5) means they are final. Later on 2026-07-06 (GH-11 lifecycle phase 7),
+> ADR-0001, ADR-0002, and TDR-0004 were reconciled with the Mermaid headless-render
+> spike outcome: ADR-0002 Part B stays spike-gated (H4 fidelity FAIL → MS-0002
+> ships fallback rung 7 `code` policy; Part B does **not** advance to
+> `spike-validated`); ADR-0001's revisit trigger is activated for owner review
+> (catastrophic-FAIL escalation not triggered); TDR-0004's default happy-dom path
+> runs but is insufficient for faithful rendering. Governance statuses remain
+> `Accepted`; the spike changed the substantive Part B / revisit-trigger state,
+> recorded in each record's body and Revision History.
 
 | ID | Type | Title | Status | Date | Owners |
 |----|------|-------|--------|------|--------|

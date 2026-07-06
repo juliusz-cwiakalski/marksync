@@ -6,7 +6,7 @@ decision_type: adr
 status: Accepted
 created: 2026-07-03
 decision_date: null
-last_updated: 2026-07-03
+last_updated: 2026-07-06
 summary: "Implement MarkSync in TypeScript compiled to per-platform single binaries (Bun `build --compile`) instead of Go, to reuse the official Mermaid library."
 owners:
   - Juliusz Ćwiąkalski
@@ -47,7 +47,7 @@ revisit_triggers:
   - "A production-grade pure-Go Mermaid renderer emerges and reaches the fidelity of the official library."
   - "The Mermaid headless-rendering spike (ADR-0002) proves the in-process official library cannot run headless without Chromium."
 links:
-  related_changes: []
+  related_changes: ["GH-11"]
   supersedes: []
   superseded_by: []
   spec: ["../inception/system-specification-draft-from-ai-brainstorm.md"]
@@ -63,7 +63,7 @@ links:
 
 ## Context
 
-> **Migration note:** This record was authored pre-inception in `doc/inception/decisions/` and migrated to the canonical ADOS home `doc/decisions/` during Phase 3 inception (2026-07-04). It remains `status: Proposed` pending human confirmation. Records were originally numbered in one sequence regardless of `decision_type`; on 2026-07-05 they were reclassified so each type (ADR, PDR, TDR) has its own sequence per the ADOS decision-making guide.
+> **Migration note:** This record was authored pre-inception in `doc/inception/decisions/` and migrated to the canonical ADOS home `doc/decisions/` during Phase 3 inception (2026-07-04). The record is governance-`Accepted` (the containing PR merged to `main`; see `00-index.md` migration note). Records were originally numbered in one sequence regardless of `decision_type`; on 2026-07-05 they were reclassified so each type (ADR, PDR, TDR) has its own sequence per the ADOS decision-making guide.
 
 The system specification currently records "The implementation language is Go" as a **Decided** item, with Cobra, Goldmark, go-git, and GoReleaser as the implied follow-on stack (`../inception/system-specification-draft-from-ai-brainstorm.md` §2.2, §2.6, §6.1, §9.4, §9.5). The brain dump and North Star both describe a "portable native CLI" distributed as a "single binary" that must run flawlessly on Linux, macOS, and Windows with no mandatory language runtime for end users (`../inception/motivation-and-goal-notes-brain-dump.md`; `../inception/north-star-draft-to-be-refined.md`).
 
@@ -187,7 +187,7 @@ This reverses the system spec's "implementation language is Go — Decided" item
 
 Go cannot satisfy that tradeoff without either (a) breaking the single-binary/no-runtime promise (Alt 0/3) or (b) taking an unproven research bet on an embedded JS runtime (Alt 2). TypeScript + single-binary compilation is the only path that satisfies all non-negotiable constraints.
 
-> **AI-assistance disclosure:** This analysis is AI-assisted. The human decider (Juliusz Ćwiąkalski) has **not yet** decided. This record is `status: Proposed` and becomes authoritative only on human confirmation during inception.
+> **AI-assistance disclosure:** This analysis is AI-assisted. The record is governance-`Accepted` (merged PR). The **load-bearing residual uncertainty** — the Mermaid headless-rendering spike (ADR-0002) — was executed on 2026-07-06 (GH-11) and produced a PARTIAL verdict that **activates this ADR's revisit trigger**; see [Revisit-trigger status](#revisit-trigger-status--mermaid-headless-rendering-spike-gh-11) below.
 
 ### Constraint Compliance Attestation
 
@@ -218,9 +218,10 @@ No accepted-risk exceptions are required.
 
 ### Unresolved Questions
 
-- [ ] Exact headless rendering mechanism for Mermaid (in-process `mermaid.render()` via jsdom vs `mmdc` subprocess vs container) — **deferred to ADR-0002 / spike** (owner: Juliusz Ćwiąkalski).
+- [x] Exact headless rendering mechanism for Mermaid (in-process `mermaid.render()` via happy-dom/jsdom vs `mmdc` subprocess vs container) — **deferred to ADR-0002 / spike**; **resolved PARTIAL by GH-11 (2026-07-06).** The in-process happy-dom path runs under Bun with no Chromium (H1/H2/H3 PASS) but does **not** produce faithful output (H4 FAIL 0/5) — happy-dom and jsdom lack an SVG layout engine (`getBBox` returns zeros). Faithful rendering requires Chromium (violates C-2) or a validated SVG-layout shim (unvalidated; needs a follow-up spike).
 - [ ] Bun vs Deno final pick for single-binary compilation — small follow-on decision; both have `compile`. Recommend Bun as default pending the spike (owner: Juliusz Ćwiąkalski).
 - [ ] Whether binary signing/notarization tooling for Bun-compiled artifacts meets enterprise trust bar (owner: Juliusz Ćwiąkalski).
+- [ ] **Owner decision required (CEO-level):** is ADR-0001's load-bearing in-process-no-Chromium premise still viable given the GH-11 H4 FAIL? Faithful Mermaid rendering is **not** achievable with happy-dom/jsdom; the only no-Chromium path forward is an unvalidated SVG-layout shim (`svgdom` / canvas-measured `getBBox`). If that shim proves unviable, faithful rendering forces a Chromium dependency that breaks C-2 and materially challenges the TS-over-Go rationale. This is **not** pre-decided here — it is surfaced for explicit owner review. (Surfaced by GH-11; the catastrophic-FAIL language-level escalation is NOT triggered because a deterministic path exists.)
 
 ## Implementation Plan
 
@@ -251,9 +252,22 @@ This decision **reverses** spec §2.2 ("Go = Decided") and cascades across the t
 
 **Medium.** The rationale is sound and the constraints cleanly select Alternative 1. The dominant residual uncertainty is the **Mermaid headless-rendering spike** (ADR-0002): whether the official library renders deterministically in-process without bundling Chromium. If that spike fails, the primary justification for choosing TS weakens and Alt 2/3 must be reconsidered. Secondary uncertainty is the Bun-vs-Deno pick and the binary-signing/trust story.
 
+### Revisit-trigger status — Mermaid headless-rendering spike (GH-11)
+
+The ADR-0002 spike was executed on **2026-07-06 (GH-11)** and produced a **PARTIAL** verdict. The revisit trigger
+
+> "The Mermaid headless-rendering spike (ADR-0002) proves the in-process official library cannot run headless without Chromium."
+
+is **activated for owner review**, with an important nuance:
+
+- **Catastrophic-FAIL escalation: NOT triggered.** A deterministic in-process path **does** exist — the official `mermaid` library initializes and renders under Bun + happy-dom with zero Chromium dependency (H1/H2/H3 PASS), and the output that renders is byte-stable after normalization. The "no deterministic path at all → language-level reconsideration" bar is **not** met. Per the spike's failure-mode rubric, the TS-over-Go choice is **not** auto-reopened.
+- **Faithful-render finding: materially challenges the load-bearing rationale.** happy-dom and jsdom have **no SVG layout engine** (`SVGElement.prototype.getBBox` returns `{0,0,0,0}`), so 0/5 canonical diagram types render faithfully (H4 FAIL). Sequence/class/state throw; flowchart/gantt produce degenerate output. Faithful Mermaid rendering therefore requires **either** a Chromium-based path (`mmdc`/Puppeteer — violates C-2's single-binary/no-Chromium promise) **or** a validated SVG-layout shim (`svgdom` / canvas-measured `getBBox` polyfill — unvalidated; needs a follow-up spike). This is a serious hit to the in-process-no-Chromium premise that justified choosing TS over Go.
+
+> **⚠️ Owner decision required (CEO-level):** is ADR-0001's load-bearing in-process-no-Chromium premise still viable, or does the H4 finding force a fundamental ADR-0001/ADR-0002 reconsideration? This doc-sync does **not** reconsider the language choice autonomously — that is an owner-level decision. The decision input is `findings/mermaid-render-spike-findings.md` (GH-11). MS-0002 is not blocked either way (it ships ADR-0002 rung 7, the `code` policy).
+
 ## Lessons Learned (Retrospective)
 
-TODO: Populate after implementation.
+- **2026-07-06 (GH-11):** The Mermaid headless-rendering spike confirmed that "the official library runs in-process under Bun without Chromium" (H2/H3) is **not** the same as "it renders faithfully" (H4). happy-dom/jsdom execute Mermaid's JS but cannot provide the SVG layout engine (`getBBox`) Mermaid's layout path needs. The load-bearing assumption that picked TS+Bun — "run official Mermaid in-process, ship a single binary, no Chromium" — holds for *running* the library but **not** for *faithful rendering* without a Chromium or shim path. Lesson: for "run library X headless" spikes, verify the DOM provides every host API the library's layout/render path calls (`getBBox`, font metrics), not merely that the library loads and executes. The decision is flagged for owner review; it is not auto-reopened (deterministic path exists).
 
 ## References
 
@@ -263,3 +277,11 @@ TODO: Populate after implementation.
 - `../inception/marksync-failure-premortem-and-anti-failure-playbook-2026-07-02.md` — §7 (platform/renderer failure modes; "renderer missing" scenario).
 - `../inception/open-source-git-markdown-confluence-sync-report-2026-07-02.md` — §2.2 (competitor language choices), §8 (diagrams as decision-driving features).
 - Related decision: ADR-0002 (Mermaid rendering strategy) — depends on this ADR.
+
+## Revision History
+
+- **2026-07-03** — Initial record authored pre-inception, migrated to the canonical home `doc/decisions/` during Phase 3 inception (2026-07-04).
+- **2026-07-06 (GH-11, lifecycle phase 7 reconciliation)** — Recorded the outcome of the ADR-0002 Mermaid headless-rendering spike against this ADR's revisit trigger:
+  - The spike (executed 2026-07-06) returned **PARTIAL**: H1/H2/H3 PASS (the official library runs in-process under Bun with no Chromium and is same-OS byte-stable), but **H4 (fidelity) FAIL (0/5)** — happy-dom/jsdom lack an SVG layout engine (`getBBox` returns zeros), so faithful rendering requires Chromium (violates C-2) or an unvalidated SVG-layout shim.
+  - **Revisit trigger ACTIVATED for owner review.** The catastrophic-FAIL language-level escalation is **not** triggered (a deterministic path exists). Added a "Revisit-trigger status" subsection and an explicit CEO-level owner-decision flag in Unresolved Questions. **The language choice is not reconsidered here** — that is an owner decision.
+  - Reconciled stale `status: Proposed` body prose with the governance-`Accepted` frontmatter (consistent with `00-index.md` migration note). `last_updated` bumped to 2026-07-06; `links.related_changes` extended with `GH-11`.
