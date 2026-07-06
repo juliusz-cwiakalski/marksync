@@ -30,8 +30,8 @@ phases:
   - { id: 1, name: "North star & vision", status: completed, started: 2026-07-03, completed: 2026-07-03 }
   - { id: 2, name: "Scope & roadmap", status: completed, started: 2026-07-03, completed: 2026-07-04 }
   - { id: 3, name: "Tech stack & architecture", status: completed, started: 2026-07-04, completed: 2026-07-05 }
-  - { id: 4, name: "Domain, conventions & quality baseline", status: in_progress, started: 2026-07-05, completed: null }
-  - { id: 5, name: "ADOS framework integration", status: pending, started: null, completed: null }
+  - { id: 4, name: "Domain, conventions & quality baseline", status: completed, started: 2026-07-05, completed: 2026-07-05 }
+  - { id: 5, name: "ADOS framework integration", status: in_progress, started: 2026-07-06, completed: null }
   - { id: 6, name: "Inception readiness check", status: pending, started: null, completed: null }
   - { id: 7, name: "Inception summary & handoff", status: pending, started: null, completed: null }
 
@@ -75,6 +75,19 @@ artifacts:
   ci_e2e_gate:       { status: draft, path: ".github/workflows/run-e2e.yml", confidence: 0.80 }
   env_example:       { status: draft, path: ".env.example", confidence: 0.85 }
   editor_config:     { status: draft, path: ".editorconfig", confidence: 0.85 }
+  # Phase 5 artifacts
+  agents_md:         { status: draft, path: "AGENTS.md", confidence: 0.85 }
+  readme_md:         { status: draft, path: "README.md", confidence: 0.82 }
+  pm_instructions:   { status: draft, path: ".ai/agent/pm-instructions.md", confidence: 0.85 }
+  pr_instructions:   { status: draft, path: ".ai/agent/pr-instructions.md", confidence: 0.85 }
+  decision_instructions: { status: draft, path: ".ai/agent/decision-instructions.md", confidence: 0.85 }
+  code_review_instructions: { status: draft, path: ".ai/agent/code-review-instructions.md", confidence: 0.85 }
+  documentation_profile: { status: draft, path: "doc/documentation-profile.md", confidence: 0.88 }
+  documentation_handbook: { status: draft, path: "doc/documentation-handbook.md", confidence: 0.9 }
+  templates:         { status: draft, path: "doc/templates/", confidence: 0.9 }
+  decisions_index:   { status: draft, path: "doc/decisions/00-index.md", confidence: 0.9 }
+  guides:            { status: draft, path: "doc/guides/", confidence: 0.88 }
+  doc_index:         { status: draft, path: "doc/00-index.md", confidence: 0.85 }
 
 decisions:
   # Phase 0 classifications (pending Gate 0 confirmation via PR merge)
@@ -98,6 +111,8 @@ decisions:
   - { phase: 4, text: "Confluence version.message length limit is undocumented per @external-researcher; live API spike needed at MS-0002 start.", rationale: "OPEN-Q6 answer. Atlassian v2 API docs do not specify maxLength for version.message; SPIKE-N prerequisite added to MS-0002 backlog.", date: 2026-07-05 }
   - { phase: 4, text: "CI baseline uses `continue-on-error` / `|| true` guards during inception so CI stays green with no source/tests; guards removed at MS-0002 start.", rationale: "No package.json/tsconfig/tests exist during inception. The CI scaffold establishes the target workflow shape and removes ambiguity about what CI will do.", date: 2026-07-05 }
   - { phase: 4, text: "Security baseline in doc/guides/security-baseline.md (not .ai/rules/) for visibility to non-agent readers.", rationale: "Security is a cross-cutting concern that human contributors, auditors, and stakeholders need to find easily. doc/guides/ is the canonical location for project guides; .ai/rules/ is for agent-loaded coding rules.", date: 2026-07-05 }
+  - { phase: 5, text: "doc/00-index.md customized for MarkSync (replaced ADOS-generic tools/guides entries with project-specific overview/spec/decisions/baselines links).", rationale: "The ADOS-installed 00-index referenced tools (zclaude, text-to-image) and sections not present in this repo. Phase 5 activity 6 requires verifying 00-index links match actual docs.", date: 2026-07-06 }
+  - { phase: 5, text: "PM instructions configured for GitHub Issues with lean project-specific content (no lifecycle prose duplication).", rationale: "pm_instructions_guidance: reference change-lifecycle.md, not repeat it. Tracker=GutHub Issues, squash-merge, Conventional Commits (TDR-0008), milestone tags (MS-*).", date: 2026-07-06 }
 
 assumptions:
   # risk_type: value | usability | feasibility | viability
@@ -112,5 +127,6 @@ sessions:
   - { started: 2026-07-03, phase: 2, notes: "Phase 2 scope & roadmap: drafted 02-roadmap.md (MS-0002/MVP=safe one-way publisher trust wedge; MS-0003/MLP=exceptional DX; MS-0004+ future=reverse-sync gates 2-6), assumptions.md (19 assumptions, 4 validated), risks.md (21 risks seeded by the failure premortem + red-team). ui_bearing=false so no screen-inventory/user-journeys. Pre-mortem + four-risk check reflected in the risk register. Red-team-coordinator review + Copilot PR review run; addressed 2 Critical + 6 High + Mediums + all 9 Copilot comments (NSM honesty, concurrency/identity/repair/corpus/Mermaid/drift-classification gaps, security risk, scope-realism, ≤10-min rendering, OAuth/ADR-format consistency). Reviewed ADOS retrospective issues #103/#105/#131 and proactively added backlog-reconciliation.md, failure-premortem.md, and success-pre-parade.md as Phase 2 planning controls. Added id-prefix-catalog.md to standardize grepable IDs/prefixes for future agents and backlog work, including monotonic MS-* roadmap milestone IDs. Expanded 02-roadmap.md with a detailed Next Milestone, future milestone reference subsections, and a roadmap allocation matrix for assumptions/risks/decisions/spikes/backlog triggers. Added retrospective notes for after-phase retro practice, an ADOS process glossary/acronym catalog (e.g. NSM = North Star Metric), and ADOS milestone-management guidance/templates." }
   - { started: 2026-07-04, phase: 3, notes: "Phase 3 tech stack & architecture: drafted tech-stack.md (TypeScript + Bun single-binary; remark/HAST Markdown pipeline; official Mermaid in-process via jsdom+SVG+deterministicIds; Storage render; no DB/telemetry), architecture-overview.md (ports-and-adapters CLI; C4 context+container; 16 components; module governance; push + reverse flows; Confluence v2/v1 isolation), fse-audit.md (10 AI-friendliness attributes), nonfunctional.md (NFRs incl. branch restriction, cache layout, per-version provenance, decentralized concurrency). Seeded doc/decisions/ registry. Wrote ADR-0006 (state model) — flagged must-materialize-in-Phase-3. Posted OPEN-Q1..Q5 on PR #4; human answered (migrate ADRs; create CLI/Git/testing ADRs via @decision-advisor; refine ADR-0006 with UUID v7, decentralized locking, commit-by-commit provenance, branch restriction, single cache dir). Ran @external-researcher (10-area 2026 alternatives report). Delegated ADR-0007 (Cliffy), ADR-0008 (shell-Git), ADR-0009 (bun:test) to @decision-advisor with full context. Migrated ADR-0001..0005 to doc/decisions/ (OPEN-Q1). Refined ADR-0006 (UUID v7, C-6 decentralized, version.message provenance, allowBranches, .marksync/cache CI-cacheable split). Introduced doc/inception/open-questions/phase-3-open-questions.md (durable in-git Q&A). Human answered OPEN-Q6: commit-by-commit default, squash opt-in, full/trimmed Git commit message in Confluence history; delegated ADR-0010 to @decision-advisor and updated docs/state. Retro note for the open-questions-as-files pattern. ui_bearing=false; code_project=true activates testing/CI/conventions in Phase 4." }
   - { started: 2026-07-05, phase: 4, notes: "Phase 4 domain, conventions & quality baseline: drafted glossary.md, ubiquitous-language.md, .ai/rules/testing-strategy.md (6 test tiers, over-mocking guardrail, performance scenarios), .ai/rules/typescript.md (module structure, tsconfig with verbatimModuleSyntax/isolatedModules, Result<T,E> error handling, Biome/dependency-cruiser/bunfig.toml), .github/workflows/ci.yml + run-e2e.yml, doc/guides/dev-environment.md, doc/guides/security-baseline.md, doc/guides/accessibility-baseline.md, .env.example, .editorconfig. 3 red-team rounds (all findings addressed). Owner answered OPEN-Q1..Q7: TDR-0005 (Biome), TDR-0006 (dependency-cruiser), TDR-0007 (@cucumber/cucumber), TDR-0008 (commitlint+husky). External research on version.message limit (undocumented — spike needed). Q8/Q9 deferred to MS-0002. PR comment addressed: rules stripped of process annotations." }
+  - { started: 2026-07-06, phase: 5, notes: "Phase 5 ADOS framework integration: generated AGENTS.md (root, MarkSync-customized), .ai/agent/pm-instructions.md (GitHub Issues, lean, references change-lifecycle.md), .ai/agent/pr-instructions.md (GitHub CLI gh blueprint, squash-merge policy), .ai/agent/decision-instructions.md (strategic context calibrated to MarkSync priorities + per-type decision scheme), .ai/agent/code-review-instructions.md (repo-specific checklist: safety invariants, credential security, ports-and-adapters, Result<T,E>, 6-tier testing). Created doc/documentation-profile.md (engineering-repo, business_docs_enabled=false). Customized doc/00-index.md for MarkSync (replaced ADOS-generic tools links with project overview/spec/baselines). Verified doc/documentation-handbook.md, doc/templates/, doc/decisions/00-index.md+README.md, doc/guides/ all present and consistent. All links validated." }
 
-last_updated: 2026-07-05
+last_updated: 2026-07-06
