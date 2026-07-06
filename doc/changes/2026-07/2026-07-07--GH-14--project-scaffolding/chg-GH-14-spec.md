@@ -215,7 +215,7 @@ N/A — greenfield. This is the first implementation story; there is no prior pr
 | NFR-3 | TS strict mode | all **eight** non-negotiable strict flags enabled: `strict`, `verbatimModuleSyntax`, `isolatedModules`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`, `noUncheckedSideEffectImports`, `types:["bun"]` (plus `noUnusedLocals`, `noUnusedParameters`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `skipLibCheck`, `forceConsistentCasingInFileNames` per the typescript.md target config) |
 | NFR-4 | Coverage baseline | coverage thresholds set per the Bun test config (lines/functions = 0.80) as the declared MS-0002 baseline, subject to adjustment per the typescript.md caveat (OQ-1) |
 | NFR-5 | Reproducible install | `bun install --frozen-lockfile` succeeds from a fresh clone; lockfile committed |
-| NFR-6 | Bun version pin | Bun pinned to a **concrete 1.2.x patch** in both `engines` and CI (snapshot stability, ADR-0002 C-1); the floating `"1.2"` major-minor is replaced |
+| NFR-6 | Bun version pin | Bun pinned to a **concrete 1.2.x patch** in `package.json#engines` and the fast-loop CI job matrix (snapshot stability per ADR-0002 C-1; the dependency-audit job may float since it performs no rendering); the floating `"1.2"` major-minor is replaced |
 | NFR-7 | Dependency hygiene | **no runtime dependencies**; devDependencies only (Biome, dependency-cruiser, commitlint, husky); license-audit **blocking** — rejects GPL/AGPL/LGPL/UNLICENSED (NFR-SEC-4) |
 | NFR-8 | Boundary accuracy | a deliberate barrel/alias/transitive tier violation is detected with **zero false negatives** and a named `from → to + rule` message (TDR-0006 C-1/C-2) |
 
@@ -298,6 +298,7 @@ N/A for product telemetry — this story ships no runtime code. The relevant obs
 | AC-F3-2 | **Given** a scratch file that adds a `domain → infra` import, **when** `bun run check:boundaries` runs, **then** it FAILS with a named `from → to + rule` violation (zero false negatives); removing the scratch restores green. | F-3, NFR-8 |
 | AC-F4-1 | **Given** the husky `commit-msg` hook is installed, **when** a Conventional Commits message (e.g. `feat(scaffolding): init`) is committed, **then** it is accepted. | F-4 |
 | AC-F4-2 | **Given** the husky `commit-msg` hook is installed, **when** a malformed message (e.g. `bad message`) is committed, **then** it is rejected with a rule-named diagnostic. | F-4 |
+| AC-F4-3 | **Given** a commit made with `--no-verify` (bypassing the local husky hook) that violates Conventional Commits, **when** it is pushed or a PR is opened, **then** the CI commit-message-lint job rejects it. (TDR-0008 C-2 authoritative CI half.) | F-4 |
 | AC-F5-1 | **Given** the blueprint §1 module map, **when** the skeleton is inspected, **then** all tier directories and barrel files exist per the map (presentation, application, domain sub-contexts, infrastructure adapters, shared). | F-5 |
 | AC-F6-1 | **Given** the shared-primitive modules exist, **when** they are typechecked under strict mode, **then** `Result<T,E>` and the exhaustive 12-kind `MarkSyncError` union compile with zero errors. | F-6, DM-1, DM-2 |
 | AC-F6-2 | **Given** the `MarkSyncError` exhaustive `never`-switch pattern, **when** it is typechecked, **then** it compiles (proving the union is complete and extension-safe). | F-6, DM-2 |
