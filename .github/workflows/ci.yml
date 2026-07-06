@@ -153,11 +153,17 @@ jobs:
             'doc/spec/**/*.md',
             'doc/inception/open-questions/**/*.md',
             'doc/inception/retrospective/**/*.md',
+            'doc/inception/readiness-report.md',
             'doc/inception/README.md',
             'doc/guides/dev-environment.md',
             'doc/guides/security-baseline.md',
             'doc/guides/accessibility-baseline.md',
+            'doc/00-index.md',
+            'doc/documentation-profile.md',
+            'doc/documentation-handbook.md',
             '.ai/**/*.md',
+            'AGENTS.md',
+            'README.md',
           ]
           errors = []
           for pattern in scan_globs:
