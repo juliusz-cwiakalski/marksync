@@ -62,8 +62,8 @@ JSON/NDJSON output.
 ### 3.3 Authentication
 
 - **API token** (MS-0002 default): email + token from env vars or OS keyring.
-- **Env vars** (CI): `MARKSYNC_CONFLUENCE_TOKEN`, `MARKSYNC_CONFLUENCE_EMAIL`,
-  `MARKSYNC_CONFLUENCE_BASE_URL`.
+- **Env vars** (CI): `MARKSYNC_USER_EMAIL`, `MARKSYNC_API_TOKEN`,
+  `MARKSYNC_CONFLUENCE_BASE_URL` (canonical — see `.env.example`).
 - **keytar keychain** (OPEN-Q8, deferred): OS keyring integration; env-token is
   the guaranteed path.
 

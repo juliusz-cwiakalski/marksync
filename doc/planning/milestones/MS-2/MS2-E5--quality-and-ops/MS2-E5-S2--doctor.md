@@ -10,7 +10,7 @@ estimate: 1.5d
 gh_issue: GH-30
 feature_spec: doc/spec/features/feature-cli.md
 decisions: []
-dependencies: { blocks: [], blocked_by: [MS2-E2-S3] }
+dependencies: { blocks: [], blocked_by: [MS2-E2-S2, MS2-E2-S3, MS2-E2-S4, MS2-E3-S4] }
 cross_cutting: [R-USA-1, R-FEA-10, NFR-OBS-4]
 ---
 

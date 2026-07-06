@@ -11,16 +11,18 @@ gh_issue: GH-18
 feature_spec: doc/spec/features/feature-safe-publish.md
 decisions: [ADR-0006]
 dependencies: { blocks: [MS2-E3-S2, MS2-E3-S5, MS2-E3-S6], blocked_by: [MS2-E2-S1, MS2-E2-S2] }
-cross_cutting: [INV-SAFE-2]
+cross_cutting: [INV-SAFE-3]
 ---
 
 # MS2-E3-S1 — Document identity (UUID v7) + front-matter binding
 
 ## Goal
-Immutable MarkSync document identity: a **UUID v7** generated at first-publish and stored in source front-matter (`marksync.uuid`); **duplicate-UUID detection is FATAL before any write** (INV-SAFE-2). The Confluence page ID is the remote identity (mutable, recorded in the lock — E3-S2).
+Immutable MarkSync document identity: a **UUID v7** generated at first-publish and stored in source front-matter (`marksync.uuid`); **duplicate-UUID detection is FATAL before any write** (INV-SAFE-3). The Confluence page ID is the remote identity (mutable, recorded in the lock — E3-S2).
 
 ## Background
 This is the identity half of ADR-0006 (C-1 identity survives clones/branches/renames; C-4 duplicate fatal). Identity is SEPARATE from the shared base (E3-S2) and the cache. Getting identity wrong is a brand-defining failure (R-VAL-4). UUID v7 (not v4/KSUID) chosen for time-sortability + library solidity (blueprint §9). Depends on E2-S2 (front-matter parsing).
+
+> **Invariant naming note:** duplicate-UUID-fatal = `INV-SAFE-3` per the canonical `id-prefix-catalog.md` (INV-SAFE-1 = no silent overwrite; INV-SAFE-2 = no silent re-create of REMOTE_MISSING; INV-SAFE-3 = duplicate-UUID fatal).
 
 ## Detailed scope (deliverables)
 1. **`src/domain/identity/uuid.ts`** — `generateUuidV7(): string` (via `uuid` v9+ `v7()`), `isUuidV7(s)`, `assertUuidV7(s)`.
@@ -38,12 +40,12 @@ This is the identity half of ADR-0006 (C-1 identity survives clones/branches/ren
 
 ## Interface contracts (what other stories consume)
 - `DocumentId` type + `generateUuidV7` consumed by `init`, `push-flow` (E3-S6), and lock (E3-S2).
-- `detectDuplicateUuids()` consumed by E3-S6 as the pre-write safety gate (INV-SAFE-2).
+- `detectDuplicateUuids()` consumed by E3-S6 as the pre-write safety gate (INV-SAFE-3).
 - `PageBinding` type consumed by E3-S2 (lock), E3-S5 (drift), E3-S6 (sync).
 - `readUuid`/`injectUuid` consumed by the markdown pipeline (E3-S3) and config overrides.
 
 ## Acceptance criteria (testable)
-- [ ] **INV-SAFE-2:** a fixture with two docs sharing `marksync.uuid` → `detectDuplicateUuids` returns `err(DuplicateUuid)` listing both paths; an integration-level assertion (in E3-S6 or here) proves ZERO writes occur. (BDD scenario in E5-S1 covers the end-to-end invariant.)
+- [ ] **INV-SAFE-3:** a fixture with two docs sharing `marksync.uuid` → `detectDuplicateUuids` returns `err(DuplicateUuid)` listing both paths; an integration-level assertion (in E3-S6 or here) proves ZERO writes occur. (BDD scenario in E5-S1 covers the end-to-end invariant.)
 - [ ] `generateUuidV7` produces a v7 (time-sortable prefix; matches the v7 regex).
 - [ ] `injectUuid` is idempotent: running twice yields the same UUID and the same doc bytes (minus whitespace normalization which must be NONE — byte-stable).
 - [ ] A doc moved/renamed (different `sourcePath`) retains its UUID (identity independent of path — ADR-0006 C-1).

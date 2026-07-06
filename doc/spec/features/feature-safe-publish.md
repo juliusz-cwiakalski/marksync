@@ -55,8 +55,9 @@ conflict classification that **refuses to silently overwrite remote work**.
 - **Lock file:** committed, versioned — records the shared base (last known
   remote state per document). Survives clones/branches/CI.
 - **Drift detection:** classifies each document as `NO_CHANGE` /
-  `REMOTE_BEHIND` / `REMOTE_AHEAD` / `DIVERGED` / `REMOTE_MISSING` using
-  canonical semantic hashing (raw + canonical + normalized + attachment).
+  `LOCAL_AHEAD` / `REMOTE_AHEAD` / `DIVERGED` / `REMOTE_MISSING` /
+  `LOCAL_MISSING` using canonical semantic hashing (raw + canonical +
+  normalized + attachment).
 - **Safe publish:** create / update / no-op / move based on drift
   classification. Unsafe overwrites blocked by default.
 - **Concurrency control:** decentralized optimistic concurrency — Confluence 409
@@ -100,7 +101,7 @@ a `TargetSystem` port. The Confluence adapter is the sole implementation.
 | Markdown pipeline | remark/HAST → Storage Format conversion (canonical GFM subset) |
 | Identity service | UUID v7 assignment, front-matter management |
 | State manager | Lock file read/write, cache management, drift comparison |
-| Drift classifier | Canonical hash comparison → `NO_CHANGE` / `REMOTE_BEHIND` / etc. |
+| Drift classifier | Canonical hash comparison → `NO_CHANGE` / `LOCAL_AHEAD` / etc. |
 | Sync engine | Orchestrates plan → apply per document; journal/replay |
 | Confluence adapter | `TargetSystem` port implementation (v2/v1 API) |
 
@@ -114,15 +115,17 @@ a `TargetSystem` port. The Confluence adapter is the sole implementation.
 
 ## 5. Acceptance criteria (cross-cutting)
 
-- [ ] **INV-SAFE-1:** A remotely-deleted managed page is never silently
-      re-created.
-- [ ] **INV-SAFE-2:** Duplicate UUID is fatal before any write.
-- [ ] **INV-SAFE-3:** Two overlapping CI plans: older must not overwrite newer.
+- [ ] **INV-SAFE-1:** No silent overwrite — a `REMOTE_AHEAD`/`DIVERGED`
+      document is blocked, never auto-overwritten.
+- [ ] **INV-SAFE-2:** A remotely-deleted managed page is never silently
+      re-created (`REMOTE_MISSING` blocked without `--adopt`/`--rebind`).
+- [ ] **INV-SAFE-3:** Duplicate UUID is fatal before any write.
+- [ ] **NFR-REL-5:** Two overlapping CI plans: older must not overwrite newer.
 - [ ] **INV-SEC-1:** No credential appears in any output path (logs, plans,
       state, diagnostics, `version.message`, cache).
 - [ ] Semantic idempotency: second unchanged push writes 0 pages.
-- [ ] Drift classification: `NO_CHANGE` / `REMOTE_BEHIND` / `REMOTE_AHEAD` /
-      `DIVERGED` / `REMOTE_MISSING` all correctly detected.
+- [ ] Drift classification: `NO_CHANGE` / `LOCAL_AHEAD` / `REMOTE_AHEAD` /
+      `DIVERGED` / `REMOTE_MISSING` / `LOCAL_MISSING` all correctly detected.
 
 ## 6. References
 

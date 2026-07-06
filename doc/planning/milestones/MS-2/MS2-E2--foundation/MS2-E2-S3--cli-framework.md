@@ -11,7 +11,7 @@ gh_issue: GH-16
 feature_spec: doc/spec/features/feature-cli.md
 decisions: [ADR-0011, TDR-0002]
 dependencies: { blocks: [MS2-E3, MS2-E5-S2], blocked_by: [MS2-E2-S1] }
-cross_cutting: [INV-SEC-1, NFR-A11Y-1]
+cross_cutting: [INV-SEC-1, NFR-SEC-2, NFR-OBS-1, NFR-OBS-2, NFR-A11Y-1, NFR-A11Y-2]
 ---
 
 # MS2-E2-S3 — CLI framework + CommandResult<T> + centralized redaction
@@ -50,6 +50,7 @@ ADR-0011 is explicit: **structured result + generic JSON + optional per-command 
 - [ ] **INV-SEC-1:** a `CommandResult` containing a synthetic token-shaped string in any field → emitted JSON/human output contains NO token (redaction verified by grep test on captured stdout).
 - [ ] Every stub command produces valid JSON with `--json` (parseable; matches pinned snapshot).
 - [ ] Piped output (`... | cat`) contains zero ANSI color codes; `--color` forces them; `--no-color` always disables (NFR-A11Y-1).
+- [ ] **NFR-A11Y-2 (plain-log/screen-reader mode):** `--no-color --output=human` produces plain-text output readable by screen readers / plain-log pipelines (no table box-drawing chars, no ANSI).
 - [ ] Adding a new stub command requires ZERO changes to `json.ts`/`human.ts`/`redact.ts` (ADR-0011 C-3) — verify by adding one in a test.
 - [ ] Exit codes map correctly: feed a synthetic `{error:{code:"CONFLICT"}}` → process exits 30.
 - [ ] `registerHumanFormatter` produces richer output than the generic fallback for a registered command; unregistered commands use the fallback.

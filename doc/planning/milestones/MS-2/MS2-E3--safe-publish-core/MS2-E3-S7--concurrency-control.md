@@ -10,14 +10,16 @@ estimate: 2d
 gh_issue: GH-24
 feature_spec: doc/spec/features/feature-safe-publish.md
 decisions: [ADR-0006]
-dependencies: { blocks: [], blocked_by: [MS2-E3-S4] }
-cross_cutting: [INV-SAFE-3, R-FEA-7, NFR-REL-5, NFR-REL-10]
+dependencies: { blocks: [], blocked_by: [MS2-E3-S4, MS2-E3-S6] }
+cross_cutting: [NFR-REL-5, NFR-REL-10, R-FEA-7]
 ---
 
 # MS2-E3-S7 — Concurrency control (decentralized optimistic)
 
 ## Goal
-Decentralized optimistic concurrency so two overlapping CI runs (on separate machines, NO shared service) can never let the older plan overwrite the newer (INV-SAFE-3, ADR-0006 C-5/C-6, NFR-REL-5/10). Mechanism: Confluence 409 on stale `version.number` + **operation-ID dedup** + **stale-plan expiry** + CI concurrency-group templates.
+Decentralized optimistic concurrency so two overlapping CI runs (on separate machines, NO shared service) can never let the older plan overwrite the newer (NFR-REL-5 / NFR-REL-10, ADR-0006 C-5/C-6). Mechanism: Confluence 409 on stale `version.number` + **operation-ID dedup** + **stale-plan expiry** + CI concurrency-group templates.
+
+> **Invariant naming note:** concurrency safety is `NFR-REL-5`/`NFR-REL-10` (NOT `INV-SAFE-*`). The `INV-SAFE-*` IDs are: 1=no silent overwrite, 2=no silent re-create of REMOTE_MISSING, 3=duplicate-UUID fatal (per `id-prefix-catalog.md`).
 
 ## Background
 ADR-0006 C-6: no shared coordination service — all exchange lives in Git (lock) + Confluence (409). This is the **write-time** backstop that complements the pre-write classifier (E3-S5). At ≤500 pages / ≤10 runners, 409-retry is manageable; pessimistic leasing adds crash-recovery complexity for no extra safety.
@@ -41,7 +43,7 @@ ADR-0006 C-6: no shared coordination service — all exchange lives in Git (lock
 - CI concurrency templates consumed by users (docs).
 
 ## Acceptance criteria (testable)
-- [ ] **INV-SAFE-3 / NFR-REL-5:** a concurrency integration test — two overlapping plans against a mock target where plan A (older op-id) and plan B (newer op-id) both attempt the same page: B succeeds; A's apply sees B's newer operation-id in the property → A aborts with `StalePlan`, no overwrite. (BDD in E5-S1.)
+- [ ] **NFR-REL-5:** a concurrency integration test — two overlapping plans against a mock target where plan A (older op-id) and plan B (newer op-id) both attempt the same page: B succeeds; A's apply sees B's newer operation-id in the property → A aborts with `StalePlan`, no overwrite. (BDD in E5-S1.)
 - [ ] **NFR-REL-10 (decentralized):** the same scenario with NO shared service between the two runners (separate mock target instances sharing state via the mock) → still safe (409 + dedup).
 - [ ] Stale-plan: a plan timestamped > 15 min ago → `StalePlan{expiredAt}` on apply.
 - [ ] 409 policy: a `Conflict` → re-fetch+reclassify once; if still `REMOTE_AHEAD`/`DIVERGED` → block (drift); if now safe → reapply.
@@ -53,7 +55,7 @@ ADR-0006 C-6: no shared coordination service — all exchange lives in Git (lock
 |---|---|
 | Unit | operation-id ordering (older vs newer), stale-plan expiry boundary, 409 decision function (reapply vs block) |
 | Integration | two-runner overlap against a shared-state mock target (B wins, A aborts); 409 re-fetch+reclassify path |
-| BDD | INV-SAFE-3 (overlapping plans) wired by E5-S1 |
+| BDD | NFR-REL-5 (overlapping plans) wired by E5-S1 |
 
 ## Definition of Done
 Operation-ID dedup + stale-plan expiry + 409-once policy + CI templates; two overlapping plans never let older overwrite newer; decentralized (no shared service). AC list is the DoD.
