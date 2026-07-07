@@ -304,15 +304,19 @@ scripts.
 
 **Tasks**:
 
-- [ ] **3.1** Create `biome.json` — Biome recommended lint + format rules
-      (DEC-4: enable recommended rules only; do **not** add bespoke rules).
-      Scope lint/format to the project source/test surface as appropriate.
-- [ ] **3.2** Confirm the `lint`, `format`, and `format:check` script bodies in
-      `package.json` invoke the Biome CLI correctly (per `typescript.md`
-      §"Linting and formatting").
-- [ ] **3.3** Run `bun run format` to normalize any existing files, then
-      `bun run lint` and `bun run format:check`; confirm both exit 0 on the
-      present tree.
+- [x] **3.1** Created `biome.json` (Biome v2.5.2): recommended lint + format preset
+      (`linter.rules.preset:"recommended"`, DEC-4 — no bespoke rules), `vcs.useIgnoreFile:true`,
+      tab indent, double quotes. Scoped via `files.includes` to **project source
+      only** (`src/**`, `tests/**`, root `*.ts/*.js/*.cjs/*.mjs/*.json/*.jsonc/*.css`)
+      with `!bun.lock`/`!bun.lockb` exclusions — keeps inception spike artifacts
+      (`spikes/**`) and doc JSON out of scope (initial broad glob was narrowed after
+      it touched out-of-scope tracked files, all reverted).
+- [x] **3.2** Confirmed `lint`=`biome lint .`, `format`=`biome format --write .`,
+      `format:check`=`biome format .` (read-only, exits non-zero on unformatted
+      files without writing) invoke the Biome CLI correctly per typescript.md.
+- [x] **3.3** Ran `bun run format` (normalized `package.json`/`tsconfig.json` to
+      Biome formatting; `bun.lock` excluded/unchanged); `bun run lint` exits 0
+      (AC-F2-1) and `bun run format:check` exits 0 (AC-F2-2) on the present tree.
 
 **Acceptance Criteria**:
 
@@ -729,6 +733,7 @@ final whole-repo `bun run check`, confirm there is no version bump
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
 | 2 — tsconfig + bunfig | DONE | 2026-07-07 | 2026-07-07 | (phase 2 commit) | Strict tsconfig (8 flags verbatim) + bunfig.toml + no-op Mermaid preload. Justified deviation: added `@types/bun` + `typescript` devDeps (plan's non-negotiable `types:["bun"]` needs Bun types; `typescript.md` "no package needed" claim is inaccurate). typecheck green verified with sample Bun global. |
+| 3 — Biome | DONE | 2026-07-07 | 2026-07-07 | (phase 3 commit) | biome.json (recommended preset, DEC-4) scoped to project source; `lint` exit 0 (AC-F2-1), `format:check` exit 0 (AC-F2-2); package.json/tsconfig.json normalized to Biome formatting. |
 | 1 — manifest, hygiene, install | DONE | 2026-07-07 | 2026-07-07 | (phase 1 commit) | Bun pinned 1.2.23; package.json ESM + `#imports` aliases + 5 devDeps (no runtime deps); `bun.lock` text committed; `--frozen-lockfile` reproducible. Bun 1.2.23 used for delivery (local 1.1.34 emits binary `bun.lockb`). |
 | 2 — tsconfig + bunfig | pending | | | | typecheck green verified in Phase 6 (TS18003) |
 | 3 — Biome | pending | | | | |
