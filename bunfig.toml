@@ -1,0 +1,15 @@
+# bunfig.toml — Bun test configuration (single source of truth for the test harness).
+# See .ai/rules/typescript.md §"Bun configuration (bunfig.toml)".
+[test]
+# Test root and discovery.
+root = "tests"
+
+# Mermaid-DOM preload — registers the happy-dom global registrant before tests.
+# This ensures Mermaid tests work without passing --preload on every invocation.
+# DEC-5 / CEO R1: this is a no-op stub until E4-S1 (MS2-E4) populates it.
+preload = ["./tests/mermaid.preload.ts"]
+
+# Coverage (target thresholds — adjust based on MS-0002 baseline; spec OQ-1).
+coverage = true
+coverageThreshold = { lines = 0.80, functions = 0.80 }
+coverageDir = "./coverage"

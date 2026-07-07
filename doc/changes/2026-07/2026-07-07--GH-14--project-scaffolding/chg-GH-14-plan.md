@@ -246,30 +246,34 @@ Mermaid preload, coverage baseline) plus the no-op preload stub.
 
 **Tasks**:
 
-- [ ] **2.1** Create `tsconfig.json` **exactly** as `typescript.md`
-      §"TypeScript configuration (target)" — copy the target config verbatim;
-      do **not** weaken any flag. The eight non-negotiable strict flags (NFR-3)
-      must all be enabled: `strict`, `verbatimModuleSyntax`, `isolatedModules`,
-      `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`,
-      `noImplicitOverride`, `noUncheckedSideEffectImports`, `types:["bun"]`
-      (plus `noUnusedLocals`, `noUnusedParameters`, `noImplicitReturns`,
-      `noFallthroughCasesInSwitch`, `skipLibCheck`,
-      `forceConsistentCasingInFileNames`). `include: ["src/**/*.ts"]`,
-      `exclude: ["node_modules", "dist", "tests"]`.
-- [ ] **2.2** Create `bunfig.toml` per `typescript.md`: `[test] root = "tests"`,
-      `preload = ["./tests/mermaid.preload.ts"]`, `coverage = true`,
-      `coverageThreshold = { lines = 0.80, functions = 0.80 }`,
-      `coverageDir = "./coverage"`. (OQ-1: the 0.80 baseline is the declared
-      MS-0002 baseline; if unsatisfiable on type-only modules, set a documented
-      lower baseline in Phase 7 and revisit at MS-0002 end.)
-- [ ] **2.3** Create `tests/mermaid.preload.ts` as a **no-op stub** (DEC-5 / R1)
-      — an empty module / harmless import with a comment that E4-S1 (MS2-E4)
-      populates the happy-dom global registrant here. Must not warn or fail under
-      the pinned Bun.
-- [ ] **2.4** Confirm `bun run typecheck` and `bun test` are resolvable scripts
-      (the green runs are verified in Phase 6/7 once `src/` files exist — `tsc`
-      emits TS18003 "No inputs were found" on an empty `src/**/*.ts` include glob,
-      so the typecheck-pass gate is intentionally deferred to Phase 6).
+- [x] **2.1** Created `tsconfig.json` copied **verbatim** from `typescript.md`
+      §"TypeScript configuration (target)" — all eight non-negotiable strict flags
+      enabled (`strict`, `verbatimModuleSyntax`, `isolatedModules`,
+      `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`,
+      `noUncheckedSideEffectImports`, `types:["bun"]` + secondary flags); no flag
+      weakened. Verified `tsc --noEmit` exits 0 against a Bun-global sample
+      (`Bun.version`) with no TS5053 (declaration+--noEmit) and no TS2688
+      (types:["bun"] resolves via @types/bun). **Deviation (justified):** the
+      plan's non-negotiable `types:["bun"]` requires a Bun type-definition
+      package; `typescript.md`'s claim "no separate @types/bun needed" is
+      factually inaccurate (TS2688 without it). Added `@types/bun@^1.3.14` (dev-
+      only, MIT, zero runtime/binary impact) and made `typescript@^6.0.3` an
+      explicit devDep (was only transitive via dependency-cruiser) so the
+      typechecker is a stable, declared dependency — both required to honour the
+      non-negotiable tsconfig without weakening it. Rationale recorded in the
+      Execution Log deviation note.
+- [x] **2.2** Created `bunfig.toml` per `typescript.md`: `[test] root="tests"`,
+      `preload=["./tests/mermaid.preload.ts"]`, `coverage=true`,
+      `coverageThreshold={lines=0.80,functions=0.80}`, `coverageDir="./coverage"`.
+      (OQ-1: 0.80 baseline is the declared default; verified/revisited in Phase 7
+      against type-only scaffolding coverage.)
+- [x] **2.3** Created `tests/mermaid.preload.ts` as a no-op stub (DEC-5 / R1) —
+      `export {}` + comment that E4-S1 (MS2-E4) populates the happy-dom
+      registrant. No warnings/failures when loaded by Bun (verified in Phase 7).
+- [x] **2.4** Confirmed `bun run typecheck` resolves and runs (`tsc --noEmit`);
+      green-pass gate intentionally deferred to Phase 6 (empty `src/**/*.ts` glob
+      would emit TS18003 "No inputs were found"). `bun test` script resolves
+      (green run verified in Phase 7 once the smoke test exists).
 
 **Acceptance Criteria**:
 
@@ -724,6 +728,7 @@ final whole-repo `bun run check`, confirm there is no version bump
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
+| 2 — tsconfig + bunfig | DONE | 2026-07-07 | 2026-07-07 | (phase 2 commit) | Strict tsconfig (8 flags verbatim) + bunfig.toml + no-op Mermaid preload. Justified deviation: added `@types/bun` + `typescript` devDeps (plan's non-negotiable `types:["bun"]` needs Bun types; `typescript.md` "no package needed" claim is inaccurate). typecheck green verified with sample Bun global. |
 | 1 — manifest, hygiene, install | DONE | 2026-07-07 | 2026-07-07 | (phase 1 commit) | Bun pinned 1.2.23; package.json ESM + `#imports` aliases + 5 devDeps (no runtime deps); `bun.lock` text committed; `--frozen-lockfile` reproducible. Bun 1.2.23 used for delivery (local 1.1.34 emits binary `bun.lockb`). |
 | 2 — tsconfig + bunfig | pending | | | | typecheck green verified in Phase 6 (TS18003) |
 | 3 — Biome | pending | | | | |
