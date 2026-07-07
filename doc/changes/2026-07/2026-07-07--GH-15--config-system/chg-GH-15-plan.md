@@ -2,9 +2,9 @@
 # Copyright (c) 2025-2026 Juliusz Ćwiąkalski (https://www.cwiakalski.com | https://www.linkedin.com/in/juliusz-cwiakalski/ | https://x.com/cwiakalski)
 # MIT License - see LICENSE file for full terms
 id: chg-GH-15-config-system
-status: Proposed
+status: Updated
 created: 2026-07-07T04:04:09Z
-last_updated: 2026-07-07T04:04:09Z
+last_updated: 2026-07-07T04:23:40Z
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 labels: [MS-0002, MS2-E2, foundation, critical]
@@ -55,7 +55,7 @@ The plan is derived entirely from `chg-GH-15-spec.md` (capabilities F-1..F-8,
 ACs AC-F3-1..AC-F8-1, NFRs NFR-1..NFR-7) and the authoritative story file
 `MS2-E2-S2--config-system.md` (8 deliverables). It invents no requirements.
 
-### Binding decisions (from spec §15 — these constrain the plan)
+### Binding decisions (DEC-1..DEC-4 from spec §15 constrain the plan; DEC-5 is a plan-level commitment)
 
 - **DEC-1** — use the `yaml` npm package (ESM) for **both** `marksync.yml` and
   front-matter parsing (single dependency, fewer transitive deps than `js-yaml`).
@@ -67,6 +67,15 @@ ACs AC-F3-1..AC-F8-1, NFRs NFR-1..NFR-7) and the authoritative story file
   union **and** `assertNeverMarkSyncError` are updated together.
 - **DEC-4** — the loader is pure w.r.t. the repo tree: `selectFiles` takes a
   caller-supplied `string[]`; no Git I/O inside the loader.
+- **DEC-5** *(plan-level commitment — resolves DoR iter-1 Finding 3)* —
+  `selectFiles` glob matching uses a **zero-dependency hand-rolled matcher** at
+  `src/shared/glob.ts` with standard micromatch-style semantics (`**` recursive,
+  `*` single segment, `?`, nested directories). **No** `picomatch` (or any other
+  third-party glob library) is added as a dependency. This deliberately preserves
+  the spec's NFR-7 runtime-dependency envelope (`yaml` + `ajv` only — both
+  pre-approved on `typescript.md`'s allowed-dependency list), so **no
+  allowed-dependency list extension and no TDR are required**. `src/shared/`
+  remains a pure utility namespace (string/path logic only; imports no tier).
 
 ### Critical ordering constraint
 
@@ -77,15 +86,15 @@ precedes Phase 4.
 
 ### Open questions
 
-- **Glob matcher for `selectFiles` (RSK-6, spec OQ-2).** `typescript.md`'s
-  allowed-dependency list names only `yaml` + `ajv` for this story; no glob
-  library is pre-approved. **Decision needed at delivery** (Phase 1 task):
-  (a) add a tiny zero-dependency matcher such as `picomatch` (MIT, ~0 transitive
-  deps — recommended; closes RSK-6 with battle-tested `**` semantics), or
-  (b) hand-roll a minimal matcher in `src/shared/glob.ts` (`*`, `**`, `?`,
-  leading-slash anchoring). If (a), extend Phase 1's license/transitive audit to
-  cover it. Glob **anchoring** semantics relative to `root` (spec OQ-2) must be
-  documented and unit-tested whichever option is chosen.
+- **Glob anchoring semantics for `selectFiles` (spec OQ-2).** The matcher
+  library is **committed** — see DEC-5: a zero-dependency hand-rolled matcher at
+  `src/shared/glob.ts` (micromatch-style `**` / nested-dir semantics); `picomatch`
+  is **not** added, preserving the NFR-7 `yaml` + `ajv` envelope. The remaining
+  delivery-time detail is the exact **anchoring** behavior relative to `root`
+  (leading-slash anchored vs glob-relative) — this must be documented in a
+  comment and unit-tested at the `selectFiles` definition site (Phase 5).
+  *(Specification detail — no `@decision-advisor` escalation unless it surfaces a
+  contract conflict.)*
 - **`marksync init` as a live command.** `src/cli/index.ts` is a trivial
   `console.log("marksync 0.0.0")` stub; there is no CLI bootstrap / `bin` entry
   yet (Cliffy is pinned post smoke-test per TDR-0002, not installed). Phase 8
@@ -171,8 +180,9 @@ precedes Phase 4.
   keys, CRLF). Mitigated by tolerating absent front-matter and unit-testing edge
   cases (Phase 6).
 - **RSK-6** — `selectFiles` glob semantics diverge from Git expectations.
-  Mitigated by the Phase 1 glob-library decision + documented anchoring +
-  fixture-based unit tests (Phase 5).
+  Mitigated by the committed zero-dependency hand-roll at `src/shared/glob.ts`
+  (DEC-5, Phase 1) with documented anchoring + fixture-based unit tests
+  (Phase 5).
 
 ### Success Metrics
 
@@ -203,7 +213,8 @@ precedes Phase 4.
 ### Phase 1: Runtime dependencies & scaffolding
 
 **Goal**: Add the two runtime dependencies (`yaml`, `ajv`) this story requires,
-resolve the glob-matcher micro-decision, and prove dependency hygiene (license +
+land the committed zero-dependency glob matcher at `src/shared/glob.ts` (DEC-5 —
+no third-party glob library), and prove dependency hygiene (license +
 transitive-dep thresholds + unchanged tier boundaries) before any config code
 lands.
 
@@ -212,14 +223,21 @@ lands.
 - [ ] **1.1** Add `yaml` (ESM) and `ajv` to `package.json` `dependencies` (both
       are on the allowed-dependency list in `typescript.md`); pin with `^` and
       commit the updated lockfile (`bun install`).
-- [ ] **1.2** Resolve the **glob-matcher decision** (RSK-6, spec OQ-2): add a
-      tiny zero-dependency matcher (`picomatch` recommended) **or** plan a
-      minimal hand-rolled matcher in `src/shared/glob.ts`. If adding a dep,
-      include it here and extend the audit below; record the choice + anchoring
-      semantics in a code comment at the `selectFiles` definition site (Phase 5).
-- [ ] **1.3** Verify transitive-dependency thresholds (`yaml` ≤ 20; `ajv` and any
-      glob lib likewise) via `bunx license-checker --summary` (or
-      `bunx npm ls <pkg>`). Record the counts in the commit body.
+- [ ] **1.2** Implement the **committed zero-dependency glob matcher** at
+      `src/shared/glob.ts` (DEC-5 — resolves DoR iter-1 Finding 3 / RSK-6 /
+      spec OQ-2 matcher-library sub-question). Standard micromatch-style
+      semantics: `**` (recursive across directory levels), `*` (single path
+      segment), `?` (single char), nested-directory patterns. **No** `picomatch`
+      (or any third glob library) is added — this preserves the spec's NFR-7
+      runtime-dep envelope (`yaml` + `ajv` only) and requires **no**
+      allowed-dependency list extension or TDR. `src/shared/` stays a pure
+      utility (string/path logic; imports no tier). The genuinely-remaining open
+      detail — anchoring semantics relative to `root` (spec OQ-2) — is documented
+      and unit-tested at the `selectFiles` site in Phase 5.
+- [ ] **1.3** Verify transitive-dependency thresholds (`yaml` ≤ 20; `ajv`
+      likewise; the glob matcher is zero-dependency so no threshold applies) via
+      `bunx license-checker --summary` (or `bunx npm ls <pkg>`). Record the
+      counts in the commit body.
 - [ ] **1.4** Verify license hygiene — reject GPL/AGPL/LGPL/UNLICENSED
       (NFR-SEC-4); MIT/ISC/Apache-2.0/BSD are acceptable.
 - [ ] **1.5** Confirm the quality gate baseline still passes after the dep
@@ -230,17 +248,23 @@ lands.
 
 - Must: `yaml` and `ajv` resolvable at runtime; `bun install` clean.
 - Must: no dependency exceeds the transitive-dep threshold; no forbidden license.
+- Must: **no** third-party glob dependency introduced — matcher is the
+      zero-dependency `src/shared/glob.ts` (DEC-5); NFR-7 `yaml` + `ajv`
+      envelope unchanged.
 - Must: `bun run check:boundaries` exits 0 (no new tier violation from imports).
-- Should: glob-matcher choice recorded with rationale (unblocks Phase 5).
+- Should: `src/shared/glob.ts` ships with `**` / `*` / nested-dir semantics
+      unit-tested (unblocks Phase 5).
 
 **Files and modules**:
 
-- Code areas: `package.json` (updated), `bun.lock` (updated); optionally
-  `src/shared/glob.ts` (new) if the hand-roll option is chosen.
+- Code areas: `package.json` (updated), `bun.lock` (updated),
+  `src/shared/glob.ts` (new — DEC-5 zero-dependency matcher).
 - System docs: none.
 
 **Tests**:
 
+- `bun test tests/unit/shared/glob.test.ts` — matcher semantics (`**`, `*`, `?`,
+  nested dirs).
 - `bun run typecheck` — no type errors introduced.
 - `bun run check:boundaries` — `depcruise src` clean.
 - Manual license/transitive audit (scripted via `bunx license-checker`).
@@ -442,9 +466,11 @@ given a caller-supplied path list (DEC-4 / NFR-4).
 **Tasks**:
 
 - [ ] **5.1** Implement `selectFiles(config, paths)` in `src/app/config.ts`
-      using the matcher chosen in Phase 1 (`picomatch` or `src/shared/glob.ts`).
-      Document the chosen **anchoring** semantics relative to `root`
-      (leading-slash anchored vs glob-relative — spec OQ-2) in a comment.
+      importing the zero-dependency matcher from `#shared/glob`
+      (`src/shared/glob.ts`, authored in Phase 1 per DEC-5). Document the chosen
+      **anchoring** semantics relative to `root` (leading-slash anchored vs
+      glob-relative — spec OQ-2, the remaining open detail) in a comment at the
+      definition site.
 - [ ] **5.2** Ensure determinism: de-duplicate and sort the output so selection
       is stable across runs (consumed downstream by discovery/plan).
 - [ ] **5.3** Create `tests/unit/app/select-files.test.ts` — fixture file lists
@@ -462,8 +488,8 @@ given a caller-supplied path list (DEC-4 / NFR-4).
 
 **Files and modules**:
 
-- Code areas: `src/app/config.ts` (updated); `src/shared/glob.ts` (new) **only
-  if** the Phase 1 hand-roll option was chosen.
+- Code areas: `src/app/config.ts` (updated); consumes `src/shared/glob.ts` via
+  `#shared/glob` (authored in Phase 1 — no change to the matcher here).
 - System docs: none.
 
 **Tests**:
@@ -645,7 +671,11 @@ including a `marksync.yml.example` round-trip through `loadConfig`.
       and `doc/overview/glossary.md` (add/confirm `ProjectConfig`, `TargetConfig`,
       `ConfigError`, `selectFiles`, hierarchy mirroring, front-matter overrides),
       and optionally refresh the `MarkSyncError` illustration in
-      `.ai/rules/typescript.md` to the 13-kind union. Note any drift for the
+      `.ai/rules/typescript.md` to the 13-kind union. Confirm
+      `.ai/rules/typescript.md`'s allowed-dependency list requires **no**
+      extension and **no TDR** is needed: DEC-5 introduced zero new runtime
+      dependencies (glob matching is a hand-rolled `src/shared/` utility), so the
+      NFR-7 `yaml` + `ajv` envelope is unchanged. Note any drift for the
       reviewer.
 - [ ] **9.4** Apply the version bump per repo conventions for
       `version_impact: minor` (e.g., `package.json` `0.0.0` → `0.1.0`); update
@@ -738,13 +768,21 @@ including a `marksync.yml.example` round-trip through `loadConfig`.
      (phase 5 DoR). Each accepted finding becomes a checked task with a target
      phase and commit. -->
 
-- [ ] _(no review findings yet)_
+- [x] **DoR iter-1 / Finding 3 [minor]** — Glob-matcher dependency not routed
+      through allowed-list (plan contemplated unapproved `picomatch` as a third
+      runtime dep). **Resolution (plan iter-2):** committed to a zero-dependency
+      hand-rolled matcher at `src/shared/glob.ts` (binding decision **DEC-5**);
+      `picomatch` is **not** added; spec NFR-7 `yaml` + `ajv` envelope preserved;
+      no allowed-dependency list extension or TDR required. Reflected in Phase 1
+      (author `src/shared/glob.ts` + `tests/unit/shared/glob.test.ts`), Phase 5
+      (consume via `#shared/glob`), Phase 9 (confirm no list extension).
 
 ## Plan Revision Log
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-07 | plan-writer (GH-15) | Initial plan — 9 phases derived from `chg-GH-15-spec.md` (F-1..F-8) and story `MS2-E2-S2`; phases ordered so the `InvalidConfig` union/`never`-check extension (Phase 2) precedes the loader (Phase 4) per NFR-3/RSK-2; final phase includes version bump + spec reconciliation + full `bun run check` gate. |
+| 1.1 | 2026-07-07 | plan-writer (GH-15, DoR iter-2) | Resolves DoR iter-1 Finding 3 [minor] — glob matcher not routed through allowed-list. **Committed** to a zero-dependency hand-rolled matcher at `src/shared/glob.ts` (new binding decision **DEC-5**): micromatch-style `**` / `*` / nested-dir semantics; `picomatch` is **not** added. Preserves the spec NFR-7 `yaml` + `ajv` runtime-dep envelope → no allowed-dependency list extension and no TDR required. Reflected in: Open questions (library resolved; anchoring OQ-2 remains), RSK-6 mitigation, Phase 1 (Goal, 1.2 author task + `tests/unit/shared/glob.test.ts`, 1.3 threshold wording, acceptance, files), Phase 5 (5.1 imports `#shared/glob`; files consume-only), Phase 9 (9.3 explicit no-list-extension/no-TDR confirmation). No phasing, tier placement, or other deliverable changed. |
 
 ## Execution Log
 
