@@ -1,0 +1,38 @@
+change_id: GH-15
+title: "[MS2-E2-S2] Config system"
+branch: feat/GH-15/config-system
+change_folder: doc/changes/2026-07/2026-07-07--GH-15--config-system
+
+phases:
+  clarify_scope: { started: "2026-07-07T00:00:00Z", completed: "2026-07-07T00:01:00Z" }
+  specification: { started: "2026-07-07T00:01:00Z", completed: "2026-07-07T00:02:00Z" }
+  test_planning: { started: "2026-07-07T00:02:00Z", completed: "2026-07-07T00:03:00Z" }
+  delivery_planning: { started: "2026-07-07T00:02:00Z", completed: "2026-07-07T00:03:00Z" }
+  dor_check: { started: "2026-07-07T00:03:00Z", completed: null }
+  delivery: { started: null, completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+
+decisions:
+  - text: "YAML library choice: use `yaml` (npm, ESM, actively maintained) — single dep parses both marksync.yml and front-matter blocks. CEO-resolved in story Q1."
+    date: "2026-07-07"
+  - text: "sync.granularity accepts only `squash` for MS-0002; reject `commit-by-commit` with a clear 'deferred to a future milestone' error per ADR-0010 C-5. CEO-resolved in story Q2."
+    date: "2026-07-07"
+
+open_questions: []
+
+blockers: []
+
+notes:
+  - text: "Dependency MS2-E2-S1 (GH-14, project scaffolding) merged as 4055622. Result<T,E> + 12-kind MarkSyncError primitives exist in src/domain/. ConfigError must be added to the MarkSyncError union AND to assertNeverMarkSyncError exhaustive switch."
+    type: "info"
+    date: "2026-07-07"
+  - text: "Story file is authoritative scope (doc/planning/milestones/MS-2/MS2-E2--foundation/MS2-E2-S2--config-system.md). 7 ACs, all testable at unit tier. Config loader must stay pure (no git I/O — accept path[]). Runtime deps to add: yaml, ajv (both on allowed list in typescript.md)."
+    type: "info"
+    date: "2026-07-07"
+  - text: "Artifacts generated: spec (b05b34e), test-plan (f9458e8, 38 traceable scenarios), plan (9c9308f, 9 phases — union extension before loader per NFR-3/RSK-2). Two delivery-time open questions surfaced: OQ-TP-1 init overwrite policy (refuse/warn/force), glob-matcher choice (picomatch vs src/shared/glob.ts). Both are spec-detail level, delegated to @coder at delivery."
+    type: "info"
+    date: "2026-07-07"
