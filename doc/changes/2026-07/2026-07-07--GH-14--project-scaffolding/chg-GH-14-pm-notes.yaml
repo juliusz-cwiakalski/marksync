@@ -1,0 +1,60 @@
+change_id: GH-14
+title: "[MS2-E2-S1] Project scaffolding"
+story_file: doc/planning/milestones/MS-2/MS2-E2--foundation/MS2-E2-S1--scaffolding.md
+epic: MS2-E2 (foundation)
+milestone: MS-0002
+branch: feat/GH-14/project-scaffolding
+change_folder: doc/changes/2026-07/2026-07-07--GH-14--project-scaffolding
+
+phases:
+  clarify_scope: { started: "2026-07-07T00:00:00Z", completed: "2026-07-07T00:01:00Z" }
+  specification: { started: "2026-07-07T00:02:00Z", completed: "2026-07-07T00:30:00Z" }
+  test_planning: { started: "2026-07-07T00:10:00Z", completed: "2026-07-07T00:30:00Z" }
+  delivery_planning: { started: "2026-07-07T00:10:00Z", completed: "2026-07-07T00:30:00Z" }
+  dor_check: { started: "2026-07-07T00:25:00Z", completed: "2026-07-07T00:40:00Z" }
+  delivery: { started: "2026-07-07T00:40:00Z", completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+
+decisions:
+  - text: "Scope is fully defined by story file MS2-E2-S1 (DoR-ready). CEO-level risks R1 (happy-dom preload no-op stub), R2 (dep-cruiser alias resolution — verify in-story) and Q1 (commitlint not Biome for commit msgs) are pre-resolved and recorded in the story. No new product decisions required to proceed."
+    date: "2026-07-07"
+  - text: "MarkSyncError union: use the blueprint §2 version (12 kinds incl. StalePlan, ForbiddenBranch, TooLarge, UnresolvedLink), which is a superset of the typescript.md excerpt (8 kinds). Story explicitly says 'exhaustive union from blueprint §2'."
+    date: "2026-07-07"
+  - text: "Bun version: local is 1.1.34; CI pins to '1.2'. Coder must align both to a concrete current 1.2.x patch (snapshot stability per ADR-0002 C-1). This is an implementation detail, not a blocking question."
+    date: "2026-07-07"
+  - text: "DoR iter-1 PM decision (OQ-TP-2): CI commit-message-lint job is IN-SCOPE for GH-14. Rationale: GH-14 IS the OPEN-Q9 execution story (makes CI binding); TDR-0008 C-2 (non-negotiable) requires BOTH local hook AND CI gate; TDR-0008 Implementation Plan step 4 ties the CI commit-lint job to 'MS-0002 start (OPEN-Q9 checklist)' = this story; shipping the new commit-convention gate with no authoritative CI half contradicts the story's own thesis; cost is trivial (one CI step + one AC + one TC). The spec over-claimed 'CI authoritative' without an AC/plan task — bringing it in-scope resolves the contradiction cleanly. Reviewer's DEFERRED alternative rejected (more artifact churn, leaves story arguing against itself)."
+    date: "2026-07-07"
+
+open_questions:
+  - text: "OQ-TP-2 (surfaced by test-plan-writer): Spec F-4 claims CI is 'authoritative' for commit-message enforcement, but no commitlint CI job/action is wired in ci.yml today and no AC requires it. TDR-0008 C-2 requires BOTH local hook AND CI gate (defense-in-depth). The plan wires the husky commit-msg local hook but the CI-side commit-lint job is not explicitly scoped. DoR reviewer to assess whether the CI commit-lint job is in-scope for this story or deferred. (PM note: the husky local hook satisfies the story's literal AC-6 'commitlint hook fires on bad commit message'; the CI authoritative half is a TDR-0008 C-2 requirement but the story scope lists only 'commitlint + husky'. This is a candidate DoR finding.)"
+    date: "2026-07-07"
+    status: "RESOLVED — PM decided CI commit-lint job IN-SCOPE (see decisions). Spec AC-F4-3 + test-plan TC-COMMITS-003 + plan task 8.5 added; DoR iter-2 READY."
+  - text: "DoR iter-2 non-blocking carryforwards (cosmetic, do not gate delivery): (a) plan §'Test Scenarios' summary index + Phase 8 AC bullets don't list AC-F4-3/TC-COMMITS-003 though task 8.5 covers them verbatim — coder should add AC-F4-3 to Phase 8 AC bullet list when finalizing; (b) test-plan §3.3 NFR-6 row wording still says 'pinned in CI' without the spec's 'fast-loop only; dep-audit may float' nuance (TC-TOOLCHAIN-001 is already correctly scoped) — cosmetic."
+    date: "2026-07-07"
+    status: "non-blocking cosmetic; noted for coder/doc-syncer"
+
+blockers: []
+
+notes:
+  - text: "State detection: GH-14 OPEN, no branch, no PR → new delivery. 'approved' label already exists on repo."
+    type: "info"
+    date: "2026-07-07"
+  - text: "Story context loaded per pm-instructions.md Story Context Loading: story file (authoritative scope), epic doc, TDR-0005/0006/0008, ADR-0001, coding rules (typescript.md + testing-strategy.md), CI workflow (OPEN-Q9), blueprint §1/§2. No gaps found between ticket and system spec."
+    type: "info"
+    date: "2026-07-07"
+  - text: "Cross-check vs system spec: ticket is consistent with doc/spec/nonfunctional.md (NFR-SEC-4 dep audit), doc/overview/architecture-overview.md (hexagonal tiers), ADR-0001 (Bun+TS+ESM), TDR-0004 (bun:test). OPEN-Q9 (CI unguard) is explicitly cross_cutting and in scope — closes the inception-era advisory CI."
+    type: "info"
+    date: "2026-07-07"
+  - text: "Documentation impact: this is the FIRST implementation story. Creates package.json, tsconfig, biome.json, bunfig.toml, .dependency-cruiser.cjs, commitlint.config.js, .husky/, src/ skeleton, tests/ skeleton, .gitignore additions, and edits .github/workflows/ci.yml (remove continue-on-error + || true). doc/guides/dev-environment.md likely needs script-table updates; doc-syncer will reconcile in phase 7."
+    type: "info"
+    date: "2026-07-07"
+  - text: "DoR iter-1 NOT_READY (1 blocking + 4 minor). Blocking: OQ-TP-2 — spec F-4/G-4/DEC-3 claim 'CI authoritative' for commit enforcement but no AC + plan wires only the local husky hook. PM decided IN-SCOPE (bring CI commit-lint job into GH-14). Minor: (2) plan Phase 8.4 missing 'remove || true from osv-scanner/license run bodies'; (3) plan Phase 9.4 missing typescript.md 8→12 MarkSyncError reconciliation in doc-syncer handoff; (4) smoke-test path disagreement (tests/unit/domain/result.test.ts vs tests/unit/primitives.smoke.test.ts); (5) NFR-6 Bun-pin wording vs dep-audit job floating Bun."
+    type: "retro"
+    date: "2026-07-07"
+  - text: "Retro on DoR gap: OQ-TP-2 contradiction arose because spec-writer correctly cited TDR-0008's 'CI authoritative' language but did not add a corresponding AC, and plan-writer followed the story's literal deliverable list ('commitlint + husky') which omits the CI job. Root cause: the story file's deliverable 6 lists only the local-half tooling while its cross_cutting TDR-0008 requires both halves. Process improvement: spec-writers should treat TDR C-2-style 'AND' constraints as requiring an AC per conjunct, not just cite the decision. Caught at DoR (correct gate) — no downstream rework."
+    type: "retro"
+    date: "2026-07-07"
