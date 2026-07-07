@@ -2,9 +2,9 @@
 # Copyright (c) 2025-2026 Juliusz Ćwiąkalski (https://www.cwiakalski.com | https://www.linkedin.com/in/juliusz-cwiakalski/ | https://x.com/cwiakalski)
 # MIT License - see LICENSE file for full terms
 id: chg-GH-15-test-plan
-status: Proposed
+status: Updated
 created: 2026-07-07T04:05:31Z
-last_updated: 2026-07-07T04:05:31Z
+last_updated: 2026-07-07T04:21:55Z
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 labels: [MS-0002, MS2-E2, foundation, critical]
@@ -182,17 +182,20 @@ src/domain/config/types.ts           → (exercised via loader + typecheck)
 src/app/config.ts                    → tests/unit/app/config.test.ts
 src/app/select-files.ts (or config)  → tests/unit/app/select-files.test.ts
 src/app/document-config.ts           → tests/unit/app/document-config.test.ts
-src/app/hierarchy.ts (or config)     → tests/unit/app/hierarchy.test.ts
-src/app/init-config.ts (helper)      → tests/unit/app/init-config.test.ts
+src/domain/config/hierarchy.ts       → tests/unit/domain/config/hierarchy.test.ts
+src/app/config-template.ts (helper)  → tests/unit/app/config-template.test.ts
 src/domain/errors.ts                 → tests/unit/domain/errors.test.ts (ConfigError shape; compile safety via typecheck)
 tests/unit/app/fixtures/*.yml        → invalid-config YAML fixtures
 tests/unit/app/fixtures/file-lists/  → selectFiles path-list fixtures
 ```
 
 > The exact module split inside `src/app/` is a delivery decision (the story
-> names `src/app/config.ts` explicitly; selection/hierarchy/front-matter/init
-> may be co-located or split). The test files above mirror whichever modules are
-> created — the `tests/` path mirrors `src/` by convention.
+> names `src/app/config.ts` explicitly; selection/front-matter/init may be
+> co-located or split). Hierarchy mirroring, however, is a **domain** rule and
+> lives in `src/domain/config/hierarchy.ts` (per the plan and
+> `architecture-overview.md`'s dependency-direction matrix — the Hierarchy
+> Planner is domain, not application). The test files above mirror whichever
+> modules are created — the `tests/` path mirrors `src/` by convention.
 
 **Over-mocking guardrail (TDR-0004):** do NOT mock the `ajv` validator or the
 `yaml` parser — exercise them with real YAML inputs and real validator outputs.
@@ -1073,7 +1076,7 @@ used in any scenario below; all inputs are real fixture strings/files.
 **Related IDs**: F-6, AC-F6-1, AC-5
 **Test Type(s)**: Unit
 **Automation Level**: Automated
-**Target Layer / Location**: `tests/unit/app/hierarchy.test.ts`
+**Target Layer / Location**: `tests/unit/domain/config/hierarchy.test.ts`
 **Tags**: @backend, @api
 
 **Preconditions**:
@@ -1098,7 +1101,7 @@ used in any scenario below; all inputs are real fixture strings/files.
 **Related IDs**: F-6, AC-F6-1, AC-5
 **Test Type(s)**: Unit
 **Automation Level**: Automated
-**Target Layer / Location**: `tests/unit/app/hierarchy.test.ts`
+**Target Layer / Location**: `tests/unit/domain/config/hierarchy.test.ts`
 **Tags**: @backend, @api
 
 **Preconditions**:
@@ -1122,7 +1125,7 @@ used in any scenario below; all inputs are real fixture strings/files.
 **Related IDs**: F-6, AC-F6-1, AC-5
 **Test Type(s)**: Unit
 **Automation Level**: Automated
-**Target Layer / Location**: `tests/unit/app/hierarchy.test.ts`
+**Target Layer / Location**: `tests/unit/domain/config/hierarchy.test.ts`
 **Tags**: @backend, @api
 
 **Preconditions**:
@@ -1149,7 +1152,7 @@ used in any scenario below; all inputs are real fixture strings/files.
 **Related IDs**: F-6, AC-F6-1, AC-5
 **Test Type(s)**: Unit
 **Automation Level**: Automated
-**Target Layer / Location**: `tests/unit/app/hierarchy.test.ts`
+**Target Layer / Location**: `tests/unit/domain/config/hierarchy.test.ts`
 **Tags**: @backend, @api
 
 **Preconditions**:
@@ -1174,7 +1177,7 @@ used in any scenario below; all inputs are real fixture strings/files.
 **Related IDs**: F-6, AC-F6-1, AC-5
 **Test Type(s)**: Unit
 **Automation Level**: Automated
-**Target Layer / Location**: `tests/unit/app/hierarchy.test.ts`
+**Target Layer / Location**: `tests/unit/domain/config/hierarchy.test.ts`
 **Tags**: @backend, @api
 
 **Preconditions**:
@@ -1199,7 +1202,7 @@ used in any scenario below; all inputs are real fixture strings/files.
 **Related IDs**: F-5, F-8, AC-F5-1, AC-6
 **Test Type(s)**: Unit
 **Automation Level**: Automated
-**Target Layer / Location**: `tests/unit/app/init-config.test.ts` (tests the config-writing helper directly, NOT the CLI command — per testing-strategy anti-pattern)
+**Target Layer / Location**: `tests/unit/app/config-template.test.ts` (tests the config-writing helper directly, NOT the CLI command — per testing-strategy anti-pattern)
 **Tags**: @backend, @api
 
 **Preconditions**:
@@ -1225,7 +1228,7 @@ used in any scenario below; all inputs are real fixture strings/files.
 **Related IDs**: F-8, AC-F5-1, AC-6
 **Test Type(s)**: Unit
 **Automation Level**: Automated
-**Target Layer / Location**: `tests/unit/app/init-config.test.ts`
+**Target Layer / Location**: `tests/unit/app/config-template.test.ts`
 **Tags**: @backend, @api
 
 **Preconditions**:
@@ -1249,7 +1252,7 @@ used in any scenario below; all inputs are real fixture strings/files.
 **Related IDs**: F-5, AC-F5-1, AC-6
 **Test Type(s)**: Unit
 **Automation Level**: Semi-automated
-**Target Layer / Location**: `tests/unit/app/init-config.test.ts`
+**Target Layer / Location**: `tests/unit/app/config-template.test.ts`
 **Tags**: @backend, @api
 
 **Preconditions**:
@@ -1306,8 +1309,8 @@ used in any scenario below; all inputs are real fixture strings/files.
 | TC-CONFIG-012 | (type-level) `src/domain/errors.ts` | Existing – Update | None | `bun run typecheck` |
 | TC-SELECT-001..008 | `tests/unit/app/select-files.test.ts` | To Implement | FS-spy only in TC-SELECT-008 (prove no I/O) | `bun test tests/unit/app/select-files.test.ts` |
 | TC-DOC-001..009 | `tests/unit/app/document-config.test.ts` | To Implement | None (real `yaml` on fenced blocks) | `bun test tests/unit/app/document-config.test.ts` |
-| TC-HIER-001..005 | `tests/unit/app/hierarchy.test.ts` | To Implement | None | `bun test tests/unit/app/hierarchy.test.ts` |
-| TC-INIT-001..003 | `tests/unit/app/init-config.test.ts` | To Implement | None | `bun test tests/unit/app/init-config.test.ts` |
+| TC-HIER-001..005 | `tests/unit/domain/config/hierarchy.test.ts` | To Implement | None | `bun test tests/unit/domain/config/hierarchy.test.ts` |
+| TC-INIT-001..003 | `tests/unit/app/config-template.test.ts` | To Implement | None | `bun test tests/unit/app/config-template.test.ts` |
 | AC-7 (gate) | all of the above + `errors.ts` | — | — | `bun run check` (lint + typecheck + test + boundaries) |
 
 **Execution / ordering notes:**
@@ -1363,6 +1366,7 @@ used in any scenario below; all inputs are real fixture strings/files.
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-07T04:05:31Z | test-plan-writer (GH-15) | Initial test plan — 38 unit-tier scenarios (TC-CONFIG, TC-SELECT, TC-DOC, TC-HIER, TC-INIT) traced to AC-1..AC-7 / AC-F3-1..AC-F8-1, F-1..F-8, DM-1..DM-3, NFR-1..NFR-7. Derived from chg-GH-15-spec.md, story MS2-E2-S2, `.ai/rules/testing-strategy.md`, `.ai/rules/typescript.md`, ADR-0010 C-5, and the existing `Result`/`MarkSyncError` primitives. |
+| 1.1 | 2026-07-07T04:21:55Z | test-plan-writer (GH-15, DoR iter-2) | Cross-artifact consistency fix addressing DoR iter-1 findings. **Finding 1 (BLOCKING — hierarchy tier/placement):** corrected all hierarchy module references from the application tier (`src/app/hierarchy.ts`, `tests/unit/app/hierarchy.test.ts`) to the domain tier (`src/domain/config/hierarchy.ts`, `tests/unit/domain/config/hierarchy.test.ts`) per `chg-GH-15-plan.md` Phase 7 and `architecture-overview.md` (Hierarchy Planner = domain). Touched: §4 layout row + prose note, TC-HIER-001..005 Target Layer, §7 automation table (file + command). **Finding 2 (init helper filename drift):** renamed `init-config` → `config-template` throughout (§4 layout row, TC-INIT-001..003 Target Layer, §7 automation table). No scenario IDs, coverage, or AC mapping changed. |
 
 ## 10. Test Execution Log
 
