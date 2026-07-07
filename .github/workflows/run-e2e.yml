@@ -4,8 +4,10 @@
 # Triggered: scheduled (nightly), or PR label "run-e2e".
 # Implements: TDR-0004 (thin E2E runner), premortem §8.5 (single dedicated space).
 #
-# Status: Phase 4 baseline scaffold. E2E tests will be written at MS-0002
-# implementation start. Until then, this workflow runs but finds no tests.
+# OPEN-Q9 (closed): inception-era advisory guards removed. This gate is now
+# binding; it exits green while no E2E tests exist (`bun test tests/e2e/`
+# finds no files → exit 0) and will fail properly once E2E tests are written
+# and a live sandbox is unavailable/misconfigured.
 
 name: E2E (live-sandbox)
 
@@ -36,19 +38,16 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.2"
+          bun-version: "1.2.23"
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
-        continue-on-error: true # no package.json yet during inception
 
       - name: Run E2E tests
-        run: bun test tests/e2e/ || true
+        run: bun test tests/e2e/
         env:
           MARKSYNC_E2E_CONFLUENCE_BASE_URL: ${{ secrets.E2E_CONFLUENCE_BASE_URL }}
           MARKSYNC_E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
           MARKSYNC_E2E_API_TOKEN: ${{ secrets.E2E_API_TOKEN }}
           MARKSYNC_E2E_SPACE_KEY: ${{ secrets.E2E_SPACE_KEY }}
           MARKSYNC_E2E_PARENT_PAGE_ID: ${{ secrets.E2E_PARENT_PAGE_ID }}
-        # During inception there are no E2E tests; `|| true` keeps CI green.
-        # At MS-0002 start, remove `|| true`.
