@@ -603,32 +603,51 @@ MS-0003 (NG-5); UUIDs are E3-S1.
 
 **Tasks**:
 
-- [ ] **8.1** Create `src/app/config-template.ts` (application tier): export the
+- [x] **8.1** Create `src/app/config-template.ts` (application tier): export the
       starter `marksync.yml` content as a constant and a
       `writeStarterConfig(targetDir): Result<void, ConfigError>` (or a typed
       write result) that writes `marksync.yml` into `targetDir`. The template
       must be a **valid** v1 config (it round-trips through `loadConfig`).
-- [ ] **8.2** Create `src/cli/commands/init.ts` (presentation tier): a thin
+      [DONE: `src/app/config-template.ts` exports `STARTER_CONFIG` +
+      `writeStarterConfig(dir)`; round-trips through `loadConfig` (AC-F5-1);
+      OQ-TP-1 overwrite-refusal default implemented (returns ConfigError with
+      empty ajvErrors + clear message).]
+- [x] **8.2** Create `src/cli/commands/init.ts` (presentation tier): a thin
       command module that calls `writeStarterConfig` via `#app/*`. **Must not**
       import `#domain/*` or `#infra/*` directly (presentation-may-not-import-
       domain/-infra). Wire it to be registerable by the future CLI bootstrap
       (TDR-0002 / Cliffy) — but do not introduce a hard Cliffy dependency here
       if the bootstrap is not yet present (see Open questions).
-- [ ] **8.3** Delete `src/cli/commands/.gitkeep` and (if still present)
+      [DONE: `src/cli/commands/init.ts` exports `initCommand(opts)` returning
+      `{exitCode, message}`; imports only `#app/config-template`; Result type
+      flows structurally (no domain import). Boundaries clean.]
+- [x] **8.3** Delete `src/cli/commands/.gitkeep` and (if still present)
       `src/cli/output/.gitkeep` only if this phase or a later one populates
       `src/cli/output/`; otherwise leave `output/.gitkeep`.
-- [ ] **8.4** Create `tests/unit/app/config-template.test.ts` (and/or
+      [DONE: `src/cli/commands/.gitkeep` removed; `src/cli/output/.gitkeep`
+      left in place (output dir not populated in MS-0002.)]
+- [x] **8.4** Create `tests/unit/app/config-template.test.ts` (and/or
       `tests/unit/cli/commands/init.test.ts`) — assert AC-F5-1: write the
       starter config to a temp dir, run `loadConfig(tempDir)`, expect
       `Result.ok`. Verify the CLI module imports app-only (no domain/infra).
+      [DONE: `tests/unit/app/config-template.test.ts` — 5 tests PASS:
+      TC-INIT-001 (round-trip AC-F5-1 × 2), TC-INIT-003 (overwrite guard × 2),
+      TC-INIT-002 (committed example — skipped until Phase 9). CLI app-only
+      import verified via `check:boundaries` (16 modules, 0 violations).]
 
 **Acceptance Criteria**:
 
 - Must: the starter config round-trips through `loadConfig` (AC-F5-1).
+  — PASSED (TC-INIT-001: writeStarterConfig→loadConfig Result.ok; STARTER_CONFIG
+  constant also round-trips directly; 5 tests PASS.)
 - Must: `src/cli/commands/init.ts` imports only from `#app/*` — no `#domain/*`,
-      no `#infra/*` (`check:boundaries` clean).
+  no `#infra/*` (`check:boundaries` clean).
+  — PASSED (`check:boundaries`: 16 modules, 13 dependencies, 0 violations;
+  init.ts imports only `#app/config-template`.)
 - Should: the command module is structured for registration by the future CLI
-      bootstrap without rewrite.
+  bootstrap without rewrite.
+  — PASSED (`initCommand(opts): {exitCode, message}` is a plain action the
+  future Cliffy bootstrap can bind directly.)
 
 **Files and modules**:
 
@@ -797,5 +816,5 @@ including a `marksync.yml.example` round-trip through `loadConfig`.
 | 5 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | `selectFiles(config, paths)` (pure; de-dup+sort); OQ-2 anchoring documented (verbatim match, no root stripping); 13 tests PASS incl. purity proof via non-existent paths. |
 | 6 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | `parseFrontMatter` (yaml, CRLF-aware, tolerant) + `resolveDocumentConfig` + `DocumentConfig`; 22 tests PASS covering AC-F4-1/2 + all RSK-5 edges. |
 | 7 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | `hierarchy.ts` (domain, pure): `intendedParent` + `buildIntendedHierarchy`; `IntendedNode`/`IntendedHierarchy` added to types.ts; 14 tests PASS (100% cov); TC-HIER-003 root-level → root anchor documented. |
-| 8 | pending | — | — | — | — |
+| 8 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | `marksync init` skeleton: `src/app/config-template.ts` (`STARTER_CONFIG` + `writeStarterConfig` with OQ-TP-1 overwrite refusal); `src/cli/commands/init.ts` (`initCommand` presentation handler, app-only import); `commands/.gitkeep` removed; `tests/unit/app/config-template.test.ts` (5 tests PASS). AC-F5-1 round-trip + boundaries clean. |
 | 9 | pending | — | — | — | — |
