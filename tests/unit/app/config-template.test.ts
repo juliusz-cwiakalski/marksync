@@ -6,8 +6,10 @@
 //   - AC-F5-1: the starter config round-trips through `loadConfig` (Result.ok).
 //   - OQ-TP-1: `writeStarterConfig` refuses to overwrite an existing
 //     `marksync.yml` (MS-0002 safety default).
-//   - the committed `marksync.yml.example` also loads (TC-INIT-002) — guarded
-//     so the test is skipped cleanly if the example is not yet committed.
+//
+// The committed `marksync.yml.example` round-trip (TC-INIT-002 / F-8) lives in
+// its own dedicated file: `tests/unit/app/config-example-roundtrip.test.ts`
+// (promoted there in Phase 9 once the example was committed).
 
 import {
 	existsSync,
@@ -21,8 +23,6 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { STARTER_CONFIG, writeStarterConfig } from "#app/config-template";
 import { loadConfig } from "#app/config";
-
-const REPO_ROOT = join(import.meta.dir, "..", "..", "..", "..");
 
 describe("writeStarterConfig — TC-INIT-001: round-trip (AC-F5-1)", () => {
 	test("writes a marksync.yml that loadConfig accepts", () => {
@@ -88,33 +88,6 @@ describe("writeStarterConfig — TC-INIT-003: overwrite guard (OQ-TP-1)", () => 
 		try {
 			expect(existsSync(join(dir, "marksync.yml"))).toBe(false);
 			expect(writeStarterConfig(dir).ok).toBe(true);
-		} finally {
-			rmSync(dir, { recursive: true, force: true });
-		}
-	});
-});
-
-describe("TC-INIT-002: committed marksync.yml.example loads without error", () => {
-	// Guards against regressions in the on-ramp example. The example is committed
-	// in Phase 9; if it is not yet present this test is skipped (not failed) so
-	// the gate stays green until Phase 9 lands it.
-	test("marksync.yml.example round-trips through loadConfig", () => {
-		const examplePath = join(REPO_ROOT, "marksync.yml.example");
-		const exampleExists = existsSync(examplePath);
-		if (!exampleExists) {
-			console.log(
-				"[TC-INIT-002] marksync.yml.example not yet committed — skipping (lands in Phase 9).",
-			);
-			return;
-		}
-		const dir = mkdtempSync(join(tmpdir(), "ms-init-"));
-		try {
-			writeFileSync(
-				join(dir, "marksync.yml"),
-				readFileSync(examplePath, "utf-8"),
-			);
-			const loaded = loadConfig(dir);
-			expect(loaded.ok).toBe(true);
 		} finally {
 			rmSync(dir, { recursive: true, force: true });
 		}

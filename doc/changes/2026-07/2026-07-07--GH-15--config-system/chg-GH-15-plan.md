@@ -674,15 +674,17 @@ including a `marksync.yml.example` round-trip through `loadConfig`.
 
 **Tasks**:
 
-- [ ] **9.1** Commit `marksync.yml.example` at the repo root — a realistic,
+- [x] **9.1** Commit `marksync.yml.example` at the repo root — a realistic,
       valid v1 config demonstrating the major fields (targets, sync with
       `granularity: squash`, render.mermaid, output, provenance). It must
       round-trip through `loadConfig` (asserted in 9.6).
-- [ ] **9.2** Update `.env.example` to reference `marksync.yml` where relevant
+      _(Done: `marksync.yml.example` verified valid against schema.json; committed in Phase 9 commit. Round-trip asserted by `tests/unit/app/config-example-roundtrip.test.ts` — PASS.)_
+- [x] **9.2** Update `.env.example` to reference `marksync.yml` where relevant
       (e.g., a comment pointing to `marksync.yml` for `allowBranches` /
       `MARKSYNC_ALLOW_BRANCHES` overlap, and to the config system for
       cache/branch overrides). Keep it variable-name + comment only (no values,
       no secrets — per the file's "DO NOT ADD" rules).
+      _(Done: added cross-references for the required Confluence credentials ↔ `targets.<id>`, `MARKSYNC_ALLOW_BRANCHES` ↔ `sync.allowBranches` (override semantics), and `MARKSYNC_NO_COLOR` ↔ `output.color`. No values/secrets; "DO NOT ADD" section intact.)_
 - [ ] **9.3** Spec reconciliation (lifecycle phase 7 — `@doc-syncer` may own;
       listed here per finalize requirements): update
       `doc/spec/features/feature-cli.md` (ConfigLoader → `loadConfig`/
@@ -696,29 +698,33 @@ including a `marksync.yml.example` round-trip through `loadConfig`.
       dependencies (glob matching is a hand-rolled `src/shared/` utility), so the
       NFR-7 `yaml` + `ajv` envelope is unchanged. Note any drift for the
       reviewer.
-- [ ] **9.4** Apply the version bump per repo conventions for
+      _(SKIPPED per explicit scope: ADOS lifecycle Phase 7 system_spec_update — owned by `@doc-syncer`, handled by PM separately. No config-system runtime deps added (DEC-5 confirms `yaml`+`ajv` envelope unchanged → no allowed-list extension / no TDR).)_ 
+- [x] **9.4** Apply the version bump per repo conventions for
       `version_impact: minor` (e.g., `package.json` `0.0.0` → `0.1.0`); update
       the `src/cli/index.ts` placeholder version string if the bootstrap
       convention ties them together. Confirm with the maintainer if the 0.x
       minor-vs-patch convention differs.
-- [ ] **9.5** Final review sweep: confirm all phase tasks are checked, every AC
+      _(Done: `package.json` 0.0.0 → 0.1.0; `src/cli/index.ts` placeholder "marksync 0.0.0" → "marksync 0.1.0" + comment refreshed to note GH-15 minor bump and lock-step intent. No runtime version-source wiring exists yet; literals kept in sync until a later story reads `package.json`.)_
+- [x] **9.5** Final review sweep: confirm all phase tasks are checked, every AC
       (AC-F3-1..AC-F8-1) has a passing test, and there are no stray
       `<...>` placeholders or TODOs in shipped code.
-- [ ] **9.6** Run the full quality gate: `bun run check` (lint + format:check +
+      _(Done: `rg "TODO|FIXME|XXX|HACK" src/` → none; angle-bracket matches in src/ are all legitimate (TS generics in result.ts, `<unknown>` fallback literal in config-errors.ts, descriptive `<id>` notation in a hierarchy.ts comment). AC-F3-1..AC-F8-1 each have ≥1 passing test (see execution log).)_
+- [x] **9.6** Run the full quality gate: `bun run check` (lint + format:check +
       typecheck + test + check:boundaries) — must exit 0 (NFR-6 / AC-F8-1).
       Additionally run a one-off round-trip test asserting
       `loadConfig(<repo-root>)` succeeds against the committed
       `marksync.yml.example` (copy to a temp `marksync.yml` if the example is
       not named `marksync.yml`).
+      _(Done: `bun run check` exits 0 — lint/format/typecheck clean, 117 tests PASS / 0 fail, depcruise 0 violations. Round-trip test added at `tests/unit/app/config-example-roundtrip.test.ts` (TC-INIT-002/F-8): copies the committed example to a temp `marksync.yml` via real fs I/O (no mock) and asserts `loadConfig → Result.ok` + authored values survive — 2 tests PASS.)_
 
 **Acceptance Criteria**:
 
 - Must: `marksync.yml.example` is valid and round-trips through `loadConfig`
-      (F-8).
-- Must: `.env.example` updated with config-system references (no secrets).
-- Must: system docs reconciled with the implemented contract.
-- Must: version bumped per `version_impact: minor`.
-- Must: `bun run check` exits 0 (AC-F8-1 / NFR-6).
+      (F-8). — **PASSED** (schema-valid; `tests/unit/app/config-example-roundtrip.test.ts` asserts `loadConfig → Result.ok` + authored values, 2 tests PASS).
+- Must: `.env.example` updated with config-system references (no secrets). — **PASSED** (3 cross-references added; no values/secrets; "DO NOT ADD" intact).
+- Must: system docs reconciled with the implemented contract. — **DEFERRED** (ADOS lifecycle Phase 7 `system_spec_update` / `@doc-syncer`; out of scope for this coder run per explicit exclusion — task 9.3).
+- Must: version bumped per `version_impact: minor`. — **PASSED** (`package.json` 0.0.0 → 0.1.0; `src/cli/index.ts` 0.0.0 → 0.1.0).
+- Must: `bun run check` exits 0 (AC-F8-1 / NFR-6). — **PASSED** (lint+format+typecheck clean; 117 tests PASS / 0 fail; depcruise 0 violations).
 
 **Files and modules**:
 
@@ -817,4 +823,4 @@ including a `marksync.yml.example` round-trip through `loadConfig`.
 | 6 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | `parseFrontMatter` (yaml, CRLF-aware, tolerant) + `resolveDocumentConfig` + `DocumentConfig`; 22 tests PASS covering AC-F4-1/2 + all RSK-5 edges. |
 | 7 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | `hierarchy.ts` (domain, pure): `intendedParent` + `buildIntendedHierarchy`; `IntendedNode`/`IntendedHierarchy` added to types.ts; 14 tests PASS (100% cov); TC-HIER-003 root-level → root anchor documented. |
 | 8 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | `marksync init` skeleton: `src/app/config-template.ts` (`STARTER_CONFIG` + `writeStarterConfig` with OQ-TP-1 overwrite refusal); `src/cli/commands/init.ts` (`initCommand` presentation handler, app-only import); `commands/.gitkeep` removed; `tests/unit/app/config-template.test.ts` (5 tests PASS). AC-F5-1 round-trip + boundaries clean. |
-| 9 | pending | — | — | — | — |
+| 9 | done* | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | On-ramp example + release. **9.1** committed `marksync.yml.example` (schema-valid, all v1 fields). **9.2** `.env.example` cross-refs (credentials↔`targets.<id>`, `MARKSYNC_ALLOW_BRANCHES`↔`sync.allowBranches` override, `MARKSYNC_NO_COLOR`↔`output.color`; no values/secrets). **9.4** version bump 0.0.0→0.1.0 in `package.json` + `src/cli/index.ts`. **9.5** sweep clean (no TODO/placeholders; angle-bracket hits all legitimate). **9.6** new `tests/unit/app/config-example-roundtrip.test.ts` (TC-INIT-002/F-8, real fs round-trip, 2 tests PASS); promoted out of the Phase 8 forward-guard (which also had a latent off-by-one in REPO_ROOT, masked by its skip — fixed). `bun run check` GREEN: 117 pass / 0 fail, depcruise 0 violations. **9.3 intentionally skipped** (lifecycle Phase 7 `@doc-syncer`). *Phase marked done for the coder scope; AC "system docs reconciled" remains DEFERRED to Phase 7. |
