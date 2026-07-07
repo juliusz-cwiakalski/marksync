@@ -1,0 +1,9 @@
+# Minimal valid marksync.yml — only the schema-required fields (version, root,
+# targets). Every other field is defaulted by applyDefaults (TC-CONFIG-002).
+version: 1
+root: docs/
+targets:
+  default:
+    type: confluence
+    spaceKey: ENG
+    parentPageId: "123456"

@@ -1,0 +1,12 @@
+# Invalid — `sync.granularity: commit-by-commit` is explicitly deferred to a
+# future milestone (ADR-0010 C-5 / DEC-2). The loader must reject it with a
+# dedicated "deferred" message (TC-CONFIG-006 / NFR-5).
+version: 1
+root: docs/
+targets:
+  default:
+    type: confluence
+    spaceKey: ENG
+    parentPageId: "123456"
+sync:
+  granularity: commit-by-commit

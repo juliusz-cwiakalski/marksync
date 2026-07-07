@@ -397,28 +397,28 @@ maps `ErrorObject[]` into the domain `ConfigAjvError[]` + an AI-readable
 
 **Tasks**:
 
-- [ ] **4.1** Create `src/app/config-errors.ts` (application tier) — the ajv
+- [x] **4.1** Create `src/app/config-errors.ts` (application tier) — the ajv
       error formatter: maps `ajv.ErrorObject[]` → `ConfigAjvError[]` and builds
       `humanMessage` from `instancePath` + `keyword` + `params`. Cover at minimum:
       missing required field (`required`), wrong type (`type`), unknown enum
       (`enum` — including a dedicated `granularity: commit-by-commit` →
       "deferred to a future milestone (ADR-0010 C-5)" message per DEC-2), and
       `additionalProperties`.
-- [ ] **4.2** Create `src/app/config.ts`:
+- [x] **4.2** Create `src/app/config.ts`:
       - `loadConfig(cwd): Result<ProjectConfig, ConfigError>` — read
         `<cwd>/marksync.yml` (only file I/O in the loader), parse with `yaml`,
-        ajv-validate (`allErrors: true`), `applyDefaults()`, return
+        ajv-validate (`allErrors: true`, `verbose: true`), `applyDefaults()`, return
         `Result.ok`/`Result.err` (using `#domain/result` constructors). On
         validation failure, build a `ConfigError` via the Phase 4.1 formatter.
       - `applyDefaults(input): ProjectConfig` — merge schema defaults (notably
-        `stalePlanMinutes = 15`) and return a fully-typed `ProjectConfig`.
-      - A pure helper to compile/cache the ajv validator (compile once).
-- [ ] **4.3** Handle read/parse failures as `ConfigError` (file missing / YAML
+        `stalePlanMinutes = 15`) and return a fully-typed `ProjectConfig`. Defaults live here (single TS source of truth — RSK-3).
+      - A pure helper to compile/cache the ajv validator (compile once). — module-singleton `validateConfig`.
+- [x] **4.3** Handle read/parse failures as `ConfigError` (file missing / YAML
       parse error) with an AI-readable `humanMessage` and an empty `ajvErrors[]`,
       keeping the typed `Result` channel (no `throw` for expected cases per
-      `typescript.md`).
-- [ ] **4.4** Delete `src/app/.gitkeep`.
-- [ ] **4.5** Create `tests/unit/app/config.test.ts` — assert:
+      `typescript.md`). — incl. non-object YAML top-level.
+- [x] **4.4** Delete `src/app/.gitkeep`.
+- [x] **4.5** Create `tests/unit/app/config.test.ts` — assert:
       - AC-F3-1: a valid `marksync.yml` fixture → `Result.ok(ProjectConfig)` with
         `stalePlanMinutes === 15` and other defaults applied; load latency sanity
         (NFR-1 ≤ 50 ms p95 — asserted loosely via a timing check or left to
@@ -428,9 +428,9 @@ maps `ErrorObject[]` into the domain `ConfigAjvError[]` + an AI-readable
         → `Result.err(ConfigError)` whose `humanMessage` names field path +
         expected + suggested fix; `commit-by-commit` message mentions
         "deferred".
-      - read/parse failure (missing file, malformed YAML) → `Result.err`.
-- [ ] **4.6** Create `tests/unit/app/config-errors.test.ts` — assert the
-      formatter output for each ajv `keyword` directly (RSK-1 closure).
+      - read/parse failure (missing file, malformed YAML) → `Result.err`. — 13 tests PASS (p95 ~1-2ms across 100 runs).
+- [x] **4.6** Create `tests/unit/app/config-errors.test.ts` — assert the
+      formatter output for each ajv `keyword` directly (RSK-1 closure). — 10 tests PASS.
 
 **Acceptance Criteria**:
 
@@ -793,7 +793,7 @@ including a `marksync.yml.example` round-trip through `loadConfig`.
 | 1 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | yaml@2.9.0 (ISC, 0 deps) + ajv@8.20.0 (MIT, 4 zero-dep deps); zero-dep `src/shared/glob.ts` (DEC-5); 14 glob tests PASS; baseline gates green. |
 | 2 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | `InvalidConfig` arm + `ConfigAjvError` + `ConfigError` alias in errors.ts; `assertNeverMarkSyncError` updated in same change; typecheck PASS (NFR-3); no ajv import in domain. |
 | 3 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | `schema.json` (draft-07, granularity enum `[squash]`, additionalProperties:false) + mirrored `types.ts`; `.gitkeep` removed; 16 schema tests PASS; typecheck/boundaries clean. |
-| 4 | pending | — | — | — | — |
+| 4 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | `loadConfig` + `applyDefaults` + ajv formatter (`config-errors.ts`); only I/O is reading marksync.yml; commit-by-commit → "deferred" message; 23 tests PASS; tsconfig gained `resolveJsonModule` (needed to import schema.json). |
 | 5 | pending | — | — | — | — |
 | 6 | pending | — | — | — | — |
 | 7 | pending | — | — | — | — |
