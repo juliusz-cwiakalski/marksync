@@ -220,10 +220,10 @@ lands.
 
 **Tasks**:
 
-- [ ] **1.1** Add `yaml` (ESM) and `ajv` to `package.json` `dependencies` (both
+- [x] **1.1** Add `yaml` (ESM) and `ajv` to `package.json` `dependencies` (both
       are on the allowed-dependency list in `typescript.md`); pin with `^` and
-      commit the updated lockfile (`bun install`).
-- [ ] **1.2** Implement the **committed zero-dependency glob matcher** at
+      commit the updated lockfile (`bun install`). — yaml@2.9.0 (ISC), ajv@8.20.0 (MIT).
+- [x] **1.2** Implement the **committed zero-dependency glob matcher** at
       `src/shared/glob.ts` (DEC-5 — resolves DoR iter-1 Finding 3 / RSK-6 /
       spec OQ-2 matcher-library sub-question). Standard micromatch-style
       semantics: `**` (recursive across directory levels), `*` (single path
@@ -233,16 +233,16 @@ lands.
       allowed-dependency list extension or TDR. `src/shared/` stays a pure
       utility (string/path logic; imports no tier). The genuinely-remaining open
       detail — anchoring semantics relative to `root` (spec OQ-2) — is documented
-      and unit-tested at the `selectFiles` site in Phase 5.
-- [ ] **1.3** Verify transitive-dependency thresholds (`yaml` ≤ 20; `ajv`
+      and unit-tested at the `selectFiles` site in Phase 5. — `src/shared/glob.ts` + `tests/unit/shared/glob.test.ts` (14 tests, 100% cov).
+- [x] **1.3** Verify transitive-dependency thresholds (`yaml` ≤ 20; `ajv`
       likewise; the glob matcher is zero-dependency so no threshold applies) via
       `bunx license-checker --summary` (or `bunx npm ls <pkg>`). Record the
-      counts in the commit body.
-- [ ] **1.4** Verify license hygiene — reject GPL/AGPL/LGPL/UNLICENSED
-      (NFR-SEC-4); MIT/ISC/Apache-2.0/BSD are acceptable.
-- [ ] **1.5** Confirm the quality gate baseline still passes after the dep
+      counts in the commit body. — yaml: 0 transitive deps; ajv: 4 deps (fast-deep-equal, fast-uri, json-schema-traverse, require-from-string), all zero-dep themselves.
+- [x] **1.4** Verify license hygiene — reject GPL/AGPL/LGPL/UNLICENSED
+      (NFR-SEC-4); MIT/ISC/Apache-2.0/BSD are acceptable. — yaml=ISC, ajv=MIT, fast-deep-equal=MIT, fast-uri=BSD-3-Clause, json-schema-traverse=MIT, require-from-string=MIT. All permissive.
+- [x] **1.5** Confirm the quality gate baseline still passes after the dep
       additions: `bun run typecheck`, `bun run check:boundaries`,
-      `bun run format:check`.
+      `bun run format:check`. — all PASS.
 
 **Acceptance Criteria**:
 
@@ -790,7 +790,7 @@ including a `marksync.yml.example` round-trip through `loadConfig`.
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| 1 | pending | — | — | — | — |
+| 1 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | yaml@2.9.0 (ISC, 0 deps) + ajv@8.20.0 (MIT, 4 zero-dep deps); zero-dep `src/shared/glob.ts` (DEC-5); 14 glob tests PASS; baseline gates green. |
 | 2 | pending | — | — | — | — |
 | 3 | pending | — | — | — | — |
 | 4 | pending | — | — | — | — |
