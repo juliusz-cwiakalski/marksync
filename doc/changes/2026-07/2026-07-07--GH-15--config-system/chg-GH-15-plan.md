@@ -510,7 +510,7 @@ Absent front-matter is tolerated (RSK-5).
 
 **Tasks**:
 
-- [ ] **6.1** Create `src/app/document-config.ts` (application tier):
+- [x] **6.1** Create `src/app/document-config.ts` (application tier):
       - a gray-matter-style `parseFrontMatter(markdown): Record<string, unknown>`
         that extracts the YAML block between leading `---` fences and parses it
         with `yaml` (reuse DEC-1); returns `{}` when no/invalid front-matter
@@ -518,14 +518,14 @@ Absent front-matter is tolerated (RSK-5).
       - `resolveDocumentConfig(base, frontmatter)` merging `marksync.title`
         (override derived title), `marksync.parent` (override intended parent),
         `marksync.uuid` (carry source-side identity — consumed by E3-S1), and
-        `marksync.exclude: true` (flag for selection removal — AC-F4-2).
-- [ ] **6.2** Create `tests/unit/app/document-config.test.ts` — assert:
+        `marksync.exclude: true` (flag for selection removal — AC-F4-2). — incl. `DocumentConfig` type + `resolveDocumentFromMarkdown` convenience.
+- [x] **6.2** Create `tests/unit/app/document-config.test.ts` — assert:
       - AC-F4-1: `marksync.title: "X"` overrides the derived title.
       - AC-F4-2: `marksync.exclude: true` flags the document for removal.
       - `marksync.parent` overrides the intended parent; `marksync.uuid` is
         carried through.
       - Edge cases (RSK-5): no front-matter, malformed fences, unrelated keys,
-        CRLF line endings, empty fences — all tolerated.
+        CRLF line endings, empty fences — all tolerated. — 22 tests PASS (parseFrontMatter + resolveDocumentConfig + end-to-end).
 
 **Acceptance Criteria**:
 
@@ -795,7 +795,7 @@ including a `marksync.yml.example` round-trip through `loadConfig`.
 | 3 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | `schema.json` (draft-07, granularity enum `[squash]`, additionalProperties:false) + mirrored `types.ts`; `.gitkeep` removed; 16 schema tests PASS; typecheck/boundaries clean. |
 | 4 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | `loadConfig` + `applyDefaults` + ajv formatter (`config-errors.ts`); only I/O is reading marksync.yml; commit-by-commit → "deferred" message; 23 tests PASS; tsconfig gained `resolveJsonModule` (needed to import schema.json). |
 | 5 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | `selectFiles(config, paths)` (pure; de-dup+sort); OQ-2 anchoring documented (verbatim match, no root stripping); 13 tests PASS incl. purity proof via non-existent paths. |
-| 6 | pending | — | — | — | — |
+| 6 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | `parseFrontMatter` (yaml, CRLF-aware, tolerant) + `resolveDocumentConfig` + `DocumentConfig`; 22 tests PASS covering AC-F4-1/2 + all RSK-5 edges. |
 | 7 | pending | — | — | — | — |
 | 8 | pending | — | — | — | — |
 | 9 | pending | — | — | — | — |
