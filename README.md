@@ -35,11 +35,12 @@ before any bidirectional sync is attempted.
 
 ## Current status
 
-**Post-inception, pre-implementation.** The project has completed its
-inception phase (north star, roadmap, architecture, domain model, conventions,
-quality baseline, ADOS framework integration) and a Confluence API validation
-spike (`MS-0001`). The active milestone is `MS-0002` — the MVP safe one-way
-publisher.
+**MS-0002 in progress** — the MVP safe one-way publisher. The project has
+completed its inception phase (north star, roadmap, architecture, domain model,
+conventions, quality baseline, ADOS framework integration) and a Confluence API
+validation spike (`MS-0001`). The project scaffolding is now in place: strict
+TypeScript + Bun toolchain, Biome lint/format, dependency-cruiser boundary
+enforcement, commitlint + husky, and the ports-and-adapters module skeleton.
 
 See the [roadmap](doc/overview/02-roadmap.md) for milestone details.
 
@@ -83,7 +84,17 @@ diagrams and the full component map.
 
 ## Getting started
 
-> The CLI is not yet installable — implementation begins with `MS-0002`.
+> The CLI is not yet installable — domain logic lands in subsequent `MS-0002`
+> stories. The scaffolding (toolchain, module skeleton, shared primitives) is
+> in place.
+
+**Quick dev loop:**
+
+```bash
+bun install             # install devDeps
+bun run check           # lint + format:check + typecheck + test + check:boundaries
+bun run src/cli/index.ts # prints "marksync 0.0.0" (placeholder entrypoint)
+```
 
 **For contributors**, see the [dev environment guide](doc/guides/dev-environment.md)
 for prerequisites, setup, and scripts.

@@ -5,13 +5,13 @@ ados_distribution: redistributable
 id: DEV-ENVIRONMENT
 status: Draft
 created: 2026-07-05
-last_updated: 2026-07-05
+last_updated: 2026-07-07
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
-  related_decisions: [ADR-0001, TDR-0002, TDR-0003, TDR-0004]
-  related_changes: []
+  related_decisions: [ADR-0001, TDR-0002, TDR-0003, TDR-0004, TDR-0005, TDR-0006, TDR-0008]
+  related_changes: [GH-14]
   summary: "Developer environment setup guide — prerequisites, install, scripts, and common workflows for MarkSync contributors."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -26,7 +26,7 @@ workflows, and troubleshooting._
 
 | Tool | Version | Purpose | Required? |
 |---|---|---|---|
-| **Bun** | ≥ 1.2 (latest stable) | Runtime, package manager, test runner, single-binary compiler | **Yes** |
+| **Bun** | 1.2.23 (pinned in `package.json#engines` + CI) | Runtime, package manager, test runner, single-binary compiler | **Yes** |
 | **Git** | ≥ 2.30 | Version control; MarkSync's external prerequisite (TDR-0003) | **Yes** |
 | **Node.js** | ≥ 22 (optional) | Fallback runtime for non-Bun environments; type-checking with `tsc` | Optional |
 | **OS** | Linux or macOS (dev); Linux + Windows (target `MS-0002`) | Dev environment | Dev: any; `MS-0002` target: Linux + Windows |
@@ -54,11 +54,9 @@ cd marksync
 # 2. Install dependencies
 bun install
 
-# 3. Verify the toolchain
-bun run lint
-bun run typecheck
-bun test tests/unit/ tests/integration/ tests/golden/
-bun run test:bdd
+# 3. Verify the toolchain (the full quality gate: lint + format:check +
+#    typecheck + test + check:boundaries)
+bun run check
 
 # 4. (Optional) Set up local credentials for live testing
 cp .env.example .env.local
@@ -67,24 +65,29 @@ cp .env.example .env.local
 
 ## Common scripts
 
-_These scripts will be defined in `package.json` at `MS-0002` implementation
-start. They are documented here as the target contract._
+_All scripts are defined in `package.json`. Run them as `bun run <script>`._
 
 | Script | Command | Purpose |
 |---|---|---|
-| `bun run lint` | Linter check | CI gate; fails on lint errors |
-| `bun run format` | Formatter write | Auto-format code |
-| `bun run format:check` | Formatter check | CI gate; fails on unformatted code |
-| `bun run typecheck` | `tsc --noEmit` or `bun tsc --noEmit` | CI gate; fails on type errors |
-| `bun test` | Run all tests (unit + integration + golden) | Fast loop; excludes E2E |
+| `bun install --frozen-lockfile` | reproducible install from the committed `bun.lock` | CI / fresh-clone install |
+| `bun run lint` | `biome lint .` | CI gate; fails on lint errors |
+| `bun run format` | `biome format --write .` | Auto-format code |
+| `bun run format:check` | `biome format .` | CI gate; fails on unformatted files |
+| `bun run typecheck` | `tsc --noEmit` | CI gate; fails on type errors (strict) |
+| `bun run test` | `bun test` | Fast loop; unit + integration + golden (excludes E2E/BDD) |
+| `bun run test:bdd` | cucumber CLI (`@cucumber/cucumber`) | Lifecycle invariants (TDR-0007); no-ops until the BDD runner wires in E5-S1 (MS2-E5) |
+| `bun run check:boundaries` | `depcruise src` | Ports-and-adapters tier enforcement (TDR-0006); CI gate |
+| `bun run check` | `lint && format:check && typecheck && test && check:boundaries` | The full local quality gate |
+| `bun run prepare` | `husky` | Installs the `commit-msg` hook on `bun install` (TDR-0008) |
 | `bun test tests/golden/` | Golden-fixture tests only | Verify renderer determinism |
-| `bun test tests/unit/ tests/integration/ tests/golden/` | Fast loop (excludes E2E and BDD) | CI gate |
-| `bun run test:bdd` | Cucumber lifecycle invariants (TDR-0007) | CI gate |
-| `bun test tests/e2e/` | Live-sandbox E2E (requires credentials) | Separate gate |
+| `bun test tests/e2e/` | Live-sandbox E2E (requires credentials) | Separate gate (`run-e2e.yml`) |
 | `bun test --update-snapshots` | Update golden-fixture snapshots | Explicit, reviewed action |
-| `bun run build` | `bun build --compile` | Build single binary |
-| `bun run test:bdd` | Cucumber lifecycle invariants (TDR-0007) | CI gate |
-| `bun run bench` | Run repo-local benchmark gate (TDR-0004 §8) | Track test-suite performance |
+| `bun run build` | `bun build --compile` | Single-binary build — _not yet defined (lands MS2-E5-S4)_ |
+| `bun run bench` | repo-local benchmark gate (TDR-0004 §8) | _Not yet defined_ |
+
+Conventional Commits are enforced: the husky `commit-msg` hook (local) and the
+CI commit-lint step (authoritative — catches `--no-verify`) both run
+`commitlint` against `@commitlint/config-conventional` (TDR-0008).
 
 ## Local credentials (for live testing)
 
@@ -164,8 +167,11 @@ Settings (`.vscode/settings.json` target):
 
 ### `bun test` finds no tests
 
-- During inception, there are no source tests. CI uses `|| true` guards. At
-  `MS-0002` start, these guards are removed.
+- Confirm `bunfig.toml` sets `[test] root = "tests"` and the test file uses the
+  `*.test.ts` suffix under one of the test tiers (`tests/unit/`,
+  `tests/integration/`, `tests/golden/`).
+- A test file placed outside `tests/` is not discovered by the configured test
+  root.
 
 ### Mermaid render tests fail
 

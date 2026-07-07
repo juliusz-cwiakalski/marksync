@@ -137,7 +137,7 @@ Let's record it as decision record.
 - **[OPEN-Q6]** version.message limit → ANSWERED. Researched via @external-researcher: limit is undocumented; live API spike needed at MS-0002 start.
 - **[OPEN-Q7]** Conventional Commits → ANSWERED. Decision record created: [TDR-0008](../../decisions/TDR-0008-conventional-commits-enforcement.md) (commitlint + husky + CI).
 - **[OPEN-Q8]** keytar spike → DEFERRED to MS-0002 backlog planning.
-- **[OPEN-Q9]** CI unguard checklist → DEFERRED to MS-0002 implementation start.
+- **[OPEN-Q9]** CI unguard checklist → DEFERRED to MS-0002 implementation start. **CLOSED by GH-14** (2026-07-07) — every `continue-on-error: true` / `|| true` guard removed, Bun pinned to 1.2.23, `check:boundaries` + CI commit-lint steps added.
 
 ---
 
@@ -294,9 +294,9 @@ _Deferred to `MS-0002` backlog planning._
 
 ---
 
-### [OPEN-Q9] MS-0002 CI unguard checklist — DEFERRED
+### [OPEN-Q9] MS-0002 CI unguard checklist — CLOSED (GH-14)
 
-**Status:** DEFERRED
+**Status:** CLOSED (resolved by GH-14, 2026-07-07)
 
 **Question:** The CI is deliberately permissive during inception
 (`continue-on-error`, `|| true`, advisory-only scans). The requirement to remove
@@ -325,7 +325,14 @@ failure mode these guards must prevent.
 
 ### Answer
 
-_Deferred — create the checklist at `MS-0002` implementation start._
+_Resolved by GH-14 (2026-07-07):_ every inception-era `continue-on-error: true`
+and `|| true` advisory guard was removed from `.github/workflows/ci.yml`;
+Bun is pinned to a concrete patch (`1.2.23`) in both `package.json#engines` and
+the fast-loop CI matrix; `dependency-cruiser` + `check:boundaries`, the CI
+commit-lint step, and blocking vulnerability/license audits are wired. The full
+checklist is reconciled against this story in the change artifacts (spec
+Appendix A). Item 9 (YAML-lint Markdown frontmatter validation) remains out of
+scope — the doc-lint job is preserved as-is.
 
 ---
 

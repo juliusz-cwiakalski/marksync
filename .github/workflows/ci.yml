@@ -1,14 +1,14 @@
 # MarkSync CI — fast loop (lint + typecheck + test on every push/PR)
 #
-# Runs on: Node 22 (Bun installed via setup-bun). E2E/lite-sandbox tests are
+# Runs on: Ubuntu (Bun installed via setup-bun). E2E/lite-sandbox tests are
 # gated separately (run-e2e.yml) to keep the fast loop stable.
 #
 # Implements: TDR-0004 (bun:test primary runner), FSE-audit Attribute 5/6,
-# NFR-SEC-4 (dependency audit).
+# NFR-SEC-4 (dependency audit), TDR-0008 C-2 (CI commit-lint, AC-F4-3).
 #
-# Status: Phase 4 baseline. Scripts (lint, typecheck, test) assume the
-# package.json that will be created at MS-0002 implementation start. Until
-# then, CI will pass trivially (no source to lint/test).
+# OPEN-Q9 (closed): every inception-era `continue-on-error: true` and `|| true`
+# advisory guard has been removed — lint/typecheck/test/boundary/audit signals
+# are now BINDING. Bun is pinned to a concrete patch (NFR-6 / DEC-6).
 
 name: CI
 
@@ -33,10 +33,16 @@ jobs:
         os: [ubuntu-latest]
         # MS-0002 target: Linux + Windows. macOS deferred to MS-0003.
         # Windows added at MS-0002 implementation start.
-        bun-version: ["1.2"]  # pin to a concrete patch at MS-0002 start (snapshot stability)
+        # Pinned to a concrete patch for snapshot stability (NFR-6 / DEC-6);
+        # must match package.json#engines.bun.
+        bun-version: ["1.2.23"]
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history so `commitlint --from origin/main` resolves (AC-F4-3).
+          # The default fetch-depth: 1 (shallow) makes origin/main ambiguous.
+          fetch-depth: 0
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -44,34 +50,42 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
-        continue-on-error: true # no package.json yet during inception
+
+      - name: Lint commit messages
+        # CI authoritative Conventional Commits gate (TDR-0008 C-2 / AC-F4-3).
+        # Defense-in-depth with the local husky commit-msg hook: this catches
+        # `--no-verify` commits the local hook skips. Runs directly (no 3rd-party
+        # Action) so @commitlint/cli from devDeps is the only thing needed.
+        run: bunx commitlint --from origin/main --to HEAD
 
       - name: Lint
         run: bun run lint
-        continue-on-error: true # no linter configured yet during inception
 
       - name: Typecheck
         run: bun run typecheck
-        continue-on-error: true # no tsconfig.json yet during inception
 
       - name: Test (unit + integration + golden — exclude E2E and BDD)
-        run: bun test tests/unit/ tests/integration/ tests/golden/ || true
-        # During inception there are no tests; `|| true` keeps CI green.
-        # Exclude E2E (live-sandbox) and BDD (cucumber CLI) from the bun:test fast loop.
-        # BDD tests run via `bun run test:bdd` (cucumber CLI per TDR-0007).
-        # At MS-0002 start, remove `|| true`.
+        # Exclude E2E (live-sandbox, run-e2e.yml) and BDD (cucumber CLI) from
+        # the bun:test fast loop. BDD runs via `bun run test:bdd` below.
+        run: bun test tests/unit/ tests/integration/ tests/golden/
+
+      - name: Check import boundaries (dependency-cruiser)
+        # Ports-and-adapters tier enforcement (TDR-0006 / AC-F3-1).
+        run: bun run check:boundaries
 
       - name: BDD lifecycle invariants (cucumber)
-        run: bun run test:bdd || true
         # Runs @cucumber/cucumber for INV-SAFE-1/2/3 + INV-SEC-1 (TDR-0007).
-        # During inception there are no .feature files; `|| true` keeps CI green.
-        # At MS-0002 start, remove `|| true`.
+        # The test:bdd script no-ops until the BDD runner wires in E5-S1
+        # (MS2-E5), so this step is green now and binding once features land.
+        run: bun run test:bdd
 
   dependency-audit:
-    name: Dependency + License Audit
+    name: License Audit
     runs-on: ubuntu-latest
-    # Runs on every push/PR; the actual scan is gated per-step after checkout
-    # (job-level hashFiles evaluates before checkout, so it always sees no files).
+    # Bun version floats here (NFR-6 narrowed: only the fast-loop matrix is
+    # pinned; the audit just needs a working Bun to install for license-checker).
+    # Vulnerability scanning moved to the dedicated osv-scan job below (the
+    # osv-scanner-action reusable workflow handles checkout/install/scan).
     steps:
       - uses: actions/checkout@v4
 
@@ -93,20 +107,27 @@ jobs:
         run: bun install --frozen-lockfile
         if: steps.lockfile.outputs.exists == 'true'
 
-      - name: Vulnerability scan (osv-scanner)
-        if: steps.lockfile.outputs.exists == 'true'
-        run: |
-          # osv-scanner scans the lockfile for known vulnerabilities (NFR-SEC-4)
-          # NOTE: verify --lockfile vs --lockfile flag at MS-0002 start (osv-scanner may use -L/--lockfile)
-          npx @google/osv-scanner --lock-file "${{ steps.lockfile.outputs.name }}" || true
-        continue-on-error: true # advisory during inception; make blocking at MS-0002
-
       - name: License audit
+        # Reject GPL/AGPL/LGPL/UNLICENSED third-party dependencies (MarkSync
+        # is MIT). BLOCKING. `--excludePrivatePackages` skips the project's own
+        # private package.json entry (license-checker misreads the root package
+        # as UNLICENSED despite package.json#license being MIT).
         if: steps.lockfile.outputs.exists == 'true'
         run: |
-          # Reject GPL/AGPL/LGPL/UNLICENSED dependencies (MarkSync is MIT)
-          npx license-checker --production --failOn "GPL;AGPL;LGPL;UNLICENSED" || true
-        continue-on-error: true # advisory during inception; make blocking at MS-0002
+          npx license-checker --production --excludePrivatePackages --failOn "GPL;AGPL;LGPL;UNLICENSED"
+
+  osv-scan:
+    # Vulnerability scan via the official osv-scanner reusable workflow
+    # (NFR-SEC-4). Replaces the broken `npx @google/osv-scanner` step (the
+    # package was never published to npm — the inception-era `|| true` masked
+    # the 404). The reusable workflow handles checkout, install, scan, and
+    # SARIF upload to the Security tab.
+    name: Vulnerability scan (osv-scanner)
+    permissions:
+      actions: read
+      security-events: write
+      contents: read
+    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.3.8"
 
   doc-yaml-lint:
     name: YAML + Markdown lint

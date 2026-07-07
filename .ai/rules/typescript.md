@@ -5,13 +5,13 @@ ados_distribution: redistributable
 id: CONVENTIONS-TYPESCRIPT
 status: Draft
 created: 2026-07-05
-last_updated: 2026-07-05
+last_updated: 2026-07-07
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0006, ADR-0011, TDR-0002, TDR-0003, TDR-0004, TDR-0005, TDR-0006, TDR-0008]
-  related_changes: []
+  related_changes: [GH-14]
   summary: "TypeScript + Bun conventions — module structure, naming, error handling, IO boundaries, linting, formatting for MarkSync."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -166,7 +166,8 @@ export type Result<T, E> =
   | { ok: true; value: T }
   | { ok: false; error: E };
 
-// src/domain/errors.ts — typed domain errors (discriminated union)
+// src/domain/errors.ts — typed domain errors (discriminated union).
+// The live definition is authoritative; reproduced here for convention reference.
 export type MarkSyncError =
   | { kind: "Conflict"; pageId: string; baseVersion: number; remoteVersion: number }
   | { kind: "RemoteMissing"; pageId: string }
@@ -175,7 +176,15 @@ export type MarkSyncError =
   | { kind: "Forbidden"; pageId: string; operation: string }
   | { kind: "LockDirty"; path: string }
   | { kind: "ConcurrentWrite"; lockPath: string }
-  | { kind: "RenderUnavailable"; renderer: string; cause: string };
+  | { kind: "RenderUnavailable"; renderer: string; cause: string }
+  | { kind: "StalePlan"; operationId: string; expiredAt: string }
+  | { kind: "ForbiddenBranch"; branch: string; allowed: string[] }
+  | { kind: "TooLarge"; pageId: string; what: string }
+  | { kind: "UnresolvedLink"; sourcePath: string; target: string };
+
+// The exhaustive `never`-check lives alongside the union as
+// `assertNeverMarkSyncError(error)` — switching over every `kind` so adding a
+// future kind is a compile error until every handler is updated.
 
 // Usage in domain logic — return Result, don't throw for expected cases:
 function classify(local: Doc, base: Base, remote: Page): Result<SyncState, MarkSyncError> {
