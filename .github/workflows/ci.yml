@@ -80,10 +80,12 @@ jobs:
         run: bun run test:bdd
 
   dependency-audit:
-    name: Dependency + License Audit
+    name: License Audit
     runs-on: ubuntu-latest
     # Bun version floats here (NFR-6 narrowed: only the fast-loop matrix is
     # pinned; the audit just needs a working Bun to install for license-checker).
+    # Vulnerability scanning moved to the dedicated osv-scan job below (the
+    # osv-scanner-action reusable workflow handles checkout/install/scan).
     steps:
       - uses: actions/checkout@v4
 
@@ -105,20 +107,24 @@ jobs:
         run: bun install --frozen-lockfile
         if: steps.lockfile.outputs.exists == 'true'
 
-      - name: Vulnerability scan (osv-scanner)
-        # Scans the lockfile for known vulnerabilities (NFR-SEC-4). BLOCKING.
-        # OQ-2 resolved: osv-scanner V2 uses the `scan` subcommand + `-L`
-        # (the hyphenated `--lock-file` was not a valid V2 flag; V1 used
-        # `--lockfile`/`-L`). `scan source` is the default sub-subcommand.
-        if: steps.lockfile.outputs.exists == 'true'
-        run: |
-          npx @google/osv-scanner scan -L "${{ steps.lockfile.outputs.name }}"
-
       - name: License audit
         # Reject GPL/AGPL/LGPL/UNLICENSED dependencies (MarkSync is MIT). BLOCKING.
         if: steps.lockfile.outputs.exists == 'true'
         run: |
           npx license-checker --production --failOn "GPL;AGPL;LGPL;UNLICENSED"
+
+  osv-scan:
+    # Vulnerability scan via the official osv-scanner reusable workflow
+    # (NFR-SEC-4). Replaces the broken `npx @google/osv-scanner` step (the
+    # package was never published to npm — the inception-era `|| true` masked
+    # the 404). The reusable workflow handles checkout, install, scan, and
+    # SARIF upload to the Security tab.
+    name: Vulnerability scan (osv-scanner)
+    permissions:
+      actions: read
+      security-events: write
+      contents: read
+    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.3.8"
 
   doc-yaml-lint:
     name: YAML + Markdown lint
