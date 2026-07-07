@@ -9,7 +9,16 @@ root = "tests"
 # DEC-5 / CEO R1: this is a no-op stub until E4-S1 (MS2-E4) populates it.
 preload = ["./tests/mermaid.preload.ts"]
 
-# Coverage (target thresholds — adjust based on MS-0002 baseline; spec OQ-1).
+# Coverage thresholds.
+#
+# OQ-1 (MS-0002-start baseline): the typescript.md default is lines=0.80; lowered
+# to 0.70 here. Reason: src/domain/errors.ts's `assertNeverMarkSyncError` is an
+# exhaustive `never`-switch — its `default` block is a compile-time exhaustiveness
+# guard (AC-F6-2: adding a MarkSyncError kind fails to compile until every handler
+# is updated) that is structurally unreachable at runtime, so errors.ts per-file
+# line coverage caps at ~71%. Bun enforces coverageThreshold per-file. Revisit at
+# MS-0002 end (e.g. adopt a Bun coverage-ignore comment if/when Bun supports one,
+# or restructure the proof). functions remains 0.80 (met at 100%).
 coverage = true
-coverageThreshold = { lines = 0.80, functions = 0.80 }
+coverageThreshold = { lines = 0.70, functions = 0.80 }
 coverageDir = "./coverage"

@@ -536,24 +536,45 @@ asserting the `Result` shape and the `MarkSyncError` exhaustive-switch — so
 
 **Tasks**:
 
-- [ ] **7.1** Create the test-tier directories: `tests/unit/`,
+- [x] **7.1** Create the test-tier directories: `tests/unit/`,
       `tests/integration/`, `tests/golden/`, `tests/bdd/`, `tests/e2e/`
-      (testing-strategy.md tiers). Preserve empty dirs with `.gitkeep`.
-- [ ] **7.2** Add a smoke test at `tests/unit/domain/result.test.ts`
+      (testing-strategy.md tiers). Preserve empty dirs with `.gitkeep`. — PASSED:
+      all five test-tier dirs created (unit/ holds the smoke test; the other four
+      carry `.gitkeep`).
+- [x] **7.2** Add a smoke test at `tests/unit/domain/result.test.ts`
       (mirrors `src/domain/result.ts`; matches the test plan's TC-PRIMITIVES-001)
       asserting `Result.ok` / `Result.err` shape and that a `MarkSyncError`
       exhaustive `switch` compiles (F-8 / AC-F8-1). Keep it type-and-shape only
-      — no domain behavior under test (NG-1).
-- [ ] **7.3** Run `bun test` → exits 0 (AC-F8-1). Handle **OQ-1**: if the
+      — no domain behavior under test (NG-1). — PASSED: smoke test asserts
+      `Result.ok`/`Result.err` arms; an exhaustive 12-kind `switch` with a
+      `never`-default (compiles only when every kind is handled — AC-F6-2); and
+      `assertNeverMarkSyncError` throws for every known kind. 4 tests, 28 expects,
+      exit 0.
+- [x] **7.3** Run `bun test` → exits 0 (AC-F8-1). Handle **OQ-1**: if the
       `0.80` coverage threshold (Phase 2 `bunfig.toml`) is unsatisfiable on
       type-only scaffolding modules, set a documented lower MS-0002-start
       baseline (record the value + rationale in `bunfig.toml`/a comment) and
-      note "revisit at MS-0002 end"; do **not** disable coverage silently.
+      note "revisit at MS-0002 end"; do **not** disable coverage silently. —
+      PASSED + OQ-1 RESOLVED: `bun test` exits 0 (AC-F8-1). Bun enforces
+      `coverageThreshold` **per-file**, and `src/domain/errors.ts`'s
+      `assertNeverMarkSyncError` carries a structurally-unreachable `default`
+      block (the AC-F6-2 compile-time exhaustiveness guard — all 12 cases throw
+      before `default`), so its per-file line coverage caps at 71.43% (Bun 1.2.23
+      supports no coverage-ignore comment — verified against `/* istanbul ignore
+      next */`, `// coverage ignore next[ line]`, `/* coverage ignore */`).
+      Per OQ-1, lowered `lines` baseline to **0.70** (functions stays 0.80, met
+      at 100%) with a documented rationale in `bunfig.toml`; aggregate coverage
+      is 90.48%. Revisit at MS-0002 end.
 
 **Acceptance Criteria**:
 
-- Must: `bun test` exits 0 with the smoke test passing (AC-F8-1).
-- Should: coverage config is honest about the MS-0002-start baseline (OQ-1).
+- Must: `bun test` exits 0 with the smoke test passing (AC-F8-1) — PASSED (4
+  tests / 28 expects, exit 0; first real `bun test` run; aggregate coverage
+  90.48%).
+- Should: coverage config is honest about the MS-0002-start baseline (OQ-1) —
+  PASSED: `lines` lowered 0.80 → 0.70 with a documented rationale in
+  `bunfig.toml` (errors.ts unreachable exhaustiveness guard; per-file Bun
+  enforcement); functions stays 0.80; revisit at MS-0002 end.
 
 **Files and modules**:
 
@@ -771,7 +792,7 @@ final whole-repo `bun run check`, confirm there is no version bump
 | 1 — manifest, hygiene, install | DONE | 2026-07-07 | 2026-07-07 | 1ff143f | Bun pinned 1.2.23; package.json ESM + `#imports` aliases + 5 devDeps (no runtime deps); `bun.lock` text committed; `--frozen-lockfile` reproducible. Bun 1.2.23 used for delivery (local 1.1.34 emits binary `bun.lockb`). |
 | 4 — dependency-cruiser | DONE | 2026-07-07 | 2026-07-07 | bf63a66 | `.dependency-cruiser.cjs` with 4 `forbidden` rules (`severity:"error"`). RSK-1 closed: dep-cruiser 18 resolves `#imports` aliases natively — both alias + relative `domain→infra` scratches detected (exit 3); clean tree exit 0. `importsFields` rejected by dep-cruiser 18 schema; used valid `enhancedResolveOptions` keys only. |
 | 5 — commitlint + husky | DONE | 2026-07-07 | 2026-07-07 | 686b69f | commitlint.config.js extends config-conventional (header-max-length 72, `ignores` Merge/Revert/[skip ci]); `.husky/commit-msg` runs `bunx commitlint --edit "$1"`. AC-F4-1 PASS (good msg exit 0), AC-F4-2 PASS (`bad message` → exit 1, `[subject-empty]`/`[type-empty]`). CI authoritative half lands in Phase 8 (AC-F4-3). |
-| 6 — skeleton + primitives | DONE | 2026-07-07 | 2026-07-07 | (this commit) | 20 tier dirs + `.gitkeep`; `result.ts` (verbatim `Result<T,E>` + additive `ok`/`err` ctor namespace); `errors.ts` (12-kind `MarkSyncError` verbatim + `assertNeverMarkSyncError` exhaustive `never`-switch); `cli/index.ts` prints `marksync 0.0.0`. AC-F1-2/F6-1/F6-2 PASS (typecheck exit 0 — first green strict compile). AC-F3-2 PASS re-verified: domain→infra scratch (alias+relative) → `domain-may-not-import-infra` exit 1; clean after removal. AC-F7-1 PASS. |
-| 7 — test skeleton + smoke | pending | | | | first green bun test; OQ-1 coverage check |
+| 6 — skeleton + primitives | DONE | 2026-07-07 | 2026-07-07 | a0c88cc | 20 tier dirs + `.gitkeep`; `result.ts` (verbatim `Result<T,E>` + additive `ok`/`err` ctor namespace); `errors.ts` (12-kind `MarkSyncError` verbatim + `assertNeverMarkSyncError` exhaustive `never`-switch); `cli/index.ts` prints `marksync 0.0.0`. AC-F1-2/F6-1/F6-2 PASS (typecheck exit 0 — first green strict compile). AC-F3-2 PASS re-verified: domain→infra scratch (alias+relative) → `domain-may-not-import-infra` exit 1; clean after removal. AC-F7-1 PASS. |
+| 7 — test skeleton + smoke | DONE | 2026-07-07 | 2026-07-07 | (this commit) | 5 test-tier dirs; `tests/unit/domain/result.test.ts` smoke test (Result shape + 12-kind exhaustive `never`-switch + assertNever throws). `bun test` exit 0 (AC-F8-1), 4 pass/28 expects, agg coverage 90.48%. **OQ-1 RESOLVED:** Bun enforces coverageThreshold per-file; errors.ts's unreachable exhaustiveness `default` (AC-F6-2 guard) caps at 71.43%; Bun 1.2.23 has no coverage-ignore comment (verified); lowered `lines` to 0.70 (functions 0.80) in `bunfig.toml` with rationale; revisit at MS-0002 end. **Deviation (Phase 1 latent bug, fixed in a96fbeb):** the `imports` wildcards were extensionless (`./src/domain/*`) — unresolved at Bun runtime (imports/exports subpath targets get no extension resolution); tsc + dep-cruiser masked it. Phase 7's smoke test first exercised a runtime `#domain/*` import and exposed it. Fixed by appending `.ts` to all four wildcard values; dep-cruiser negative-test re-verified (RSK-1 holds). |
 | 8 — CI unguard (OPEN-Q9) | pending | | | | OQ-2 osv-scanner flag check |
 | 9 — finalize + README | pending | | | | no version bump (version_impact: none) |
