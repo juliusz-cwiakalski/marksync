@@ -346,29 +346,36 @@ resolution, and wire `check:boundaries`.
 
 **Tasks**:
 
-- [ ] **4.1** Create `.dependency-cruiser.cjs` with the **four `forbidden` tier
+- [x] **4.1** Created `.dependency-cruiser.cjs` with the **four `forbidden` tier
       rules** exactly as in `typescript.md` §"Import-boundary enforcement":
       `domain-may-not-import-infra`, `domain-may-not-import-app`,
       `presentation-may-not-import-domain`,
       `presentation-may-not-import-infra` (matching the architecture-overview
-      dependency-direction matrix and blueprint §1's tier invariant).
-- [ ] **4.2** Configure `#imports`-field alias resolution (R2). dependency-cruiser
-      may not resolve the `#domain/*` etc. aliases out of the box; if it does
-      not, add an explicit alias mapping in the config (`resolved` / `tsConfig`
-      / `webpackConfig` per TDR-0006 implementation guidance). **Never disable a
-      rule to make CI green** (RSK-1).
-- [ ] **4.3** Confirm the `check:boundaries` script body wraps the `depcruise`
-      CLI over `src/` (per `typescript.md`); run `bun run check:boundaries` and
-      confirm it exits 0 (no violations; "nothing to check" is acceptable on the
-      not-yet-populated skeleton — the real negative test runs in Phase 6 once
-      `src/` has domain + infra files).
+      dependency-direction matrix and blueprint §1's tier invariant). Each rule
+      carries `severity: "error"` so any breach fails the build (AC-F3-2 / the
+      dep-cruiser 18 default emits `warn`-severity violations that exit 0 —
+      observed and corrected during the negative test).
+- [x] **4.2** Configured alias resolution (R2). **RSK-1 closed:** dependency-cruiser
+      18's default resolver follows the Node `imports` field out of the box — both
+      `#infra/git/shell-git` (alias form) and `../infra/git/shell-git` (relative
+      form) scratch imports were detected as `domain-may-not-import-infra` errors
+      (exit code 3). No explicit alias mapping (`tsConfig`/`webpackConfig`) needed.
+      **Note:** dep-cruiser 18's `enhancedResolveOptions` schema rejects
+      `importsFields` ("must NOT have additional properties"); the valid keys are
+      `exportsFields`/`conditionNames`/`extensions`/`mainFields` — used here.
+- [x] **4.3** Confirmed the `check:boundaries` script wraps `depcruise src`; on
+      the clean (empty `src/`) tree it exits 0 ("no dependency violations found").
+      The decisive negative test (AC-F3-2) was run now (3 violations, exit 3) and
+      is re-verified in Phase 6 once `src/` has the real skeleton.
 
 **Acceptance Criteria**:
 
-- Must: `.dependency-cruiser.cjs` declares all four tier rules (AC-F3-1);
-  `check:boundaries` exits 0 on the clean tree.
+- Must: `.dependency-cruiser.cjs` declares all four tier rules (AC-F3-1) —
+  PASSED (4 `forbidden` rules with `severity:"error"`); `check:boundaries`
+  exits 0 on the clean tree — PASSED ("no dependency violations found", exit 0).
 - Should: aliases resolve without false negatives (verified decisively in
-  Phase 6 via AC-F3-2).
+  Phase 6 via AC-F3-2) — PASSED early: both `#infra/*` alias and `../infra/*`
+  relative forms detected as errors (exit 3); RSK-1 closed.
 
 **Files and modules**:
 
@@ -732,14 +739,12 @@ final whole-repo `bun run check`, confirm there is no version bump
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| 2 — tsconfig + bunfig | DONE | 2026-07-07 | 2026-07-07 | (phase 2 commit) | Strict tsconfig (8 flags verbatim) + bunfig.toml + no-op Mermaid preload. Justified deviation: added `@types/bun` + `typescript` devDeps (plan's non-negotiable `types:["bun"]` needs Bun types; `typescript.md` "no package needed" claim is inaccurate). typecheck green verified with sample Bun global. |
-| 3 — Biome | DONE | 2026-07-07 | 2026-07-07 | (phase 3 commit) | biome.json (recommended preset, DEC-4) scoped to project source; `lint` exit 0 (AC-F2-1), `format:check` exit 0 (AC-F2-2); package.json/tsconfig.json normalized to Biome formatting. |
-| 1 — manifest, hygiene, install | DONE | 2026-07-07 | 2026-07-07 | (phase 1 commit) | Bun pinned 1.2.23; package.json ESM + `#imports` aliases + 5 devDeps (no runtime deps); `bun.lock` text committed; `--frozen-lockfile` reproducible. Bun 1.2.23 used for delivery (local 1.1.34 emits binary `bun.lockb`). |
-| 2 — tsconfig + bunfig | pending | | | | typecheck green verified in Phase 6 (TS18003) |
-| 3 — Biome | pending | | | | |
-| 4 — dependency-cruiser | pending | | | | negative-test in Phase 6 |
+| 2 — tsconfig + bunfig | DONE | 2026-07-07 | 2026-07-07 | c4d8c49 | Strict tsconfig (8 flags verbatim) + bunfig.toml + no-op Mermaid preload. Justified deviation: added `@types/bun` + `typescript` devDeps (plan's non-negotiable `types:["bun"]` needs Bun types; `typescript.md` "no package needed" claim is inaccurate). typecheck green verified with sample Bun global. |
+| 3 — Biome | DONE | 2026-07-07 | 2026-07-07 | d8f4b52 | biome.json (recommended preset, DEC-4) scoped to project source; `lint` exit 0 (AC-F2-1), `format:check` exit 0 (AC-F2-2); package.json/tsconfig.json normalized to Biome formatting. |
+| 1 — manifest, hygiene, install | DONE | 2026-07-07 | 2026-07-07 | 1ff143f | Bun pinned 1.2.23; package.json ESM + `#imports` aliases + 5 devDeps (no runtime deps); `bun.lock` text committed; `--frozen-lockfile` reproducible. Bun 1.2.23 used for delivery (local 1.1.34 emits binary `bun.lockb`). |
+| 4 — dependency-cruiser | DONE | 2026-07-07 | 2026-07-07 | (phase 4 commit) | `.dependency-cruiser.cjs` with 4 `forbidden` rules (`severity:"error"`). RSK-1 closed: dep-cruiser 18 resolves `#imports` aliases natively — both alias + relative `domain→infra` scratches detected (exit 3); clean tree exit 0. `importsFields` rejected by dep-cruiser 18 schema; used valid `enhancedResolveOptions` keys only. |
 | 5 — commitlint + husky | pending | | | | |
-| 6 — skeleton + primitives | pending | | | | first green typecheck + boundary negative-test |
+| 6 — skeleton + primitives | pending | | | | first green typecheck + boundary negative-test (re-verify) |
 | 7 — test skeleton + smoke | pending | | | | first green bun test; OQ-1 coverage check |
 | 8 — CI unguard (OPEN-Q9) | pending | | | | OQ-2 osv-scanner flag check |
 | 9 — finalize + README | pending | | | | no version bump (version_impact: none) |
