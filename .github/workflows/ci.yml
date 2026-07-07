@@ -108,10 +108,13 @@ jobs:
         if: steps.lockfile.outputs.exists == 'true'
 
       - name: License audit
-        # Reject GPL/AGPL/LGPL/UNLICENSED dependencies (MarkSync is MIT). BLOCKING.
+        # Reject GPL/AGPL/LGPL/UNLICENSED third-party dependencies (MarkSync
+        # is MIT). BLOCKING. `--excludePrivatePackages` skips the project's own
+        # private package.json entry (license-checker misreads the root package
+        # as UNLICENSED despite package.json#license being MIT).
         if: steps.lockfile.outputs.exists == 'true'
         run: |
-          npx license-checker --production --failOn "GPL;AGPL;LGPL;UNLICENSED"
+          npx license-checker --production --excludePrivatePackages --failOn "GPL;AGPL;LGPL;UNLICENSED"
 
   osv-scan:
     # Vulnerability scan via the official osv-scanner reusable workflow
