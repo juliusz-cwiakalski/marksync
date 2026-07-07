@@ -284,25 +284,25 @@ consistent from the first loader commit (DEC-3, NFR-3, RSK-2).
 
 **Tasks**:
 
-- [ ] **2.1** In `src/domain/errors.ts`, add a domain-owned plain-data type for
+- [x] **2.1** In `src/domain/errors.ts`, add a domain-owned plain-data type for
       the ajv-error entry carried by config failures (e.g. `ConfigAjvError`:
       `instancePath`, `schemaPath`, `keyword`, `message`, `params` as a
       serializable record) — **no** `import` from `ajv` (keeps domain pure; the
       app-tier formatter maps ajv `ErrorObject` → this shape in Phase 4).
-- [ ] **2.2** Add the `InvalidConfig` arm to the `MarkSyncError` union:
+- [x] **2.2** Add the `InvalidConfig` arm to the `MarkSyncError` union:
       `{ kind: "InvalidConfig"; path: string; ajvErrors: ConfigAjvError[];
       humanMessage: string }` (DEC-3 / DM-3).
-- [ ] **2.3** Extend `assertNeverMarkSyncError`'s switch with a `case
+- [x] **2.3** Extend `assertNeverMarkSyncError`'s switch with a `case
       "InvalidConfig":` so the `default` arm's `error` stays `never` (NFR-3;
       update the file's DEC/AC comment references to reflect the new kind
       count).
-- [ ] **2.4** Export a narrowed `ConfigError` alias from `src/domain/errors.ts`
+- [x] **2.4** Export a narrowed `ConfigError` alias from `src/domain/errors.ts`
       (`Extract<MarkSyncError, { kind: "InvalidConfig" }>`) so `loadConfig` can
       declare `Result<ProjectConfig, ConfigError>` (DEC-3).
-- [ ] **2.5** Create or extend `tests/unit/domain/errors.test.ts` asserting the
+- [x] **2.5** Create or extend `tests/unit/domain/errors.test.ts` asserting the
       union is exhaustive (a `default: assertNeverMarkSyncError(error)` over a
       typed `MarkSyncError` compiles) and that an `InvalidConfig` value is a
-      valid `MarkSyncError` / `ConfigError`.
+      valid `MarkSyncError` / `ConfigError`. — 5 tests PASS; `result.test.ts` updated to 13-kind sample (4 PASS).
 
 **Acceptance Criteria**:
 
@@ -791,7 +791,7 @@ including a `marksync.yml.example` round-trip through `loadConfig`.
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
 | 1 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | yaml@2.9.0 (ISC, 0 deps) + ajv@8.20.0 (MIT, 4 zero-dep deps); zero-dep `src/shared/glob.ts` (DEC-5); 14 glob tests PASS; baseline gates green. |
-| 2 | pending | — | — | — | — |
+| 2 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | `InvalidConfig` arm + `ConfigAjvError` + `ConfigError` alias in errors.ts; `assertNeverMarkSyncError` updated in same change; typecheck PASS (NFR-3); no ajv import in domain. |
 | 3 | pending | — | — | — | — |
 | 4 | pending | — | — | — | — |
 | 5 | pending | — | — | — | — |

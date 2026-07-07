@@ -2,13 +2,36 @@
 //
 // The typed domain errors — a discriminated union over every failure kind
 // MarkSync surfaces. Copied VERBATIM from blueprint §2 (DEC-1 — the 12-kind
-// superset; the 8-kind excerpt in typescript.md is a partial illustration).
+// superset; the 8-kind excerpt in typescript.md is a partial illustration),
+// extended with the `InvalidConfig` config-failure kind (GH-15 DEC-3 / DM-3).
 // Domain functions return these via Result<T, MarkSyncError> (never `throw` for
 // expected failures); only invariant violations throw (typescript.md
 // §"Error handling").
 //
 // Each error carries the context its handler needs (pageId, sourcePath, cause,
 // …); the redaction layer strips any secret material before output.
+
+/**
+ * Plain-data entry for one ajv validation error, carried by `InvalidConfig`.
+ *
+ * Deliberately a domain-owned serializable shape (NOT a re-export of ajv's
+ * `ErrorObject`): the domain tier imports no validator (typescript.md tier
+ * rules / GH-15 NFR-3). The application-tier formatter (`src/app/config-errors.ts`)
+ * maps ajv `ErrorObject[]` into this shape so config failures stay
+ * serializable and dependency-free at the domain boundary.
+ */
+export interface ConfigAjvError {
+	/** JSON pointer to the offending instance (e.g. `/sync/granularity`). */
+	instancePath: string;
+	/** JSON pointer to the failing schema keyword (e.g. `#/properties/sync/properties/granularity/enum`). */
+	schemaPath: string;
+	/** The ajv keyword that failed (`required`, `type`, `enum`, `additionalProperties`, …). */
+	keyword: string;
+	/** ajv's human-oriented message for this error. */
+	message: string;
+	/** ajv's `params` object, serialized to a plain record (`allowedValues`, `additionalProperty`, …). */
+	params: Record<string, unknown>;
+}
 
 export type MarkSyncError =
 	| {
@@ -27,14 +50,35 @@ export type MarkSyncError =
 	| { kind: "StalePlan"; operationId: string; expiredAt: string }
 	| { kind: "ForbiddenBranch"; branch: string; allowed: string[] }
 	| { kind: "TooLarge"; pageId: string; what: string }
-	| { kind: "UnresolvedLink"; sourcePath: string; target: string };
+	| { kind: "UnresolvedLink"; sourcePath: string; target: string }
+	// GH-15 DEC-3 / DM-3 — the config-failure arm. `loadConfig` narrows its
+	// Result error to `ConfigError` (= `Extract<MarkSyncError, { kind:
+	// "InvalidConfig" }>`). `humanMessage` is the AI-readable diagnostic
+	// (field path + expected vs actual + suggested fix — NFR-2); `ajvErrors`
+	// carries the structured validator output; `path` is the config file path.
+	| {
+			kind: "InvalidConfig";
+			path: string;
+			ajvErrors: ConfigAjvError[];
+			humanMessage: string;
+	  };
+
+/**
+ * The config-failure arm of {@link MarkSyncError}. `loadConfig` declares
+ * `Result<ProjectConfig, ConfigError>` (GH-15 DEC-3) — the narrowed channel
+ * preserves precision at the loader boundary while the full union remains
+ * available downstream.
+ */
+export type ConfigError = Extract<MarkSyncError, { kind: "InvalidConfig" }>;
 
 /**
  * Exhaustiveness proof for {@link MarkSyncError}. Switching over every `kind`
  * makes the union exhaustive at the type level: if a future kind is added to
  * {@link MarkSyncError} without extending this switch, the `default` arm's
  * `error` is no longer `never` and THIS FILE fails to compile — surfacing the
- * gap at the definition site, before any handler is written (DEC-1 / AC-F6-2).
+ * gap at the definition site, before any handler is written (DEC-1 / AC-F6-2;
+ * the `InvalidConfig` case was added alongside the union arm in GH-15 so the
+ * never-check stayed intact — NFR-3 / RSK-2).
  *
  * The same guarantee is inherited by any handler that calls this from its
  * `default` arm (typescript.md §"Exhaustive checking"): once `error` is narrowed
@@ -55,6 +99,7 @@ export function assertNeverMarkSyncError(error: MarkSyncError): never {
 		case "ForbiddenBranch":
 		case "TooLarge":
 		case "UnresolvedLink":
+		case "InvalidConfig":
 			// Every kind is named above. If a new kind is added, the `default`
 			// arm's `error` stops being `never` and this file won't compile.
 			throw new Error(`unhandled MarkSyncError kind: ${error.kind}`);

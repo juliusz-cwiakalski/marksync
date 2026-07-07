@@ -1,7 +1,7 @@
 // tests/unit/domain/result.test.ts
 //
 // Smoke test for the shared primitives — proves the toolchain compiles and
-// executes the `Result<T,E>` + 12-kind `MarkSyncError` contract under strict
+// executes the `Result<T,E>` + 13-kind `MarkSyncError` contract under strict
 // mode, and that the union is exhaustive (the `never`-check compiles only when
 // every kind is handled — AC-F6-2). Type-and-shape only: no domain behavior
 // under test (NG-1). Mirrors `src/domain/{result,errors}.ts` (TC-PRIMITIVES-001).
@@ -27,7 +27,7 @@ describe("Result<T, E>", () => {
 
 describe("MarkSyncError exhaustiveness", () => {
 	// One sample per kind — proves every kind is constructible with its
-	// blueprint §2 field shape and feeds the exhaustive switch below.
+	// blueprint §2 / GH-15 field shape and feeds the exhaustive switch below.
 	const samples: MarkSyncError[] = [
 		{ kind: "Conflict", pageId: "1", baseVersion: 1, remoteVersion: 2 },
 		{ kind: "RemoteMissing", pageId: "1" },
@@ -49,6 +49,12 @@ describe("MarkSyncError exhaustiveness", () => {
 		{ kind: "ForbiddenBranch", branch: "feature/x", allowed: ["main"] },
 		{ kind: "TooLarge", pageId: "1", what: "storage body" },
 		{ kind: "UnresolvedLink", sourcePath: "a.md", target: "missing.md" },
+		{
+			kind: "InvalidConfig",
+			path: "marksync.yml",
+			ajvErrors: [],
+			humanMessage: "missing required field: root",
+		},
 	];
 
 	test("every kind maps to a label via an exhaustive switch", () => {
@@ -78,6 +84,8 @@ describe("MarkSyncError exhaustiveness", () => {
 					return "too-large";
 				case "UnresolvedLink":
 					return "unresolved-link";
+				case "InvalidConfig":
+					return "invalid-config";
 				default:
 					// Exhaustiveness: if a new `kind` is added to MarkSyncError,
 					// `error` here is no longer `never` and this line fails to
