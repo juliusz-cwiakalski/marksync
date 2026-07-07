@@ -16,10 +16,10 @@
 		}
 	},
 	"imports": {
-		"#domain/*": "./src/domain/*",
-		"#app/*": "./src/app/*",
-		"#infra/*": "./src/infra/*",
-		"#shared/*": "./src/shared/*"
+		"#domain/*": "./src/domain/*.ts",
+		"#app/*": "./src/app/*.ts",
+		"#infra/*": "./src/infra/*.ts",
+		"#shared/*": "./src/shared/*.ts"
 	},
 	"scripts": {
 		"lint": "biome lint .",
