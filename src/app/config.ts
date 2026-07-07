@@ -26,6 +26,7 @@ import { formatConfigErrors, mapAjvErrors } from "#app/config-errors";
 import type { ConfigAjvError, ConfigError } from "#domain/errors";
 import type { ProjectConfig, ProjectConfigInput } from "#domain/config/types";
 import { Result } from "#domain/result";
+import { matchGlob } from "#shared/glob";
 import schema from "../domain/config/schema.json" with { type: "json" };
 
 /**
@@ -157,4 +158,41 @@ export function applyDefaults(input: ProjectConfigInput): ProjectConfig {
 			visiblePanel: input.provenance?.visiblePanel ?? true,
 		},
 	};
+}
+
+/**
+ * Select the active file set from a caller-supplied path list (GH-15 F-3 /
+ * DEC-4 / NFR-4).
+ *
+ * Returns the subset of `paths` that match at least one `config.select` glob
+ * AND none of the `config.exclude` globs. The result is de-duplicated and
+ * sorted so selection is deterministic across runs (consumed downstream by
+ * discovery/plan/sync).
+ *
+ * ## Anchoring semantics (spec OQ-2 — resolved at delivery)
+ *
+ * `select`/`exclude` globs are matched against the `paths` entries **verbatim**
+ * using standard micromatch-style semantics (`**` recursive, `*` single
+ * segment, `?` single char — see `src/shared/glob.ts`). `paths` are repo-
+ * relative, forward-slash paths supplied by the Git adapter (E3-S3). There is
+ * **no** leading-slash special-casing and **no** `root`-prefix stripping:
+ * `config.root` is consumed by the hierarchy step (Phase 7), not by selection.
+ *
+ * ## Purity (NFR-4)
+ *
+ * This function performs ZERO Git/working-tree I/O — it accepts a plain
+ * `string[]` and returns a `string[]`. The Git adapter owns tree reads; the
+ * loader never touches the repo tree (DEC-4).
+ */
+export function selectFiles(
+	config: ProjectConfig,
+	paths: readonly string[],
+): string[] {
+	const selected = paths.filter(
+		(p) =>
+			config.select.some((glob) => matchGlob(glob, p)) &&
+			!config.exclude.some((glob) => matchGlob(glob, p)),
+	);
+	// De-duplicate + sort for deterministic output.
+	return Array.from(new Set(selected)).sort();
 }

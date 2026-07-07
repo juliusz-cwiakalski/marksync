@@ -465,18 +465,18 @@ given a caller-supplied path list (DEC-4 / NFR-4).
 
 **Tasks**:
 
-- [ ] **5.1** Implement `selectFiles(config, paths)` in `src/app/config.ts`
+- [x] **5.1** Implement `selectFiles(config, paths)` in `src/app/config.ts`
       importing the zero-dependency matcher from `#shared/glob`
       (`src/shared/glob.ts`, authored in Phase 1 per DEC-5). Document the chosen
       **anchoring** semantics relative to `root` (leading-slash anchored vs
       glob-relative — spec OQ-2, the remaining open detail) in a comment at the
-      definition site.
-- [ ] **5.2** Ensure determinism: de-duplicate and sort the output so selection
+      definition site. — anchored verbatim against repo-relative path entries; `root` not used for prefix-stripping (consumed by hierarchy).
+- [x] **5.2** Ensure determinism: de-duplicate and sort the output so selection
       is stable across runs (consumed downstream by discovery/plan).
-- [ ] **5.3** Create `tests/unit/app/select-files.test.ts` — fixture file lists
+- [x] **5.3** Create `tests/unit/app/select-files.test.ts` — fixture file lists
       covering: include by `select`, exclude by `exclude`, nested dirs, `**`
       recursion, leading-slash anchoring, no matches, empty `select`. Assert
-      zero misclassifications (AC-F3-2 / NFR-4 / RSK-6).
+      zero misclassifications (AC-F3-2 / NFR-4 / RSK-6). — 13 tests PASS; purity proven via non-existent paths (no mock needed).
 
 **Acceptance Criteria**:
 
@@ -794,7 +794,7 @@ including a `marksync.yml.example` round-trip through `loadConfig`.
 | 2 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | `InvalidConfig` arm + `ConfigAjvError` + `ConfigError` alias in errors.ts; `assertNeverMarkSyncError` updated in same change; typecheck PASS (NFR-3); no ajv import in domain. |
 | 3 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | `schema.json` (draft-07, granularity enum `[squash]`, additionalProperties:false) + mirrored `types.ts`; `.gitkeep` removed; 16 schema tests PASS; typecheck/boundaries clean. |
 | 4 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | `loadConfig` + `applyDefaults` + ajv formatter (`config-errors.ts`); only I/O is reading marksync.yml; commit-by-commit → "deferred" message; 23 tests PASS; tsconfig gained `resolveJsonModule` (needed to import schema.json). |
-| 5 | pending | — | — | — | — |
+| 5 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | `selectFiles(config, paths)` (pure; de-dup+sort); OQ-2 anchoring documented (verbatim match, no root stripping); 13 tests PASS incl. purity proof via non-existent paths. |
 | 6 | pending | — | — | — | — |
 | 7 | pending | — | — | — | — |
 | 8 | pending | — | — | — | — |
