@@ -196,26 +196,27 @@ the foundation every later phase compiles/installs against.
 
 **Tasks**:
 
-- [ ] **1.1** Resolve the concrete stable **1.2.x** Bun patch (coder checks the
-      latest stable 1.2.x release) and record it; this single value pins both
-      `package.json#engines` and CI (NFR-6 / DEC-6).
-- [ ] **1.2** Create `package.json` per `typescript.md`: `"type": "module"`;
-      `"exports"` (public surface); `"imports"` aliases `#domain/*`, `#app/*`,
-      `#infra/*`, `#shared/*` (DEC-2 — runtime-respected, `bun build --compile`-safe);
-      scripts `lint`, `format`, `format:check`, `typecheck`, `test`, `test:bdd`,
-      `check` (lint + format:check + typecheck + test + check:boundaries),
-      `check:boundaries`, `prepare`; `engines.bun` pinned to the 1.2.x patch.
-      **devDependencies only**: `@biomejs/biome`, `dependency-cruiser`,
-      `@commitlint/cli`, `@commitlint/config-conventional`, `husky`. **No
-      runtime dependencies** (NFR-7). Exact manifest shape (imports/exports,
-      script command bodies) copied from `typescript.md`.
-- [ ] **1.3** Add `.gitignore` entries: `node_modules/`, `dist/`, `coverage/`,
-      `.marksync/`, `*.tsbuildinfo`. The current `.gitignore` is Go-oriented
-      legacy — **add** the TS entries; do **not** remove existing entries.
-      (`node_modules/` must be ignored before the install in 1.4.)
-- [ ] **1.4** Run `bun install` to generate/refresh the lockfile; commit
-      `bun.lock` (required for `--frozen-lockfile` reproducibility — NFR-5).
-      Run `bun install --frozen-lockfile` once to confirm it is reproducible.
+- [x] **1.1** Resolved concrete stable **1.2.x** Bun patch to **1.2.23**
+      (latest stable 1.2.x — confirmed via npm registry + GH releases
+      `bun-v1.2.23`); pins both `package.json#engines` and CI (NFR-6 / DEC-6).
+      Note: local box has Bun 1.1.34 (which emits legacy binary `bun.lockb`);
+      the text `bun.lock` (AC-F1) requires Bun 1.2.x — a Bun 1.2.23 binary is
+      used for all install/test/check runs in this delivery.
+- [x] **1.2** Created `package.json` per `typescript.md`: `"type": "module"`;
+      `"exports"` (public surface copied verbatim); `"imports"` aliases
+      `#domain/*`, `#app/*`, `#infra/*`, `#shared/*` (DEC-2); scripts
+      `lint`/`format`/`format:check`/`typecheck`/`test`/`test:bdd`/`check`/
+      `check:boundaries`/`prepare`; `engines.bun` = `1.2.23`. devDependencies
+      only (resolved by `bun add`): `@biomejs/biome@^2.5.2`,
+      `dependency-cruiser@^18.0.0`, `@commitlint/cli@^21.2.0`,
+      `@commitlint/config-conventional@^21.2.0`, `husky@^9.1.7`. **No runtime
+      dependencies** (NFR-7 / AC-F10-1).
+- [x] **1.3** Added `.gitignore` TS entries `node_modules/`, `dist/`, `coverage/`,
+      `.marksync/`, `*.tsbuildinfo` (Go-oriented legacy entries preserved).
+      Verified `node_modules/` ignored before install (`git check-ignore`).
+- [x] **1.4** Ran `bun install` → committed text `bun.lock` (lockfileVersion 1);
+      `bun install --frozen-lockfile` exits 0, "Checked 122 installs across 128
+      packages (no changes)" — reproducible (AC-F1-1 / NFR-5).
 
 **Acceptance Criteria**:
 
@@ -723,7 +724,7 @@ final whole-repo `bun run check`, confirm there is no version bump
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| 1 — manifest, hygiene, install | pending | | | | |
+| 1 — manifest, hygiene, install | DONE | 2026-07-07 | 2026-07-07 | (phase 1 commit) | Bun pinned 1.2.23; package.json ESM + `#imports` aliases + 5 devDeps (no runtime deps); `bun.lock` text committed; `--frozen-lockfile` reproducible. Bun 1.2.23 used for delivery (local 1.1.34 emits binary `bun.lockb`). |
 | 2 — tsconfig + bunfig | pending | | | | typecheck green verified in Phase 6 (TS18003) |
 | 3 — Biome | pending | | | | |
 | 4 — dependency-cruiser | pending | | | | negative-test in Phase 6 |
