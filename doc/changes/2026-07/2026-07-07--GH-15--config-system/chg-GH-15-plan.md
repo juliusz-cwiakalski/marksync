@@ -337,7 +337,7 @@ validation (F-1, F-2, RSK-3 mitigation part 1).
 
 **Tasks**:
 
-- [ ] **3.1** Create `src/domain/config/schema.json` — JSON Schema v1
+- [x] **3.1** Create `src/domain/config/schema.json` — JSON Schema v1
       enumerating the blueprint §4 field set with required vs optional clearly
       distinguished: top-level `version`, `root`; `select[]`/`exclude[]` glob
       lists; `hierarchy` enum `{mirror, flat}`; `targets` map keyed by target id,
@@ -347,19 +347,19 @@ validation (F-1, F-2, RSK-3 mitigation part 1).
       `render.mermaid.{policy, securityLevel, htmlLabels, deterministicIds}`;
       `output.{format, color}`; `provenance.visiblePanel`. Set `$schema`,
       `additionalProperties: false` where appropriate, and `errorMessage`
-      annotations where ajv's keyword text is opaque.
-- [ ] **3.2** Create `src/domain/config/types.ts` — mirror the schema as TS
+      annotations where ajv's keyword text is opaque. — draft-07, `additionalProperties:false` on root + each object; `granularity` enum `[squash]` only; `version` const 1. `errorMessage` keywords omitted (require ajv-errors plugin → would breach NFR-7 envelope); AI-readable messages handled by the app-tier formatter (Phase 4).
+- [x] **3.2** Create `src/domain/config/types.ts` — mirror the schema as TS
       types: `ProjectConfig`, `TargetConfig`, `RenderConfig`, `SyncConfig`,
       `OutputConfig` (+ the `hierarchy` and `granularity` literal unions). Use
       `exactOptionalPropertyTypes`-safe optionals; export the
-      `SyncGranularity = "squash"` literal type (single-member for MS-0002).
-- [ ] **3.3** Delete `src/domain/config/.gitkeep` (real content now populates the
+      `SyncGranularity = "squash"` literal type (single-member for MS-0002). — incl. `ProjectConfigInput` (raw pre-defaults shape) for the `applyDefaults` boundary.
+- [x] **3.3** Delete `src/domain/config/.gitkeep` (real content now populates the
       folder).
-- [ ] **3.4** Create `tests/unit/domain/config/schema.test.ts` — compile the
+- [x] **3.4** Create `tests/unit/domain/config/schema.test.ts` — compile the
       schema with ajv and assert: (a) a representative valid fixture passes; (b)
       each invalid fixture fails — missing required field, wrong type, unknown
       `granularity` (e.g. `commit-by-commit`), unknown `hierarchy`, bad target
-      shape. This exercises schema validity independently of the loader.
+      shape. This exercises schema validity independently of the loader. — 16 tests PASS (valid full/minimal, every invalid class incl. commit-by-commit, additionalProperties, allErrors aggregation).
 
 **Acceptance Criteria**:
 
@@ -792,7 +792,7 @@ including a `marksync.yml.example` round-trip through `loadConfig`.
 |-------|--------|---------|-----------|--------|-------|
 | 1 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | yaml@2.9.0 (ISC, 0 deps) + ajv@8.20.0 (MIT, 4 zero-dep deps); zero-dep `src/shared/glob.ts` (DEC-5); 14 glob tests PASS; baseline gates green. |
 | 2 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | `InvalidConfig` arm + `ConfigAjvError` + `ConfigError` alias in errors.ts; `assertNeverMarkSyncError` updated in same change; typecheck PASS (NFR-3); no ajv import in domain. |
-| 3 | pending | — | — | — | — |
+| 3 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | `schema.json` (draft-07, granularity enum `[squash]`, additionalProperties:false) + mirrored `types.ts`; `.gitkeep` removed; 16 schema tests PASS; typecheck/boundaries clean. |
 | 4 | pending | — | — | — | — |
 | 5 | pending | — | — | — | — |
 | 6 | pending | — | — | — | — |
