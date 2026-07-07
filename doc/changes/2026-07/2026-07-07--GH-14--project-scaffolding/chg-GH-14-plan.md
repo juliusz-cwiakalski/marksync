@@ -452,16 +452,21 @@ trivial CLI entrypoint — then run the **first** green `bun run typecheck` and
 
 **Tasks**:
 
-- [ ] **6.1** Create the skeleton tier directories per blueprint §1, preserving
+- [x] **6.1** Create the skeleton tier directories per blueprint §1, preserving
       empty dirs with `.gitkeep` or barrel `index.ts` where natural:
       `src/cli/{commands,output}/`, `src/app/`,
       `src/domain/{identity,config,binding,state,hierarchy,markdown,render,assets,mermaid,git,target}/`,
       `src/infra/{git,mermaid,lock,push,confluence}/`, `src/shared/`. No domain
-      logic lands here — directories only (F-5 / AC-F5-1).
-- [ ] **6.2** Create `src/domain/result.ts` — `Result<T, E>` type, copied
+      logic lands here — directories only (F-5 / AC-F5-1). — PASSED: all 20 tier
+      dirs created with `.gitkeep` placeholders (no logic); `depcruise src`
+      reports "3 modules" (the 3 real files only).
+- [x] **6.2** Create `src/domain/result.ts` — `Result<T, E>` type, copied
       verbatim from blueprint §2 / `typescript.md` (`{ ok: true; value: T } |
-      { ok: false; error: E }`). (DM-1)
-- [ ] **6.3** Create `src/domain/errors.ts` — the exhaustive **12-kind**
+      { ok: false; error: E }`). (DM-1) — PASSED: type copied verbatim; added an
+      additive `Result.ok`/`Result.err` constructor namespace (returns the exact
+      union arms) so callers/tests construct via `Result.ok(v)` / `Result.err(e)`
+      rather than hand-writing literals.
+- [x] **6.3** Create `src/domain/errors.ts` — the exhaustive **12-kind**
       `MarkSyncError` discriminated union from blueprint §2 (DEC-1 — the superset
       of the 8-kind typescript.md excerpt): `Conflict`, `RemoteMissing`,
       `DuplicateUuid`, `UnsupportedConstruct`, `Forbidden`, `LockDirty`,
@@ -469,27 +474,43 @@ trivial CLI entrypoint — then run the **first** green `bun run typecheck` and
       `TooLarge`, `UnresolvedLink` — each with its blueprint §2 field shape.
       **Include the exhaustive `never`-check pattern** so adding a future kind is
       a compile error until every handler is updated. (DM-2 / AC-F6-1 / AC-F6-2)
-- [ ] **6.4** Create `src/cli/index.ts` — a trivial entrypoint that prints
-      `marksync 0.0.0` (F-7). Proves the toolchain compiles and executes.
-- [ ] **6.5** Run `bun run typecheck` → first green strict compile of the
+      — PASSED: `assertNeverMarkSyncError` switches over all 12 kinds; the
+      `default` block's `const _exhaustive: never = error` compiles ONLY because
+      every kind is handled (typecheck exit 0 proves exhaustiveness).
+- [x] **6.4** Create `src/cli/index.ts` — a trivial entrypoint that prints
+      `marksync 0.0.0` (F-7). Proves the toolchain compiles and executes. —
+      PASSED: `bun run src/cli/index.ts` prints `marksync 0.0.0`.
+- [x] **6.5** Run `bun run typecheck` → first green strict compile of the
       primitives (AC-F6-1/F6-2); run `bun run src/cli/index.ts` → prints
-      `marksync 0.0.0` (AC-F7-1).
-- [ ] **6.6** Run the **boundary negative-test (AC-F3-2)**:       temporarily add a
+      `marksync 0.0.0` (AC-F7-1). — PASSED: `tsc --noEmit` exit 0 (first green
+      strict compile with real source); CLI prints the version string.
+- [x] **6.6** Run the **boundary negative-test (AC-F3-2)**:       temporarily add a
       scratch file under `src/domain/` that imports from `#infra/*` (or a
       relative `src/infra/...` path); run `bun run check:boundaries` → observe FAIL
       with a named `from → to + rule` violation (zero false negatives — RSK-1/R2
       closure); remove the scratch; observe PASS. If the scratch is **not**
       detected, the `#imports` alias mapping from Phase 4 is incomplete — fix it
-      (never disable the rule).
+      (never disable the rule). — PASSED: with a temporary `src/infra/git/shell-git.ts`
+      stub + `src/domain/state/__boundary_scratch.ts` importing it via BOTH
+      `#infra/git/shell-git` (alias) and `../../infra/git/shell-git` (relative),
+      `check:boundaries` reported `error domain-may-not-import-infra:
+      __boundary_scratch.ts → shell-git.ts` (exit 1 = violation count). Both
+      forms resolve to the same module (dep-cruiser dedupes → 1 violation).
+      Removed scratch + stub → clean exit 0 ("3 modules, 0 dependencies").
 
 **Acceptance Criteria**:
 
-- Must: all tier dirs/barrels exist per blueprint §1 (AC-F5-1);
-  `Result<T,E>` + 12-kind `MarkSyncError` + `never`-switch typecheck strict
-  (AC-F6-1/F6-2); `bun run src/cli/index.ts` prints `marksync 0.0.0` (AC-F7-1);
-  `bun run typecheck` exits 0 (AC-F1-2); `bun run check:boundaries` exits 0 on
-  the clean skeleton (AC-F3-1) and FAILS on the scratch (AC-F3-2).
-- Should: barrel files keep import paths clean without violating tier rules.
+- Must: all tier dirs/barrels exist per blueprint §1 (AC-F5-1) — PASSED (20 tier
+  dirs with `.gitkeep`); `Result<T,E>` + 12-kind `MarkSyncError` + `never`-switch
+  typecheck strict (AC-F6-1/F6-2) — PASSED (`tsc --noEmit` exit 0, proving the
+  `default: const _exhaustive: never = error` arm compiles only when all 12 kinds
+  are handled); `bun run src/cli/index.ts` prints `marksync 0.0.0` (AC-F7-1) —
+  PASSED; `bun run typecheck` exits 0 (AC-F1-2) — PASSED; `bun run check:boundaries`
+  exits 0 on the clean skeleton (AC-F3-1) — PASSED ("3 modules, 0 dependencies",
+  exit 0) and FAILS on the scratch (AC-F3-2) — PASSED (`domain-may-not-import-infra`
+  named violation, exit 1; both alias + relative forms detected).
+- Should: barrel files keep import paths clean without violating tier rules. — N/A
+  here: used `.gitkeep` (no logic yet); barrels land with the first real modules.
 
 **Files and modules**:
 
@@ -749,8 +770,8 @@ final whole-repo `bun run check`, confirm there is no version bump
 | 3 — Biome | DONE | 2026-07-07 | 2026-07-07 | d8f4b52 | biome.json (recommended preset, DEC-4) scoped to project source; `lint` exit 0 (AC-F2-1), `format:check` exit 0 (AC-F2-2); package.json/tsconfig.json normalized to Biome formatting. |
 | 1 — manifest, hygiene, install | DONE | 2026-07-07 | 2026-07-07 | 1ff143f | Bun pinned 1.2.23; package.json ESM + `#imports` aliases + 5 devDeps (no runtime deps); `bun.lock` text committed; `--frozen-lockfile` reproducible. Bun 1.2.23 used for delivery (local 1.1.34 emits binary `bun.lockb`). |
 | 4 — dependency-cruiser | DONE | 2026-07-07 | 2026-07-07 | bf63a66 | `.dependency-cruiser.cjs` with 4 `forbidden` rules (`severity:"error"`). RSK-1 closed: dep-cruiser 18 resolves `#imports` aliases natively — both alias + relative `domain→infra` scratches detected (exit 3); clean tree exit 0. `importsFields` rejected by dep-cruiser 18 schema; used valid `enhancedResolveOptions` keys only. |
-| 5 — commitlint + husky | DONE | 2026-07-07 | 2026-07-07 | (this commit) | commitlint.config.js extends config-conventional (header-max-length 72, `ignores` Merge/Revert/[skip ci]); `.husky/commit-msg` runs `bunx commitlint --edit "$1"`. AC-F4-1 PASS (good msg exit 0), AC-F4-2 PASS (`bad message` → exit 1, `[subject-empty]`/`[type-empty]`). CI authoritative half lands in Phase 8 (AC-F4-3). |
-| 6 — skeleton + primitives | pending | | | | first green typecheck + boundary negative-test (re-verify) |
+| 5 — commitlint + husky | DONE | 2026-07-07 | 2026-07-07 | 686b69f | commitlint.config.js extends config-conventional (header-max-length 72, `ignores` Merge/Revert/[skip ci]); `.husky/commit-msg` runs `bunx commitlint --edit "$1"`. AC-F4-1 PASS (good msg exit 0), AC-F4-2 PASS (`bad message` → exit 1, `[subject-empty]`/`[type-empty]`). CI authoritative half lands in Phase 8 (AC-F4-3). |
+| 6 — skeleton + primitives | DONE | 2026-07-07 | 2026-07-07 | (this commit) | 20 tier dirs + `.gitkeep`; `result.ts` (verbatim `Result<T,E>` + additive `ok`/`err` ctor namespace); `errors.ts` (12-kind `MarkSyncError` verbatim + `assertNeverMarkSyncError` exhaustive `never`-switch); `cli/index.ts` prints `marksync 0.0.0`. AC-F1-2/F6-1/F6-2 PASS (typecheck exit 0 — first green strict compile). AC-F3-2 PASS re-verified: domain→infra scratch (alias+relative) → `domain-may-not-import-infra` exit 1; clean after removal. AC-F7-1 PASS. |
 | 7 — test skeleton + smoke | pending | | | | first green bun test; OQ-1 coverage check |
 | 8 — CI unguard (OPEN-Q9) | pending | | | | OQ-2 osv-scanner flag check |
 | 9 — finalize + README | pending | | | | no version bump (version_impact: none) |
