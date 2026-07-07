@@ -399,28 +399,34 @@ Phase 8.
 
 **Tasks**:
 
-- [ ] **5.1** Create `commitlint.config.js` extending
+- [x] **5.1** Create `commitlint.config.js` extending
       `@commitlint/config-conventional`; set `header-max-length: 72` and the
       imperative-mood rule; add merge/automated-commit exemptions (`ignores`
       for `Merge …`, `[skip ci]`, bot commits — TDR-0008 C-4/C-5). Inception
       squash-merge history is **grandfathered** (not retroactively linted).
-- [ ] **5.2** Add the husky `commit-msg` hook via the `prepare` script
+- [x] **5.2** Add the husky `commit-msg` hook via the `prepare` script
       (`bun install` / `bunx husky init` then write `.husky/commit-msg` running
       `bunx commitlint --edit "$1"`). **Note: this is the `commit-msg` hook, NOT
       `pre-commit`** (DEC-3 — `commit-msg` fires after the message is written).
       Ensure `prepare` is in `package.json` (added in Phase 1).
-- [ ] **5.3** Verify locally: a Conventional message (e.g. `feat(scaffolding): init`)
+- [x] **5.3** Verify locally: a Conventional message (e.g. `feat(scaffolding): init`)
       is **accepted** (AC-F4-1); a malformed message (e.g. `bad message`) is
       **rejected** with a rule-named diagnostic (AC-F4-2). Test with a throwaway
       commit or `bunx commitlint --edit` against a temp message file (no
-      malformed commit lands in history).
+      malformed commit lands in history). — PASSED: `bunx commitlint <<< "bad
+      message"` → exit 1 with `[subject-empty]`/`[type-empty]` (AC-F4-2);
+      `bunx commitlint <<< "feat(scaffolding): verify commitlint"` → exit 0
+      (AC-F4-1). Hook is `commit-msg` (not `pre-commit`).
 
 **Acceptance Criteria**:
 
-- Must: a Conventional message is accepted (AC-F4-1); a malformed message is
-  rejected with a named rule (AC-F4-2); the hook is `commit-msg`, not
-  `pre-commit`.
-- Should: merge/automated commits pass without confusing errors (TDR-0008 C-4).
+- Must: a Conventional message is accepted (AC-F4-1) — PASSED (`bunx commitlint
+  <<< "feat(scaffolding): verify commitlint"` exit 0); a malformed message is
+  rejected with a named rule (AC-F4-2) — PASSED (`bad message` → exit 1 with
+  `[subject-empty]`/`[type-empty]`); the hook is `commit-msg`, not `pre-commit`
+  — PASSED (`.husky/commit-msg` runs `bunx commitlint --edit "$1"`).
+- Should: merge/automated commits pass without confusing errors (TDR-0008 C-4)
+  — PASSED by config: `ignores` exempts `Merge `, `Revert `, `[skip ci]`.
 
 **Files and modules**:
 
@@ -742,8 +748,8 @@ final whole-repo `bun run check`, confirm there is no version bump
 | 2 — tsconfig + bunfig | DONE | 2026-07-07 | 2026-07-07 | c4d8c49 | Strict tsconfig (8 flags verbatim) + bunfig.toml + no-op Mermaid preload. Justified deviation: added `@types/bun` + `typescript` devDeps (plan's non-negotiable `types:["bun"]` needs Bun types; `typescript.md` "no package needed" claim is inaccurate). typecheck green verified with sample Bun global. |
 | 3 — Biome | DONE | 2026-07-07 | 2026-07-07 | d8f4b52 | biome.json (recommended preset, DEC-4) scoped to project source; `lint` exit 0 (AC-F2-1), `format:check` exit 0 (AC-F2-2); package.json/tsconfig.json normalized to Biome formatting. |
 | 1 — manifest, hygiene, install | DONE | 2026-07-07 | 2026-07-07 | 1ff143f | Bun pinned 1.2.23; package.json ESM + `#imports` aliases + 5 devDeps (no runtime deps); `bun.lock` text committed; `--frozen-lockfile` reproducible. Bun 1.2.23 used for delivery (local 1.1.34 emits binary `bun.lockb`). |
-| 4 — dependency-cruiser | DONE | 2026-07-07 | 2026-07-07 | (phase 4 commit) | `.dependency-cruiser.cjs` with 4 `forbidden` rules (`severity:"error"`). RSK-1 closed: dep-cruiser 18 resolves `#imports` aliases natively — both alias + relative `domain→infra` scratches detected (exit 3); clean tree exit 0. `importsFields` rejected by dep-cruiser 18 schema; used valid `enhancedResolveOptions` keys only. |
-| 5 — commitlint + husky | pending | | | | |
+| 4 — dependency-cruiser | DONE | 2026-07-07 | 2026-07-07 | bf63a66 | `.dependency-cruiser.cjs` with 4 `forbidden` rules (`severity:"error"`). RSK-1 closed: dep-cruiser 18 resolves `#imports` aliases natively — both alias + relative `domain→infra` scratches detected (exit 3); clean tree exit 0. `importsFields` rejected by dep-cruiser 18 schema; used valid `enhancedResolveOptions` keys only. |
+| 5 — commitlint + husky | DONE | 2026-07-07 | 2026-07-07 | (this commit) | commitlint.config.js extends config-conventional (header-max-length 72, `ignores` Merge/Revert/[skip ci]); `.husky/commit-msg` runs `bunx commitlint --edit "$1"`. AC-F4-1 PASS (good msg exit 0), AC-F4-2 PASS (`bad message` → exit 1, `[subject-empty]`/`[type-empty]`). CI authoritative half lands in Phase 8 (AC-F4-3). |
 | 6 — skeleton + primitives | pending | | | | first green typecheck + boundary negative-test (re-verify) |
 | 7 — test skeleton + smoke | pending | | | | first green bun test; OQ-1 coverage check |
 | 8 — CI unguard (OPEN-Q9) | pending | | | | OQ-2 osv-scanner flag check |
