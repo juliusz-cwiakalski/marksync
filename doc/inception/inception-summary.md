@@ -54,7 +54,7 @@ summary: "Inception summary — MarkSync for Confluence. 8 phases (0–7), 15 de
 | Item | Reason deferred | Owner | Revisit trigger |
 |---|---|---|---|
 | OPEN-Q8: keytar OS keychain integration | Env-token path is guaranteed MS-0002; keytar is enhancement | JC | MS-0002 spike |
-| OPEN-Q9: CI `continue-on-error` guard removal | No source/tests exist during inception; guards are intentional | JC | MS-0002 implementation start |
+| OPEN-Q9: CI `continue-on-error` guard removal | No source/tests exist during inception; guards are intentional | JC | ~~MS-0002 implementation start~~ **CLOSED by GH-14 (2026-07-07)** |
 | version.message length limit spike | Undocumented by Atlassian; live API test needed | JC | MS-0002 start |
 | Commit-by-commit provenance | Simpler squash default for MVP; commit-by-commit is opt-in later | JC | Post-MS-0002 evidence |
 | macOS platform support | Linux + Windows first (MS-0002); macOS deferred to MS-0003 or later | JC | MS-0003 planning |
@@ -81,7 +81,7 @@ summary: "Inception summary — MarkSync for Confluence. 8 phases (0–7), 15 de
 | glossary, ubiquitous-language, NFRs, decision records | 0.82 | Domain model + quality requirements; may evolve with MS-0002 learnings |
 | testing-strategy, typescript conventions, security baseline | 0.82 | Engineering rules; tested during first implementation |
 | README.md, north-star, roadmap, risk register, assumptions | 0.80 | Strategic + planning; beta evidence will sharpen |
-| CI workflows, dev-environment, accessibility baseline, retrospectives | 0.80 | Scaffolds ready; unguarded during inception (OPEN-Q9) |
+| CI workflows, dev-environment, accessibility baseline, retrospectives | 0.80 | Scaffolds ready; CI now binding as of GH-14 (OPEN-Q9 closed) |
 
 ### Lower confidence (0.75) — needs MS-0002 evidence
 

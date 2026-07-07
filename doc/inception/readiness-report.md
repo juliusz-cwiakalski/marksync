@@ -118,7 +118,7 @@ merged to `main`. Per the corrected lifecycle (Phase 5 comment #1), merged = fin
 | Item | Deferred to | Source |
 |---|---|---|
 | OPEN-Q8: keytar keychain spike | MS-0002 backlog | Phase 4 |
-| OPEN-Q9: CI unguard checklist | MS-0002 start | Phase 4 |
+| OPEN-Q9: CI unguard checklist | ~~MS-0002 start~~ **CLOSED by GH-14** | Phase 4 |
 | version.message length limit spike | MS-0002 start | Phase 4 OPEN-Q6 |
 | 6 ADOS framework improvement proposals | ADOS repo issues/PRs | Phase 5 retrospectives |
 | Stale input draft broken link | No action (input file) | This phase |
