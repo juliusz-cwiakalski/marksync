@@ -496,7 +496,8 @@ asserting the `Result` shape and the `MarkSyncError` exhaustive-switch — so
 - [ ] **7.1** Create the test-tier directories: `tests/unit/`,
       `tests/integration/`, `tests/golden/`, `tests/bdd/`, `tests/e2e/`
       (testing-strategy.md tiers). Preserve empty dirs with `.gitkeep`.
-- [ ] **7.2** Add a smoke test (e.g. `tests/unit/primitives.smoke.test.ts`)
+- [ ] **7.2** Add a smoke test at `tests/unit/domain/result.test.ts`
+      (mirrors `src/domain/result.ts`; matches the test plan's TC-PRIMITIVES-001)
       asserting `Result.ok` / `Result.err` shape and that a `MarkSyncError`
       exhaustive `switch` compiles (F-8 / AC-F8-1). Keep it type-and-shape only
       — no domain behavior under test (NG-1).
@@ -513,7 +514,7 @@ asserting the `Result` shape and the `MarkSyncError` exhaustive-switch — so
 
 **Files and modules**:
 
-- Code areas: `tests/unit/primitives.smoke.test.ts` (new), test-tier dirs +
+- Code areas: `tests/unit/domain/result.test.ts` (new), test-tier dirs +
   `.gitkeep` (new).
 - System docs: none.
 
@@ -553,11 +554,33 @@ green before the CI run.
       `-L`/`--lockfile`) and correct the command; fix the inline comment. Keep
       the step-level lockfile-conditional (`if: steps.lockfile.outputs.exists`)
       as-is (it correctly no-ops when no lockfile — now there always is one).
-- [ ] **8.5** Run the full `bun run check` locally (lint + format:check +
+      **Also remove the trailing `|| true` from the osv-scanner and
+      license-audit run-command bodies** (ci.yml lines ~101 and ~108), so those
+      commands fail the job on violations (parity with the `|| true` removal in
+      the test steps) — AC-F9-1 / NFR-2 require **zero** `|| true`.
+- [ ] **8.5** Add a **CI commit-message-lint step** to the
+      `.github/workflows/ci.yml` **fast-loop job** (the TDR-0008 C-2
+      authoritative CI half — defense-in-depth: local husky hook + CI gate).
+      Run commitlint **directly in a CI step** (NOT a third-party Action, to
+      avoid the TDR-0008 unresolved "CI Action selection" question). Place it
+      after `bun install` so `@commitlint/cli` is available; it lints all
+      commits on the PR branch since it diverged from `main`:
+
+      ```yaml
+      - name: Lint commit messages
+        run: bunx commitlint --from origin/main --to HEAD
+      ```
+
+      Satisfies **AC-F4-3** and covers **TC-COMMITS-003** (CI rejects a
+      `--no-verify` bad commit), closing **OQ-TP-2**. (Implementation note:
+      `actions/checkout@v4` defaults to a shallow clone; ensure sufficient
+      history is fetched so `origin/main` resolves — e.g. `fetch-depth: 0` or an
+      explicit `git fetch origin main` — otherwise `--from origin/main` errors.)
+- [ ] **8.6** Run the full `bun run check` locally (lint + format:check +
       typecheck + test + check:boundaries) → all green, single-digit seconds
       (NFR-1) — this is the local proof that unguarding exposes no latent issue
       (RSK-2).
-- [ ] **8.6** Verify the OPEN-Q9 checklist closure for this story (items 1–9;
+- [ ] **8.7** Verify the OPEN-Q9 checklist closure for this story (items 1–9;
       item 10 YAML-frontmatter lint remains out of scope — spec Appendix A).
 
 **Acceptance Criteria**:
@@ -603,11 +626,21 @@ final whole-repo `bun run check`, confirm there is no version bump
       artifact / binary target in this story; the CLI prints `0.0.0` as a
       placeholder, not a release).
 - [ ] **9.4** **Spec reconciliation handoff**: note for the
-      `system_spec_update` lifecycle phase (doc-syncer, lifecycle phase 7) that
-      `doc/guides/dev-environment.md` likely needs the script-table update
-      (`lint`/`format`/`typecheck`/`test`/`check`/`check:boundaries`) and that
-      OPEN-Q9 is now closed. No `doc/spec/**` feature change is introduced by
-      this story (it is tooling + skeleton + primitives only).
+      `system_spec_update` lifecycle phase (doc-syncer, lifecycle phase 7):
+      - `doc/guides/dev-environment.md` likely needs the script-table update
+        (`lint`/`format`/`typecheck`/`test`/`check`/`check:boundaries`) and a note
+        that OPEN-Q9 is now closed.
+      - `.ai/rules/typescript.md` needs the **8→12 `MarkSyncError` drift**
+        reconciled: its "Error handling" section currently shows an **8-kind**
+        excerpt (`Conflict`, `RemoteMissing`, `DuplicateUuid`,
+        `UnsupportedConstruct`, `Forbidden`, `LockDirty`, `ConcurrentWrite`,
+        `RenderUnavailable`); the blueprint §2 / spec DEC-1 mandate **12 kinds**
+        — add `StalePlan`, `ForbiddenBranch`, `TooLarge`, `UnresolvedLink`.
+        Either label the typescript.md block as an excerpt or update it to the
+        full 12-kind union that `src/domain/errors.ts` (Phase 6.3) implements.
+
+      No `doc/spec/**` feature change is introduced by this story (it is
+      tooling + skeleton + primitives only).
 - [ ] **9.5** Populate the Execution Log below with phase statuses/commits.
 
 **Acceptance Criteria**:
@@ -620,8 +653,10 @@ final whole-repo `bun run check`, confirm there is no version bump
 **Files and modules**:
 
 - Code areas: `README.md` (updated — minimal section only).
-- System docs: `doc/guides/dev-environment.md` (handoff note — updated in the
-  `system_spec_update` lifecycle phase, not in delivery).
+- System docs: `doc/guides/dev-environment.md` (script-table update),
+  `.ai/rules/typescript.md` (`MarkSyncError` 8→12-kind reconciliation) — both
+  handoff notes for the `system_spec_update` lifecycle phase (not updated in
+  delivery).
 
 **Tests**:
 
