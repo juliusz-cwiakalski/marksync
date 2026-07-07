@@ -557,7 +557,7 @@ configured parent. Structure only — no Confluence page-ID resolution (NG-2).
 
 **Tasks**:
 
-- [ ] **7.1** Create `src/domain/config/hierarchy.ts` (domain tier — pure rule
+- [x] **7.1** Create `src/domain/config/hierarchy.ts` (domain tier — pure rule
       over paths + config; imports only `#domain/config/types`):
       - `intendedParent(config, filePath): string` — `mirror`: derive parent
         directory of the file relative to `root`; `flat`: return the configured
@@ -565,12 +565,12 @@ configured parent. Structure only — no Confluence page-ID resolution (NG-2).
       - `buildIntendedHierarchy(config, selectedFiles): IntendedHierarchy`
         mapping each selected file to its intended parent path (the structure
         handed to sync-time resolution in E3-S4/E3-S6).
-- [ ] **7.2** Define an `IntendedHierarchy` / `IntendedNode` type (plain data)
-      in `src/domain/config/types.ts` or `hierarchy.ts`.
-- [ ] **7.3** Create `tests/unit/domain/config/hierarchy.test.ts` — assert
+- [x] **7.2** Define an `IntendedHierarchy` / `IntendedNode` type (plain data)
+      in `src/domain/config/types.ts` or `hierarchy.ts`. — added to `types.ts` (`IntendedNode`, `IntendedHierarchy`).
+- [x] **7.3** Create `tests/unit/domain/config/hierarchy.test.ts` — assert
       AC-F6-1 (`docs/a/b.md` under `root: docs/`, `mirror` → parent `docs/a/`),
       plus `flat` mode, nested dirs, files at `root` level, and Windows-style
-      separators handling (cross-OS note: MS-0002 targets Linux + Windows).
+      separators handling (cross-OS note: MS-0002 targets Linux + Windows). — 14 tests PASS (100% coverage of hierarchy.ts). TC-HIER-003 resolved: root-level file → root anchor (maps to parentPageId at sync time), documented.
 
 **Acceptance Criteria**:
 
@@ -796,6 +796,6 @@ including a `marksync.yml.example` round-trip through `loadConfig`.
 | 4 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | `loadConfig` + `applyDefaults` + ajv formatter (`config-errors.ts`); only I/O is reading marksync.yml; commit-by-commit → "deferred" message; 23 tests PASS; tsconfig gained `resolveJsonModule` (needed to import schema.json). |
 | 5 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | `selectFiles(config, paths)` (pure; de-dup+sort); OQ-2 anchoring documented (verbatim match, no root stripping); 13 tests PASS incl. purity proof via non-existent paths. |
 | 6 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | `parseFrontMatter` (yaml, CRLF-aware, tolerant) + `resolveDocumentConfig` + `DocumentConfig`; 22 tests PASS covering AC-F4-1/2 + all RSK-5 edges. |
-| 7 | pending | — | — | — | — |
+| 7 | done | 2026-07-07 | 2026-07-07 | _(committed in this run)_ | `hierarchy.ts` (domain, pure): `intendedParent` + `buildIntendedHierarchy`; `IntendedNode`/`IntendedHierarchy` added to types.ts; 14 tests PASS (100% cov); TC-HIER-003 root-level → root anchor documented. |
 | 8 | pending | — | — | — | — |
 | 9 | pending | — | — | — | — |

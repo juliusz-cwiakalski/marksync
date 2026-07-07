@@ -126,3 +126,28 @@ export interface ProjectConfigInput {
 		visiblePanel?: boolean;
 	};
 }
+
+// --- Intended hierarchy result types (F-6) ---------------------------------
+
+/**
+ * One selected file mapped to its intended Confluence parent path. The parent
+ * is a repo-relative directory path (with trailing slash); resolution to a real
+ * Confluence page id happens at sync time (E3-S4/E3-S6 — NG-2).
+ */
+export interface IntendedNode {
+	/** Repo-relative source file path. */
+	filePath: string;
+	/** Intended parent directory path (repo-relative, trailing slash). */
+	intendedParent: string;
+}
+
+/**
+ * The intended page-tree shape computed from selected files under `root`
+ * (F-6 / Phase 7). Structure only — no Confluence page ids are resolved.
+ */
+export interface IntendedHierarchy {
+	/** The hierarchy mode used to derive parents. */
+	mode: HierarchyMode;
+	/** One node per selected file, in input order. */
+	nodes: IntendedNode[];
+}
