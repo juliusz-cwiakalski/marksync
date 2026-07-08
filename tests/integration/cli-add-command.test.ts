@@ -27,10 +27,17 @@ function snapshotModules(): string[] {
 }
 
 /** A minimal in-memory writable that captures everything written to it. */
-function captureSink(): { stream: { write: (s: string) => void }; buffer: string } {
+function captureSink(): {
+	stream: { write: (s: string) => void };
+	buffer: string;
+} {
 	let buffer = "";
 	return {
-		stream: { write: (s: string) => void (buffer += s) },
+		stream: {
+			write: (s: string) => {
+				buffer += s;
+			},
+		},
 		get buffer() {
 			return buffer;
 		},
@@ -43,10 +50,7 @@ describe("TC-C3-001 — AC-5: a new command needs zero changes to central output
 
 		// Define a NEW stub command inline — it ONLY produces a CommandResult.
 		// It does NOT import or modify json.ts / human.ts / redact.ts.
-		const pingResult = ok(
-			{ pong: true, latencyMs: 5 },
-			{ runId: "ping-run" },
-		);
+		const pingResult = ok({ pong: true, latencyMs: 5 }, { runId: "ping-run" });
 
 		// Route it through the REAL renderers (the same code every command uses).
 		const json = renderJson(pingResult);

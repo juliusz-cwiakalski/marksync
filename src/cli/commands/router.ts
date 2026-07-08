@@ -38,7 +38,7 @@ import { syncCommand } from "#cli/commands/sync";
  * `package.json` until a runtime version source is wired (GH-15 precedent; the
  * bump to `0.2.0` is Phase 8 / `version_impact: minor`).
  */
-export const CLI_VERSION = "0.1.0";
+export const CLI_VERSION = "0.2.0";
 
 /** The global flags as Cliffy surfaces them to an action (post-camelCase). */
 export interface GlobalCommandFlags {

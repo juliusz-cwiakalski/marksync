@@ -44,7 +44,9 @@ const successResult = ok(
 	{
 		runId: FIXED_RUN_ID,
 		timing: { startedAt: "2026-07-08T12:00:00.000Z", durationMs: 137 },
-		warnings: [{ code: "DEPRECATED_FIELD", message: "field 'x' is deprecated" }],
+		warnings: [
+			{ code: "DEPRECATED_FIELD", message: "field 'x' is deprecated" },
+		],
 	},
 );
 
@@ -151,11 +153,7 @@ describe("TC-CONTRACT-002 — error CommandResult JSON wire shape (DEC-5 / AC-6)
 
 	test("error object shape {code,message,retryable} (DEC-5)", () => {
 		const error = parsed.error as Record<string, unknown>;
-		expect(Object.keys(error).sort()).toEqual([
-			"code",
-			"message",
-			"retryable",
-		]);
+		expect(Object.keys(error).sort()).toEqual(["code", "message", "retryable"]);
 		expect(error.code).toBe("CONFLICT");
 		expect(typeof error.message).toBe("string");
 		expect(error.retryable).toBe(true);

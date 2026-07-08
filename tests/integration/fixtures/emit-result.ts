@@ -35,7 +35,10 @@ const service = new OutputService();
 if (mode === "token") {
 	const token =
 		process.env.MARKSYNC_TEST_TOKEN ?? "gho_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-	const result = ok({ pageBody: `see ${token} embedded` }, { runId: "token-run" });
+	const result = ok(
+		{ pageBody: `see ${token} embedded` },
+		{ runId: "token-run" },
+	);
 	service.emit(result, { format: "json" });
 } else if (mode === "conflict") {
 	const result = err("CONFLICT", "remote version is ahead of local", true, {

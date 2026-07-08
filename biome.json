@@ -18,7 +18,8 @@
 			"*.jsonc",
 			"*.css",
 			"!bun.lock",
-			"!bun.lockb"
+			"!bun.lockb",
+			"!tests/golden/fixtures/**"
 		]
 	},
 	"formatter": {
