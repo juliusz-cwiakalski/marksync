@@ -33,6 +33,10 @@
 //   | TooLarge                  | TOO_LARGE             | 99 * | other/uncategorized|
 //   | UnresolvedLink            | UNRESOLVED_LINK       | 99 * | other/uncategorized|
 //   | InvalidConfig             | INVALID_CONFIG        | 10   | config             |
+//   | Auth/MissingCredentials   | AUTH_MISSING_CREDENTIALS  | 20   | auth           |
+//   | Auth/InvalidBaseUrl       | AUTH_INVALID_BASE_URL     | 20   | auth           |
+//   | Auth/InvalidCredentials   | AUTH_INVALID_CREDENTIALS | 20   | auth           |
+//   | Auth/AuthUnreachable      | AUTH_UNREACHABLE         | 20   | auth (retry)   |
 //   | (no kind — flag/arg fail) | USAGE                 |  2   | usage              |
 //   | (no kind — unexpected)    | INTERNAL              | 99   | internal           |
 //
@@ -85,6 +89,12 @@ export const CODE_TO_EXIT: Record<string, number> = {
 	RENDER_UNAVAILABLE: EXIT_RENDER_UNAVAILABLE,
 	// config.
 	INVALID_CONFIG: EXIT_CONFIG,
+	// auth (credential resolution + validation — GH-17 DEC-2). All four share
+	// the auth exit class; only AUTH_UNREACHABLE is retryable.
+	AUTH_MISSING_CREDENTIALS: EXIT_AUTH,
+	AUTH_INVALID_BASE_URL: EXIT_AUTH,
+	AUTH_INVALID_CREDENTIALS: EXIT_AUTH,
+	AUTH_UNREACHABLE: EXIT_AUTH,
 	// usage (branch-policy guard + flag/arg parse failure).
 	FORBIDDEN_BRANCH: EXIT_USAGE,
 	USAGE: EXIT_USAGE,

@@ -40,6 +40,10 @@
 //   | TooLarge                  | TOO_LARGE             | false     |
 //   | UnresolvedLink            | UNRESOLVED_LINK       | false     |
 //   | InvalidConfig             | INVALID_CONFIG        | false     |
+//   | Auth/MissingCredentials   | AUTH_MISSING_CREDENTIALS  | false   |
+//   | Auth/InvalidBaseUrl       | AUTH_INVALID_BASE_URL     | false   |
+//   | Auth/InvalidCredentials   | AUTH_INVALID_CREDENTIALS | false   |
+//   | Auth/AuthUnreachable      | AUTH_UNREACHABLE         | true    |
 //
 // `message` (DEC-5 / NFR-SEC-1 / NFR-SEC-2): stable, AI-readable, and redacted
 // AT THE SOURCE. It is built ONLY from structural identifier fields that belong
@@ -190,6 +194,46 @@ export function mapMarkSyncErrorToCommandError(
 				retryable: false,
 				message: `invalid marksync.yml: ${count} validation ${noun} detected; review the configuration against the schema`,
 			};
+		}
+		case "Auth": {
+			// GH-17 DEC-2 — narrow on `authKind` (a direct property of the flat
+			// Auth arm). The nested sub-switch is itself exhaustive (its own
+			// `never`-check), so adding a future `authKind` is a compile error.
+			// DEC-5: messages use only structural identifiers (env-var names,
+			// HTTP status) — never the raw `baseUrl`, `cause`, token, or email.
+			const authKind = err.authKind;
+			switch (authKind) {
+				case "MissingCredentials":
+					return {
+						code: "AUTH_MISSING_CREDENTIALS",
+						retryable: false,
+						message: `missing required Confluence credentials: ${err.missing.join(", ")}; set them in the environment (see .env.example)`,
+					};
+				case "InvalidBaseUrl":
+					return {
+						code: "AUTH_INVALID_BASE_URL",
+						retryable: false,
+						message:
+							"invalid Confluence base URL: must be a valid https URL; see .env.example",
+					};
+				case "InvalidCredentials":
+					return {
+						code: "AUTH_INVALID_CREDENTIALS",
+						retryable: false,
+						message: `Confluence rejected the credentials (HTTP ${err.status}); check the API token and user email`,
+					};
+				case "AuthUnreachable":
+					return {
+						code: "AUTH_UNREACHABLE",
+						retryable: true,
+						message:
+							"could not reach Confluence to validate credentials (network or rate-limit); retry later",
+					};
+				default: {
+					const _exhaustive: never = authKind;
+					throw new Error(`unhandled authKind: ${_exhaustive}`);
+				}
+			}
 		}
 		default:
 			// NFR-3 — adding a kind without a case above is a compile error

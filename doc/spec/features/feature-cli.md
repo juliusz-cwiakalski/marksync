@@ -5,11 +5,11 @@ ados_distribution: project-generated
 id: SPEC-CLI
 status: Current
 created: 2026-07-06
-last_updated: 2026-07-08
+last_updated: 2026-07-09
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: [GH-15]
+  related_changes: [GH-15, GH-17]
   decisions: [ADR-0011, TDR-0002]
   contracts: []
 ---
@@ -61,11 +61,23 @@ JSON/NDJSON output.
 
 ### 3.3 Authentication
 
-- **API token** (MS-0002 default): email + token from env vars or OS keyring.
-- **Env vars** (CI): `MARKSYNC_USER_EMAIL`, `MARKSYNC_API_TOKEN`,
-  `MARKSYNC_CONFLUENCE_BASE_URL` (canonical — see `.env.example`).
-- **keytar keychain** (OPEN-Q8, deferred): OS keyring integration; env-token is
-  the guaranteed path.
+- **API token** (MS-0002 path): the application-tier credential provider
+  (`src/app/credentials.ts`) resolves the canonical env vars into an opaque
+  `Basic` auth header and never retains the raw token (INV-SEC-1).
+- **Env vars** (the sole MS-0002 source): `MARKSYNC_CONFLUENCE_BASE_URL`,
+  `MARKSYNC_USER_EMAIL`, `MARKSYNC_API_TOKEN` (canonical — see `.env.example`).
+  Missing/empty vars → `AuthError { authKind: "MissingCredentials" }`; a
+  non-`https` base URL → `InvalidBaseUrl`.
+- **Validation:** `validateCredentials` probes Confluence's v2 `user/by-me`
+  endpoint (no v1 fallback) via an injected `fetch` and returns the account
+  identity or a typed `AuthError` (401/403 → `InvalidCredentials`, no retry;
+  network error → `AuthUnreachable`; 429 → bounded backoff).
+- **Error contract:** auth failures map to four stable codes —
+  `AUTH_MISSING_CREDENTIALS`, `AUTH_INVALID_BASE_URL`,
+  `AUTH_INVALID_CREDENTIALS`, `AUTH_UNREACHABLE` — all → exit 20 (`EXIT_AUTH`);
+  only `AUTH_UNREACHABLE` is retryable.
+- **Deferred:** OS keyring (`keytar`, OPEN-Q8), OAuth 2.0 / 3LO, scoped tokens,
+  Data Center PAT, and `--token-file` are not implemented in MS-0002.
 
 ### 3.4 Edge cases & error handling
 
@@ -92,7 +104,7 @@ parses args, delegates to domain services, and renders `CommandResult<T>`.
 | CommandRouter | Cliffy command/flag parsing |
 | ResultRenderer | `CommandResult<T>` → JSON/NDJSON/human output |
 | RedactionLayer | Centralized secret scrubbing for all output |
-| AuthProvider | Token/keyring resolution |
+| AuthProvider | Resolves Confluence API-token credentials from env into an opaque auth header and validates them against Confluence (v2 `user/by-me`); raw token never retained (INV-SEC-1) |
 | ConfigLoader | Reads + ajv-validates `marksync.yml`, returns `Result<ProjectConfig, ConfigError>` (YAML parse → `allErrors` → `applyDefaults`); pure — no Git/tree I/O (`src/app/config.ts`) |
 
 ### 4.3 Key decisions

@@ -5,7 +5,7 @@
 //
 // Asserts (mapped to the test matrix — TS-10):
 //   - the DEC-2 table end to end: every MarkSyncError.kind → stable code +
-//     retryable, exhaustive over all 13 kinds (NFR-3);
+//     retryable, exhaustive over all 14 kinds (NFR-3);
 //   - the AC-6 load-bearing mapping Conflict → { code: "CONFLICT",
 //     retryable: true } so the cli tier's codeToExitCode yields 30;
 //   - DEC-3 (NFR-SEC-1/2): no message leaks a Bearer/gho_/ghp_/ATATT token
@@ -30,7 +30,7 @@ function ajvError(message = "must be 1"): ConfigAjvError {
 
 describe("mapMarkSyncErrorToCommandError — DEC-2 table (exhaustive, NFR-3)", () => {
 	// One representative error per kind; code + retryable per the DEC-2 table.
-	// Keeping all 13 here is itself the exhaustiveness assertion (TS-10).
+	// Keeping all 14 here is itself the exhaustiveness assertion (TS-10).
 	const cases: ReadonlyArray<{
 		name: MarkSyncError["kind"];
 		err: MarkSyncError;
@@ -137,6 +137,19 @@ describe("mapMarkSyncErrorToCommandError — DEC-2 table (exhaustive, NFR-3)", (
 			code: "INVALID_CONFIG",
 			retryable: false,
 		},
+		{
+			// GH-17 — the Auth arm is ONE top-level kind (union 13→14). Its four
+			// sub-cases are enumerated in the dedicated "Auth arm" suite below;
+			// one representative keeps this table's per-kind coverage complete.
+			name: "Auth",
+			err: {
+				kind: "Auth",
+				authKind: "MissingCredentials",
+				missing: ["MARKSYNC_API_TOKEN"],
+			},
+			code: "AUTH_MISSING_CREDENTIALS",
+			retryable: false,
+		},
 	];
 
 	for (const c of cases) {
@@ -149,10 +162,10 @@ describe("mapMarkSyncErrorToCommandError — DEC-2 table (exhaustive, NFR-3)", (
 		});
 	}
 
-	test("covers exactly the 13 kinds — exhaustiveness (TS-10)", () => {
-		expect(cases).toHaveLength(13);
+	test("covers exactly the 14 kinds — exhaustiveness (TS-10)", () => {
+		expect(cases).toHaveLength(14);
 		const kinds = new Set(cases.map((c) => c.name));
-		expect(kinds.size).toBe(13);
+		expect(kinds.size).toBe(14);
 	});
 });
 
@@ -272,4 +285,120 @@ describe("mapMarkSyncErrorToCommandError — DEC-3 redaction at the source", () 
 			expect(out.message).not.toMatch(/ATATT/);
 		});
 	}
+});
+
+describe("mapMarkSyncErrorToCommandError — GH-17 Auth arm (DEC-2, nested exhaustiveness)", () => {
+	// The Auth arm narrows on `err.authKind` (a direct property) via its own
+	// exhaustive sub-switch (RSK-8 — its `never`-check makes a new authKind a
+	// compile error). One case per authKind, asserting the pinned stable code +
+	// retryable per the DEC-2 / spec DM-4 table.
+	const TOKEN = "ATATT3xFfGF0SECRET_TOKEN_VALUE_x9";
+
+	const subCases: ReadonlyArray<{
+		authKind:
+			| "MissingCredentials"
+			| "InvalidBaseUrl"
+			| "InvalidCredentials"
+			| "AuthUnreachable";
+		err: Extract<MarkSyncError, { kind: "Auth" }>;
+		code: string;
+		retryable: boolean;
+	}> = [
+		{
+			authKind: "MissingCredentials",
+			err: {
+				kind: "Auth",
+				authKind: "MissingCredentials",
+				missing: ["MARKSYNC_USER_EMAIL", "MARKSYNC_API_TOKEN"],
+			},
+			code: "AUTH_MISSING_CREDENTIALS",
+			retryable: false,
+		},
+		{
+			authKind: "InvalidBaseUrl",
+			err: {
+				kind: "Auth",
+				authKind: "InvalidBaseUrl",
+				baseUrl: "http://secret-host.example",
+			},
+			code: "AUTH_INVALID_BASE_URL",
+			retryable: false,
+		},
+		{
+			authKind: "InvalidCredentials",
+			err: { kind: "Auth", authKind: "InvalidCredentials", status: 401 },
+			code: "AUTH_INVALID_CREDENTIALS",
+			retryable: false,
+		},
+		{
+			authKind: "AuthUnreachable",
+			err: { kind: "Auth", authKind: "AuthUnreachable", cause: "boom" },
+			code: "AUTH_UNREACHABLE",
+			retryable: true,
+		},
+	];
+
+	for (const c of subCases) {
+		test(`${c.authKind} → code ${c.code}, retryable ${c.retryable}`, () => {
+			const out = mapMarkSyncErrorToCommandError(c.err);
+			expect(out.code).toBe(c.code);
+			expect(out.retryable).toBe(c.retryable);
+			expect(typeof out.message).toBe("string");
+			expect(out.message.length).toBeGreaterThan(0);
+		});
+	}
+
+	test("only AUTH_UNREACHABLE is retryable", () => {
+		const retryable = new Set(
+			subCases.filter((c) => c.retryable).map((c) => c.code),
+		);
+		expect(retryable).toEqual(new Set(["AUTH_UNREACHABLE"]));
+	});
+
+	test("MissingCredentials message names the missing var(s) and links .env.example", () => {
+		const out = mapMarkSyncErrorToCommandError({
+			kind: "Auth",
+			authKind: "MissingCredentials",
+			missing: ["MARKSYNC_USER_EMAIL", "MARKSYNC_API_TOKEN"],
+		});
+		expect(out.message).toContain("MARKSYNC_USER_EMAIL");
+		expect(out.message).toContain("MARKSYNC_API_TOKEN");
+		expect(out.message).toContain(".env.example");
+	});
+
+	test("InvalidCredentials message references the HTTP status, never the token", () => {
+		const out = mapMarkSyncErrorToCommandError({
+			kind: "Auth",
+			authKind: "InvalidCredentials",
+			status: 403,
+		});
+		expect(out.message).toContain("403");
+		expect(out.message).not.toContain(TOKEN);
+	});
+
+	// DEC-5 / RSK-1 — adversarial: a token-shaped value in the fields the
+	// mapper OMITS (baseUrl, cause) must never surface. `missing[]` and
+	// `status` are structural identifiers that ARE surfaced by design (env-var
+	// names + HTTP status) — they never carry token material in practice
+	// (the provider only pushes canonical env-var names into `missing[]`).
+	test("InvalidBaseUrl.baseUrl and AuthUnreachable.cause never surface in the message", () => {
+		const outUrl = mapMarkSyncErrorToCommandError({
+			kind: "Auth",
+			authKind: "InvalidBaseUrl",
+			baseUrl: `https://${TOKEN}.atlassian.net`,
+		});
+		expect(outUrl.message).not.toContain(TOKEN);
+		expect(outUrl.message).not.toContain("atlassian.net");
+		expect(outUrl.message).toContain(".env.example");
+
+		const outCause = mapMarkSyncErrorToCommandError({
+			kind: "Auth",
+			authKind: "AuthUnreachable",
+			cause: `fetch failed: ${TOKEN} Authorization: Basic ${TOKEN}`,
+		});
+		expect(outCause.message).not.toContain(TOKEN);
+		expect(outCause.message).not.toMatch(/Bearer/);
+		expect(outCause.message).not.toMatch(/ATATT/);
+		expect(outCause.message).not.toContain("fetch failed");
+	});
 });

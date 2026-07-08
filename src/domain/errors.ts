@@ -61,7 +61,20 @@ export type MarkSyncError =
 			path: string;
 			ajvErrors: ConfigAjvError[];
 			humanMessage: string;
-	  };
+	  }
+	// GH-17 DEC-2 / DM-2 — the auth-failure arm. FLAT: `authKind` and its
+	// per-kind payload are siblings of `kind` (mirroring `InvalidConfig`).
+	// INV-SEC-1: no sub-variant carries the raw token or raw email — only the
+	// missing env-var names, the malformed `baseUrl`, the HTTP `status`, or a
+	// network `cause` (internal logging only — the mapper never surfaces `cause`).
+	| {
+			kind: "Auth";
+			authKind: "MissingCredentials";
+			missing: readonly string[];
+	  }
+	| { kind: "Auth"; authKind: "InvalidBaseUrl"; baseUrl: string }
+	| { kind: "Auth"; authKind: "InvalidCredentials"; status: number }
+	| { kind: "Auth"; authKind: "AuthUnreachable"; cause: string };
 
 /**
  * The config-failure arm of {@link MarkSyncError}. `loadConfig` declares
@@ -70,6 +83,13 @@ export type MarkSyncError =
  * available downstream.
  */
 export type ConfigError = Extract<MarkSyncError, { kind: "InvalidConfig" }>;
+
+/**
+ * The auth-failure arm of {@link MarkSyncError}. The credential provider
+ * declares `Result<_, AuthError>` (GH-17 DEC-2) — the narrowed channel keeps
+ * the provider's failure type precise. Discriminate further on `authKind`.
+ */
+export type AuthError = Extract<MarkSyncError, { kind: "Auth" }>;
 
 /**
  * Exhaustiveness proof for {@link MarkSyncError}. Switching over every `kind`
@@ -100,6 +120,7 @@ export function assertNeverMarkSyncError(error: MarkSyncError): never {
 		case "TooLarge":
 		case "UnresolvedLink":
 		case "InvalidConfig":
+		case "Auth":
 			// Every kind is named above. If a new kind is added, the `default`
 			// arm's `error` stops being `never` and this file won't compile.
 			throw new Error(`unhandled MarkSyncError kind: ${error.kind}`);

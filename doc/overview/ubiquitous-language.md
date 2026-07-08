@@ -6,13 +6,13 @@ ados_distribution: redistributable
 id: UBIQUITOUS-LANGUAGE
 status: Draft
 created: 2026-07-05
-last_updated: 2026-07-08
+last_updated: 2026-07-09
 owners: [Juliusz Ćwiąkalski]
 area: domain
 document_classification: current-truth
 links:
   related_decisions: [ADR-0005, ADR-0006, ADR-0010, ADR-0011, PDR-0001]
-  related_changes: [GH-15]
+  related_changes: [GH-15, GH-17]
   summary: "Ubiquitous language — the precise, bounded-context vocabulary binding domain concepts to code for MarkSync's Markdown-to-TargetSystem synchronization domain."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -120,6 +120,21 @@ their code constructs (typescript.md UL-binding rule)._
 | **Intended Hierarchy Builder** | Domain service (`intendedParent`/`buildIntendedHierarchy`, `src/domain/config/hierarchy.ts`) computing the intended parent path per selected file. Pure path logic over canonicalized forward-slash paths. | Domain service | produces → Intended Hierarchy |
 | **marksync init** | CLI command that writes a valid starter `marksync.yml` (round-trips through `loadConfig`). MS-0002 scaffolds config only and refuses to overwrite an existing file; discovery and UUID assignment are later milestones. | CLI command | validates via → Config Loader |
 
+### Credentials / Auth
+
+_The application-tier credential provider isolates Confluence auth from every
+consumer: it resolves the canonical env vars into an opaque auth header and
+validates the credential against Confluence, never retaining the raw token
+(GH-17 / INV-SEC-1). Names bind to their code constructs
+(`src/domain/credentials.ts`, `src/app/credentials.ts`)._
+
+| Term | Meaning | Type | Relationships |
+|---|---|---|---|
+| **ConfluenceCredentials** | The resolved Confluence credential consumers receive (`src/domain/credentials.ts`): `{ baseUrl, authHeader, email (masked), mode: "api-token" }`. `authHeader` is an opaque `"Basic …"` secret never serialized to any output path; the raw token is not a field on the object. | Value object | produced by → Credential Provider |
+| **AccountIdentity** | The success payload of `validateCredentials` (`src/domain/credentials.ts`): `{ accountId, displayName }`, parsed from Confluence's v2 `user/by-me` response. | Value object | produced by → Credential Provider |
+| **AuthError** | The auth-failure arm (`kind: "Auth"`) of the `MarkSyncError` union, discriminated further on `authKind` (`MissingCredentials` \| `InvalidBaseUrl` \| `InvalidCredentials` \| `AuthUnreachable`). The credential provider narrows its `Result` error channel to this arm. | Value object (error) | member of → MarkSyncError |
+| **Credential Provider** | Application service (`resolveCredentials` / `validateCredentials` / `maskEmail`, `src/app/credentials.ts`) that reads the canonical env vars, builds the opaque `authHeader`, masks the email, and probes Confluence's v2 `user/by-me` endpoint via an injected `fetch`. Imports only `#domain/*`; the raw token is consumed inside `base64` and never stored on a returned object. | Application service | produces → ConfluenceCredentials, AccountIdentity; emits → AuthError |
+
 ## Context map
 
 _How this context relates to neighbouring bounded contexts._
@@ -131,7 +146,7 @@ _How this context relates to neighbouring bounded contexts._
 | **Mermaid Rendering** | Conformist (service) | The `Renderer` port (implemented by official `mermaid` + jsdom, ADR-0002) produces deterministic `Artifact` bytes. MarkSync conforms to the renderer's output contract; the `Mermaid Artifact Manager` handles dedup/existence. |
 | **CLI Presentation** | Customer (downstream) | The CLI presentation tier consumes domain/application services and renders output (human/JSON/NDJSON) via the output service. The domain does not know about CLI formatting. |
 | **Filesystem** | Open Host Service | Config (`marksync.yml`) and lock files are plain YAML validated against JSON Schema (ajv) at the load boundary; the cache is disposable. The domain consumes the typed result, not the raw file. |
-| **OS Keyring** | Open Host Service | Credential storage; the domain's `Credential Provider` reads from keyring or env, never logging secrets. |
+| **OS Keyring** | Open Host Service | Credential storage (deferred for MS-0002 — `keytar`, OPEN-Q8). The application-tier Credential Provider resolves Confluence credentials from env in MS-0002; a future keyring source slots behind the same resolution seam. The raw token is never logged. |
 
 ## Binding rules
 
