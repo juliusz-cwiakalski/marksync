@@ -11,7 +11,7 @@ area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0006, ADR-0011, TDR-0002, TDR-0003, TDR-0004, TDR-0005, TDR-0006, TDR-0008]
-  related_changes: [GH-14, GH-15]
+  related_changes: [GH-14, GH-15, GH-16]
   summary: "TypeScript + Bun conventions — module structure, naming, error handling, IO boundaries, linting, formatting for MarkSync."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -22,6 +22,74 @@ _Coding conventions for MarkSync. All agents (@coder, @plan-writer, reviewers)
 must load and follow this file. Implements the FSE-audit target baseline
 (explicit typing, SRP modules, conventions over configuration, semantic naming,
 contextual comments)._
+
+## Code style principles
+
+_MarkSync code is **AI-authored and human-reviewed**. Optimize for the reader
+scanning a file: code first, minimal prose, self-documenting structure. These
+principles are enforced by @reviewer and override any contrary built-in
+heuristic._
+
+1. **The code is the documentation.** Types, names, and structure carry the
+   meaning. Before writing a comment, ask whether a clearer name, tighter type,
+   or extracted helper would make the comment unnecessary. Add a comment only
+   when the code genuinely cannot express the intent.
+
+2. **Minimal file headers — at most 3 lines.** State what the module is and, if
+   a load-bearing decision governs it, link the spec/ADR once. No tier-rule
+   essays, no design-decision restatements, no ASCII tables. The spec is the
+   source of truth; the source cites it, never duplicates it.
+
+3. **Trust the types — no signature restatements.** If the signature is
+   `function ok<T>(data: T): CommandResult<T>`, a JSDoc saying "Build a success
+   CommandResult" is noise. Reserve JSDoc for non-obvious semantics: `@throws`,
+   `@example`, or an invariant invisible from the type.
+
+4. **References provide context, not compliance tags.** Comments SHOULD
+   reference docs, specs, ADRs, requirements, or tickets (`GH-16`, `ADR-0006`,
+   `INV-SAFE-3`) when the reference helps the reader understand a non-obvious
+   decision — e.g. _"redact the serialized string, not the typed object — a
+   token nested in `data` is only exposed after `JSON.stringify` (ADR-0011
+   C-5)"_. What is forbidden is scattering bare code tags — `(DEC-1)`,
+   `(NFR-OBS-1)`, `(AC-6)` — as silent compliance markers on every function and
+   field without explaining anything. One substantive reference at the
+   load-bearing point beats ten bare tags.
+
+5. **Every comment earns its place.** A comment must explain something the code
+   cannot: a Confluence API quirk, an ordering constraint, a security boundary,
+   a "why this looks weird" note, or a pointer to the requirement that drove
+   the design. If removing the comment leaves the code equally understandable,
+   delete it.
+
+### Before / after
+
+**Anti-pattern** (over-documented header — what NOT to produce):
+
+```typescript
+// src/cli/output/exit-codes.ts
+//
+// Stable process exit codes + the stable `error.code` string → exit-code map
+// (GH-16 D-5 / DEC-1 / DEC-2 / NFR-OBS-1). This module is PURE DATA: it
+// imports NO tier — not `#domain/*`, not `#infra/*`, not even a sibling output
+// module. Nothing at all.
+//
+// DEC-1 (the load-bearing architecture constraint): `MarkSyncError.kind` is
+// translated to the stable `error.code` string by the APPLICATION tier ...
+// [30 more lines restating the spec]
+
+/** Exit-code numeric constants — the 9 classes (spec F-5 / NFR-OBS-1). */
+export const EXIT_OK = 0;
+```
+
+**Target** (self-documenting — what to produce):
+
+```typescript
+// Map stable error-code strings to process exit codes (ADR-0011).
+
+export const EXIT_OK = 0;
+export const EXIT_USAGE = 2;
+// ...
+```
 
 ## Module structure
 
