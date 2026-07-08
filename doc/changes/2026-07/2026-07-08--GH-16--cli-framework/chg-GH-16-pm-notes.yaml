@@ -11,10 +11,10 @@ phases:
   dor_check: { started: "2026-07-08T00:50:00Z", completed: "2026-07-08T01:10:00Z", verdict: "READY (iter-2, 10/10 facets)" }
   delivery: { started: "2026-07-08T01:10:00Z", completed: "2026-07-08T20:30:00Z" }
   system_spec_update: { started: "2026-07-08T20:30:00Z", completed: "2026-07-08T20:40:00Z" }
-  review_fix: { started: null, completed: null }
-  quality_gates: { started: null, completed: null }
-  dod_check: { started: null, completed: null }
-  pr_creation: { started: null, completed: null, url: null }
+  review_fix: { started: "2026-07-08T20:40:00Z", completed: "2026-07-08T21:00:00Z", verdict: "PASS_WITH_RISKS (8/8 ACs PASS, 0 blocking)" }
+  quality_gates: { started: "2026-07-08T21:00:00Z", completed: "2026-07-08T21:05:00Z", result: "bun run check green (370 pass/0 fail, dep-cruiser clean)" }
+  dod_check: { started: "2026-07-08T21:05:00Z", completed: "2026-07-08T21:10:00Z", verdict: "DONE — all 8 ACs met, review PASS_WITH_RISKS" }
+  pr_creation: { started: "2026-07-08T21:10:00Z", completed: null, url: null }
 
 decisions:  - text: "Exit-code mapping tier placement (architecture tension resolved): the story file lists `src/cli/output/exit-codes.ts` to 'Map MarkSyncError.kind → exitCode', but .dependency-cruiser.cjs enforces `presentation-may-not-import-domain` (severity error) and MarkSyncError lives in src/domain/errors.ts. Resolution per the GH-15 init.ts precedent (which uses Result structurally 'without naming any domain type'): (a) the `MarkSyncError.kind → {error.code, exitCode}` translation MUST live in the application tier (src/app/), which is permitted to import domain; (b) exit-code numeric CONSTANTS may live in src/shared/ (zero tier deps) or src/cli/output/; (c) src/cli/output/ owns only the stable-string/code → process.exit() translation and never names MarkSyncError. Architecture rules (TDR-0006) are authoritative; the story's file-path hint is a planning approximation, not a contract."
     date: "2026-07-08"
