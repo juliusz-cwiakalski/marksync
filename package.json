@@ -42,7 +42,10 @@
 		"typescript": "^6.0.3"
 	},
 	"dependencies": {
+		"@jsr/cliffy__command": "^1.2.1",
+		"@jsr/cliffy__flags": "^1.2.1",
 		"ajv": "^8.20.0",
+		"picocolors": "^1.1.1",
 		"yaml": "^2.9.0"
 	}
 }
