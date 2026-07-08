@@ -381,23 +381,170 @@ module.exports = {
 ### What to comment
 
 - **Why, not what.** Comments explain decisions, gotchas, Confluence quirks, and
-  non-obvious choices. Code itself says what; comments say why.
-- **ADR references.** When a non-obvious choice is load-bearing, cite the ADR:
+  non-obvious choices — never restate what the code already says.
+- **Contextual references are encouraged.** Comments SHOULD reference docs,
+  specs, ADRs, requirements, invariants, or tickets (`GH-16`, `ADR-0006`,
+  `INV-SAFE-3`, `chg-GH-16-spec.md §5`) when the reference helps the reader
+  understand a non-obvious decision. The reference must accompany a substantive
+  explanation, not stand alone as a bare tag:
   ```typescript
-  // UUID v7 is immutable identity; duplicate detection is fatal (ADR-0006, INV-SAFE-3)
+  // Redact the serialized string, not the typed object — a token nested in
+  // `data` is only exposed after JSON.stringify (ADR-0011 C-5, INV-SEC-1).
+  out = redactString(rendered);
   ```
+  This is good: the reader learns WHY redaction targets the string and WHERE to
+  read the full rationale.
 - **Integration-scenario references.** In the Confluence adapter, cite the
-  relevant scenario doc:
+  relevant scenario doc where it changes how you read the code:
   ```typescript
-  // v2 content properties required; v1 deprecated (see doc/inception/integration-scenarios/10-content-properties.md)
+  // v2 content properties required; v1 deprecated for this path.
   ```
 
 ### What NOT to comment
 
-- ❌ Obvious restatements of code: `// increment i` above `i++`.
-- ❌ Commented-out code (delete it; Git remembers).
-- ❌ JSDoc that just restates the type signature (only add JSDoc for non-obvious
-  semantics, `@throws`, `@example`).
+- ❌ **File-header essays.** A header that restates the spec, lists tier rules,
+  embeds an ASCII table, or cites more than one authority is too long. Cap at
+  3 lines; link the spec/ADR for the rest.
+- ❌ **Bare alphabet-soup tags.** Scattering `(DEC-1)`, `(NFR-OBS-1)`,
+  `(AC-6)`, `(RSK-4)` as silent compliance markers on every line — without
+  explaining anything — turns code into a compliance document. A reference
+  must carry context; a bare tag is noise. Cite the authority once, with
+  explanation, at the load-bearing point.
+- ❌ **Signature restatements in JSDoc.** `/** Resolve the output format. */`
+  above `function resolveOutputFormat(...)` adds zero information. Use JSDoc
+  only for `@throws`, `@example`, or non-obvious invariants.
+- ❌ **Field-name echoes.** `/** --quiet — suppress non-error output */` on a
+  field named `quiet: boolean` is pure noise. The name + type already say it.
+- ❌ **Obvious restatements of code:** `// increment i` above `i++`.
+- ❌ **Commented-out code** (delete it; Git remembers).
+- ❌ **Duplicating spec/ADR content in source.** If a table, decision matrix,
+  or rationale paragraph lives in the spec, do not copy it into a comment.
+  Link it: `// see chg-GH-16-spec.md §5`.
+
+## Code quality patterns
+
+_Concrete patterns that recur in MarkSync code. Each has a correct form and an
+anti-pattern form — @reviewer flags the anti-patterns._
+
+### One import statement per module
+
+With `verbatimModuleSyntax: true`, combine type-only and value imports from the
+same module into a single statement using inline `type` modifiers.
+
+```typescript
+// ❌ Two statements from the same module
+import type { CommandResult } from "#cli/output";
+import { err, ok } from "#cli/output";
+
+// ✅ One statement, inline type modifier
+import { type CommandResult, err, ok } from "#cli/output";
+```
+
+### No magic strings for stable codes
+
+Error codes, exit codes, and other stable string identifiers must be defined as
+`as const` objects or string literal union types — never scattered as bare
+string literals. A typo in a bare string (`"CONFLIT"`) silently falls through to
+a fallback instead of producing a compile error.
+
+```typescript
+// ❌ Bare string literals — typo-prone, no compile-time safety
+return err("INTERNAL", "sync is not yet implemented", false);
+
+// ✅ Const object + derived union type
+export const ERROR_CODES = {
+  CONFLICT: "CONFLICT",
+  INTERNAL: "INTERNAL",
+  USAGE: "USAGE",
+} as const;
+export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
+```
+
+### Conditional spread over mutation for optional properties
+
+When constructing objects with `exactOptionalPropertyTypes: true`, prefer
+conditional spread over mutation-after-construction. The spread is a single
+expression with no intermediate mutable variable.
+
+```typescript
+// ❌ Mutation after construction — extra variable, imperative style
+const result: CommandResult<T> = { schemaVersion: 1, exitCode: 0, data };
+if (meta?.timing) result.timing = meta.timing;
+if (meta?.warnings) result.warnings = meta.warnings;
+return result;
+
+// ✅ Conditional spread — single expression, no mutation
+return {
+  schemaVersion: SCHEMA_VERSION,
+  exitCode: EXIT_OK,
+  data,
+  ...(meta?.timing ? { timing: meta.timing } : {}),
+  ...(meta?.warnings ? { warnings: meta.warnings } : {}),
+};
+```
+
+### Tests use import aliases, not deep relative paths
+
+Tests must use the `#`-prefixed import aliases defined in `package.json`
+`"imports"` — not `../../../../src/...` relative paths. Relative paths break
+when files move and are inconsistent with production code.
+
+```typescript
+// ❌ Fragile deep relative path
+import { redactString } from "../../../../src/cli/output/redact.ts";
+
+// ✅ Import alias (resolves via package.json "imports")
+import { redactString } from "#cli/output/redact";
+```
+
+### Simplify trivially derivable logic
+
+If a function maps union members to themselves or returns a value already
+derivable from the input type, simplify. Don't enumerate every case when the
+type system already constrains the output.
+
+```typescript
+// ❌ Redundant enumeration — output is already derivable from the type
+function resolveOutputFormat(flags: GlobalCommandFlags): OutputFormat {
+  if (flags.json) return "json";
+  if (flags.output === "ndjson") return "ndjson";
+  if (flags.output === "json") return "json";
+  return "human";
+}
+
+// ✅ Simplified — flags.output is already typed as OutputFormat | undefined
+function resolveOutputFormat(flags: GlobalCommandFlags): OutputFormat {
+  if (flags.json) return "json";
+  return flags.output ?? "human";
+}
+```
+
+### Fragile runtime patterns require a justifying comment
+
+When code relies on a fragile runtime mechanism (string-based class detection,
+implicit global availability, hardcoded version strings), a comment must explain
+what would break and why no safer alternative exists:
+
+```typescript
+// Cliffy doesn't export UnknownCommandError; detect by name + exitCode.
+// Breaks under minification — acceptable because bun build --compile preserves names.
+function isCliffyParseError(e: Error): boolean { ... }
+```
+
+### Structural type duplication across tier boundaries
+
+When the architecture matrix forbids cross-tier imports (e.g. app may not import
+presentation), the same structural type may be defined independently in two
+tiers. This is acceptable IF:
+- each definition carries a one-line comment noting the duplication and the
+  constraint that forces it;
+- a structural compatibility test asserts the two shapes stay in sync.
+
+```typescript
+// Structurally identical to CommandResultError in src/cli/output — duplicated
+// because application may not import presentation (ADR-0011 tier matrix).
+export interface ResultError { code: string; message: string; retryable: boolean; }
+```
 
 ## Dependency management
 

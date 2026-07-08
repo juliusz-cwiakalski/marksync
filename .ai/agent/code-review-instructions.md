@@ -85,6 +85,28 @@ Ordered from most to least important for this repo:
       maps.
 - [ ] Biome formatting/linting passes (TDR-0005).
 - [ ] Commit message follows Conventional Commits (TDR-0008).
+- [ ] **Comment discipline** (see
+      [.ai/rules/typescript.md](../rules/typescript.md) → Code style principles):
+      - File headers ≤ 3 lines — no spec restatements, tier-rule essays, or
+        ASCII tables.
+      - No bare alphabet-soup tags (`(DEC-1)`, `(NFR-OBS-1)`) scattered as
+        silent compliance markers. References to docs/ADRs/tickets are
+        encouraged but must carry context, not stand alone.
+      - No JSDoc that restates the type signature; no field-name echoes.
+      - Flag over-documented files and request trimming to self-documenting
+        code.
+- [ ] **Import hygiene**: one `import` statement per module — combine
+      `import type` + `import` via inline `type` modifier
+      (`import { type Foo, bar } from "./mod"`).
+- [ ] **No magic strings**: stable codes/identifiers (error codes, exit codes)
+      defined as `as const` objects or union types, not bare string literals.
+- [ ] **Optional properties**: conditional spread (`...(cond ? { k: v } : {})`)
+      over mutation-after-construction for `exactOptionalPropertyTypes`-safe
+      object building.
+- [ ] **Test imports**: use `#`-prefixed aliases from `package.json` `"imports"`,
+      not deep relative paths (`../../../../src/...`).
+- [ ] **No trivially derivable logic**: don't enumerate every union member when
+      the return type is already constrained by the input type.
 
 ### Confluence API correctness
 
