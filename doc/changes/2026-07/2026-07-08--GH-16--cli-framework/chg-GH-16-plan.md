@@ -403,7 +403,7 @@ constant (D-1), the numeric exit-code constants + `codeToExitCode(code)` map
 
 **Tasks**:
 
-- [ ] **2.1** Create `src/cli/output/command-result.ts` (D-1):
+- [x] **2.1** Create `src/cli/output/command-result.ts` (D-1) — DONE (Phase 2).
       - `CommandResult<T>` interface:
         `{ schemaVersion: typeof SCHEMA_VERSION; runId: string; exitCode: number;
         timing?: { startedAt: string; durationMs: number }; data?: T;
@@ -417,7 +417,7 @@ constant (D-1), the numeric exit-code constants + `codeToExitCode(code)` map
         module tier-pure).
       - Document the snake_case JSON contract (DEC-4) and the `error` shape
         (DEC-5) in a leading comment citing ADR-0011.
-- [ ] **2.2** Create `src/cli/output/exit-codes.ts` (D-5 / DEC-1):
+- [x] **2.2** Create `src/cli/output/exit-codes.ts` (D-5 / DEC-1) — DONE (Phase 2).
       - Named numeric constants: `EXIT_OK=0`, `EXIT_USAGE=2`, `EXIT_CONFIG=10`,
         `EXIT_AUTH=20`, `EXIT_CONFLICT=30`, `EXIT_REMOTE_MISSING=40`,
         `EXIT_INVARIANT=50`, `EXIT_RENDER_UNAVAILABLE=70`, `EXIT_INTERNAL=99`.
@@ -428,7 +428,7 @@ constant (D-1), the numeric exit-code constants + `codeToExitCode(code)` map
         (unknown codes → `EXIT_INTERNAL` with a documented fallback).
       - **Zero tier imports** — pure data. A leading comment cites DEC-1 /
         DEC-2 and the GH-15 `init.ts` structural-type precedent.
-- [ ] **2.3** Create `src/cli/output/color.ts` (D-6):
+- [x] **2.3** Create `src/cli/output/color.ts` (D-6) — DONE (Phase 2).
       - `resolveColorPolicy(opts: { color?: boolean; noColor?: boolean }): {
         enabled: boolean }` honoring `--color`/`--no-color` overrides, else
         non-interactive detect: `!process.stdout.isTTY || !!process.env.CI ||
@@ -437,26 +437,39 @@ constant (D-1), the numeric exit-code constants + `codeToExitCode(code)` map
       - A thin `picocolors` wrapper whose color methods are no-ops when
         `enabled === false` (so human renderers call color unconditionally and
         the policy decides whether codes emit).
-- [ ] **2.4** Create `tests/unit/cli/output/exit-codes.test.ts` — assert
-      `codeToExitCode("CONFLICT") === 30` (AC-6), plus every DEC-2 row and the
-      unknown-code → `EXIT_INTERNAL` fallback.
-- [ ] **2.5** Create `tests/unit/cli/output/color.test.ts` — a matrix over
-      mocked `isTTY`/`CI`/`NO_COLOR`/`TERM` asserting: piped (no TTY) → disabled;
-      `CI`/`NO_COLOR`/`TERM=dumb` → disabled; `--color` forces on even when
-      piped; `--no-color` forces off even on a TTY (RSK-5 / AC-3).
-- [ ] **2.6** Create `tests/unit/cli/output/command-result.test.ts` — assert the
-      `ok`/`err` factories produce the documented shape incl. `schemaVersion=1`
-      and optional `timing`/`warnings` (exactOptionalPropertyTypes-safe).
+- [x] **2.4** Create `tests/unit/cli/output/exit-codes.test.ts` — DONE (Phase 2). Asserts
+      `codeToExitCode("CONFLICT") === 30` (AC-6), every DEC-2 row (via `toEqual(EXPECTED)` +
+      per-row cases incl. drift-class → 30), and the unknown-code → `EXIT_INTERNAL` fallback.
+- [x] **2.5** Create `tests/unit/cli/output/color.test.ts` — DONE (Phase 2). Full matrix over
+      stubbed `isTTY`/`CI`/`NO_COLOR`/`TERM`: TTY→on, piped→off, NO_COLOR/CI/TERM=dumb→off,
+      `--color` forces on (even piped+CI), `--no-color` forces off (even TTY). Boundary
+      signals stubbed + restored each test (RSK-5 / AC-3).
+- [x] **2.6** Create `tests/unit/cli/output/command-result.test.ts` — DONE (Phase 2). Asserts
+      `ok`/`err` envelopes: `schemaVersion=1`, `ok` exit 0 + `data`, `err` exit derived via
+      `codeToExitCode` (CONFLICT→30), optional `timing`/`warnings` (exactOptionalPropertyTypes-safe),
+      `runId` honoring `meta.runId` vs generated (TS-8).
 
 **Acceptance Criteria**:
 
 - Must: `codeToExitCode("CONFLICT") === 30` (AC-6 / NFR-OBS-1).
+  — **PASSED** (`exit-codes.test.ts`: dedicated case + via `EXPECTED` table; tests PASS).
 - Must: `exit-codes.ts` imports no `#domain/*` / `#infra/*`
       (`check:boundaries` clean; DEC-1).
+  — **PASSED** (`exit-codes.ts` is zero-import pure data; `depcruise src` → "no
+  dependency violations found (20 modules, 15 dependencies cruised)").
 - Must: color policy disables on every non-interactive signal and honors both
       overrides (AC-3 / NFR-A11Y-1).
+  — **PASSED** (`color.test.ts` matrix: TTY→on, piped/NO_COLOR/CI/TERM=dumb→off,
+  `--color` forces on even piped+CI, `--no-color` forces off even TTY; tests PASS).
 - Must: `CommandResult<T>` shape compiles under strict mode and carries
       `schemaVersion=1`.
+  — **PASSED** (`bun run typecheck` exit 0 under strict+exactOptionalPropertyTypes;
+  `SCHEMA_VERSION === 1` asserted; `command-result.test.ts` PASS).
+
+**Phase 2 verification** — `bun run format && bun run lint` (Biome clean),
+`bun run typecheck` (tsc strict — clean), `bun test tests/unit/cli/output/`
+(54 pass / 0 fail, 100% coverage on the 3 new src modules), `bun run check:boundaries`
+(green). Full repo suite `bun test` = 171 pass / 0 fail (117 prior + 54 new).
 
 **Files and modules**:
 
@@ -941,7 +954,7 @@ confirm all ACs are satisfied with no stray placeholders.
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
 | 1 | pending | — | — | — | deps + TDR-0002 C-1 compile-smoke gate |
-| 2 | pending | — | — | — | CommandResult + exit-codes + color |
+| 2 | complete | 2026-07-08 | 2026-07-08 | `8d2e426` | CommandResult<T> + SCHEMA_VERSION + ok/err factories; exit-code constants + CODE_TO_EXIT + codeToExitCode (zero-import pure data, DEC-1); color policy + picocolors kit; 3 unit test files (54 tests, 100% cov on new src). All 4 AC PASSED. Gate: lint/format/typecheck/test(171 pass)/boundaries green. **ExitCode design note:** `err()` computes `exitCode` from `code` via `codeToExitCode(code)` (intra-tier import command-result→exit-codes, both src/cli/output/) so every error result carries the exit code matching its `error.code`; documented in a leading comment. |
 | 3 | pending | — | — | — | redaction layer |
 | 4 | pending | — | — | — | JSON/human renderers + OutputService |
 | 5 | pending | — | — | — | app-tier MarkSyncError→code mapper |
