@@ -33,9 +33,9 @@ export interface AccountIdentity {
 
 /**
  * The injected-`fetch` seam (GH-17 DEC-1). `validateCredentials` — the only
- * provider function doing network I/O — accepts this so `src/app/credentials.ts`
- * imports no `#infra/*` and stays unit-testable with a stub. `resolveCredentials`
- * is pure env logic and takes no `fetch`.
+ * provider function doing network I/O — accepts this so the application module
+ * stays free of infrastructure imports and unit-testable with a stub.
+ * `resolveCredentials` is pure env logic and takes no `fetch`.
  */
 export interface AuthProviderOptions {
 	fetch?: typeof fetch;
