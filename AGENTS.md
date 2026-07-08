@@ -71,7 +71,7 @@ Detail: [doc/guides/change-lifecycle.md](doc/guides/change-lifecycle.md)
 ## Agent team
 
 **Orchestration:**
-- `ceo` — autonomous executive: backlog, ticket delivery, PR review/merge. `@ceo continue project delivery` ([.opencode/agent/ceo.md](.opencode/agent/ceo.md))
+- `ceo` — autonomous executive: backlog, ticket delivery, PR review/merge. `@ceo continue project delivery`
 - `pm` — orchestrates 11-phase lifecycle; manages tickets via MCP; never implements code
 - `decision-advisor` — all decision types (ADR/PDR/TDR/BDR/ODR) _(formerly `architect`)_
 - `decision-critic` — independent read-only challenger (PASS / PASS_WITH_RISKS / REWORK)
@@ -133,7 +133,6 @@ Before creating new documentation areas, agents should inspect [doc/documentatio
 ```
 AGENTS.md                         # this file
 README.md
-.opencode/agent/                  # project-local agents (CEO)
 .ai/
   agent/                          # PM/PR/decision/code-review instructions (committed)
   local/                          # git-ignored ephemeral agent state
