@@ -1,0 +1,7 @@
+# Invalid — syntactically broken YAML (unbalanced indentation / stray quote).
+# The yaml parser rejects this; loadConfig must channel it as ConfigError, not a
+# throw (TC-CONFIG-010).
+version: 1
+root: "docs/
+  targets:
+    broken indent

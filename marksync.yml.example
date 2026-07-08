@@ -1,0 +1,80 @@
+# marksync.yml.example — MarkSync configuration reference.
+#
+# Copy this file to `marksync.yml` and edit the values, or run `marksync init`
+# to generate a starter config. This example demonstrates every v1 field and
+# round-trips through `loadConfig` without error.
+#
+# Full reference: https://marksync.dev/docs/marksync.yml
+# Schema:        src/domain/config/schema.json (JSON Schema draft-07, v1)
+
+# Schema version. v1 is the initial MS-0002 contract.
+version: 1
+
+# Corpus root directory (repo-relative, forward slashes). Markdown sources live
+# under here; the intended-hierarchy step derives page parents from file paths
+# relative to this root.
+root: docs/
+
+# Glob patterns selecting markdown files from the Git-tracked tree. Matched
+# verbatim against repo-relative paths (micromatch-style ** / * / ?).
+select:
+  - docs/**/*.md
+
+# Glob patterns removing matched files from the selected set (applied after
+# `select`). Useful for drafts, templates, and internal-only docs.
+exclude:
+  - docs/draft/**
+  - docs/internal/**/*.md
+
+# Intended Confluence page-tree shape.
+#   mirror — derive each page's parent from its directory under `root`.
+#   flat   — all pages attach under the single configured target parent.
+hierarchy: mirror
+
+# Target systems keyed by id. MS-0002 ships a single Confluence Cloud target.
+# Credentials (base URL, email, API token) come from environment variables —
+# see .env.example. Never put secrets in this file.
+targets:
+  default:
+    type: confluence
+    # Confluence space key (e.g. ENG). Case-sensitive.
+    spaceKey: ENG
+    # Confluence parent page id (numeric, as a string) under which mirrored
+    # pages attach. Find it via the page URL or Confluence REST API.
+    parentPageId: "1234567890"
+
+sync:
+  # Branches allowed for sync operations (default: ["main"]).
+  # CI pipelines may override via MARKSYNC_ALLOW_BRANCHES (see .env.example).
+  allowBranches:
+    - main
+  # Sync history granularity. MS-0002 accepts ONLY `squash` (one Confluence
+  # page version per sync, with a compact provenance summary). `commit-by-commit`
+  # is rejected and deferred to a future milestone (ADR-0010 C-5).
+  granularity: squash
+  # Plan freshness window in minutes (default: 15). A plan older than this is
+  # considered stale and must be recomputed before apply.
+  stalePlanMinutes: 15
+
+render:
+  mermaid:
+    # When to render Mermaid diagrams: `render` (default) or `skip`.
+    policy: render
+    # Mermaid security level: `strict` (default), `loose`, or `sandbox`.
+    securityLevel: strict
+    # Whether Mermaid may emit HTML labels (default: false for determinism).
+    htmlLabels: false
+    # Whether Mermaid emits deterministic node ids (default: true, ADR-0002 C-1).
+    deterministicIds: true
+
+output:
+  # Page body representation. Storage Format is the write target (ADR-0005).
+  format: storage
+  # CLI color output mode: `auto` (default), `always`, or `never`.
+  # Auto-disables color when not a TTY or when NO_COLOR is set (NFR-A11Y-1).
+  color: auto
+
+provenance:
+  # Whether the provenance panel (source-path + Git revision + last-sync) is
+  # visible on published pages (default: true).
+  visiblePanel: true

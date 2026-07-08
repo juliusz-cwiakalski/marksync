@@ -1,0 +1,91 @@
+{
+  "review": {
+    "workItemRef": "GH-15",
+    "branch": "feat/GH-15/config-system",
+    "phase": "review_fix",
+    "mode": "local",
+    "iteration": 1,
+    "date": "2026-07-08",
+    "reviewer": "@reviewer",
+    "verdict": "PASS",
+    "status": "PASS",
+    "qualityGate": {
+      "command": "bun run check",
+      "exitCode": 0,
+      "lint": "clean (29 files)",
+      "format": "clean",
+      "typecheck": "clean (tsc --noEmit)",
+      "tests": { "pass": 117, "fail": 0, "expectCalls": 445 },
+      "boundaries": { "modules": 16, "dependencies": 13, "violations": 0 },
+      "coverage": { "functions": 100.0, "lines": 91.81 }
+    },
+    "findingsCount": { "critical": 0, "major": 0, "minor": 4, "nit": 0, "total": 4, "blocking": 0 },
+    "nextStep": "PROCEED",
+    "remediationPhase": "NONE",
+    "planStatus": "ALL_TASKS_DONE (task 9.3 actually DONE via commit aa0362; plan log stale — see M2)",
+    "acCoverage": {
+      "AC-F3-1": { "status": "PASS", "tests": ["TC-CONFIG-001", "TC-CONFIG-002"], "file": "tests/unit/app/config.test.ts" },
+      "AC-F7-1": { "status": "PASS", "tests": ["TC-CONFIG-003", "TC-CONFIG-004", "TC-CONFIG-005", "TC-CONFIG-006", "TC-CONFIG-008", "TC-CONFIG-009", "TC-CONFIG-010"], "files": ["tests/unit/app/config.test.ts", "tests/unit/app/config-errors.test.ts"] },
+      "AC-F3-2": { "status": "PASS", "tests": ["TC-SELECT-001..008"], "file": "tests/unit/app/select-files.test.ts" },
+      "AC-F4-1": { "status": "PASS", "tests": ["TC-DOC-001", "TC-DOC-003", "TC-DOC-004"], "file": "tests/unit/app/document-config.test.ts" },
+      "AC-F4-2": { "status": "PASS", "tests": ["TC-DOC-002"], "file": "tests/unit/app/document-config.test.ts" },
+      "AC-F6-1": { "status": "PASS", "tests": ["TC-HIER-001..005"], "file": "tests/unit/domain/config/hierarchy.test.ts" },
+      "AC-F5-1": { "status": "PASS", "tests": ["TC-INIT-001"], "file": "tests/unit/app/config-template.test.ts" },
+      "AC-F7-2": { "status": "PASS", "tests": ["TC-CONFIG-012 (typecheck gate)"], "file": "tsc --noEmit clean + tests/unit/domain/errors.test.ts" },
+      "AC-F8-1": { "status": "PASS", "tests": ["bun run check exit 0"], "file": "full quality gate" }
+    },
+    "decisions": {
+      "DEC-1": { "status": "PASS", "note": "yaml used for both marksync.yml and front-matter" },
+      "DEC-2": { "status": "PASS", "note": "granularity enum [squash] only; commit-by-commit rejected with deferred message" },
+      "DEC-3": { "status": "PASS", "note": "InvalidConfig arm + assertNeverMarkSyncError + ConfigError alias; loadConfig returns Result<ProjectConfig, ConfigError>" },
+      "DEC-4": { "status": "PASS", "note": "selectFiles takes readonly string[]; no git I/O in loader" },
+      "DEC-5": { "status": "PASS", "note": "zero-dep src/shared/glob.ts; no picomatch" }
+    },
+    "findings": [
+      {
+        "id": "M1",
+        "severity": "minor",
+        "confidence": "high",
+        "file": ".ai/rules/typescript.md",
+        "line": 424,
+        "title": "yaml not added to the allowed-dependency table",
+        "description": "The spec (NFR-7) and plan (Phase 1.1) assert 'yaml and ajv are on the allowed-dependency list in typescript.md'. The table includes ajv (L424) but NOT yaml. typescript.md was edited in this change (union illustration), so the omission is a missed edit. Non-blocking: DEC-1 is the binding approval and the license/transitive audit passes (yaml@2.9.0 ISC, 0 transitive deps).",
+        "suggestedFix": "Add row: | yaml | YAML parsing (marksync.yml + front-matter, DEC-1) | Latest |",
+        "blocking": false
+      },
+      {
+        "id": "M2",
+        "severity": "minor",
+        "confidence": "high",
+        "file": "doc/changes/2026-07/2026-07-07--GH-15--config-system/chg-GH-15-plan.md",
+        "line": 688,
+        "title": "Plan log records doc reconciliation (task 9.3) as skipped/deferred but commit aa036c2 performed it",
+        "description": "The execution log + Phase 9 acceptance say 9.3 was 'intentionally skipped' / 'DEFERRED to Phase 7', but commit aa036c2 reconciled all four docs. The work is done; the bookkeeping is stale and self-contradictory. Misleads dod_check (Phase 10) and the PR reviewer.",
+        "suggestedFix": "Update task 9.3 checkbox to [x], the Execution Log row 9 note, and the Phase 9 'system docs reconciled' acceptance to PASSED (ref commit aa036c2).",
+        "blocking": false
+      },
+      {
+        "id": "M3",
+        "severity": "nit",
+        "confidence": "high",
+        "file": "src/app/config-template.ts",
+        "line": 27,
+        "title": "Redundant Result type-only alias import",
+        "description": "Imports Result as a value (L26) AND Result as ResultType (type-only, L27). Under verbatimModuleSyntax the single value import is usable in both positions, so ResultType is redundant.",
+        "suggestedFix": "Drop L27 and use Result<void, ConfigError> at the return-type site, or drop the value import if only the type is needed.",
+        "blocking": false
+      },
+      {
+        "id": "M4",
+        "severity": "nit",
+        "confidence": "high",
+        "file": "src/app/config-template.ts",
+        "line": 119,
+        "title": "A few defensive/invariant branches are uncovered by tests",
+        "description": "Coverage 100% funcs / 91.81% lines. Uncovered lines are defensive paths (write-failure catch L119-125, non-ENOENT read branch config.ts:74-76, assertNeverMarkSyncError never-arms errors.ts:106-112, some keyword branches config-errors.ts:50-54/92-98). Acceptable per testing strategy (invariant coverage > raw line coverage).",
+        "suggestedFix": "Optional: a fault-injection test for the write-failure path. No change required.",
+        "blocking": false
+      }
+    ]
+  }
+}

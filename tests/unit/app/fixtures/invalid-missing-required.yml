@@ -1,0 +1,7 @@
+# Invalid — schema-required `root` field is missing (TC-CONFIG-003).
+version: 1
+targets:
+  default:
+    type: confluence
+    spaceKey: ENG
+    parentPageId: "123456"

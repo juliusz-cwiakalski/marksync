@@ -40,13 +40,6 @@ ados_distribution: redistributable
 | [Autonomous Batch Delivery](guides/autonomous-batch-delivery.md) | Unattended multi-ticket delivery: `batch-deliver.sh`, `deliver-ticket.sh`, liveness, approvals |
 | [Tools Convention](guides/tools-convention.md) | Standard for building CLI tools |
 
-## Tools
-
-| Tool | Description |
-|------|-------------|
-| [zclaude](tools/zclaude.md) | Launch Claude Code with Z.AI GLM Coding Plan |
-| [text-to-image](tools/text-to-image.md) | Generate images from text prompts (7 providers) |
-
 ## Templates
 
 | Template | Purpose |

@@ -1,0 +1,12 @@
+# Invalid — multiple simultaneous violations (missing root + wrong-typed select
+# + unknown granularity). ajv runs with allErrors so every violation is
+# collected (TC-CONFIG-009).
+version: 1
+select: "not-an-array"
+targets:
+  default:
+    type: confluence
+    spaceKey: ENG
+    parentPageId: "123456"
+sync:
+  granularity: batch

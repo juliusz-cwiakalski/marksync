@@ -1,0 +1,29 @@
+# Canonical valid marksync.yml exercising every blueprint §4 field set.
+version: 1
+root: docs/
+select:
+  - docs/**/*.md
+exclude:
+  - docs/draft/**
+hierarchy: mirror
+targets:
+  default:
+    type: confluence
+    spaceKey: ENG
+    parentPageId: "123456"
+sync:
+  allowBranches:
+    - main
+  granularity: squash
+  stalePlanMinutes: 15
+render:
+  mermaid:
+    policy: render
+    securityLevel: strict
+    htmlLabels: false
+    deterministicIds: true
+output:
+  format: storage
+  color: auto
+provenance:
+  visiblePanel: true

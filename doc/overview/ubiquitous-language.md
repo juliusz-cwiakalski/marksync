@@ -6,13 +6,13 @@ ados_distribution: redistributable
 id: UBIQUITOUS-LANGUAGE
 status: Draft
 created: 2026-07-05
-last_updated: 2026-07-05
+last_updated: 2026-07-08
 owners: [Juliusz Ćwiąkalski]
 area: domain
 document_classification: current-truth
 links:
   related_decisions: [ADR-0005, ADR-0006, ADR-0010, ADR-0011, PDR-0001]
-  related_changes: []
+  related_changes: [GH-15]
   summary: "Ubiquitous language — the precise, bounded-context vocabulary binding domain concepts to code for MarkSync's Markdown-to-TargetSystem synchronization domain."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -31,7 +31,7 @@ events) and their relationships. Distinct from the reader-friendly
   - **In scope:** document identity, source-side document model, target-system
     page model, shared-base state, sync-state classification, plan/apply
     orchestration, drift detection, concurrency control, provenance, push flow,
-    reverse-conversion interface.
+    reverse-conversion interface, repository-owned configuration (`marksync.yml`).
   - **Out of scope (neighbouring contexts):** Confluence REST API specifics
     (isolated behind `ConfluenceClient` adapter — see context map); Git plumbing
     (isolated behind `Repository` port); Mermaid rendering mechanics (isolated
@@ -98,6 +98,28 @@ events) and their relationships. Distinct from the reader-friendly
 |---|---|---|---|
 | **Push Executor** | Infrastructure service that performs ordered safe writes via the `TargetSystem` port, journals each mutation, and handles optimistic concurrency (409). Included here because it owns the journal/409 contract that the domain depends on. | Infrastructure service | consumes → Plan; produces → Page Published, Drift Detected |
 
+### Configuration
+
+_Repository-owned configuration is the typed contract every use-case consumes.
+The JSON Schema (`src/domain/config/schema.json`, draft-07, v1) is the source of
+truth for the shape; the TypeScript types mirror it; the application-tier loader
+validates with ajv and returns a typed result (GH-15). Identifiers below bind to
+their code constructs (typescript.md UL-binding rule)._
+
+| Term | Meaning | Type | Relationships |
+|---|---|---|---|
+| **marksync.yml** | The repository-owned YAML configuration file consumed by every MarkSync use-case. Shape defined by the v1 JSON Schema; holds no secrets (credentials live in env/keyring). | File (config) | parsed by → Config Loader |
+| **ProjectConfig** | The fully-typed, defaults-applied configuration returned by `loadConfig` on success (`src/domain/config/types.ts`). Every field is present after defaults run; `ProjectConfigInput` is the pre-defaults raw shape ajv validates. | Value object | produced by → Config Loader |
+| **TargetConfig** | The per-target shape (`type`, `spaceKey`, `parentPageId`) within the `targets` map. MS-0002 ships a single Confluence target. | Value object | contained in → ProjectConfig |
+| **DocumentConfig** | The per-document resolved config: `sourcePath`, `title`, `intendedParent`, optional `uuid`, and `exclude` flag (`src/app/document-config.ts`). Derived downstream; front-matter overrides apply on top. | Value object | produced by → Document Config Resolver |
+| **ConfigError** | The config-failure arm (`kind: "InvalidConfig"`) of the `MarkSyncError` union: carries `path`, `ConfigAjvError[]`, and an AI-readable `humanMessage` (field path + expected vs actual + suggested fix). `loadConfig` narrows its `Result` error to this arm. | Value object (error) | member of → MarkSyncError |
+| **Config Loader** | Application service (`loadConfig`/`applyDefaults`, `src/app/config.ts`) that reads `marksync.yml`, parses YAML, ajv-validates (`allErrors`), applies defaults, and returns `Result<ProjectConfig, ConfigError>`. Pure: the only I/O is reading the single config file (no Git/tree access). | Application service | produces → ProjectConfig; emits → ConfigError |
+| **File Selector** | Application service (`selectFiles`, `src/app/config.ts`) returning the subset of a caller-supplied path list matching `select` globs minus `exclude` globs (de-duplicated, sorted). Zero Git I/O — the Git adapter supplies the paths. | Application service | consumes → ProjectConfig |
+| **Document Config Resolver** | Application service (`resolveDocumentConfig`/`parseFrontMatter`, `src/app/document-config.ts`) that merges per-document `marksync.*` front-matter overrides (`title`/`parent`/`uuid`/`exclude`) over the derived base. Tolerates absent/malformed front-matter (never throws). | Application service | produces → DocumentConfig |
+| **Intended Hierarchy** | The intended Confluence page-tree shape computed from selected files under `root` (structure only — no page-id resolution). `mirror` derives each page's parent from its directory; `flat` attaches all pages to the configured parent anchor. | Value object | produced by → Intended Hierarchy Builder |
+| **Intended Hierarchy Builder** | Domain service (`intendedParent`/`buildIntendedHierarchy`, `src/domain/config/hierarchy.ts`) computing the intended parent path per selected file. Pure path logic over canonicalized forward-slash paths. | Domain service | produces → Intended Hierarchy |
+| **marksync init** | CLI command that writes a valid starter `marksync.yml` (round-trips through `loadConfig`). MS-0002 scaffolds config only and refuses to overwrite an existing file; discovery and UUID assignment are later milestones. | CLI command | validates via → Config Loader |
+
 ## Context map
 
 _How this context relates to neighbouring bounded contexts._
@@ -108,7 +130,7 @@ _How this context relates to neighbouring bounded contexts._
 | **Git** | Customer/supplier (anti-corruption layer) | The `Repository` port (implemented by shell-Git, TDR-0003) is an ACL: it translates Git operations into `Source Document` reads. MarkSync reads committed snapshots only; never pushes/pulls. |
 | **Mermaid Rendering** | Conformist (service) | The `Renderer` port (implemented by official `mermaid` + jsdom, ADR-0002) produces deterministic `Artifact` bytes. MarkSync conforms to the renderer's output contract; the `Mermaid Artifact Manager` handles dedup/existence. |
 | **CLI Presentation** | Customer (downstream) | The CLI presentation tier consumes domain/application services and renders output (human/JSON/NDJSON) via the output service. The domain does not know about CLI formatting. |
-| **Filesystem** | Open Host Service | Config/lock files are plain YAML; the cache is disposable. No translation needed; the domain treats them as serialized state. |
+| **Filesystem** | Open Host Service | Config (`marksync.yml`) and lock files are plain YAML validated against JSON Schema (ajv) at the load boundary; the cache is disposable. The domain consumes the typed result, not the raw file. |
 | **OS Keyring** | Open Host Service | Credential storage; the domain's `Credential Provider` reads from keyring or env, never logging secrets. |
 
 ## Binding rules

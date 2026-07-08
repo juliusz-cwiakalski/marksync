@@ -6,13 +6,13 @@ ados_distribution: redistributable
 id: GLOSSARY
 status: Draft
 created: 2026-07-05
-last_updated: 2026-07-05
+last_updated: 2026-07-08
 owners: [Juliusz Ćwiąkalski]
 area: domain
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0005, ADR-0006, ADR-0010, ADR-0011, PDR-0001]
-  related_changes: []
+  related_changes: [GH-15]
   summary: "Reader-friendly glossary of terms and acronyms used across the MarkSync repository."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -40,6 +40,8 @@ Documentation Handbook §9 for the glossary-vs-UL distinction._
 | **CI-first** | The design principle that MarkSync must work identically in local, agent, and CI contexts — differing only in auth. | Architecture | — |
 | **Cliffy** | The CLI framework (@cliffy/command + @cliffy/prompt + @cliffy/flags) chosen for MarkSync (TDR-0002). | Tooling | — |
 | **Cloud** | Confluence Cloud — the Atlassian SaaS hosting model. The only supported target in `MS-0002` (NFR-COMP-3). | Confluence | — |
+| **ConfigAjvError** | A plain-data entry for one ajv validation error (`instancePath`, `schemaPath`, `keyword`, `message`, `params`), carried by `ConfigError`. Domain-owned serializable shape — not a re-export of ajv's `ErrorObject`. | Tooling | ConfigError |
+| **ConfigError** | The config-failure arm of the `MarkSyncError` union (`kind: "InvalidConfig"`): carries the config `path`, the `ConfigAjvError[]`, and an AI-readable `humanMessage` naming the field path, expected shape, and a suggested fix. Returned by `loadConfig` on any expected failure (missing file, malformed YAML, schema violation). | Domain | — |
 | **Conflict** | A state where local and remote have diverged from the shared base and cannot be safely auto-resolved. Surfaced explicitly, never auto-resolved. | Process | Sync State |
 | **Content property** | A key-value pair attached to a Confluence page via the v2 API. MarkSync uses `marksync.metadata` for lock cross-check data. | Confluence | — |
 | **Credential** | Authentication material: API token or OAuth refresh token. Stored in OS keyring or env, never in project files. | Security | — |
@@ -50,10 +52,12 @@ Documentation Handbook §9 for the glossary-vs-UL distinction._
 | **Drift** | A state where the remote (Confluence) page has changed since the last shared base, so a naive publish would overwrite unsaved work. | Process | Sync State |
 | **Dry-run** | A plan-only mode that reports what would happen without performing any write. First-class; no mutation without a reviewable plan. | CLI | Plan |
 | **Exit Code** | A stable, machine-parseable code returned per error class. `0` = clean; non-zero = error class. | Operability | Exit Code |
+| **Front-matter** | The YAML block between leading `---` fences at the top of a Markdown document; carries per-document `marksync.*` overrides (`title`, `parent`, `uuid`, `exclude`). Tolerated when absent or malformed. | Domain | — |
 | **FSE** | Full-Stack Environment — the 10 AI-friendliness attributes assessed in the FSE audit. | Process | — |
 | **GFM** | GitHub Flavored Markdown — the Markdown dialect MarkSync targets (tables, task lists, strikethrough). | Domain | — |
 | **Golden fixture** | A captured snapshot of deterministic output (e.g., rendered Storage XHTML) used for regression testing. | Testing | — |
 | **Hexagonal** | Ports-and-adapters architecture: domain/application core owns logic; adapters supply IO (Git, Confluence, filesystem, keyring, stdout). | Architecture | — |
+| **Hierarchy mirroring** | Computing the intended Confluence page-tree shape from selected files under `root` (e.g. `docs/a/b.md` → intended parent `docs/a/`). `mirror` derives parents from directories; `flat` attaches all pages to the configured parent anchor. Structure only — no page-id resolution. | Domain | Intended Hierarchy |
 | **Idempotent rerun** | A second semantically-unchanged push performs 0 writes. A `MS-0002` success metric. | Quality | — |
 | **Journal** | A per-run log (`<run-id>.jsonl`) recording each mutation immediately, enabling partial-apply recovery via `repair-state`. | State | Journal Entry |
 | **JSON Schema** | A JSON-based schema language used to validate MarkSync config and lock files (via `ajv`). | Tooling | — |
@@ -61,6 +65,8 @@ Documentation Handbook §9 for the glossary-vs-UL distinction._
 | **Lifecycle invariant** | A release-blocking property enforced via Gherkin/BDD: INV-SAFE-1 (no silent overwrite), INV-SAFE-2 (no silent re-create of REMOTE_MISSING), INV-SAFE-3 (duplicate-UUID fatal), INV-SEC-1 (no secrets in output). | Safety | — |
 | **Lock file** | A committed, versioned file recording per-document bindings: UUID → page ID, parent, version, hashes, shared base. Like `package-lock.json` for npm. | State | Shared Base |
 | **Managed page** | A Confluence page tracked by MarkSync (has a UUID + lock entry + content property). | Domain | Managed Document |
+| **marksync init** | CLI command that writes a valid starter `marksync.yml` (round-trips through `loadConfig`). `MS-0002` scaffolds config only and refuses to overwrite an existing file; discovery and UUID assignment are later milestones. | CLI | — |
+| **marksync.yml** | The repository-owned YAML configuration file consumed by every MarkSync use-case. Shape defined by the v1 JSON Schema (`src/domain/config/schema.json`); holds no secrets. | State | — |
 | **MDAST** | Markdown Abstract Syntax Tree — the parsed tree format produced by `remark`. | Domain | — |
 | **Mermaid** | A diagram-as-code language (flowcharts, sequence diagrams, etc.). MarkSync renders it via the official library in-process (ADR-0002). | Domain | — |
 | **NDJSON** | Newline-Delimited JSON — one JSON object per line. A machine-readable output format. | Operability | — |
@@ -72,6 +78,7 @@ Documentation Handbook §9 for the glossary-vs-UL distinction._
 | **Plan** | A deterministic, reviewable description of what MarkSync will do before any write. Always available via dry-run. | Process | — |
 | **Port** | An interface defined in domain/application that adapters implement. Primary seams: `TargetSystem`, `Repository`, `Renderer`. | Architecture | — |
 | **Premortem** | A prospective analysis imagining the project has failed, then working backward to identify causes. See `doc/inception/analysis/failure-premortem.md`. | Process | — |
+| **ProjectConfig** | The fully-typed, defaults-applied configuration object returned by `loadConfig` (`src/domain/config/types.ts`). Every field is present after defaults run; the root of the mirrored config type set (`TargetConfig`, `SyncConfig`, `RenderConfig`, `OutputConfig`). | Domain | — |
 | **Provenance** | Source-path + Git revision + last-sync metadata on every managed page. Both machine (content property) and human (panel/footer) visible. | Quality | — |
 | **Redaction** | The process of stripping secrets from all output paths (logs, plans, state, diagnostics). Enforced by construction (NFR-SEC-2). | Security | — |
 | **Remark** | The Markdown → MDAST parser library MarkSync uses (part of the unified ecosystem). | Tooling | — |
@@ -81,11 +88,13 @@ Documentation Handbook §9 for the glossary-vs-UL distinction._
 | **Run ID** | A unique identifier per sync execution. Used for journal tracking and partial-apply recovery. | State | Run |
 | **Sandbox** | A dedicated Confluence test space for live E2E testing. Not per-suite; isolated from the fast test loop. | Testing | — |
 | **SBOM** | Software Bill of Materials — a machine-readable inventory of components/dependencies. Generated per release (NFR-SEC-4). | Security | — |
+| **selectFiles** | Pure application function returning the path subset matching `select` globs minus `exclude` globs, given a caller-supplied path list. Zero Git I/O — the Git adapter supplies the paths. | Domain | — |
 | **Shared base** | The agreed "last published" state for a document, recorded in the lock file. Enables drift detection by comparing local/base/remote. | Domain | Shared Base |
 | **Squash (sync)** | One Confluence page version per MarkSync sync, with a compact provenance summary in `version.message`. The `MS-0002` default (ADR-0010). | Process | — |
 | **Storage Format** | Confluence's XHTML-based body representation with `ac:`/`ri:` macros. MarkSync's write target (ADR-0005). | Confluence | Body Representation |
 | **Sync state** | The classification of a document relative to local/base/remote: NO_CHANGE, LOCAL_AHEAD, REMOTE_AHEAD, DIVERGED, REMOTE_MISSING, etc. | Domain | Sync State |
 | **Target system** | The remote publishing surface abstracted by the `TargetSystem` port. Confluence is the first implementor. | Architecture | Target System |
+| **TargetConfig** | The per-target shape (`type`, `spaceKey`, `parentPageId`) within the `targets` map of `marksync.yml`. `MS-0002` ships a single Confluence target. | Domain | — |
 | **Trust wedge** | The core value proposition: safe one-way publish with drift detection that refuses to silently overwrite. | Strategy | — |
 | **UUID v7** | A time-sortable unique identifier (RFC 9562) used for immutable document identity in source front-matter (ADR-0006). | Domain | Document Identity |
 | **Version message** | The Confluence page version's `message` field. MarkSync writes provenance (Git commit head + summary) into it (ADR-0010). | Confluence | — |

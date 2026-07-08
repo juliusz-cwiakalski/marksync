@@ -1,0 +1,143 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$id": "https://marksync.dev/schemas/marksync.v1.json",
+	"title": "marksync.yml v1",
+	"description": "Repository-owned MarkSync configuration. Source of truth for the config shape (GH-15 F-1 / blueprint §4). Validated by ajv at load time; mirrored by the TypeScript types in types.ts.",
+	"type": "object",
+	"additionalProperties": false,
+	"required": ["version", "root", "targets"],
+	"properties": {
+		"version": {
+			"type": "integer",
+			"description": "Schema version. v1 is the initial MS-0002 contract (forward-compatibility hook).",
+			"const": 1
+		},
+		"root": {
+			"type": "string",
+			"minLength": 1,
+			"description": "Corpus root directory (repo-relative, forward slashes) under which markdown sources live. Consumed by the intended-hierarchy step."
+		},
+		"select": {
+			"type": "array",
+			"description": "Glob patterns (micromatch-style) selecting files from the caller-supplied path list. Matched verbatim against repo-relative paths.",
+			"items": { "type": "string", "minLength": 1 },
+			"uniqueItems": true
+		},
+		"exclude": {
+			"type": "array",
+			"description": "Glob patterns removing matched files from the selected set (applied after select).",
+			"items": { "type": "string", "minLength": 1 },
+			"uniqueItems": true
+		},
+		"hierarchy": {
+			"type": "string",
+			"description": "Intended page-tree shape. mirror: derive parent dir from each file's path under root. flat: all pages under the single configured target parent.",
+			"enum": ["mirror", "flat"]
+		},
+		"targets": {
+			"type": "object",
+			"description": "Target systems keyed by id. MS-0002 ships a single Confluence target.",
+			"minProperties": 1,
+			"additionalProperties": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": ["type", "spaceKey", "parentPageId"],
+				"properties": {
+					"type": {
+						"type": "string",
+						"description": "Target system type. MS-0002 supports only Confluence Cloud.",
+						"enum": ["confluence"]
+					},
+					"spaceKey": {
+						"type": "string",
+						"minLength": 1,
+						"description": "Confluence space key (e.g. ENG)."
+					},
+					"parentPageId": {
+						"type": "string",
+						"minLength": 1,
+						"description": "Confluence parent page id under which mirrored pages attach."
+					}
+				}
+			}
+		},
+		"sync": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"allowBranches": {
+					"type": "array",
+					"description": "Branches allowed for sync operations (default: [\"main\"]).",
+					"items": { "type": "string", "minLength": 1 },
+					"uniqueItems": true
+				},
+				"granularity": {
+					"type": "string",
+					"description": "Sync history granularity. MS-0002 accepts ONLY squash; commit-by-commit is deferred to a future milestone (ADR-0010 C-5 / DEC-2).",
+					"enum": ["squash"]
+				},
+				"stalePlanMinutes": {
+					"type": "integer",
+					"description": "Plan freshness window in minutes (default: 15). Consumed by E3-S2/E3-S7.",
+					"minimum": 0
+				}
+			}
+		},
+		"render": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"mermaid": {
+					"type": "object",
+					"additionalProperties": false,
+					"properties": {
+						"policy": {
+							"type": "string",
+							"description": "When to render Mermaid diagrams (default: render).",
+							"enum": ["render", "skip"]
+						},
+						"securityLevel": {
+							"type": "string",
+							"description": "Mermaid security level (default: strict).",
+							"enum": ["strict", "loose", "sandbox"]
+						},
+						"htmlLabels": {
+							"type": "boolean",
+							"description": "Whether Mermaid may emit HTML labels (default: false for determinism)."
+						},
+						"deterministicIds": {
+							"type": "boolean",
+							"description": "Whether Mermaid emits deterministic node ids (default: true, ADR-0002 C-1)."
+						}
+					}
+				}
+			}
+		},
+		"output": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"format": {
+					"type": "string",
+					"description": "Page body representation (default: storage). Storage Format is the write target (ADR-0005).",
+					"enum": ["storage"]
+				},
+				"color": {
+					"type": "string",
+					"description": "CLI color output mode (default: auto).",
+					"enum": ["auto", "always", "never"]
+				}
+			}
+		},
+		"provenance": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"visiblePanel": {
+					"type": "boolean",
+					"description": "Whether the provenance panel is visible on published pages (default: true)."
+				}
+			}
+		}
+	}
+}

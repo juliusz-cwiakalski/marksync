@@ -1,0 +1,9 @@
+# Invalid — `select` is a string instead of an array (TC-CONFIG-004).
+version: 1
+root: docs/
+select: "docs/**/*.md"
+targets:
+  default:
+    type: confluence
+    spaceKey: ENG
+    parentPageId: "123456"

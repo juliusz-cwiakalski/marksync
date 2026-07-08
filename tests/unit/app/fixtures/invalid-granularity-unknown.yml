@@ -1,0 +1,10 @@
+# Invalid — `sync.granularity: batch` is outside the accepted enum (TC-CONFIG-005).
+version: 1
+root: docs/
+targets:
+  default:
+    type: confluence
+    spaceKey: ENG
+    parentPageId: "123456"
+sync:
+  granularity: batch
