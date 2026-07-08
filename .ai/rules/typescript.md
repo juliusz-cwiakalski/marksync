@@ -422,6 +422,7 @@ module.exports = {
 | `jsdom` / `happy-dom` | Headless DOM | Latest |
 | `uuid` | UUID v7 | Latest |
 | `ajv` | JSON Schema validation | Latest |
+| `yaml` | YAML parsing (`marksync.yml` + front-matter) | Latest |
 | `zod` | Runtime typing | Latest |
 | `pino` | Structured logging | Latest |
 | `keytar` | OS keyring | Spike-gated (MS-0002 fallback: env) |

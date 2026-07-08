@@ -685,7 +685,7 @@ including a `marksync.yml.example` round-trip through `loadConfig`.
       cache/branch overrides). Keep it variable-name + comment only (no values,
       no secrets — per the file's "DO NOT ADD" rules).
       _(Done: added cross-references for the required Confluence credentials ↔ `targets.<id>`, `MARKSYNC_ALLOW_BRANCHES` ↔ `sync.allowBranches` (override semantics), and `MARKSYNC_NO_COLOR` ↔ `output.color`. No values/secrets; "DO NOT ADD" section intact.)_
-- [ ] **9.3** Spec reconciliation (lifecycle phase 7 — `@doc-syncer` may own;
+- [x] **9.3** Spec reconciliation (lifecycle phase 7 — `@doc-syncer` may own;
       listed here per finalize requirements): update
       `doc/spec/features/feature-cli.md` (ConfigLoader → `loadConfig`/
       `ProjectConfig`/`ConfigError` contract), `doc/overview/ubiquitous-language.md`
