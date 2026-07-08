@@ -11,7 +11,7 @@ area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0006, ADR-0011, TDR-0002, TDR-0003, TDR-0004, TDR-0005, TDR-0006, TDR-0008]
-  related_changes: [GH-14, GH-15, GH-16]
+  related_changes: [GH-14, GH-15]
   summary: "TypeScript + Bun conventions — module structure, naming, error handling, IO boundaries, linting, formatting for MarkSync."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -22,84 +22,6 @@ _Coding conventions for MarkSync. All agents (@coder, @plan-writer, reviewers)
 must load and follow this file. Implements the FSE-audit target baseline
 (explicit typing, SRP modules, conventions over configuration, semantic naming,
 contextual comments)._
-
-## Code style principles
-
-_MarkSync code is **AI-authored and human-reviewed**. Optimize for the reader
-scanning a file: code first, minimal prose, self-documenting structure. These
-principles are enforced by @reviewer and override any contrary built-in
-heuristic._
-
-1. **The code is the documentation.** Types, names, and structure carry the
-   meaning. Before writing a comment, ask whether a clearer name, tighter type,
-   or extracted helper would make the comment unnecessary. Add a comment only
-   when the code genuinely cannot express the intent.
-
-2. **Minimal file headers — at most 3 lines.** State what the module is and, if
-   a load-bearing decision governs it, link the spec/ADR once. No tier-rule
-   essays, no design-decision restatements, no ASCII tables. The spec is the
-   source of truth; the source cites it, never duplicates it.
-
-3. **Trust the types — no signature restatements.** If the signature is
-   `function ok<T>(data: T): CommandResult<T>`, a JSDoc saying "Build a success
-   CommandResult" is noise. Reserve JSDoc for non-obvious semantics: `@throws`,
-   `@example`, or an invariant invisible from the type.
-
-4. **References provide context, not compliance tags.** Comments SHOULD
-   reference docs, specs, ADRs, requirements, or tickets (`GH-16`, `ADR-0006`,
-   `INV-SAFE-3`) when the reference helps the reader understand a non-obvious
-   decision — e.g. _"redact the serialized string, not the typed object — a
-   token nested in `data` is only exposed after `JSON.stringify` (ADR-0011
-   C-5)"_. What is forbidden is scattering bare code tags — `(DEC-1)`,
-   `(NFR-OBS-1)`, `(AC-6)` — as silent compliance markers on every function and
-   field without explaining anything. One substantive reference at the
-   load-bearing point beats ten bare tags.
-
-5. **Every comment earns its place.** A comment must explain something the code
-   cannot: a Confluence API quirk, an ordering constraint, a security boundary,
-   a "why this looks weird" note, or a pointer to the requirement that drove
-   the design. If removing the comment leaves the code equally understandable,
-   delete it.
-
-6. **Boy scout rule.** When you touch a file for any reason, bring its header
-   into compliance (≤ 3 lines, trim bare tags). Do not mass-rewrite untouched
-   files — migrate opportunistically as part of normal work.
-
-7. **Explicit typing at boundaries, inference for locals.** All exported
-   functions have annotated return types and parameter types. Locals use
-   inference — the type is obvious from the initializer. This resolves the
-   tension between "explicit typing" (FSE-audit) and "let TS infer" (reviewer
-   ignore list).
-
-### Before / after
-
-**Anti-pattern** (over-documented header — what NOT to produce):
-
-```typescript
-// src/cli/output/exit-codes.ts
-//
-// Stable process exit codes + the stable `error.code` string → exit-code map
-// (GH-16 D-5 / DEC-1 / DEC-2 / NFR-OBS-1). This module is PURE DATA: it
-// imports NO tier — not `#domain/*`, not `#infra/*`, not even a sibling output
-// module. Nothing at all.
-//
-// DEC-1 (the load-bearing architecture constraint): `MarkSyncError.kind` is
-// translated to the stable `error.code` string by the APPLICATION tier ...
-// [30 more lines restating the spec]
-
-/** Exit-code numeric constants — the 9 classes (spec F-5 / NFR-OBS-1). */
-export const EXIT_OK = 0;
-```
-
-**Target** (self-documenting — what to produce):
-
-```typescript
-// Map stable error-code strings to process exit codes (ADR-0011).
-
-export const EXIT_OK = 0;
-export const EXIT_USAGE = 2;
-// ...
-```
 
 ## Module structure
 
@@ -214,9 +136,8 @@ export const EXIT_USAGE = 2;
    overrides (catches base-class change surprises).
 7. **`noUncheckedSideEffectImports: true`** — catches `import "something"` that
    silently does nothing if the module is missing.
-8. **`types: ["bun"]`** — Bun provides native types. `@types/bun` is in
-   devDependencies for editor/IDE resolution; if Bun's bundled types suffice
-   in your environment, the devDependency can be removed.
+8. **`types: ["bun"]`** — Bun provides native types; no separate `@types/bun`
+   or `bun-types` package needed.
 
 ### When `any` is acceptable (rare)
 
@@ -317,26 +238,6 @@ try {
 - **Errors carry context** — `pageId`, `sourcePath`, `operation`, `cause`. The
   redaction layer strips any secret material before output.
 - **No `throw new Error("string")`** in domain/infra code — use typed errors.
-- **Error message stability** — `error.code` is a stable contract (DEC-6);
-  machine consumers must key on `code` only. `error.message` is advisory
-  human-readable prose and may change between versions.
-- **Adding a `MarkSyncError` kind** — add a new kind only when the recovery
-  action differs from all existing kinds. If the user would take the same
-  action for two errors, they are the same kind. When adding a kind: update
-  `assertNeverMarkSyncError`, `mapMarkSyncErrorToCommandError`, `CODE_TO_EXIT`,
-  and the DEC-2 table in the same PR.
-
-### Logging conventions
-
-- **Never log raw `MarkSyncError` objects** — log only structural identifiers
-  (`{ kind, code }`). Fields like `cause`, `path`, `sourcePath`, `humanMessage`,
-  `ajvErrors` carry sensitive data that the redaction layer was designed to
-  keep out of output; serializing the full error to a log bypasses that design.
-- **Logs go to stderr only** — stdout is reserved for `--json` / machine output.
-- **Correlate with `runId`** — every log entry should carry the `CommandResult`
-  `runId` so logs are traceable to a specific run (NFR-OBS-2).
-- **The redaction layer applies to log output too** — or logs never serialize
-  error objects (defense in depth on top of the "never log raw errors" rule).
 
 ## IO boundaries
 
@@ -383,9 +284,7 @@ a process/system boundary, it passes through a schema.
     "#domain/*": "./src/domain/*",
     "#app/*": "./src/app/*",
     "#infra/*": "./src/infra/*",
-    "#shared/*": "./src/shared/*",
-    "#cli/*": "./src/cli/*.ts",
-    "#cli/output": "./src/cli/output/index.ts"
+    "#shared/*": "./src/shared/*"
   }
 }
 ```
@@ -445,18 +344,29 @@ for architecture rules, rules-as-code, and clear violation feedback for AI
 agents.
 
 ```jsonc
-// .dependency-cruiser.cjs — all forbidden tier directions (see tier table above)
+// .dependency-cruiser.cjs
 module.exports = {
   forbidden: [
-    { name: "domain-may-not-import-infra",   from: { path: "src/domain/" }, to: { path: "src/infra/" } },
-    { name: "domain-may-not-import-app",     from: { path: "src/domain/" }, to: { path: "src/app/" } },
-    { name: "domain-may-not-import-cli",     from: { path: "src/domain/" }, to: { path: "src/cli/" } },
-    { name: "app-may-not-import-cli",        from: { path: "src/app/" },    to: { path: "src/cli/" } },
-    { name: "infra-may-not-import-app",      from: { path: "src/infra/" },  to: { path: "src/app/" } },
-    { name: "infra-may-not-import-cli",      from: { path: "src/infra/" },  to: { path: "src/cli/" } },
-    { name: "presentation-may-not-import-domain", from: { path: "src/cli/" }, to: { path: "src/domain/" } },
-    { name: "presentation-may-not-import-infra",  from: { path: "src/cli/" }, to: { path: "src/infra/" } },
-    { name: "shared-may-not-import-any-tier", from: { path: "src/shared/" }, to: { path: "src/domain/ src/app/ src/infra/ src/cli/" } }
+    {
+      name: "domain-may-not-import-infra",
+      from: { path: "src/domain/" },
+      to: { path: "src/infra/" }
+    },
+    {
+      name: "domain-may-not-import-app",
+      from: { path: "src/domain/" },
+      to: { path: "src/app/" }
+    },
+    {
+      name: "presentation-may-not-import-domain",
+      from: { path: "src/cli/" },
+      to: { path: "src/domain/" }
+    },
+    {
+      name: "presentation-may-not-import-infra",
+      from: { path: "src/cli/" },
+      to: { path: "src/infra/" }
+    }
   ]
 };
 ```
@@ -471,170 +381,23 @@ module.exports = {
 ### What to comment
 
 - **Why, not what.** Comments explain decisions, gotchas, Confluence quirks, and
-  non-obvious choices — never restate what the code already says.
-- **Contextual references are encouraged.** Comments SHOULD reference docs,
-  specs, ADRs, requirements, invariants, or tickets (`GH-16`, `ADR-0006`,
-  `INV-SAFE-3`, `chg-GH-16-spec.md §5`) when the reference helps the reader
-  understand a non-obvious decision. The reference must accompany a substantive
-  explanation, not stand alone as a bare tag:
+  non-obvious choices. Code itself says what; comments say why.
+- **ADR references.** When a non-obvious choice is load-bearing, cite the ADR:
   ```typescript
-  // Redact the serialized string, not the typed object — a token nested in
-  // `data` is only exposed after JSON.stringify (ADR-0011 C-5, INV-SEC-1).
-  out = redactString(rendered);
+  // UUID v7 is immutable identity; duplicate detection is fatal (ADR-0006, INV-SAFE-3)
   ```
-  This is good: the reader learns WHY redaction targets the string and WHERE to
-  read the full rationale.
 - **Integration-scenario references.** In the Confluence adapter, cite the
-  relevant scenario doc where it changes how you read the code:
+  relevant scenario doc:
   ```typescript
-  // v2 content properties required; v1 deprecated for this path.
+  // v2 content properties required; v1 deprecated (see doc/inception/integration-scenarios/10-content-properties.md)
   ```
 
 ### What NOT to comment
 
-- ❌ **File-header essays.** A header that restates the spec, lists tier rules,
-  embeds an ASCII table, or cites more than one authority is too long. Cap at
-  3 lines; link the spec/ADR for the rest.
-- ❌ **Bare alphabet-soup tags.** Scattering `(DEC-1)`, `(NFR-OBS-1)`,
-  `(AC-6)`, `(RSK-4)` as silent compliance markers on every line — without
-  explaining anything — turns code into a compliance document. A reference
-  must carry context; a bare tag is noise. Cite the authority once, with
-  explanation, at the load-bearing point.
-- ❌ **Signature restatements in JSDoc.** `/** Resolve the output format. */`
-  above `function resolveOutputFormat(...)` adds zero information. Use JSDoc
-  only for `@throws`, `@example`, or non-obvious invariants.
-- ❌ **Field-name echoes.** `/** --quiet — suppress non-error output */` on a
-  field named `quiet: boolean` is pure noise. The name + type already say it.
-- ❌ **Obvious restatements of code:** `// increment i` above `i++`.
-- ❌ **Commented-out code** (delete it; Git remembers).
-- ❌ **Duplicating spec/ADR content in source.** If a table, decision matrix,
-  or rationale paragraph lives in the spec, do not copy it into a comment.
-  Link it: `// see chg-GH-16-spec.md §5`.
-
-## Code quality patterns
-
-_Concrete patterns that recur in MarkSync code. Each has a correct form and an
-anti-pattern form — @reviewer flags the anti-patterns._
-
-### One import statement per module
-
-With `verbatimModuleSyntax: true`, combine type-only and value imports from the
-same module into a single statement using inline `type` modifiers.
-
-```typescript
-// ❌ Two statements from the same module
-import type { CommandResult } from "#cli/output";
-import { err, ok } from "#cli/output";
-
-// ✅ One statement, inline type modifier
-import { type CommandResult, err, ok } from "#cli/output";
-```
-
-### No magic strings for stable codes
-
-Error codes, exit codes, and other stable string identifiers must be defined as
-`as const` objects or string literal union types — never scattered as bare
-string literals. A typo in a bare string (`"CONFLIT"`) silently falls through to
-a fallback instead of producing a compile error.
-
-```typescript
-// ❌ Bare string literals — typo-prone, no compile-time safety
-return err("INTERNAL", "sync is not yet implemented", false);
-
-// ✅ Const object + derived union type
-export const ERROR_CODES = {
-  CONFLICT: "CONFLICT",
-  INTERNAL: "INTERNAL",
-  USAGE: "USAGE",
-} as const;
-export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
-```
-
-### Conditional spread over mutation for optional properties
-
-When constructing objects with `exactOptionalPropertyTypes: true`, prefer
-conditional spread over mutation-after-construction. The spread is a single
-expression with no intermediate mutable variable.
-
-```typescript
-// ❌ Mutation after construction — extra variable, imperative style
-const result: CommandResult<T> = { schemaVersion: 1, exitCode: 0, data };
-if (meta?.timing) result.timing = meta.timing;
-if (meta?.warnings) result.warnings = meta.warnings;
-return result;
-
-// ✅ Conditional spread — single expression, no mutation
-return {
-  schemaVersion: SCHEMA_VERSION,
-  exitCode: EXIT_OK,
-  data,
-  ...(meta?.timing ? { timing: meta.timing } : {}),
-  ...(meta?.warnings ? { warnings: meta.warnings } : {}),
-};
-```
-
-### Tests use import aliases, not deep relative paths
-
-Tests must use the `#`-prefixed import aliases defined in `package.json`
-`"imports"` — not `../../../../src/...` relative paths. Relative paths break
-when files move and are inconsistent with production code.
-
-```typescript
-// ❌ Fragile deep relative path
-import { redactString } from "../../../../src/cli/output/redact.ts";
-
-// ✅ Import alias (resolves via package.json "imports")
-import { redactString } from "#cli/output/redact";
-```
-
-### Simplify trivially derivable logic
-
-If a function maps union members to themselves or returns a value already
-derivable from the input type, simplify. Don't enumerate every case when the
-type system already constrains the output.
-
-```typescript
-// ❌ Redundant enumeration — output is already derivable from the type
-function resolveOutputFormat(flags: GlobalCommandFlags): OutputFormat {
-  if (flags.json) return "json";
-  if (flags.output === "ndjson") return "ndjson";
-  if (flags.output === "json") return "json";
-  return "human";
-}
-
-// ✅ Simplified — flags.output is already typed as OutputFormat | undefined
-function resolveOutputFormat(flags: GlobalCommandFlags): OutputFormat {
-  if (flags.json) return "json";
-  return flags.output ?? "human";
-}
-```
-
-### Fragile runtime patterns require a justifying comment
-
-When code relies on a fragile runtime mechanism (string-based class detection,
-implicit global availability, hardcoded version strings), a comment must explain
-what would break and why no safer alternative exists:
-
-```typescript
-// Cliffy doesn't export UnknownCommandError; detect by name + exitCode.
-// Breaks under minification — acceptable because bun build --compile preserves names.
-function isCliffyParseError(e: Error): boolean { ... }
-```
-
-### Structural type duplication across tier boundaries
-
-When the architecture matrix forbids cross-tier imports (e.g. app may not import
-presentation), the same structural type may be defined independently in two
-tiers. This is acceptable IF:
-- each definition carries a one-line comment noting the duplication and the
-  constraint that forces it;
-- a structural compatibility test asserts the two shapes stay in sync.
-
-```typescript
-// Structurally identical to CommandResultError in src/cli/output — duplicated
-// because application may not import presentation (ADR-0011 tier matrix).
-export interface ResultError { code: string; message: string; retryable: boolean; }
-```
+- ❌ Obvious restatements of code: `// increment i` above `i++`.
+- ❌ Commented-out code (delete it; Git remembers).
+- ❌ JSDoc that just restates the type signature (only add JSDoc for non-obvious
+  semantics, `@throws`, `@example`).
 
 ## Dependency management
 
@@ -649,28 +412,20 @@ export interface ResultError { code: string; message: string; retryable: boolean
 - **License audit.** `bun run license-audit` (via `license-checker` or
   `osv-scanner`) runs in CI. No GPL/AGPL dependencies (MarkSync is MIT).
 
-### Allowed dependency list
+### Allowed dependency list (target)
 
-**Installed:**
-
-| Dependency | Role |
-|---|---|
-| `@jsr/cliffy__command`, `@jsr/cliffy__flags` | CLI framework (TDR-0002) |
-| `ajv` | JSON Schema validation (config/lock) |
-| `picocolors` | Terminal coloring (ADR-0011 C-2) |
-| `yaml` | YAML parsing (`marksync.yml` + front-matter) |
-
-**Planned (not yet installed — install when the first consuming story lands):**
-
-| Dependency | Role | Milestone |
+| Dependency | Role | Status |
 |---|---|---|
-| `remark`, `remark-gfm`, `rehype`, `remark-rehype` | Markdown pipeline | MS-0002 E3 |
-| `mermaid` | Diagram rendering (ADR-0002) | MS-0002 E3 |
-| `jsdom` / `happy-dom` | Headless DOM for Mermaid tests | MS-0002 E3 |
-| `uuid` | UUID v7 | MS-0002 E3 |
-| `zod` | Runtime validation at IO boundaries | MS-0002 E3 |
-| `pino` | Structured logging | MS-0002 |
-| `keytar` | OS keyring (fallback: env) | Spike-gated |
+| `@cliffy/command`, `@cliffy/prompt`, `@cliffy/flags` | CLI framework | Pin post smoke-test (TDR-0002) |
+| `remark`, `remark-gfm`, `rehype`, `remark-rehype` | Markdown pipeline | Latest |
+| `mermaid` | Diagram rendering | Latest (ADR-0002) |
+| `jsdom` / `happy-dom` | Headless DOM | Latest |
+| `uuid` | UUID v7 | Latest |
+| `ajv` | JSON Schema validation | Latest |
+| `yaml` | YAML parsing (`marksync.yml` + front-matter) | Latest |
+| `zod` | Runtime typing | Latest |
+| `pino` | Structured logging | Latest |
+| `keytar` | OS keyring | Spike-gated (MS-0002 fallback: env) |
 
 **No HTTP client library** (`axios`, `node-fetch`). Use native `fetch`.
 **No crypto library.** Use native `crypto.subtle`.
