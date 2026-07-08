@@ -2,17 +2,17 @@
 # Copyright (c) 2025-2026 Juliusz Ćwiąkalski (https://www.cwiakalski.com | https://www.linkedin.com/in/juliusz-cwiakalski/ | https://x.com/cwiakalski)
 # MIT License - see LICENSE file for full terms
 id: chg-GH-17-test-plan
-status: Proposed
+status: Updated
 created: 2026-07-08T23:30:00Z
-last_updated: 2026-07-08T23:30:00Z
+last_updated: 2026-07-08T23:46:00Z
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 labels: [MS-0002, MS2-E2, foundation, critical, security]
 version_impact: minor (additive)
-summary: "Test plan for the env-token auth provider (MS2-E2-S4): resolveCredentials from the canonical env vars with a Basic authHeader, the validateCredentials probe (200/401/403/429/network), email masking, the 4-kind AuthError union extension (MissingCredentials/InvalidBaseUrl/InvalidCredentials/AuthUnreachable) with exhaustive switches + exit codes, and the release-blocking INV-SEC-1 guarantee that the raw token never appears in any captured output — validated at integration level per the over-mocking guardrail."
+summary: "Test plan for the env-token auth provider (MS2-E2-S4): resolveCredentials from the canonical env vars with a Basic authHeader, the validateCredentials probe against the sole v2 /wiki/api/v2/user/by-me endpoint (200/401/403/429/network), email masking, the single new Auth arm on MarkSyncError with a nested authKind discriminator (MissingCredentials/InvalidBaseUrl/InvalidCredentials/AuthUnreachable — DEC-2; union grows 13→14, not 17) and its four AUTH_-prefixed stable codes all → EXIT_AUTH (20), plus the release-blocking INV-SEC-1 guarantee that the raw token never appears in any captured output — validated at integration level per the over-mocking guardrail."
 links:
-  change_spec: "./chg-GH-17-spec.md (pending — specification phase not yet complete; story file is authoritative per chg-GH-17-pm-notes.yaml)"
-  implementation_plan: "./chg-GH-17-plan.md (pending — delivery_planning phase not yet complete)"
+  change_spec: "./chg-GH-17-spec.md (landed — Proposed; encodes DEC-2 single Auth arm + authKind, DM-4 AUTH_-prefixed codes → EXIT_AUTH 20, AC-F1-1..AC-F3-1)"
+  implementation_plan: "./chg-GH-17-plan.md (pending — delivery_planning phase reopened for DoR iter-1 remediation)"
   story_authoritative: doc/planning/milestones/MS-2/MS2-E2--foundation/MS2-E2-S4--auth-provider.md
   testing_strategy: .ai/rules/testing-strategy.md
   security_baseline: doc/guides/security-baseline.md
@@ -27,9 +27,10 @@ GH-17: `resolveCredentials()` reading the canonical env vars
 (`MARKSYNC_CONFLUENCE_BASE_URL` / `MARKSYNC_USER_EMAIL` / `MARKSYNC_API_TOKEN`)
 into an opaque `Basic …` authHeader, `validateCredentials()` probing
 `GET /wiki/api/v2/user/by-me` via an **injected `fetch`** (DI for app-tier purity
-+ testability), the `maskEmail` helper, and the 4-kind `AuthError`
++ testability), the `maskEmail` helper, and the single new `Auth` arm on the
+exhaustive `MarkSyncError` union — carrying a nested `authKind` discriminator
 (`MissingCredentials` / `InvalidBaseUrl` / `InvalidCredentials` /
-`AuthUnreachable`) added to the exhaustive `MarkSyncError` union.
+`AuthUnreachable`) per DEC-2 (union 13→14, not 17).
 
 The core integrity risks this plan guards against are: (a) the raw API token
 surfacing in any output path — the release-blocking INV-SEC-1 / NFR-SEC-1
@@ -38,7 +39,7 @@ material (wrong separator, wrong prefix) and silently authenticating with bad
 credentials; (c) the validation probe retrying on 401/403 (the spike rule
 forbids blind retry) or mishandling 429 backoff; (d) the exhaustive `never`
 switches (`assertNeverMarkSyncError`, `mapMarkSyncErrorToCommandError`,
-`CODE_TO_EXIT`) breaking silently when the 4 new kinds land; and (e) email
+`CODE_TO_EXIT`) breaking silently when the new `Auth` arm (or a new `authKind` sub-case) lands; and (e) email
 being surfaced unmasked where only `j***@domain` is safe.
 
 Per `.ai/rules/testing-strategy.md`, this story is exercised at **Unit + Integration
@@ -60,18 +61,25 @@ Confluence adapter's concern (E3-S4); here the validation probe runs against a
   (correct material, correct `Basic ` prefix, exactly once).
 - `maskEmail(e)` — `e[0] + "***" + e.slice(e.indexOf("@"))` plus single-char
   local-part edge.
-- `validateCredentials(creds, fetch?)` against a real `Bun.serve()` mock:
-  200 → `{accountId, displayName}`; 401 → `InvalidCredentials`; 403 →
-  `InvalidCredentials`; 429 → backoff + retry honoured; connection-refused /
-  fetch-reject → `AuthUnreachable`. **No retry on 401/403** (assert call count
-  == 1).
+- `validateCredentials(creds, fetch?)` against a real `Bun.serve()` mock (v2
+  `user/by-me` only — v1 `user/current` fallback dropped, PM decision): 200 →
+  `{accountId, displayName}`; 401 → `Auth{authKind:"InvalidCredentials"}`; 403 →
+  `Auth{authKind:"InvalidCredentials"}`; 429 → backoff + retry honoured;
+  connection-refused / fetch-reject → `Auth{authKind:"AuthUnreachable"}`.
+  **No retry on 401/403** (assert call count == 1).
 - The DI seam: `validateCredentials` accepts an injected `fetch` and uses it
   (app-tier purity; no global-`fetch` coupling).
-- `AuthError` union extension — the 4 new kinds are valid `MarkSyncError` arms;
-  `mapMarkSyncErrorToCommandError` maps each to a stable `error.code` +
-  `retryable`; `codeToExitCode` resolves those codes to documented exits;
-  exhaustiveness compile-check (adding a kind without extending the switches is
-  a compile error; `bun run typecheck` exits 0 once extended).
+- `Auth` arm extension (DEC-2) — one new top-level `{ kind: "Auth"; authKind: … }`
+  arm is a valid `MarkSyncError` arm (union 13→14, NOT 13→17);
+  `mapMarkSyncErrorToCommandError`'s `Auth` case narrows on `authKind` and emits
+  the four stable `AUTH_`-prefixed `error.code`s (`AUTH_MISSING_CREDENTIALS`,
+  `AUTH_INVALID_BASE_URL`, `AUTH_INVALID_CREDENTIALS`, `AUTH_UNREACHABLE`), each
+  → `EXIT_AUTH` (20) and each with its `retryable` (only `AUTH_UNREACHABLE` is
+  `true`); `codeToExitCode` resolves those codes to documented exits;
+  exhaustiveness compile-check (adding the `Auth` arm without extending the
+  top-level switches is a compile error, and the nested `authKind` sub-switch
+  carries its own `never`-check — RSK-8; `bun run typecheck` exits 0 once
+  extended).
 - **INV-SEC-1 (release-blocking, integration-level):** across the happy path
   AND every error path of the provider, capture every `CommandResult` JSON
   string AND every error message string and assert a distinctive fake token
@@ -88,25 +96,34 @@ Confluence adapter's concern (E3-S4); here the validation probe runs against a
 - **E2E (live-sandbox) against a real Confluence tenant** — out of scope for
   this story; a live env-token E2E is the adapter's concern (E3-S4). The
   validation probe here runs only against a `Bun.serve()` mock.
+- **v1 `user/current` fallback probe** — DROPPED for MS-0002 (PM decision; the
+  spec's RSK-6 "both paths tested" claim is retracted). `GET
+  /wiki/api/v2/user/by-me` is the SOLE validation endpoint. The validation tests
+  (TC-VALIDATE-001..007) cover v2 200/401/403/429/network only; no
+  v1-fallback scenario exists. A v1 fallback may be added later if a tenant
+  lacks v2.
 - **`doctor` UI** (E5-S2) — this story exposes `validateCredentials` as a
   capability; wiring the `doctor` UX is a separate story.
 - **Golden fixture / Mermaid-DOM / BDD tiers** — not applicable (no renderer,
   no Storage XHTML; INV-SEC-1 is covered integration-level here, and the
   repo-wide Gherkin INV-SEC-1 harness lives with the output service in GH-16).
-- **Exact `error.code` strings / numeric exits for the 4 new kinds** — these
-  are stable-string delivery decisions (DEC-6 / DEC-2 lineage). This plan pins
-  the *contract* (each kind → one stable code + one documented exit + a
-  `retryable` flag) and flags the exact assignments as OQ-TP-1/OQ-TP-2.
-- **F-# capability codes** — there is no `chg-GH-17-spec.md` yet (specification
-  phase pending). The `F-AUTH-*` codes below are derived from the story's
-  deliverables and are **provisional** pending the spec (see OQ-TP-3).
+- **Exact `error.code` strings / numeric exits** — RESOLVED (PM-endorsed,
+  matches spec DM-4 / Appendix B): the four `AUTH_`-prefixed codes
+  (`AUTH_MISSING_CREDENTIALS`, `AUTH_INVALID_BASE_URL`, `AUTH_INVALID_CREDENTIALS`,
+  `AUTH_UNREACHABLE`) all → `EXIT_AUTH` (20); only `AUTH_UNREACHABLE` is
+  `retryable: true`. Pinned verbatim in TC-ERRMAP-001/002 (OQ-TP-1/OQ-TP-2
+  closed).
+- **F-# / AC-F-# reconciliation** — `chg-GH-17-spec.md` has landed. The
+  test-plan's local `F-AUTH-*` / `DM-AUTH-*` labels are reconciled to the spec's
+  `F-1..F-6` / `DM-1..DM-4` / `AC-F1-1..AC-F3-1` (see §3.1 reconciliation note;
+  labels kept local to avoid TC churn). OQ-TP-3 closed.
 
 ## 2. References
 
 | Artifact | Path |
 |----------|------|
 | Story (authoritative scope) | `doc/planning/milestones/MS-2/MS2-E2--foundation/MS2-E2-S4--auth-provider.md` |
-| Change specification | `./chg-GH-17-spec.md` _(pending — specification phase)_ |
+| Change specification | [`./chg-GH-17-spec.md`](./chg-GH-17-spec.md) _(Proposed — DEC-2 single `Auth` arm + `authKind`, DM-4 `AUTH_`-prefixed codes → EXIT_AUTH 20, AC-F1-1..AC-F3-1)_ |
 | Implementation plan | `./chg-GH-17-plan.md` _(pending — delivery_planning phase)_ |
 | PM notes | [`./chg-GH-17-pm-notes.yaml`](./chg-GH-17-pm-notes.yaml) |
 | Testing strategy | [`.ai/rules/testing-strategy.md`](../../../.ai/rules/testing-strategy.md) (tiers + over-mocking guardrail) |
@@ -128,19 +145,20 @@ Confluence adapter's concern (E3-S4); here the validation probe runs against a
 ### 3.1 Functional Coverage (F-#, AC-#)
 
 > The 6 acceptance criteria below are the story ACs (the authoritative list,
-> reproduced from the story's "Acceptance criteria" + the planning brief). All
-> 6 MUST appear, covered or TODO. The `F-AUTH-*` capability codes are
-> **provisional**, derived from the story's "Detailed scope" deliverables
-> pending `chg-GH-17-spec.md` (OQ-TP-3).
+> reproduced from the story's "Acceptance criteria" + the planning brief) and
+> map 1:1 to the spec's `AC-F1-1..AC-F3-1` (Appendix A). All 6 MUST appear,
+> covered or TODO. The `F-AUTH-*` / `DM-AUTH-*` codes are test-plan-local labels
+> reconciled to the spec as follows: F-AUTH-1→F-1, F-AUTH-2→F-1/DM-1, F-AUTH-3→F-2,
+> F-AUTH-4→F-3, F-AUTH-5→F-4; DM-AUTH-1→DM-1, DM-AUTH-2→DM-2 (OQ-TP-3 closed).
 
 | Story AC | Description | F-# (prov.) | TC ID(s) | Status |
 |----------|-------------|-------------|----------|--------|
 | AC-1 | All three required env vars present + valid → `resolveCredentials` returns a credentials object with a `Basic …` header; malformed `baseUrl` (not https / not a host) is rejected | F-AUTH-1, F-AUTH-2 | TC-CRED-001, TC-CRED-006, TC-CRED-007, TC-CRED-008 | Covered |
-| AC-2 | Any required var missing/empty → `AuthError{kind:"MissingCredentials"}` naming the missing var(s) with a fix suggestion | F-AUTH-1 | TC-CRED-002, TC-CRED-003, TC-CRED-004, TC-CRED-005 | Covered |
-| AC-3 | `validateCredentials` against a mock 200 → identity; 401 → `InvalidCredentials`; 403 → `InvalidCredentials`; 429 → backoff/retry; network error → `AuthUnreachable`; **no retry on 401/403** | F-AUTH-3 | TC-VALIDATE-001, TC-VALIDATE-002, TC-VALIDATE-003, TC-VALIDATE-004, TC-VALIDATE-005, TC-VALIDATE-006, TC-VALIDATE-007 | Covered |
+| AC-2 | Any required var missing/empty → `AuthError{kind:"Auth",authKind:"MissingCredentials"}` naming the missing var(s) with a fix suggestion | F-AUTH-1 | TC-CRED-002, TC-CRED-003, TC-CRED-004, TC-CRED-005 | Covered |
+| AC-3 | `validateCredentials` against a mock (v2 `user/by-me` only) 200 → identity; 401 → `Auth{authKind:"InvalidCredentials"}`; 403 → `Auth{authKind:"InvalidCredentials"}`; 429 → backoff/retry; network error → `Auth{authKind:"AuthUnreachable"}`; **no retry on 401/403** | F-AUTH-3 | TC-VALIDATE-001, TC-VALIDATE-002, TC-VALIDATE-003, TC-VALIDATE-004, TC-VALIDATE-005, TC-VALIDATE-006, TC-VALIDATE-007 | Covered |
 | AC-4 (INV-SEC-1) | No test path produces output containing the raw token — capture every `CommandResult`/thrown-error string and assert the token substring absent | F-AUTH-5, NFR-SEC-1 | TC-SEC-001, TC-SEC-003 | Covered (integration-level per guardrail) |
 | AC-5 | Email is masked in any surfaced message; token is never surfaced | F-AUTH-5, NFR-SEC-1 | TC-CRED-009, TC-SEC-002 | Covered |
-| AC-6 | `bun run check` green (the 4 new kinds land with all exhaustive switches + exit codes extended; typecheck stays exhaustive) | F-AUTH-4, NFR-OBS-1, NFR-3 | TC-ERRMAP-001, TC-ERRMAP-002, TC-ERRMAP-003 + `bun run check` gate | Covered |
+| AC-6 | `bun run check` green (the new `Auth` arm + nested `authKind` sub-switch land with all exhaustive switches + the 4 `AUTH_` exit codes extended; typecheck stays exhaustive at both layers) | F-AUTH-4, NFR-OBS-1, NFR-3 | TC-ERRMAP-001, TC-ERRMAP-002, TC-ERRMAP-003 + `bun run check` gate | Covered |
 
 **Capability (F-AUTH-#, provisional) rollup:**
 
@@ -149,7 +167,7 @@ Confluence adapter's concern (E3-S4); here the validation probe runs against a
 | F-AUTH-1 | `resolveCredentials()` — env resolution + missing/malformed input → `AuthError` | TC-CRED-001..007 |
 | F-AUTH-2 | `ConfluenceCredentials` opaque `Basic …` header construction (token never exposed beyond it) | TC-CRED-008 |
 | F-AUTH-3 | `validateCredentials()` probe (200/401/403/429/network) + injected-fetch DI seam | TC-VALIDATE-001..007 |
-| F-AUTH-4 | 4-kind `AuthError` union extension + exhaustive switches + stable codes/exit codes | TC-ERRMAP-001..003 |
+| F-AUTH-4 | Single new `Auth` arm + nested `authKind` discriminator + exhaustive top-level switches + nested `authKind` sub-switch + stable `AUTH_`-prefixed codes/exit codes (DEC-2; 13→14) | TC-ERRMAP-001..003 |
 | F-AUTH-5 | Email masking + INV-SEC-1 token non-leak (redaction-by-construction) | TC-CRED-009, TC-SEC-001..003 |
 
 ### 3.2 Interface Coverage (API-#, EVT-#, DM-#)
@@ -161,7 +179,7 @@ coverage:
 | DM-# (prov.) | Element | Description | TC ID(s) |
 |--------------|---------|-------------|----------|
 | DM-AUTH-1 | `ConfluenceCredentials` | `{ baseUrl; authHeader; email(masked); mode }` — the opaque credential object; `authHeader = "Basic " + base64(email:token)`, token never a field | TC-CRED-001, TC-CRED-008, TC-VALIDATE-006 |
-| DM-AUTH-2 | `AuthError` (4 sub-kinds) | `MissingCredentials{missing[]}`, `InvalidBaseUrl{…}`, `InvalidCredentials{…}`, `AuthUnreachable{…}` — the 4 new arms of the exhaustive `MarkSyncError` union | TC-CRED-002..007, TC-VALIDATE-002..005, TC-ERRMAP-001..003 |
+| DM-AUTH-2 | `AuthError` (single `Auth` arm + `authKind`) | `{ kind: "Auth"; authKind: "MissingCredentials" \| "InvalidBaseUrl" \| "InvalidCredentials" \| "AuthUnreachable"; …payload }` — ONE new arm on the exhaustive `MarkSyncError` union (DEC-2; 13→14). `MissingCredentials` carries `missing: string[]`; `AuthError = Extract<MarkSyncError, { kind: "Auth" }>`. | TC-CRED-002..007, TC-VALIDATE-002..005, TC-ERRMAP-001..003 |
 
 **Public interface contracts consumed downstream** (verified as side-effects of
 the resolution/validation tests):
@@ -181,7 +199,7 @@ the resolution/validation tests):
 | NFR-SEC-6 | Credential storage | Tokens in env (or future keyring), never in project files; `resolveCredentials` reads env only | TC-CRED-001..005 | Covered |
 | NFR-OBS-1 | Stable exit codes | Documented, machine-parseable exit per error class; new auth codes resolve via `codeToExitCode` | TC-ERRMAP-002 | Covered |
 | INV-SEC-1 | Lifecycle invariant — no secrets in output | Validated at integration level (NOT mock-only per guardrail) | TC-SEC-001 | Covered (guardrail-compliant) |
-| (exhaustiveness) | Union + `assertNeverMarkSyncError` + `mapMarkSyncErrorToCommandError` compile with zero type errors after the 4 new kinds | `bun run typecheck` exits 0 | TC-ERRMAP-003 | Covered (typecheck gate) |
+| (exhaustiveness) | Union + `assertNeverMarkSyncError` + `mapMarkSyncErrorToCommandError` (+ the nested `authKind` sub-switch) compile with zero type errors after the new `Auth` arm | `bun run typecheck` exits 0 | TC-ERRMAP-003 | Covered (typecheck gate) |
 
 ## 4. Test Types and Layers
 
@@ -207,8 +225,8 @@ concern (E3-S4).
 
 ```
 src/app/credentials.ts                       → tests/unit/app/credentials.test.ts
-src/domain/errors.ts (4 new AuthError arms)  → tests/unit/domain/errors.test.ts (exhaustive; typecheck gate)
-src/app/cli-error-map.ts (4 new cases)       → tests/unit/app/cli-error-map.test.ts   (Existing – Update)
+src/domain/errors.ts (1 new `Auth` arm + `authKind`)  → tests/unit/domain/errors.test.ts (exhaustive; typecheck gate)
+src/app/cli-error-map.ts (1 new `Auth` case, 4 `authKind` branches)  → tests/unit/app/cli-error-map.test.ts   (Existing – Update)
 src/cli/output/exit-codes.ts (4 new codes)   → tests/unit/cli/output/exit-codes.test.ts (Existing – Update)
 validateCredentials probe (Bun.serve mock)   → tests/integration/credentials.test.ts
 INV-SEC-1 captured-output capture            → tests/integration/credentials.test.ts  (TC-SEC-001..003)
@@ -243,19 +261,19 @@ plan is guardrail-compliant in three concrete ways:
 | TC ID | Title | Type | Impact | Priority | AC Coverage |
 |-------|-------|------|--------|----------|-------------|
 | TC-CRED-001 | All 3 env vars present + valid → `Result.ok(creds)` with a `Basic …` header | Happy Path | Critical | High | AC-1 |
-| TC-CRED-002 | `MARKSYNC_USER_EMAIL` missing/empty → `MissingCredentials` naming it + fix suggestion | Negative | Critical | High | AC-2 |
-| TC-CRED-003 | `MARKSYNC_API_TOKEN` missing/empty → `MissingCredentials` naming it + fix suggestion | Negative | Critical | High | AC-2 |
-| TC-CRED-004 | `MARKSYNC_CONFLUENCE_BASE_URL` missing/empty → `MissingCredentials` naming it | Negative | Critical | High | AC-2 |
+| TC-CRED-002 | `MARKSYNC_USER_EMAIL` missing/empty → `Auth{authKind:"MissingCredentials"}` naming it + fix suggestion | Negative | Critical | High | AC-2 |
+| TC-CRED-003 | `MARKSYNC_API_TOKEN` missing/empty → `Auth{authKind:"MissingCredentials"}` naming it + fix suggestion | Negative | Critical | High | AC-2 |
+| TC-CRED-004 | `MARKSYNC_CONFLUENCE_BASE_URL` missing/empty → `Auth{authKind:"MissingCredentials"}` naming it | Negative | Critical | High | AC-2 |
 | TC-CRED-005 | All three vars missing → `missing[]` lists all three | Corner Case | Important | Medium | AC-2 |
-| TC-CRED-006 | `baseUrl` not https (`http://…`) → `InvalidBaseUrl` | Negative | Critical | High | AC-1 |
-| TC-CRED-007 | `baseUrl` not a valid/Confluence host → `InvalidBaseUrl` | Negative | Critical | High | AC-1 |
+| TC-CRED-006 | `baseUrl` not https (`http://…`) → `Auth{authKind:"InvalidBaseUrl"}` | Negative | Critical | High | AC-1 |
+| TC-CRED-007 | `baseUrl` not a valid/Confluence host → `Auth{authKind:"InvalidBaseUrl"}` | Negative | Critical | High | AC-1 |
 | TC-CRED-008 | `authHeader === "Basic " + base64("email:token")` (correct material + prefix) | Happy Path | Critical | High | AC-1 |
 | TC-CRED-009 | `maskEmail` → `e[0]+"***"+@domain`; single-char local-part edge | Corner Case | Important | Medium | AC-5 |
 | TC-VALIDATE-001 | Probe 200 → returns `{accountId, displayName}` | Happy Path | Critical | High | AC-3 |
-| TC-VALIDATE-002 | Probe 401 → `InvalidCredentials`; call count == 1 (no retry) | Negative | Critical | High | AC-3 |
-| TC-VALIDATE-003 | Probe 403 → `InvalidCredentials`; call count == 1 (no retry) | Negative | Critical | High | AC-3 |
+| TC-VALIDATE-002 | Probe 401 → `Auth{authKind:"InvalidCredentials"}`; call count == 1 (no retry) | Negative | Critical | High | AC-3 |
+| TC-VALIDATE-003 | Probe 403 → `Auth{authKind:"InvalidCredentials"}`; call count == 1 (no retry) | Negative | Critical | High | AC-3 |
 | TC-VALIDATE-004 | Probe 429 → backoff honoured + retry occurs | Edge Case | Important | Medium | AC-3 |
-| TC-VALIDATE-005 | Connection-refused / fetch rejects → `AuthUnreachable` | Negative | Critical | High | AC-3 |
+| TC-VALIDATE-005 | Connection-refused / fetch rejects → `Auth{authKind:"AuthUnreachable"}` | Negative | Critical | High | AC-3 |
 | TC-VALIDATE-006 | Probe sends `Authorization: Basic …` header to the server | Corner Case | Important | Medium | AC-3 |
 | TC-VALIDATE-007 | DI seam: `validateCredentials` accepts + uses an injected `fetch` (app-tier purity) | Corner Case | Important | Medium | AC-3 |
 | TC-ERRMAP-001 | Each new auth kind → stable `error.code` + `retryable` (exhaustive over all kinds) | Regression | Critical | High | AC-6 |
@@ -303,7 +321,7 @@ plan is guardrail-compliant in three concrete ways:
 
 ---
 
-#### TC-CRED-002 - `MARKSYNC_USER_EMAIL` missing/empty → `MissingCredentials` naming it + fix suggestion
+#### TC-CRED-002 - `MARKSYNC_USER_EMAIL` missing/empty → `Auth{authKind:"MissingCredentials"}` naming it + fix suggestion
 
 **Scenario Type**: Negative
 **Impact Level**: Critical
@@ -322,7 +340,8 @@ plan is guardrail-compliant in three concrete ways:
 **Steps**:
 
 1. Invoke `resolveCredentials()` with `MARKSYNC_USER_EMAIL` absent.
-2. Assert `{ ok: false, error }` with `error.kind === "MissingCredentials"`.
+2. Assert `{ ok: false, error }` with `error.kind === "Auth"` AND
+   `error.authKind === "MissingCredentials"`.
 3. Assert `error.missing` contains exactly `["MARKSYNC_USER_EMAIL"]`.
 4. Assert the surfaced message names the missing var AND links `.env.example`
    as the fix.
@@ -330,12 +349,12 @@ plan is guardrail-compliant in three concrete ways:
 
 **Expected Outcome**:
 
-- A typed `MissingCredentials` error names precisely which var is missing and
-  points the user/agent at `.env.example`; never an opaque throw.
+- A typed `Auth{authKind:"MissingCredentials"}` error names precisely which var
+  is missing and points the user/agent at `.env.example`; never an opaque throw.
 
 ---
 
-#### TC-CRED-003 - `MARKSYNC_API_TOKEN` missing/empty → `MissingCredentials` naming it + fix suggestion
+#### TC-CRED-003 - `MARKSYNC_API_TOKEN` missing/empty → `Auth{authKind:"MissingCredentials"}` naming it + fix suggestion
 
 **Scenario Type**: Negative
 **Impact Level**: Critical
@@ -354,7 +373,8 @@ plan is guardrail-compliant in three concrete ways:
 **Steps**:
 
 1. Invoke `resolveCredentials()` with `MARKSYNC_API_TOKEN` absent.
-2. Assert `{ ok: false, error }`, `error.kind === "MissingCredentials"`.
+2. Assert `{ ok: false, error }`, `error.kind === "Auth"` AND
+   `error.authKind === "MissingCredentials"`.
 3. Assert `error.missing` contains exactly `["MARKSYNC_API_TOKEN"]`.
 4. Repeat with the var set to `""` — same outcome.
 
@@ -365,7 +385,7 @@ plan is guardrail-compliant in three concrete ways:
 
 ---
 
-#### TC-CRED-004 - `MARKSYNC_CONFLUENCE_BASE_URL` missing/empty → `MissingCredentials` naming it
+#### TC-CRED-004 - `MARKSYNC_CONFLUENCE_BASE_URL` missing/empty → `Auth{authKind:"MissingCredentials"}` naming it
 
 **Scenario Type**: Negative
 **Impact Level**: Critical
@@ -384,7 +404,8 @@ plan is guardrail-compliant in three concrete ways:
 **Steps**:
 
 1. Invoke `resolveCredentials()` with `MARKSYNC_CONFLUENCE_BASE_URL` absent.
-2. Assert `{ ok: false, error }`, `error.kind === "MissingCredentials"`.
+2. Assert `{ ok: false, error }`, `error.kind === "Auth"` AND
+   `error.authKind === "MissingCredentials"`.
 3. Assert `error.missing` contains exactly `["MARKSYNC_CONFLUENCE_BASE_URL"]`.
 
 **Expected Outcome**:
@@ -411,18 +432,19 @@ plan is guardrail-compliant in three concrete ways:
 **Steps**:
 
 1. Invoke `resolveCredentials()` with no auth vars set.
-2. Assert `{ ok: false, error }`, `error.kind === "MissingCredentials"`.
+2. Assert `{ ok: false, error }`, `error.kind === "Auth"` AND
+   `error.authKind === "MissingCredentials"`.
 3. Assert `error.missing` contains all three canonical var names (order-tolerant
    comparison against the set).
 
 **Expected Outcome**:
 
-- All missing vars are collected into one `MissingCredentials` error (not just
-  the first), so the user/agent can fix everything in one pass.
+- All missing vars are collected into one `Auth{authKind:"MissingCredentials"}`
+  error (not just the first), so the user/agent can fix everything in one pass.
 
 ---
 
-#### TC-CRED-006 - `baseUrl` not https (`http://…`) → `InvalidBaseUrl`
+#### TC-CRED-006 - `baseUrl` not https (`http://…`) → `Auth{authKind:"InvalidBaseUrl"}`
 
 **Scenario Type**: Negative
 **Impact Level**: Critical
@@ -441,7 +463,8 @@ plan is guardrail-compliant in three concrete ways:
 **Steps**:
 
 1. Invoke `resolveCredentials()`.
-2. Assert `{ ok: false, error }` with `error.kind === "InvalidBaseUrl"`.
+2. Assert `{ ok: false, error }` with `error.kind === "Auth"` AND
+   `error.authKind === "InvalidBaseUrl"`.
 3. Assert the surfaced message indicates https is required (never echoes the
    raw token).
 
@@ -452,7 +475,7 @@ plan is guardrail-compliant in three concrete ways:
 
 ---
 
-#### TC-CRED-007 - `baseUrl` not a valid/Confluence host → `InvalidBaseUrl`
+#### TC-CRED-007 - `baseUrl` not a valid/Confluence host → `Auth{authKind:"InvalidBaseUrl"}`
 
 **Scenario Type**: Negative
 **Impact Level**: Critical
@@ -472,12 +495,14 @@ plan is guardrail-compliant in three concrete ways:
 **Steps**:
 
 1. For each malformed variant, invoke `resolveCredentials()`.
-2. Assert `{ ok: false, error }` with `error.kind === "InvalidBaseUrl"`.
+2. Assert `{ ok: false, error }` with `error.kind === "Auth"` AND
+   `error.authKind === "InvalidBaseUrl"`.
 
 **Expected Outcome**:
 
-- A structurally invalid base URL is rejected with the typed `InvalidBaseUrl`
-  error, never an opaque throw and never passed downstream.
+- A structurally invalid base URL is rejected with the typed
+  `Auth{authKind:"InvalidBaseUrl"}` error, never an opaque throw and never
+  passed downstream.
 
 ---
 
@@ -574,7 +599,7 @@ plan is guardrail-compliant in three concrete ways:
 
 ---
 
-#### TC-VALIDATE-002 - Probe 401 → `InvalidCredentials`; call count == 1 (no retry)
+#### TC-VALIDATE-002 - Probe 401 → `Auth{authKind:"InvalidCredentials"}`; call count == 1 (no retry)
 
 **Scenario Type**: Negative
 **Impact Level**: Critical
@@ -592,18 +617,20 @@ plan is guardrail-compliant in three concrete ways:
 **Steps**:
 
 1. Invoke `validateCredentials(creds, mockFetch)`.
-2. Assert `{ ok: false, error }` with `error.kind === "InvalidCredentials"`.
+2. Assert `{ ok: false, error }` with `error.kind === "Auth"` AND
+   `error.authKind === "InvalidCredentials"`.
 3. Assert the mock received **exactly 1** probe request (the spike rule: no
    blind retry on 401).
 
 **Expected Outcome**:
 
-- A 401 maps to the typed `InvalidCredentials` error AND is NOT retried (call
-  count == 1). Retrying 401/403 would hammer Confluence with a known-bad token.
+- A 401 maps to the typed `Auth{authKind:"InvalidCredentials"}` error AND is NOT
+  retried (call count == 1). Retrying 401/403 would hammer Confluence with a
+  known-bad token.
 
 ---
 
-#### TC-VALIDATE-003 - Probe 403 → `InvalidCredentials`; call count == 1 (no retry)
+#### TC-VALIDATE-003 - Probe 403 → `Auth{authKind:"InvalidCredentials"}`; call count == 1 (no retry)
 
 **Scenario Type**: Negative
 **Impact Level**: Critical
@@ -621,12 +648,13 @@ plan is guardrail-compliant in three concrete ways:
 **Steps**:
 
 1. Invoke `validateCredentials(creds, mockFetch)`.
-2. Assert `{ ok: false, error }` with `error.kind === "InvalidCredentials"`.
+2. Assert `{ ok: false, error }` with `error.kind === "Auth"` AND
+   `error.authKind === "InvalidCredentials"`.
 3. Assert the mock received **exactly 1** probe request (no retry on 403).
 
 **Expected Outcome**:
 
-- A 403 maps to `InvalidCredentials` and is NOT retried (call count == 1).
+- A 403 maps to `Auth{authKind:"InvalidCredentials"}` and is NOT retried (call count == 1).
 
 ---
 
@@ -652,7 +680,7 @@ plan is guardrail-compliant in three concrete ways:
    one status the spike rule says to honour with backoff).
 3. If the mock eventually returns 200, assert the final `Result.ok` identity;
    if it keeps returning 429, assert the documented terminal outcome
-   (e.g. `AuthUnreachable` or a typed rate-limit error — record the chosen
+   (e.g. `Auth{authKind:"AuthUnreachable"}` or a typed rate-limit error — record the chosen
    behaviour, see OQ-TP-4).
 4. Assert a backoff delay was observed between attempts (e.g. fake timers / a
    reduced backoff constant injected for test speed).
@@ -665,7 +693,7 @@ plan is guardrail-compliant in three concrete ways:
 
 ---
 
-#### TC-VALIDATE-005 - Connection-refused / fetch rejects → `AuthUnreachable`
+#### TC-VALIDATE-005 - Connection-refused / fetch rejects → `Auth{authKind:"AuthUnreachable"}`
 
 **Scenario Type**: Negative
 **Impact Level**: Critical
@@ -685,14 +713,16 @@ plan is guardrail-compliant in three concrete ways:
 **Steps**:
 
 1. Invoke `validateCredentials(creds, failingFetch)`.
-2. Assert `{ ok: false, error }` with `error.kind === "AuthUnreachable"`.
+2. Assert `{ ok: false, error }` with `error.kind === "Auth"` AND
+   `error.authKind === "AuthUnreachable"`.
 3. Assert the surfaced message does NOT contain the raw token.
 
 **Expected Outcome**:
 
 - A network-level failure (connection refused / fetch rejection) maps to the
-  typed `AuthUnreachable` error — distinct from `InvalidCredentials`, so
-  `doctor`/the user can tell "can't reach Confluence" from "bad token".
+  typed `Auth{authKind:"AuthUnreachable"}` error — distinct from
+  `Auth{authKind:"InvalidCredentials"}`, so `doctor`/the user can tell "can't
+  reach Confluence" from "bad token".
 
 ---
 
@@ -758,7 +788,7 @@ plan is guardrail-compliant in three concrete ways:
 
 ---
 
-#### TC-ERRMAP-001 - Each new auth kind → stable `error.code` + `retryable` (exhaustive over all kinds)
+#### TC-ERRMAP-001 - The `Auth` arm's `authKind` sub-cases → stable `error.code` + `retryable` (exhaustive)
 
 **Scenario Type**: Regression
 **Impact Level**: Critical
@@ -771,34 +801,43 @@ plan is guardrail-compliant in three concrete ways:
 
 **Preconditions**:
 
-- The 4 new `AuthError` kinds have cases in `mapMarkSyncErrorToCommandError`.
+- The new `Auth` arm has a case in `mapMarkSyncErrorToCommandError` that narrows
+  on `authKind` (the nested sub-switch is itself exhaustive).
 
 **Steps**:
 
-1. Extend the existing exhaustive table test (currently 13 kinds) to include
-   the 4 new auth kinds: `MissingCredentials`, `InvalidBaseUrl`,
-   `InvalidCredentials`, `AuthUnreachable`.
-2. For each, assert a non-empty stable `error.code` string and a `retryable`
-   boolean (per DEC-2 lineage: `MissingCredentials`/`InvalidBaseUrl` → not a
-   retryable remote conflict; `InvalidCredentials` → not retryable (bad token);
-   `AuthUnreachable` → retryable — transient network).
-3. Assert the table now covers exactly the full kind set (13 + 4 = 17) — keeping
-   the "covers exactly the N kinds — exhaustiveness" assertion truthful.
+1. Extend the existing exhaustive table test (currently 13 top-level kinds) to
+   include the ONE new `Auth` arm. The arm's `mapMarkSyncErrorToCommandError`
+   case narrows on `authKind`, so enumerate all four `authKind` sub-cases:
+   `MissingCredentials`, `InvalidBaseUrl`, `InvalidCredentials`,
+   `AuthUnreachable`.
+2. For each `authKind`, assert the pinned stable `error.code` string and
+   `retryable` boolean (DEC-2 / spec DM-4 / Appendix B):
+   - `authKind:"MissingCredentials"` → `code:"AUTH_MISSING_CREDENTIALS"`, `retryable:false`;
+   - `authKind:"InvalidBaseUrl"`     → `code:"AUTH_INVALID_BASE_URL"`,    `retryable:false`;
+   - `authKind:"InvalidCredentials"` → `code:"AUTH_INVALID_CREDENTIALS"`,  `retryable:false` (bad token; no retry on 401/403);
+   - `authKind:"AuthUnreachable"`    → `code:"AUTH_UNREACHABLE"`,          `retryable:true`  (transient network).
+3. Assert the table now covers exactly the full top-level kind set (13 + 1 = 14)
+   — keeping the "covers exactly the N kinds — exhaustiveness" assertion
+   truthful. Separately, assert the nested `authKind` sub-switch in the mapper's
+   `Auth` case is itself exhaustive over its 4 sub-cases (its own `never`-check,
+   RSK-8).
 4. Assert each new message is built ONLY from structural fields and never echoes
-   the raw token/email-body (DEC-5 — e.g. `MissingCredentials.missing[]` lists
-   var names, never values).
+   the raw token/email-body (DEC-3/DEC-5 — e.g. the `MissingCredentials` branch
+   emits `missing: […]` var names, never values).
 
 **Expected Outcome**:
 
-- Every new auth kind has a stable `code` + `retryable`; the mapper stays
-  exhaustive (no `default`-arm compile gap); no message leaks credential
-  material.
+- The single `Auth` arm (and each of its 4 `authKind` sub-cases) has the pinned
+  stable `AUTH_`-prefixed `code` + `retryable`; the mapper stays exhaustive at
+  both the top level and the nested `authKind` sub-switch (no `default`-arm
+  compile gap); no message leaks credential material.
 
 **Notes / Clarifications**:
 
-- The exact `error.code` strings are stable-string delivery decisions (DEC-6);
-  see OQ-TP-1. The test pins whatever strings the coder chooses, but they MUST
-  be stable, documented, and unique per kind.
+- The exact `error.code` strings are now PINNED (PM-endorsed, spec DM-4):
+  `AUTH_MISSING_CREDENTIALS`, `AUTH_INVALID_BASE_URL`, `AUTH_INVALID_CREDENTIALS`,
+  `AUTH_UNREACHABLE`. OQ-TP-1 closed.
 
 ---
 
@@ -815,18 +854,18 @@ plan is guardrail-compliant in three concrete ways:
 
 **Preconditions**:
 
-- The new auth `error.code` strings have entries in `CODE_TO_EXIT`.
+- The four `AUTH_`-prefixed `error.code` strings have entries in `CODE_TO_EXIT`.
 
 **Steps**:
 
 1. Extend the existing `EXPECTED` record (the DEC-2 pinning table) with the 4
-   new auth codes.
+   new `AUTH_`-prefixed codes: `AUTH_MISSING_CREDENTIALS`, `AUTH_INVALID_BASE_URL`,
+   `AUTH_INVALID_CREDENTIALS`, `AUTH_UNREACHABLE`.
 2. Assert `CODE_TO_EXIT` deep-equals the extended `EXPECTED`.
-3. Assert every new auth code resolves, via `codeToExitCode`, to a value inside
-   the documented 9-class set (auth-class kinds → `EXIT_AUTH` (20) where
-   sensible; `AuthUnreachable` → a documented retry/network-appropriate exit —
-   record the choice, OQ-TP-2).
-4. Re-assert no exit falls outside the 9-class set.
+3. Assert every new auth code resolves, via `codeToExitCode`, to `EXIT_AUTH` (20)
+   — all four auth codes share the auth exit class (spec DM-4 / Appendix B);
+   `AUTH_UNREACHABLE` is `retryable:true`, the other three `retryable:false`.
+4. Re-assert no exit falls outside the documented 9-class set.
 
 **Expected Outcome**:
 
@@ -835,8 +874,8 @@ plan is guardrail-compliant in three concrete ways:
 
 **Notes / Clarifications**:
 
-- Exact exit assignments are delivery decisions (OQ-TP-2). Auth-class errors
-  should land on `EXIT_AUTH` (20) where the failure is credential-shaped.
+- Exit assignments are now PINNED (PM-endorsed, spec DM-4): all four auth codes
+  → `EXIT_AUTH` (20). OQ-TP-2 closed.
 
 ---
 
@@ -853,23 +892,29 @@ plan is guardrail-compliant in three concrete ways:
 
 **Preconditions**:
 
-- The 4 new kinds have been added to the `MarkSyncError` union AND to
-  `assertNeverMarkSyncError` AND to `mapMarkSyncErrorToCommandError`.
+- The new `Auth` arm has been added to the `MarkSyncError` union AND to
+  `assertNeverMarkSyncError` AND to `mapMarkSyncErrorToCommandError` (whose
+  `Auth` case narrows on `authKind` via its own exhaustive sub-switch).
 
 **Steps**:
 
 1. Run `bun run typecheck` (`tsc --noEmit` under the strict config).
 2. Assert it exits 0.
-3. (Reasoning, not an automated step) Confirm: if any of the 4 kinds were added
-   to the union without a case in `assertNeverMarkSyncError` or
-   `mapMarkSyncErrorToCommandError`, the `default` arm's `error` would stop being
-   `never` and the build would fail — surfacing the gap at the definition site.
+3. (Reasoning, not an automated step) Confirm BOTH layers of exhaustiveness:
+   - **Top level:** if the `Auth` arm were added to the union without a case in
+     `assertNeverMarkSyncError` or `mapMarkSyncErrorToCommandError`, the
+     `default` arm's `error` would stop being `never` and the build would fail.
+   - **Nested `authKind`:** if a new `authKind` sub-case were added to the
+     discriminator without a branch in the mapper's nested `authKind` sub-switch,
+     that sub-switch's `default`'s `authKind` would stop being `never` and the
+     build would fail (RSK-8) — surfacing either gap at the definition site.
 
 **Expected Outcome**:
 
-- Zero type errors: the union and both exhaustive switches were updated together
-  (the GH-15 NFR-3 precedent applied to the auth extension). This is part of the
-  AC-6 `bun run check` gate.
+- Zero type errors: the union, both top-level exhaustive switches, AND the
+  nested `authKind` sub-switch were all updated together (the GH-15 NFR-3
+  precedent applied to the single-arm auth extension; 13→14, not 17). This is
+  part of the AC-6 `bun run check` gate.
 
 ---
 
@@ -1027,7 +1072,7 @@ plan is guardrail-compliant in three concrete ways:
 | TC-VALIDATE-001..007 | `tests/integration/credentials.test.ts` | To Implement | `Bun.serve()` adapter-boundary mock (allowed) + injected `fetch` | `bun test tests/integration/credentials.test.ts` |
 | TC-SEC-001, TC-SEC-002 | `tests/integration/credentials.test.ts` | To Implement | `Bun.serve()` mock; capture real serialized output (NOT a redact-was-called mock) | `bun test tests/integration/credentials.test.ts` |
 | TC-SEC-003 | `tests/integration/credentials.test.ts` (+ `tests/unit/cli/output/redact.test.ts`) | Existing – No Change (redact) / To Implement (side-check) | None (real `redactString`) | `bun test tests/integration/credentials.test.ts` |
-| TC-ERRMAP-001 | `tests/unit/app/cli-error-map.test.ts` | Existing – Update (13 → 17 kinds) | None (real error shapes) | `bun test tests/unit/app/cli-error-map.test.ts` |
+| TC-ERRMAP-001 | `tests/unit/app/cli-error-map.test.ts` | Existing – Update (13 → 14 top-level kinds; + nested `authKind` exhaustiveness over 4 sub-cases; pin `AUTH_`-prefixed codes) | None (real error shapes) | `bun test tests/unit/app/cli-error-map.test.ts` |
 | TC-ERRMAP-002 | `tests/unit/cli/output/exit-codes.test.ts` | Existing – Update (extend `EXPECTED`) | None | `bun test tests/unit/cli/output/exit-codes.test.ts` |
 | TC-ERRMAP-003 | (type-level) `src/domain/errors.ts` + `src/app/cli-error-map.ts` + `src/cli/output/exit-codes.ts` | Existing – Update | None | `bun run typecheck` |
 | AC-6 (gate) | all of the above + the union/switch updates | — | — | `bun run check` (lint + typecheck + test + boundaries) |
@@ -1038,13 +1083,14 @@ plan is guardrail-compliant in three concrete ways:
   (`bun test tests/unit/ tests/integration/`).
 - TC-ERRMAP-003 (exhaustive compile safety) is enforced by `bun run typecheck`,
   which is part of `bun run check` (AC-6).
-- Implement the 4 new `AuthError` arms + `assertNeverMarkSyncError` +
-  `mapMarkSyncErrorToCommandError` + `CODE_TO_EXIT` **together** so the typed
-  error channel and the exit-code map are consistent from the first commit
-  (otherwise `bun run typecheck` fails immediately — by design).
-- `F-AUTH-4` (union + switches) and `F-AUTH-1/2` (resolve + header) should land
-  before/with the integration probe so `validateCredentials` can return the new
-  kinds through the narrowed `Result<…, AuthError>` channel.
+- Implement the single new `Auth` arm (+ nested `authKind` discriminator) +
+  `assertNeverMarkSyncError` + `mapMarkSyncErrorToCommandError` (+ its nested
+  `authKind` sub-switch) + `CODE_TO_EXIT` **together** so the typed error channel
+  and the exit-code map are consistent from the first commit (otherwise `bun run
+  typecheck` fails immediately — by design).
+- `F-AUTH-4` (the `Auth` arm + both layers of switches) and `F-AUTH-1/2` (resolve
+  + header) should land before/with the integration probe so `validateCredentials`
+  can return the new arm through the narrowed `Result<…, AuthError>` channel.
 - **Only allowed mocks:** the `Bun.serve()` adapter-boundary mock (fault
   injection: 200/401/403/429/network) and the injected `fetch` DI seam. No
   mocking of resolution/masking/base64/error-mapping logic — per the
@@ -1060,7 +1106,7 @@ plan is guardrail-compliant in three concrete ways:
 | TR-1 | The `Basic ` header is built from the wrong material (wrong separator `email-token`, missing `Basic ` prefix) and silently authenticates with bad creds | H | TC-CRED-008 asserts byte-exact `Basic <base64(email:token)>` against a locally-computed expected value. |
 | TR-2 | The token leaks into an error message or `CommandResult` field | H (release-blocking) | TC-SEC-001 captures every serialized output across happy + error paths and asserts the token substring absent; TC-SEC-003 verifies the redactor as defense-in-depth. Guardrail: integration-level, not mock-only. |
 | TR-3 | The probe retries on 401/403 (spike rule violation) and hammers Confluence with a known-bad token | M | TC-VALIDATE-002/003 assert call count == 1; TC-VALIDATE-004 asserts 429 DOES retry (the one honoured status). |
-| TR-4 | The exhaustive `never` switches silently break when the 4 new kinds land | M | TC-ERRMAP-003 (`bun run typecheck` gate) fails to compile if any switch is missed; TC-ERRMAP-001 keeps the "covers exactly N kinds" assertion truthful. Mirrors GH-15 NFR-3/RSK-2. |
+| TR-4 | The exhaustive `never` switches silently break when the new `Auth` arm (or a new `authKind` sub-case) lands | M | TC-ERRMAP-003 (`bun run typecheck` gate) fails to compile if the top-level switch OR the nested `authKind` sub-switch is missed; TC-ERRMAP-001 keeps the "covers exactly N kinds (13→14)" assertion truthful. Mirrors GH-15 NFR-3/RSK-2; RSK-8 covers the nested sub-switch. |
 | TR-5 | `validateCredentials` hard-couples to the global `fetch`, breaking app-tier purity (`check:boundaries`) | M | TC-VALIDATE-007 proves the DI seam; the app tier must not import networking. |
 | TR-6 | 429 backoff makes the integration suite slow/flaky | L | Inject a reduced backoff constant (or fake timers) so TC-VALIDATE-004 is fast and deterministic. |
 
@@ -1080,18 +1126,20 @@ plan is guardrail-compliant in three concrete ways:
   PASS from the MS-0001 spike).
 - The provider uses an injected `fetch` (DI) to keep `src/app/credentials.ts`
   app-tier-pure (testability + `check:boundaries`).
-- `AuthError` is a 4-kind extension of `MarkSyncError` (MissingCredentials,
-  InvalidBaseUrl, InvalidCredentials, AuthUnreachable) with an `AuthError` type
-  alias analogous to `ConfigError = Extract<MarkSyncError, {…}>` (delivery
-  decision recorded in `chg-GH-17-pm-notes.yaml`).
+- `AuthError` is ONE new top-level arm on `MarkSyncError` —
+  `{ kind: "Auth"; authKind: "MissingCredentials" | "InvalidBaseUrl" | "InvalidCredentials" | "AuthUnreachable"; …payload }`
+  — with the narrowed alias `AuthError = Extract<MarkSyncError, { kind: "Auth" }>`
+  (mirrors `ConfigError`). DEC-2 (settled identically in spec + plan + PM notes):
+  union grows 13→14, NOT 13→17. The story's `AuthError{kind:"MissingCredentials"}`
+  notation maps to `{ kind:"Auth", authKind:"MissingCredentials", missing:[] }`.
 
 ### 8.3 Open Questions
 
 | ID | Question | Blocking? | Owner | Notes |
 |----|----------|-----------|-------|-------|
-| OQ-TP-1 | What exact stable `error.code` string + `retryable` does each new auth kind get in `mapMarkSyncErrorToCommandError`? | No (TC-ERRMAP-001 pins whatever is chosen) | @coder (delivery) | DEC-6 lineage: codes are stable strings. Suggested: `MISSING_CREDENTIALS`, `INVALID_BASE_URL`, `AUTH_INVALID`/`INVALID_CREDENTIALS`, `AUTH_UNREACHABLE` (retryable). Document + pin in the test. |
-| OQ-TP-2 | Which numeric exit code does each new auth `code` resolve to? | No (TC-ERRMAP-002 pins the choice) | @coder (delivery) | Auth-class kinds → `EXIT_AUTH` (20) where credential-shaped; `AuthUnreachable` → a documented retry/network-appropriate exit. Record the DEC-2-table additions. |
-| OQ-TP-3 | Are the provisional `F-AUTH-*` / `DM-AUTH-*` codes adopted verbatim by `chg-GH-17-spec.md` (when the specification phase runs)? | No | @spec-writer | This plan derives capability codes from the story deliverables because no spec exists yet. Reconcile when the spec lands; update the coverage tables if codes change. |
+| ~~OQ-TP-1~~ | What exact stable `error.code` string + `retryable` does each new auth `authKind` get? | RESOLVED | PM (endorsed) / @coder (delivery) | **RESOLVED (PM-endorsed, matches spec DM-4 / Appendix B):** `AUTH_MISSING_CREDENTIALS` (retryable:false), `AUTH_INVALID_BASE_URL` (false), `AUTH_INVALID_CREDENTIALS` (false), `AUTH_UNREACHABLE` (true). The `AUTH_` prefix aids operational grouping (grep). Pinned verbatim in TC-ERRMAP-001. |
+| ~~OQ-TP-2~~ | Which numeric exit code does each new auth `code` resolve to? | RESOLVED | PM (endorsed) / @coder (delivery) | **RESOLVED (PM-endorsed, matches spec DM-4):** all four `AUTH_`-prefixed codes → `EXIT_AUTH` (20). Pinned verbatim in TC-ERRMAP-002. |
+| ~~OQ-TP-3~~ | Are the provisional `F-AUTH-*` / `DM-AUTH-*` codes adopted by `chg-GH-17-spec.md`, and is the union shape reconciled? | RESOLVED | @spec-writer / @test-plan-writer | **RESOLVED:** `chg-GH-17-spec.md` has landed (Proposed). Two reconciliations applied to this plan: (1) **DEC-2 single-arm shape** — every auth error is `{ kind:"Auth"; authKind:… }` (union 13→14, not 17); every bare top-level `error.kind === <one of the four authKinds>` assertion was corrected to `error.kind === "Auth" && error.authKind === …`; the "13+4=17"/"13→17" counts were corrected to "13+1=14"/"13→14". (2) **`AUTH_`-prefixed codes** pinned (closes OQ-TP-1/OQ-TP-2). The test-plan-local `F-AUTH-*`/`DM-AUTH-*` labels are mapped to the spec's `F-1..F-6`/`DM-1..DM-4` in §3.1 (kept as local labels to avoid TC churn). |
 | OQ-TP-4 | What is the terminal outcome when the probe stays 429 past the backoff budget? | No (TC-VALIDATE-004 documents the chosen behaviour) | @coder (delivery) | Story says "honor 429 with backoff" but does not fix the terminal error kind. Likely `AuthUnreachable`; pin and assert. |
 | OQ-TP-5 | Does `MissingCredentials`/`InvalidBaseUrl` accept an injectable env source (for clean unit tests), or do tests save/restore `process.env`? | No | @coder (delivery) | Prefer an injectable env source for hermetic unit tests; otherwise document the save/restore convention. |
 
@@ -1100,6 +1148,7 @@ plan is guardrail-compliant in three concrete ways:
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-08T23:30:00Z | test-plan-writer (GH-17) | Initial test plan — 22 scenarios (TC-CRED-001..009 unit resolve/header/masking; TC-VALIDATE-001..007 integration probe via `Bun.serve`; TC-ERRMAP-001..003 error-map/exit-code/exhaustiveness extending existing tests; TC-SEC-001..003 INV-SEC-1 integration-level + defense-in-depth) traced to AC-1..AC-6, provisional F-AUTH-1..5 / DM-AUTH-1..2, NFR-SEC-1/2/6, NFR-OBS-1, INV-SEC-1. Derived from story `MS2-E2-S4--auth-provider.md` (authoritative — spec pending), `.ai/rules/testing-strategy.md` (Unit + Integration tiers; over-mocking guardrail → INV-SEC-1 at integration level), `doc/guides/security-baseline.md`, `doc/spec/nonfunctional.md`, and the existing `Result`/`MarkSyncError`/cli-error-map/exit-codes/redact primitives. E2E explicitly out of scope (adapter E3-S4 concern). |
+| 1.1 | 2026-07-08T23:46:00Z | test-plan-writer (GH-17, DoR iter-1 remediation) | **DoR iter-1 NOT_READY remediation — reconciled to DEC-2 + PM decisions.** (1) **Union shape (CRITICAL):** replaced the rejected four-top-level-arms framing with the DEC-2 single `Auth` arm + nested `authKind` discriminator (union 13→14, NOT 13→17). Every bare top-level `error.kind === <authKind>` assertion (TC-CRED-002..007, TC-VALIDATE-002/003/005) now asserts `error.kind === "Auth" && error.authKind === …`. TC-ERRMAP-001/003 re-scoped to the single arm + the nested `authKind` sub-switch's own `never`-check (RSK-8). The "13+4=17"/"13→17" counts corrected to "13+1=14"/"13→14" throughout. (2) **`AUTH_`-prefixed codes (PM-endorsed, spec DM-4):** `AUTH_MISSING_CREDENTIALS`/`AUTH_INVALID_BASE_URL`/`AUTH_INVALID_CREDENTIALS`/`AUTH_UNREACHABLE` → `EXIT_AUTH` (20); only `AUTH_UNREACHABLE` retryable — pinned in TC-ERRMAP-001/002. (3) **v2-only validation (PM decision):** dropped the v1 `user/current` fallback; `GET /wiki/api/v2/user/by-me` is the sole validation endpoint; validation tests cover v2 200/401/403/429/network only. (4) **OQ closure:** OQ-TP-1/TP-2/TP-3 → RESOLVED; OQ-TP-4/TP-5 remain open. AC→TC traceability re-verified (AC-1..AC-6 all still map to concrete TCs). Tier placement unchanged (Unit resolve/masking/header; Integration `Bun.serve` validateCredentials + INV-SEC-1 capture); INV-SEC-1 assertion unchanged. No other files touched. |
 
 ## 10. Test Execution Log
 

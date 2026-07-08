@@ -2,9 +2,9 @@
 # Copyright (c) 2025-2026 Juliusz Ćwiąkalski (https://www.cwiakalski.com | https://www.linkedin.com/in/juliusz-cwiakalski/ | https://x.com/cwiakalski)
 # MIT License - see LICENSE file for full terms
 id: chg-GH-17-auth-provider
-status: Proposed
+status: Updated
 created: 2026-07-08T23:30:00Z
-last_updated: 2026-07-08T23:30:00Z
+last_updated: 2026-07-09T00:00:00Z
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 labels: [MS-0002, MS2-E2, foundation, critical, security, auth]
@@ -23,14 +23,18 @@ summary: >
   `CredentialProvider` that resolves Confluence classic API-token auth
   (email + token + base URL) from the canonical env vars declared in
   `.env.example`, validates it against Confluence (`GET /wiki/api/v2/user/by-me`),
-  and NEVER leaks the token in any output path. Adds an `AuthError` (one `Auth`
-  arm with a nested `authKind` discriminator of 4 sub-kinds) to the exhaustive
+  and NEVER leaks the token in any output path. Adds an `AuthError` (one flat
+  `Auth` arm discriminated on `authKind` of 4 sub-kinds) to the exhaustive
   `MarkSyncError` union and threads it through all exhaustiveness sites
   (`src/domain/errors.ts`, `src/app/cli-error-map.ts`, `src/cli/output/exit-codes.ts`)
   as the `Result<_, AuthError>` channel. Network I/O is injected (`fetch`-like DI
   param defaulting to global `fetch`) so `src/app/credentials.ts` stays pure,
-  unit-testable, and `check:boundaries`-clean. Email is masked; the token is
-  consumed once to build the opaque `authHeader` and never retained.
+  unit-testable, and `#infra/*`-free. The `#infra`-import ban is NOT yet a
+  dep-cruiser rule (`.dependency-cruiser.cjs` ships only the 4 domain/cli
+  rules), so the load-bearing guard is the explicit
+  `rg '#infra' src/app/credentials.ts → empty` check (tasks 2.2/6.1).
+  Email is masked; the token is consumed once to build the opaque `authHeader`
+  and never retained.
 version_impact: minor
 ---
 
@@ -45,11 +49,14 @@ back an opaque, ready-to-use auth header, with the raw token never surviving the
 resolve call. Concretely it establishes:
 
 - the **`AuthError` failure kind** — added to the exhaustive `MarkSyncError`
-  union as ONE arm `{ kind: "Auth"; auth: AuthErrorDetail }` with a nested
-  `authKind` discriminator of four sub-kinds (`MissingCredentials`,
-  `InvalidBaseUrl`, `InvalidCredentials`, `AuthUnreachable`), plus a narrowed
-  `AuthError` alias so the provider declares `Result<_, AuthError>` (mirrors the
-  GH-15 `ConfigError` / `InvalidConfig` precedent — DEC-2);
+  union as ONE arm `{ kind: "Auth"; authKind: …; …payload }` (**flat** — `authKind`
+  and its per-kind payload are siblings of `kind`, exactly mirroring the live
+  `InvalidConfig` arm `{ kind: "InvalidConfig"; path; ajvErrors; humanMessage }`;
+  there is **no** `auth:` wrapper) with an `authKind` discriminator of four
+  sub-kinds (`MissingCredentials`, `InvalidBaseUrl`, `InvalidCredentials`,
+  `AuthUnreachable`), plus a narrowed `AuthError` alias so the provider declares
+  `Result<_, AuthError>` (mirrors the GH-15 `ConfigError` / `InvalidConfig`
+  precedent — DEC-2);
 - a **domain-owned credential value type** `ConfluenceCredentials`
   (`{ baseUrl; authHeader; email(masked); mode }`) at `src/domain/credentials.ts`
   so the future infra adapter can import it without importing the application
@@ -59,10 +66,11 @@ resolve call. Concretely it establishes:
   `MARKSYNC_CONFLUENCE_BASE_URL` / `MARKSYNC_USER_EMAIL` / `MARKSYNC_API_TOKEN`,
   and `validateCredentials(creds)` → `Result<ConfluenceIdentity, AuthError>`
   issuing the user-by-me probe and mapping HTTP/network outcomes;
-- **injected network I/O** (DEC-1) — both provider functions accept a `fetch`-
-  like param (`typeof fetch`) defaulting to global `fetch`, so the application
-  module imports **no** `#infra/*` and is unit-testable with a stub + integration-
-  testable against a `Bun.serve` mock;
+- **injected network I/O** (DEC-1) — only `validateCredentials` (the network
+  probe) accepts a `fetch`-like param (`typeof fetch`) defaulting to global
+  `fetch`; `resolveCredentials` is pure env logic and takes **no** `fetch`. This
+  keeps the application module importing **no** `#infra/*` and unit-testable with
+  a stub + integration-testable against a `Bun.serve` mock;
 - the **email-masking + token-never-surfaced** guarantee (INV-SEC-1 / R-SEC-1 /
   NFR-SEC-6): the raw email is consumed once to build the opaque
   `authHeader = "Basic " + base64(email:token)`; the credentials object carries
@@ -90,14 +98,24 @@ union shape). It invents no requirements.
 
 - **DEC-1 — Injected `fetch` keeps the provider in the application tier
   (resolves the story's "file at `src/app/credentials.ts` does network I/O"
-  tension).** `resolveCredentials` and `validateCredentials` each accept an
-  injectable `fetch`-like param typed `typeof fetch`, defaulting to the global
-  `fetch`. Consequences:
+  tension).** `validateCredentials` (the only function doing network I/O) accepts
+  an injectable `fetch`-like param typed `typeof fetch`, defaulting to the global
+  `fetch`; `resolveCredentials` does no network I/O and takes no `fetch` param.
+  Consequences:
   - `src/app/credentials.ts` imports **only** `#domain/*` (`errors`, `result`,
     `credentials`) — never `#infra/*`, never `#cli/*`. This keeps the
-    application tier pure and `check:boundaries` clean (the `app-may-not-import-
-    cli` rule holds trivially; the no-`#infra/*` import is the load-bearing
-    testability boundary the story's dep-cruiser note calls out).
+    application tier pure and unit-testable. **Dep-cruiser caveat:** the live
+    `.dependency-cruiser.cjs` ships only the 4 `domain`/`cli` rules
+    (`domain→infra`, `domain→app`, `cli→domain`, `cli→infra`); there is **no**
+    `app-may-not-import-infra` and **no** `app-may-not-import-cli` rule (the
+    9-rule snippet in `typescript.md` §"Import-boundary enforcement" is
+    aspirational, not the live config). So `check:boundaries` would **not**
+    catch an `#infra/*` import in `src/app/credentials.ts`; the load-bearing
+    DEC-1 guard for this story is the explicit
+    `rg '#infra' src/app/credentials.ts` → empty (and
+    `rg '#cli' src/app/credentials.ts` → empty) check in tasks 2.2/6.1, run as a
+    first-class gate step. (Repo-wide follow-up to add the missing dep-cruiser
+    rules is out of scope for GH-17.)
   - Unit tests inject a stub `fetch` (synchronous response shaping); integration
     tests inject a `Bun.serve`-backed fetch (real HTTP, real status codes).
   - Production callers (the adapter in E3-S4, `doctor` in E5-S2) pass the global
@@ -107,25 +125,29 @@ union shape). It invents no requirements.
     the Credential Provider as **application tier**, and because `resolveCredentials`
     (env → typed result, no network) is pure application logic that should not
     drag into the infra tier.
-- **DEC-2 — `AuthError` is ONE `Auth` arm with a nested `authKind` discriminator
+- **DEC-2 — `AuthError` is ONE flat `Auth` arm discriminated on `authKind`
   (the option that keeps `mapMarkSyncErrorToCommandError` and `CODE_TO_EXIT`
   cleanest and exhaustiveness provable; mirrors the GH-15 `ConfigError`
-  precedent).** The four sub-kinds surface as the `Result<_, AuthError>` channel
-  of the provider; the stable `error.code` strings are exactly the four the
-  intake summary names. Chosen shape:
+  precedent — and mirrors the live `InvalidConfig` arm **exactly in structure**:
+  flat siblings of `kind`, no `auth:` wrapper).** The four sub-kinds surface as
+  the `Result<_, AuthError>` channel of the provider; the stable `error.code`
+  strings are exactly the four the intake summary names. Chosen shape:
 
   ```typescript
-  // src/domain/errors.ts — added to the MarkSyncError union
-  | { kind: "Auth"; auth: AuthErrorDetail };
+  // src/domain/errors.ts — added to the MarkSyncError union. FLAT: `authKind` and
+  // its per-kind payload are siblings of `kind`, mirroring the live InvalidConfig
+  // arm { kind: "InvalidConfig"; path; ajvErrors; humanMessage } (all flat siblings).
+  // There is NO `auth:` wrapper and NO separate AuthErrorDetail type — the four
+  // sub-variants are inlined flat into the union (matches spec F-3 / DM-2 and the
+  // test-plan, which assert `error.authKind === "…"` as a direct property).
+  | { kind: "Auth"; authKind: "MissingCredentials"; missing: readonly string[] }
+  | { kind: "Auth"; authKind: "InvalidBaseUrl"; baseUrl: string }
+  | { kind: "Auth"; authKind: "InvalidCredentials"; status: number }
+  | { kind: "Auth"; authKind: "AuthUnreachable"; cause: string };
 
-  // The nested discriminated detail (domain-owned, exported alongside the arm)
-  export type AuthErrorDetail =
-    | { authKind: "MissingCredentials"; missing: readonly string[] }
-    | { authKind: "InvalidBaseUrl"; baseUrl: string }
-    | { authKind: "InvalidCredentials"; status: number }
-    | { authKind: "AuthUnreachable"; cause: string };
-
-  // Narrowed channel, exactly like ConfigError (GH-15 DEC-3).
+  // Narrowed channel, exactly like ConfigError (GH-15 DEC-3). The mapper narrows on
+  // err.authKind — a DIRECT property of the Auth arm (there is no nested wrapper
+  // object to dereference).
   export type AuthError = Extract<MarkSyncError, { kind: "Auth" }>;
   ```
 
@@ -133,9 +155,9 @@ union shape). It invents no requirements.
 
   | `authKind` | `error.code` (stable) | exit | retryable | class |
   |---|---|---|---|---|
-  | `MissingCredentials` | `MISSING_CREDENTIALS` | 20 (`EXIT_AUTH`) | false | auth |
-  | `InvalidBaseUrl` | `INVALID_BASE_URL` | 20 (`EXIT_AUTH`) | false | auth |
-  | `InvalidCredentials` | `INVALID_CREDENTIALS` | 20 (`EXIT_AUTH`) | false | auth |
+  | `MissingCredentials` | `AUTH_MISSING_CREDENTIALS` | 20 (`EXIT_AUTH`) | false | auth |
+  | `InvalidBaseUrl` | `AUTH_INVALID_BASE_URL` | 20 (`EXIT_AUTH`) | false | auth |
+  | `InvalidCredentials` | `AUTH_INVALID_CREDENTIALS` | 20 (`EXIT_AUTH`) | false | auth |
   | `AuthUnreachable` | `AUTH_UNREACHABLE` | 20 (`EXIT_AUTH`) | **true** | auth (retryable) |
 
   - **Why one arm, not four:** the top-level `mapMarkSyncErrorToCommandError`
@@ -186,20 +208,26 @@ union arm.
   (retryable). The exact N/wait-cap is a delivery-time tuning detail documented
   inline; it does not affect any AC (AC-3 only asserts 429 is *handled*, not the
   retry count). *(Specification detail.)*
-- **v2 vs v1 user endpoint (story "v2 user/by-me or v1 user/current").** Primary
-  path is `GET {baseUrl}/wiki/api/v2/user/by-me`; the v1 `user/current` fallback
-  is deferred (v2 is the guaranteed MS-0002 path per the spike). The provider
-  parses `{ accountId, displayName }` from the v2 response (manual narrowing —
-  `zod` is not installed until E3, per `typescript.md`). If v2 returns an
-  unexpected shape, map to `AuthUnreachable` (treat as a transient/API issue, not
-  a credential failure). *(Specification detail.)*
+- **v2 vs v1 user endpoint (story "v2 user/by-me or v1 user/current").**
+  **v2 `GET {baseUrl}/wiki/api/v2/user/by-me` is the SOLE validation endpoint
+  for this story — v1 `user/current` is explicitly OUT, not merely deferred.**
+  PM has decided v2-only (drop v1 entirely); no v1 fallback is built, tested,
+  or stubbed in GH-17 (the story's "(or v1 `user/current`)" is re-read as "v2
+  only for MS-0002" per the spike; the spec's F-2/DEC-5/RSK-6 v1 rows are
+  treated as deferred-to-future-work). The provider parses
+  `{ accountId, displayName }` from the v2 response (manual narrowing — `zod`
+  is not installed until E3, per `typescript.md`). If v2 returns an unexpected
+  shape, map to `AuthUnreachable` (treat as a transient/API issue, not a
+  credential failure). *(Specification detail — DoR iter-1 Finding 2 resolved
+  v2-only.)*
 
 ## Scope
 
 ### In Scope
 
 - **D-1** — `src/domain/errors.ts` (updated): add the `Auth` arm to
-  `MarkSyncError`; export `AuthErrorDetail` + narrowed `AuthError` alias; extend
+  `MarkSyncError` (FLAT — `authKind` + per-kind payload are siblings of `kind`,
+  mirroring `InvalidConfig`); export the narrowed `AuthError` alias; extend
   `assertNeverMarkSyncError` with `case "Auth"` (DEC-2).
 - **D-2** — `src/domain/credentials.ts` (new): domain-owned value types
   `ConfluenceCredentials` (`{ baseUrl; authHeader; email(masked); mode:"api-token" }`)
@@ -207,15 +235,17 @@ union arm.
   the future infra adapter (E3-S4) can import them (infra → domain ✓; infra → app
   ✗).
 - **D-3** — `src/app/cli-error-map.ts` (updated): add `case "Auth"` with an
-  exhaustive sub-switch over `auth.authKind` → the four stable codes + redacted
-  messages + retryable (DEC-2 table).
-- **D-4** — `src/cli/output/exit-codes.ts` (updated): add `MISSING_CREDENTIALS`,
-  `INVALID_BASE_URL`, `INVALID_CREDENTIALS`, `AUTH_UNREACHABLE` → `EXIT_AUTH`
+  exhaustive sub-switch over `err.authKind` (a direct property of the `Auth`
+  arm) → the four stable codes + redacted messages + retryable (DEC-2 table).
+- **D-4** — `src/cli/output/exit-codes.ts` (updated): add `AUTH_MISSING_CREDENTIALS`,
+  `AUTH_INVALID_BASE_URL`, `AUTH_INVALID_CREDENTIALS`, `AUTH_UNREACHABLE` → `EXIT_AUTH`
   (20) to `CODE_TO_EXIT` (pure data; no domain import).
-- **D-5** — `src/app/credentials.ts` (new): `resolveCredentials({ fetch? })` →
-  `Result<ConfluenceCredentials, AuthError>`; `validateCredentials(creds,
-  { fetch? })` → `Result<ConfluenceIdentity, AuthError>`; `maskEmail(email)` helper
-  (DEC-1 injected fetch; classic API-token path only).
+- **D-5** — `src/app/credentials.ts` (new): `resolveCredentials()` →
+  `Result<ConfluenceCredentials, AuthError>` (pure env logic — takes no `fetch`
+  param); `validateCredentials(creds, { fetch? })` →
+  `Result<ConfluenceIdentity, AuthError>`; `maskEmail(email)` helper
+  (DEC-1 injected `fetch` on `validateCredentials` only; classic API-token path
+  only).
 - **D-6** — Unit tests: provider (`tests/unit/app/credentials.test.ts` —
   resolve present/missing/malformed-url, base64 header, masking; validate via stub
   fetch), error-map auth arm (`tests/unit/app/cli-error-map.test.ts` extended),
@@ -232,6 +262,11 @@ union arm.
 
 ### Out of Scope
 
+- **v1 `user/current` validation fallback** — explicitly OUT, not deferred-to-
+  this-story. PM decision: **v2-only** for GH-17 (drop v1 entirely). v2
+  `user/by-me` is the SOLE validation endpoint; no v1 fallback is built,
+  tested, or stubbed (DoR iter-1 Finding 2; the spec's F-2/DEC-5/RSK-6 v1 rows
+  are deferred to future work).
 - `keytar` OS keyring (OPEN-Q8; deferred — env-token is the guaranteed MS-0002
   path).
 - OAuth 2.0 / 3LO and scoped tokens (post-MS-0002).
@@ -250,21 +285,32 @@ union arm.
 
 ### Constraints
 
-- **Tier rules** (`.ai/rules/typescript.md`, `architecture-overview.md` L197–202,
-  enforced by `.dependency-cruiser.cjs`, severity `error`):
-  - `src/domain/` imports **nothing** tiered. `errors.ts` and the new
-    `credentials.ts` add no import (pure types).
-  - `src/app/` may import `domain` (+ infra via ports); **not** `cli`.
-    `src/app/credentials.ts` imports `#domain/*` only — DEC-1 keeps it free of
-    `#infra/*` (no HTTP client, no `#infra/confluence/*`).
-  - `src/cli/` may import `app` only — **not** `domain`, **not** `infra`.
+- **Tier rules** (`.ai/rules/typescript.md`, `architecture-overview.md`
+  L197–202). Dep-cruiser enforcement is **partial**: the live
+  `.dependency-cruiser.cjs` ships only **4** `forbidden` rules (severity
+  `error`) — `domain→infra`, `domain→app`, `cli→domain`, `cli→infra`. The
+  `app→infra` and `app→cli` directions are **NOT** dep-cruiser rules (the
+  9-rule snippet in `typescript.md` is aspirational), so the app-tier purity
+  invariant for `src/app/credentials.ts` is guarded by the explicit `rg` check
+  (tasks 2.2/6.1), not by `check:boundaries`:
+  - `src/domain/` imports **nothing** tiered — **dep-cruiser-enforced**
+    (`domain→infra`, `domain→app`). `errors.ts` and the new `credentials.ts`
+    add no import (pure types).
+  - `src/app/` may import `domain` (+ infra via ports); **not** `cli`,
+    **not** `infra`. `src/app/credentials.ts` imports `#domain/*` only — DEC-1
+    keeps it free of `#infra/*` (no HTTP client, no `#infra/confluence/*`).
+    This direction is **NOT** dep-cruiser-enforced; the load-bearing guard is
+    `rg '#infra' src/app/credentials.ts` → empty and
+    `rg '#cli' src/app/credentials.ts` → empty (tasks 2.2/6.1).
+  - `src/cli/` may import `app` only — **not** `domain`, **not** `infra` —
+    **dep-cruiser-enforced** (`cli→domain`, `cli→infra`).
     `exit-codes.ts` remains pure data (no domain import — GH-16 DEC-1).
   - `src/shared/` stays pure utilities.
 - **Strict TS** (`verbatimModuleSyntax`, `isolatedModules`,
   `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitAny`):
-  type-only imports use `import type`; `array[i]` is `T | undefined`; the nested
-  `AuthErrorDetail` discriminated union narrows cleanly under `exactOptionalPropertyTypes`
-  (each sub-kind carries only its own fields).
+  type-only imports use `import type`; `array[i]` is `T | undefined`; the flat
+  `Auth` arm's `authKind` discriminated union narrows cleanly under
+  `exactOptionalPropertyTypes` (each sub-kind carries only its own fields).
 - **ESM-only**; path aliases via `package.json` `"imports"` (`#domain/*`,
   `#app/*`, …). No new alias required (`#domain/credentials` resolves via
   `#domain/*`).
@@ -294,19 +340,29 @@ union arm.
   construction: the token is a local variable inside `resolveCredentials`,
   consumed by `base64` and never assigned to any field of the returned
   `ConfluenceCredentials` or any `AuthError`; the credentials object carries only
-  the masked email + opaque `authHeader`; `AuthErrorDetail` carries **no** token
-  or raw-email field (only env-var names, the malformed `baseUrl`, the HTTP
-  `status`, or a redacted/omitted network `cause`). Phase 5 is a dedicated,
+  the masked email + opaque `authHeader`; the `Auth` arm's `authKind` variants
+  carry **no** token or raw-email field (only the `missing[]` env-var names, the
+  malformed `baseUrl`, the HTTP `status`, or a network `cause`). `AuthUnreachable.cause`
+  is a `string` stored on the typed error for internal/logging context (consistent
+  with the existing `RenderUnavailable.cause: string`), but it is **never**
+  interpolated into the surfaced `error.message` (DEC-5 — messages are built only
+  from safe identifiers; the output-time Redactor is defense-in-depth on top).
+  Phase 5 is a dedicated,
   release-blocking integration test that greps every captured output path for the
   token substring.
 - **RSK-2 — Exhaustiveness drift** (a new union arm without a handler). Mitigated
   by DEC-2's atomic Phase 1 (union + `assertNeverMarkSyncError` + mapper
   `case "Auth"` + nested `authKind` `never`-subswitch updated together) so omission
   is a compile error (NFR-3 / `typescript.md` "Adding a kind" rule).
-- **RSK-3 — dep-cruiser violation** from the provider importing infra (e.g. a
-  shared HTTP client). Mitigated by DEC-1 (injected `fetch`); `check:boundaries`
-  runs every phase and the load-bearing assertion is
-  `rg '#infra' src/app/credentials.ts` → empty.
+- **RSK-3 — App-tier purity violation** from the provider importing infra (e.g.
+  a shared HTTP client) or cli. Note: `check:boundaries` would **not** catch
+  this — the live `.dependency-cruiser.cjs` has **no** `app→infra` / `app→cli`
+  rule (only the 4 domain/cli rules). Mitigated by DEC-1 (injected `fetch`) and
+  by the explicit `rg` gate: the load-bearing assertion is
+  `rg '#infra' src/app/credentials.ts` → empty (plus
+  `rg '#cli' src/app/credentials.ts` → empty), run in tasks 2.2/6.1.
+  `check:boundaries` runs every phase as a complementary check but is **not**
+  the guard for this direction.
 - **RSK-4 — 429 / rate-limit handling loops or hangs.** Mitigated by a bounded
   backoff budget (read `Retry-After`; cap retries + total wait); exhaustion →
   `AuthUnreachable` (retryable), never an infinite loop. Integration-tested
@@ -325,9 +381,10 @@ union arm.
 - All three env vars present + valid → `resolveCredentials` returns a
   `ConfluenceCredentials` whose `authHeader` starts with `"Basic "` and decodes to
   `email:token` (AC-1).
-- Any required var missing/empty → `AuthError{ auth: { authKind:
-  "MissingCredentials", missing:[…] } }` naming the missing var(s) with a fix
-  suggestion linking `.env.example` (AC-2).
+- Any required var missing/empty → `AuthError{ kind:"Auth", authKind:
+  "MissingCredentials", missing:[…] }` (flat — `authKind` is a direct property of
+  the arm) naming the missing var(s) with a fix suggestion linking `.env.example`
+  (AC-2).
 - `validateCredentials` against a mock 200 → `ConfluenceIdentity`; 401/403 →
   `InvalidCredentials`; network error → `AuthUnreachable`; 429 honored with
   backoff (AC-3).
@@ -345,14 +402,18 @@ union arm.
 > by the listed command(s). Files are listed as `path (new | updated)`. Tier
 > placements respect the dependency-direction matrix (see Constraints) and DEC-1
 > (no `#infra/*` in `src/app/credentials.ts`). `bun run check:boundaries` is run
-> in **every** phase so the dep-cruiser invariant holds at every commit.
+> in **every** phase to hold the 4 live dep-cruiser rules (`domain→infra`,
+> `domain→app`, `cli→domain`, `cli→infra`); the **app→infra** DEC-1 invariant is
+> NOT a dep-cruiser rule and is held instead by the explicit
+> `rg '#infra' src/app/credentials.ts` → empty check (tasks 2.2/6.1) at every
+> relevant commit.
 
 ---
 
 ### Phase 1: Extend MarkSyncError with the Auth arm + update all exhaustiveness sites
 
 **Goal**: Add the `AuthError` failure kind to the exhaustive `MarkSyncError`
-union (DEC-2 — one `Auth` arm with a nested `authKind` discriminator) **and**
+union (DEC-2 — one flat `Auth` arm discriminated on `authKind`) **and**
 update every exhaustive consumer in the same atomic, typecheck-green commit: the
 domain `assertNeverMarkSyncError`, the application-tier mapper
 (`mapMarkSyncErrorToCommandError`), and the presentation-tier exit-code map. This
@@ -362,38 +423,51 @@ provider (Phase 2).
 
 **Tasks**:
 
-- [ ] **1.1** In `src/domain/errors.ts` (updated), add the `Auth` arm to the
-      `MarkSyncError` union: `| { kind: "Auth"; auth: AuthErrorDetail }`. Export
-      the nested discriminated `AuthErrorDetail` (four sub-kinds per DEC-2) and
+- [ ] **1.1** In `src/domain/errors.ts` (updated), add the **flat** `Auth` arm
+      to the `MarkSyncError` union — `authKind` and its per-kind payload are
+      siblings of `kind` (mirroring the live `InvalidConfig` arm exactly in
+      structure, not an `auth:` wrapper):
+      `| { kind: "Auth"; authKind: "MissingCredentials"; missing: readonly string[] }`,
+      `| { kind: "Auth"; authKind: "InvalidBaseUrl"; baseUrl: string }`,
+      `| { kind: "Auth"; authKind: "InvalidCredentials"; status: number }`,
+      `| { kind: "Auth"; authKind: "AuthUnreachable"; cause: string }`. Export
       the narrowed `AuthError = Extract<MarkSyncError, { kind: "Auth" }>` alias
-      (mirrors the `ConfigError` precedent). Document the four sub-kinds and the
-      INV-SEC-1 invariant (no token / raw-email field on any sub-kind) in a
-      leading comment citing DEC-2 + INV-SEC-1.
+      (mirrors the `ConfigError` precedent; there is **no** separate
+      `AuthErrorDetail` wrapper type — the sub-variants are inlined flat into the
+      union, matching spec F-3 / DM-2 and the test-plan's `error.authKind` assertions).
+      Document the four sub-kinds and the INV-SEC-1 invariant (no token / raw-email
+      field on any sub-kind) in a leading comment citing DEC-2 + INV-SEC-1.
 - [ ] **1.2** Extend `assertNeverMarkSyncError` in `src/domain/errors.ts` with
       `case "Auth":` so the `default` arm's `error` stays `never` (NFR-3). Refresh
       the file's kind-count comment references (13 → 14 kinds).
 - [ ] **1.3** In `src/app/cli-error-map.ts` (updated), add `case "Auth":` to
       `mapMarkSyncErrorToCommandError`. Inside it, an exhaustive sub-switch over
-      `err.auth.authKind` produces the four stable codes + redacted messages +
-      retryable per the DEC-2 table:
-      - `MissingCredentials` → `MISSING_CREDENTIALS`, retryable false, message
+      `err.authKind` — a **direct** property of the flat `Auth` arm (access it as
+      `err.authKind`; there is no nested `auth` object to dereference) — produces
+      the four stable codes + redacted messages + retryable per the DEC-2 table
+      (`case "MissingCredentials" → { code: "AUTH_MISSING_CREDENTIALS", … }`;
+      `case "InvalidBaseUrl" → { code: "AUTH_INVALID_BASE_URL", … }`;
+      `case "InvalidCredentials" → { code: "AUTH_INVALID_CREDENTIALS", … }`;
+      `case "AuthUnreachable" → { code: "AUTH_UNREACHABLE", … }`;
+      `default: const _exhaustive: never = err.authKind; throw …` — the nested
+      never-check narrows on `err.authKind`, so a new sub-kind is a compile error):
+      - `MissingCredentials` → `AUTH_MISSING_CREDENTIALS`, retryable false, message
         names the `missing[]` env var(s) + links `.env.example` (the var names are
         structural identifiers, safe to surface);
-      - `InvalidBaseUrl` → `INVALID_BASE_URL`, retryable false, generic message
+      - `InvalidBaseUrl` → `AUTH_INVALID_BASE_URL`, retryable false, generic message
         ("the configured Confluence base URL is invalid; see .env.example") —
         **never** interpolates the raw `baseUrl` value (it could carry a host;
         DEC-5 redaction-at-source);
-      - `InvalidCredentials` → `INVALID_CREDENTIALS`, retryable false, message
+      - `InvalidCredentials` → `AUTH_INVALID_CREDENTIALS`, retryable false, message
         references the HTTP `status` (401/403) only;
       - `AuthUnreachable` → `AUTH_UNREACHABLE`, retryable **true**, generic
         message ("could not reach Confluence to validate credentials") — **never**
-        interpolates `cause` (raw network/exception text — DEC-5);
-      - `default:` → `const _exhaustive: never = err.auth;` (compile error on a
-        new sub-kind). Update the module's DEC-2 comment table with the four auth
-        rows.
+        interpolates `cause` (raw network/exception text — DEC-5; `cause` is stored
+        for internal/logging only, consistent with `RenderUnavailable.cause`).
+      Update the module's DEC-2 comment table with the four auth rows.
 - [ ] **1.4** In `src/cli/output/exit-codes.ts` (updated), add four entries to
-      `CODE_TO_EXIT`: `MISSING_CREDENTIALS`, `INVALID_BASE_URL`,
-      `INVALID_CREDENTIALS`, `AUTH_UNREACHABLE` → all `EXIT_AUTH` (20). No domain
+      `CODE_TO_EXIT`: `AUTH_MISSING_CREDENTIALS`, `AUTH_INVALID_BASE_URL`,
+      `AUTH_INVALID_CREDENTIALS`, `AUTH_UNREACHABLE` → all `EXIT_AUTH` (20). No domain
       import (pure data — GH-16 DEC-1). Refresh the leading DEC-2 table comment
       with the four auth rows.
 - [ ] **1.5** Extend `tests/unit/domain/errors.test.ts` — assert the union stays
@@ -419,9 +493,15 @@ provider (Phase 2).
       `AUTH_UNREACHABLE` is the only retryable auth code).
 - Must: `codeToExitCode` resolves each of the four auth codes to `EXIT_AUTH`
       (20); the `EXPECTED` table matches `CODE_TO_EXIT` exactly.
-- Must: `check:boundaries` clean — `errors.ts` imports nothing tiered;
-      `cli-error-map.ts` imports `#domain/*` only; `exit-codes.ts` imports
-      nothing (DEC-1 / GH-16 DEC-1).
+- Must: `check:boundaries` clean for the 4 live dep-cruiser rules.
+      `errors.ts` (domain) imports nothing tiered — **dep-cruiser-enforced**
+      (`domain→infra`, `domain→app`); `exit-codes.ts` (cli) imports nothing —
+      **dep-cruiser-enforced** (`cli→domain`, `cli→infra`); `cli-error-map.ts`
+      (app) imports `#domain/*` only by construction (the app→infra/app→cli
+      directions are NOT dep-cruiser rules, but this file adds no such import).
+      Note: DEC-1's app→infra `rg` guard applies to `src/app/credentials.ts` in
+      Phase 2/6, not to these Phase-1 files (GH-16 DEC-1 governs `exit-codes.ts`
+      purity).
 - Should: no auth `message` interpolates `baseUrl`/`cause`/token/email values
       (DEC-5 redaction-at-source; proven by the Phase-1.6 leak suite).
 
@@ -465,33 +545,40 @@ cases).
       - `ConfluenceIdentity = { accountId: string; displayName: string }` — the
         success payload of `validateCredentials`.
       - `AuthProviderOptions = { fetch?: typeof fetch }` — the injected-fetch DI
-        shape (DEC-1). Defined in domain so both the provider signature and
-        callers share one type without the app tier re-declaring it.
+        shape (DEC-1), consumed by `validateCredentials` only (`resolveCredentials`
+        is pure env logic, no network). Defined in domain so the
+        `validateCredentials` signature and callers share one type without the app
+        tier re-declaring it.
 - [ ] **2.2** Create `src/app/credentials.ts` (new) — the `CredentialProvider`:
-      - `resolveCredentials({ fetch }?: AuthProviderOptions): Result<
-        ConfluenceCredentials, AuthError>`. Reads `MARKSYNC_CONFLUENCE_BASE_URL`,
-        `MARKSYNC_USER_EMAIL`, `MARKSYNC_API_TOKEN` (exact names from
-        `.env.example`). Missing/empty var(s) → `Result.err({ kind:"Auth", auth:
-        { authKind:"MissingCredentials", missing:[…] } })` listing the missing var
-        names. Malformed `baseUrl` (not `https:`, empty host) → `Result.err({
-        kind:"Auth", auth:{ authKind:"InvalidBaseUrl", baseUrl } })`. On success:
-        build `authHeader = "Basic " + Buffer.from(\`${email}:${token}\`).toString
-        ("base64")`, return `Result.ok({ baseUrl, authHeader, email:
-        maskEmail(email), mode:"api-token" })`. The raw `token` is a local
-        variable — never stored on the result, never on an error.
+      - `resolveCredentials(): Result<ConfluenceCredentials, AuthError>` — pure
+        env logic; takes **no** `fetch` param (no network I/O). Reads
+        `MARKSYNC_CONFLUENCE_BASE_URL`, `MARKSYNC_USER_EMAIL`, `MARKSYNC_API_TOKEN`
+        (exact names from `.env.example`). Missing/empty var(s) → `Result.err({
+        kind:"Auth", authKind:"MissingCredentials", missing:[…] })` (flat —
+        `authKind` is a direct property of the arm) listing the missing var names.
+        Malformed `baseUrl` (not `https:`, empty host) → `Result.err({ kind:"Auth",
+        authKind:"InvalidBaseUrl", baseUrl })`. On success: build `authHeader =
+        "Basic " + Buffer.from(\`${email}:${token}\`).toString("base64")`, return
+        `Result.ok({ baseUrl, authHeader, email: maskEmail(email), mode:"api-token" })`.
+        The raw `token` is a local variable — never stored on the result, never on
+        an error.
       - `validateCredentials(creds, { fetch }?: AuthProviderOptions): Promise<
         Result<ConfluenceIdentity, AuthError>>`. Issues
-        `GET ${creds.baseUrl}/wiki/api/v2/user/by-me` with header
+        `GET ${creds.baseUrl}/wiki/api/v2/user/by-me` (the **sole** validation
+        endpoint — no v1 `user/current` fallback, per the PM v2-only decision /
+        Out of Scope) with header
         `Authorization: ${creds.authHeader}` via the injected `fetch` (DEC-1).
         Map outcomes: 200 + parseable `{accountId, displayName}` →
-        `Result.ok(identity)`; 401/403 → `Result.err({ authKind:
+        `Result.ok(identity)`; 401/403 → `Result.err({ kind:"Auth", authKind:
         "InvalidCredentials", status })` (no retry — spike rule); 429 → bounded
         backoff (read `Retry-After`; capped retries/wait — RSK-4) then retry;
-        exhaustion or non-429 network/`fetch` throw → `Result.err({ authKind:
-        "AuthUnreachable", cause: <redacted/omitted> })`; unexpected 200 shape →
-        `AuthUnreachable` (RSK-6). The `cause` is captured for logging context
-        but **must** be redacted/omitted at the output boundary (DEC-5 / Phase 1
-        mapper never interpolates it).
+        exhaustion or non-429 network/`fetch` throw → `Result.err({ kind:"Auth",
+        authKind:"AuthUnreachable", cause })`; unexpected 200 shape →
+        `AuthUnreachable` (RSK-6). The `cause` is a `string` stored on the typed
+        error for internal/logging context (consistent with `RenderUnavailable.cause`),
+        but it **must never** be interpolated into the surfaced `error.message`
+        (DEC-5 — messages are built only from safe identifiers; the Phase 1 mapper
+        omits `cause` entirely; the output-time Redactor is defense-in-depth on top).
       - `maskEmail(email: string): string` — `email[0] + "***" + email.slice(
         email.indexOf("@"))` (e.g. `juliusz@cwiakalski.com` → `j***@cwiakalski.com`);
         tolerant of malformed input (no `@` → mask the whole local part).
@@ -514,14 +601,14 @@ cases).
       `missing[]` naming the var(s) (AC-2); malformed base URL →
       `authKind:"InvalidBaseUrl"` (AC-2 boundary).
 - Must: the raw token is a local variable in `resolveCredentials` — it is not a
-      field of `ConfluenceCredentials` nor of any `AuthErrorDetail` sub-kind
+      field of `ConfluenceCredentials` nor of any `Auth` arm `authKind` variant
       (INV-SEC-1 / RSK-1).
 - Must: `bun run typecheck` exits 0 under strict + `exactOptionalPropertyTypes`.
 
 **Files and modules**:
 
 - Code areas: `src/domain/credentials.ts` (new), `src/app/credentials.ts` (new).
-  Consumes Phase 1 (`errors` — `AuthError`/`AuthErrorDetail`; `result`).
+  Consumes Phase 1 (`errors` — `AuthError`; `result`).
 - System docs: none.
 
 **Tests**:
@@ -696,7 +783,7 @@ single most important test of the story; if it fails, the change does not ship.
         - every surfaced email is the masked form (`j***@…`); the raw email
           appears in **no** captured string except where explicitly required
           (nowhere, by construction);
-        - the `AuthErrorDetail.cause` (AuthUnreachable) — if it captured any
+        - the `AuthError.cause` (the `AuthUnreachable` field) — if it captured any
           network text — does not contain the token (and the Phase-1 mapper
           message omits `cause` entirely).
 - [ ] **5.2** Cross-check against the GH-16 output-time `Redactor`: route a
@@ -734,11 +821,13 @@ single most important test of the story; if it fails, the change does not ship.
 
 ### Phase 6: Boundaries verification, version bump, and finalize
 
-**Goal**: Verify the load-bearing dep-cruiser invariant (the application tier
-imports no `#infra/*`; DEC-1), apply the `version_impact: minor` bump per repo
-conventions, run the final full quality gate, and confirm every AC has a passing
-test with no stray placeholders. Full system-spec reconciliation is lifecycle
-phase 7 (`@doc-syncer`); this phase does only trivial inline touch-ups.
+**Goal**: Verify the load-bearing DEC-1 invariant — the application tier
+imports no `#infra/*` — which is **not** a dep-cruiser rule, so the guard is the
+explicit `rg '#infra' src/app/credentials.ts` → empty check (complemented by
+`check:boundaries` for the 4 live rules). Then apply the `version_impact: minor`
+bump per repo conventions, run the final full quality gate, and confirm every AC
+has a passing test with no stray placeholders. Full system-spec reconciliation is
+lifecycle phase 7 (`@doc-syncer`); this phase does only trivial inline touch-ups.
 
 **Tasks**:
 
@@ -806,7 +895,7 @@ phase 7 (`@doc-syncer`); this phase does only trivial inline touch-ups.
 | ID | Scenario | Phases | AC |
 |----|----------|--------|----|
 | TS-1 | All three env vars present + valid `https` base URL → `resolveCredentials` returns `ConfluenceCredentials` with a `Basic …` header that decodes to `email:token`; `email` masked; `mode:"api-token"` | 2, 3 | AC-1 |
-| TS-2 | Any required env var missing/empty → `AuthError{ auth:{ authKind:"MissingCredentials", missing:[…] } }` naming the var(s) + `.env.example` fix | 2, 3 | AC-2 |
+| TS-2 | Any required env var missing/empty → `AuthError{ kind:"Auth", authKind:"MissingCredentials", missing:[…] }` (flat — `authKind` direct property) naming the var(s) + `.env.example` fix | 2, 3 | AC-2 |
 | TS-3 | Malformed base URL (`http:`, bare host, empty) → `authKind:"InvalidBaseUrl"`; valid `https://…atlassian.net` accepted | 2, 3 | AC-2 / RSK-5 |
 | TS-4 | `validateCredentials` against `Bun.serve` 200 → `ConfluenceIdentity`; 401/403 → `InvalidCredentials`; network error (closed port) → `AuthUnreachable` | 2, 4 | AC-3 |
 | TS-5 | `validateCredentials` against 429 (with `Retry-After`) then 200 → `Result.ok` after bounded backoff; 429-forever → `AuthUnreachable` within budget (no hang) | 2, 4 | AC-3 / RSK-4 |
@@ -818,7 +907,7 @@ phase 7 (`@doc-syncer`); this phase does only trivial inline touch-ups.
 | TS-11 | The `Auth` arm + nested `authKind` sub-switch are exhaustive — adding a sub-kind without a case is a compile error (`bun run typecheck` load-bearing) | 1 | NFR-3 / RSK-2 |
 | TS-12 | `rg '#infra' src/app/credentials.ts` → empty; `check:boundaries` clean (DEC-1 app-tier purity) | 2, 6 | DEC-1 / RSK-3 |
 | TS-13 | `resolveCredentials` injects/uses no global `fetch` (pure env logic); `validateCredentials` uses the injected `fetch` (stub in unit, global in integration) | 2, 3, 4 | DEC-1 |
-| TS-14 | No `AuthErrorDetail` sub-kind carries a token or raw-email field (source-level INV-SEC-1 guard; Phase 5 strengthens to captured-output grep) | 1, 2 | AC-4 / RSK-1 |
+| TS-14 | No `Auth` arm `authKind` variant carries a token or raw-email field (source-level INV-SEC-1 guard; Phase 5 strengthens to captured-output grep) | 1, 2 | AC-4 / RSK-1 |
 
 ## Artifacts and Links
 
@@ -850,7 +939,10 @@ phase 7 (`@doc-syncer`); this phase does only trivial inline touch-ups.
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
-| 1.0 | 2026-07-08 | plan-writer (GH-17) | Initial plan — 6 phases derived from story `MS2-E2-S4` (6 deliverables, 6 ACs) and the two intake-resolved decisions. **DEC-1 (injected fetch):** `resolveCredentials`/`validateCredentials` accept a `fetch`-like param (`typeof fetch`) defaulting to global `fetch`, so `src/app/credentials.ts` imports `#domain/*` only (never `#infra/*`) — keeping the application tier pure, unit-testable, and `check:boundaries`-clean; the architecture matrix classifies the Credential Provider as application tier (L90). **DEC-2 (`AuthError` shape):** chosen as ONE `Auth` arm with a nested `authKind` discriminator (four sub-kinds: `MissingCredentials`/`InvalidBaseUrl`/`InvalidCredentials`/`AuthUnreachable`) — the option that grows the top-level union by +1 (13→14, mirroring the GH-15 `ConfigError` precedent), keeps `mapMarkSyncErrorToCommandError` at +1 `case "Auth"` with an exhaustive nested sub-switch, and threads the stable codes (`MISSING_CREDENTIALS`/`INVALID_BASE_URL`/`INVALID_CREDENTIALS`/`AUTH_UNREACHABLE`, all → `EXIT_AUTH`=20; `AUTH_UNREACHABLE` retryable) through `CODE_TO_EXIT`. **Critical ordering:** Phase 1 is the atomic exhaustiveness update (errors.ts + cli-error-map.ts + exit-codes.ts in one typecheck-green commit — extending the union alone breaks the existing mapper's `never`-check); Phase 2 builds the provider on the stable `AuthError`. Phase 5 is a dedicated, release-blocking INV-SEC-1 integration test (no captured output path emits the raw token). The `ConfluenceCredentials` value type is placed in `src/domain/credentials.ts` (not `src/app/`) so the future infra adapter (E3-S4) can import it (`infra → app` is forbidden). `version_impact: minor` (`0.2.0 → 0.3.0`) defaulted from the GH-15/GH-16 precedent (open question). Note: the change spec `chg-GH-17-spec.md` is not yet authored at plan time; this plan operationalizes the authoritative story + intake summary and will be reconciled if the spec diverges. |
+| 1.0 | 2026-07-08 | plan-writer (GH-17) | Initial plan — 6 phases derived from story `MS2-E2-S4` (6 deliverables, 6 ACs) and the two intake-resolved decisions. **DEC-1 (injected fetch):** `resolveCredentials`/`validateCredentials` accept a `fetch`-like param (`typeof fetch`) defaulting to global `fetch`, so `src/app/credentials.ts` imports `#domain/*` only (never `#infra/*`) — keeping the application tier pure, unit-testable, and `check:boundaries`-clean; the architecture matrix classifies the Credential Provider as application tier (L90). **DEC-2 (`AuthError` shape):** chosen as ONE `Auth` arm with a nested `authKind` discriminator (four sub-kinds: `MissingCredentials`/`InvalidBaseUrl`/`InvalidCredentials`/`AuthUnreachable`) — the option that grows the top-level union by +1 (13→14, mirroring the GH-15 `ConfigError` precedent), keeps `mapMarkSyncErrorToCommandError` at +1 `case "Auth"` with an exhaustive nested sub-switch, and threads the stable codes (`AUTH_MISSING_CREDENTIALS`/`AUTH_INVALID_BASE_URL`/`AUTH_INVALID_CREDENTIALS`/`AUTH_UNREACHABLE`, all → `EXIT_AUTH`=20; `AUTH_UNREACHABLE` retryable) through `CODE_TO_EXIT`. **Critical ordering:** Phase 1 is the atomic exhaustiveness update (errors.ts + cli-error-map.ts + exit-codes.ts in one typecheck-green commit — extending the union alone breaks the existing mapper's `never`-check); Phase 2 builds the provider on the stable `AuthError`. Phase 5 is a dedicated, release-blocking INV-SEC-1 integration test (no captured output path emits the raw token). The `ConfluenceCredentials` value type is placed in `src/domain/credentials.ts` (not `src/app/`) so the future infra adapter (E3-S4) can import it (`infra → app` is forbidden). `version_impact: minor` (`0.2.0 → 0.3.0`) defaulted from the GH-15/GH-16 precedent (open question). Note: the change spec `chg-GH-17-spec.md` is not yet authored at plan time; this plan operationalizes the authoritative story + intake summary and will be reconciled if the spec diverges. |
+| 1.1 | 2026-07-08 | plan-writer (GH-17) | **DoR iter-1 remediation** (`readiness-iter-1.md` verdict NOT_READY → re-run gate). In-place corrections, no structural/phase changes, DEC-1 (injected fetch) and the atomic Phase-1 ordering preserved: **(Finding 4 — error.code prefix, resolved-by-PM):** synced all four stable codes to the spec/PM-endorsed `AUTH_`-prefixed form — `AUTH_MISSING_CREDENTIALS`, `AUTH_INVALID_BASE_URL`, `AUTH_INVALID_CREDENTIALS`, `AUTH_UNREACHABLE` (all → `EXIT_AUTH`=20; only `AUTH_UNREACHABLE` `retryable:true`) across the DEC-2 table, D-4, tasks 1.3/1.4, TS-9, and this log; no unprefixed code remains. **(Finding 3 — dep-cruiser enforcement overstatement, mitigated):** corrected every claim that `check:boundaries` enforces DEC-1 / the app→infra ban. The live `.dependency-cruiser.cjs` ships only 4 rules (`domain→infra`, `domain→app`, `cli→domain`, `cli→infra`); there is NO `app-may-not-import-infra` / `app-may-not-import-cli` rule (the 9-rule snippet in `typescript.md` is aspirational). Reworded the front-matter summary, DEC-1 consequences, Constraints "Tier rules", RSK-3 (retitled "App-tier purity violation"), the Phases intro, the Phase-1 AC tag, and the Phase-6 Goal to state plainly that the load-bearing DEC-1 guard for this story is the explicit `rg '#infra' src/app/credentials.ts` → empty (and `rg '#cli' src/app/credentials.ts` → empty) check, kept as a first-class gate step in tasks 2.2/6.1 and TS-12; `check:boundaries` is a complementary check for the 4 live rules only. **(Finding 2 — v1 fallback, major):** PM decided **v2-only** — tightened the open question and Phase-2 `validateCredentials` task to state v2 `user/by-me` is the SOLE validation endpoint and v1 `user/current` is explicitly OUT (dropped, not deferred-to-this-story); added an Out-of-Scope bullet. **Verified unchanged:** DEC-2 stays a single `Auth` arm with nested `authKind` (union 13→14, not 17 — no 4-arms slip); the atomic Phase-1 exhaustiveness ordering; the release-blocking INV-SEC-1 Phase-5 integration test (capture every output path, grep for raw token, assert email masked). |
+
+| 1.2 | 2026-07-09 | plan-writer (GH-17) | **DoR iter-2 remediation** (`readiness-iter-2.md` verdict NOT_READY → re-run gate). Localized in-place fix; no phase/structural changes. DEC-1 (injected `fetch`), DEC-2 (single `Auth` arm), the v2-only decision, the `AUTH_`-prefixed codes, and the INV-SEC-1 Phase-5 test are all **preserved**. **(MAJOR — flat-vs-nested `AuthError` shape, fixed):** the spec + test-plan use the FLAT shape (`authKind` + per-kind payload as direct siblings of `kind`; the 9 executable assertions check `error.authKind`); this plan was the lone outlier using a NESTED shape — an `auth` wrapper object holding the `authKind` discriminator — which task 1.3 dereferenced via a nested property path, which would have made every test-plan `error.authKind` assertion read `undefined`. Flattened to match: removed the separate wrapper detail type and inlined the four sub-variants as flat siblings of `kind` on `MarkSyncError` — exactly mirroring the live `InvalidConfig` arm `{ kind: "InvalidConfig"; path; ajvErrors; humanMessage }` (the prior 'mirrors the GH-15 ConfigError precedent' rationale was correct in spirit, but the plan's nested shape did NOT mirror the live flat code it cited; corrected). The mapper's `case "Auth":` now narrows directly on `err.authKind` with `default: const _exhaustive: never = err.authKind` (the nested never-check narrows on `authKind` itself, not on a wrapper). Updated: front-matter summary, Context, DEC-2 heading + code listing, D-1/D-3/D-5, Constraints strict-TS, RSK-1, Success Metrics, task 1.1/1.3, task 2.2 signatures + error literals, Phase-2 AC, Phase-5 task, TS-2/TS-14. **(Finding 2 — `cause` field ambiguity, resolved):** stated explicitly that `AuthUnreachable.cause: string` is stored on the typed error for internal/logging context (consistent with `RenderUnavailable.cause`) but is NEVER interpolated into the surfaced `error.message` (DEC-5 — messages built only from safe identifiers; the redactor is defense-in-depth on top). **(Finding 3 — `resolveCredentials` fetch param, fixed):** `resolveCredentials()` is pure env logic and now takes NO `fetch` param; only `validateCredentials(creds, { fetch? })` takes the injectable `fetch`. Cleaned up Context/DEC-1/D-5/tasks 2.1–2.2 (TS-13 already stated this — the prior signature was the inconsistency). Historical 1.0/1.1 rows left intact as append-only record. |
 
 ## Execution Log
 

@@ -6,10 +6,10 @@ change_folder: doc/changes/2026-07/2026-07-08--GH-17--auth-provider
 
 phases:
   clarify_scope: { started: "2026-07-08T23:24:00Z", completed: "2026-07-08T23:25:00Z" }
-  specification: { started: "2026-07-08T23:32:00Z", completed: "2026-07-08T23:33:00Z" }
-  test_planning: { started: "2026-07-08T23:32:00Z", completed: "2026-07-08T23:33:00Z" }
-  delivery_planning: { started: "2026-07-08T23:32:00Z", completed: "2026-07-08T23:34:00Z" }
-  dor_check: { started: null, completed: null }
+  specification: { started: "2026-07-08T23:32:00Z", completed: "2026-07-08T23:33:00Z", reopened: "2026-07-08T23:40:00Z" }
+  test_planning: { started: "2026-07-08T23:32:00Z", completed: "2026-07-08T23:33:00Z", reopened: "2026-07-08T23:40:00Z" }
+  delivery_planning: { started: "2026-07-08T23:32:00Z", completed: "2026-07-08T23:34:00Z", reopened: "2026-07-08T23:40:00Z", reopened_again: "2026-07-08T23:52:00Z" }
+  dor_check: { started: "2026-07-08T23:37:00Z", completed: "2026-07-09T00:05:00Z", iterations: 3, verdict: "READY" }
   delivery: { started: null, completed: null }
   system_spec_update: { started: null, completed: null }
   review_fix: { started: null, completed: null }
@@ -18,16 +18,27 @@ phases:
   pr_creation: { started: null, completed: null, url: null }
 
 decisions:
-  - text: "DEC-1 (injected fetch): resolveCredentials/validateCredentials accept an injectable fetch-shaped fn defaulting to global fetch. Keeps src/app/credentials.ts importing #domain/* only (app-tier pure, unit-testable without Bun.serve). Resolved independently + identically by spec-writer AND plan-writer — strong coherence."
+  - text: "DEC-1 (injected fetch): validateCredentials accepts an injectable fetch-shaped fn defaulting to global fetch (resolveCredentials is pure env logic, no fetch param). Keeps src/app/credentials.ts importing #domain/* only (app-tier pure, unit-testable without Bun.serve). Resolved independently + identically by spec-writer AND plan-writer — strong coherence."
     date: "2026-07-08"
   - text: "DEC-2 (AuthError union shape): single new arm {kind:'Auth'; authKind:'MissingCredentials'|'InvalidBaseUrl'|'InvalidCredentials'|'AuthUnreachable'} mirroring the GH-15 InvalidConfig precedent (union 13→14, not 17). Resolved independently + identically by spec-writer AND plan-writer."
     date: "2026-07-08"
   - text: "PM-decided (stable error.code strings): endorse the spec's AUTH_-prefixed codes — AUTH_MISSING_CREDENTIALS, AUTH_INVALID_BASE_URL, AUTH_INVALID_CREDENTIALS, AUTH_UNREACHABLE — all → EXIT_AUTH (20); only AUTH_UNREACHABLE retryable. Plan-writer used unprefixed codes; spec is authoritative and the AUTH_ prefix aids operational grouping (grep). Test-plan pinned 'whatever is chosen' so this is non-breaking."
     date: "2026-07-08"
+  - text: "PM-decided (v1 user/current fallback): DROP v1 fallback — v2 user/by-me is the sole validation endpoint for this story. Rationale: (1) MS-0002 MVP minimal surface; (2) v2 is the current documented endpoint; (3) story's '(or v1 user/current)' reads as an acceptable alternative, not a mandatory dual-path fallback; (4) one network call = fewer failure modes; (5) v1 fallback can be added later if a tenant lacks v2. Spec's RSK-6 'both paths tested' claim must be removed; plan's v1 deferral is correct."
+    date: "2026-07-08"
 open_questions: []
 blockers: []
 
 notes:
+  - text: "DoR iter-1 NOT_READY retro: 3 must-fix gaps found by @readiness-reviewer. CRITICAL: test-plan built on rejected 4-arms union shape (error.kind==='MissingCredentials' etc.) because I delegated spec+test-plan+plan in PARALLEL and the test-plan predates the spec — its promised OQ-TP-3 reconciliation never ran. Root cause: parallel delegation of interdependent artifacts without a convergence step. Process improvement: for changes with a load-bearing data-shape decision (DEC-2), either (a) delegate spec FIRST, then test-plan+plan after the spec lands, or (b) explicitly pass the resolved DEC to all three so they don't independently re-derive a divergent shape. Also: spec↔plan contradiction on v1 fallback (spec claimed in-scope+tested, plan deferred) — same parallel-delegation root cause. Mitigation: re-delegating all 3 with explicit reconciliation instructions (single Auth arm, v2-only, AUTH_ codes, rg-is-the-real-guard)."
+    type: "retro"
+    date: "2026-07-08"
+  - text: "DoR iter-2 NOT_READY retro: iter-1's 3 gaps all CLOSED, but reviewer caught a narrower shape divergence — plan used NESTED shape ({kind:'Auth'; auth:AuthErrorDetail} → err.auth.authKind) while spec+test-plan use FLAT ({kind:'Auth'; authKind:…} → error.authKind). Same failure CLASS as iter-1 critical (shape divergence → failing tests) but narrower. Root cause: the plan-writer's remediation pass fixed arm-count (1 vs 4) but invented a nested property-access path, and justified it by mis-citing the GH-15 ConfigError precedent as 'nested' when the live src/domain/errors.ts InvalidConfig arm is actually FLAT. Process improvement: when an author cites an existing-code precedent to justify a shape, the DoR reviewer (or PM) should spot-check the cited code; a mis-cited precedent is a strong divergence signal. Localized plan-only fix."
+    type: "retro"
+    date: "2026-07-08"
+  - text: "DoR iter-3 READY: all 10 facets pass, full convergence (flat Auth arm, AUTH_ codes, v2-only, injected-fetch-on-validate-only, rg-is-the-real-guard, INV-SEC-1 at integration). 3-iteration loop converged the artifacts. Non-blocking carry-forward: plan Phase-5 uses an 'e.g.' token SECRET_TOKEN_DO_NOT_LEAK_... while test-plan (authority) pins ATATT3xFfGF0SECRET_TOKEN_VALUE_x9 (matches atlassian-token redactor pattern for TC-SEC-003 defense-in-depth) — coder will follow the test-plan's authoritative string."
+    type: "info"
+    date: "2026-07-09"
   - text: "Housekeeping retro: pm-context.yaml listed GH-16 as active_change with 'PR open awaiting review' but PR #44 was already merged (8c1d560 on main). State was detected stale on session start. Root cause: a prior session ended after creating the PR but before the merge event updated pm-context. Improvement: on session start, always re-verify active_change.pr_url merge state via gh before trusting the recorded state."
     type: "retro"
     date: "2026-07-08"

@@ -16,7 +16,7 @@ change:
   risk_level: medium
   dependencies:
     internal: [MS2-E2-S1 (GH-14), MS2-E2-S3 (GH-16), MS2-E3-S4 (blocked), MS2-E5-S2 (blocked)]
-    external: [Atlassian Confluence Cloud REST API (v2 user/by-me, v1 user/current)]
+    external: [Atlassian Confluence Cloud REST API (v2 user/by-me)]
 ---
 
 # CHANGE SPECIFICATION
@@ -86,6 +86,7 @@ Because there is no isolated credential provider, no validation probe, and no ty
 - **NG-5**: A `--token-file` flag — CEO-resolved **No** for MS-0002 (Q1); env-only keeps the surface minimal.
 - **NG-6**: The `doctor` UI/wiring — this story exposes `validateCredentials` as a capability; MS2-E5-S2 builds the command, formatter, and user-facing diagnostics around it.
 - **NG-7**: The full Confluence REST adapter (CRUD, pages, attachments) — MS2-E3-S4. This story builds the credential the adapter *consumes*, plus a single minimal probe endpoint; it is not the adapter.
+- **NG-8**: The v1 `user/current` fallback — **deferred** (PM decision, DoR iter-1). v2 `user/by-me` is the sole MS-0002 validation endpoint; one network call = fewer failure modes and v2 is the current documented endpoint. The v1 fallback is added only if a tenant/credential lacks v2 access (DEC-5, RSK-6).
 
 ## 5. FUNCTIONAL CAPABILITIES
 
@@ -108,7 +109,7 @@ Because there is no isolated credential provider, no validation probe, and no ty
   - Missing/empty vars → `AuthError { authKind: "MissingCredentials", missing: [<var names>] }`; the surfaced message lists every missing var and links `.env.example`.
   - Malformed `baseUrl` (not `https://`, or not a Confluence host shape) → `AuthError { authKind: "InvalidBaseUrl" }`.
 
-- **F-2 (`validateCredentials`).** Issues `GET /wiki/api/v2/user/by-me` (primary), falling back to the v1 `user/current` endpoint if v2 is unavailable for the current credential, via the **injected `fetch`** (DEC-1). On HTTP 200 it returns `{ accountId, displayName }` parsed from the response. On 401/403 it returns `AuthError { authKind: "InvalidCredentials" }` and **does not retry** (spike rule — don't retry a bad token). On a network/transport error it returns `AuthError { authKind: "AuthUnreachable" }`. On 429 it honors the spike's backoff rule (bounded, single retry-with-backoff, not an open-ended loop). The probe is the **only** network call in this story; the response body beyond the identity fields is not retained.
+- **F-2 (`validateCredentials`).** Issues `GET /wiki/api/v2/user/by-me` — the **sole** MS-0002 validation endpoint (no v1 fallback) — via the **injected `fetch`** (DEC-1, DEC-5). On HTTP 200 it returns `{ accountId, displayName }` parsed from the response. On 401/403 it returns `AuthError { authKind: "InvalidCredentials" }` and **does not retry** (spike rule — don't retry a bad token). On a network/transport error it returns `AuthError { authKind: "AuthUnreachable" }`. On 429 it honors the spike's backoff rule (bounded, single retry-with-backoff, not an open-ended loop). The probe is the **only** network call in this story; the response body beyond the identity fields is not retained.
 
 - **F-3 (`AuthError` arm — DEC-2).** A single new top-level arm is added to `MarkSyncError`: `{ kind: "Auth"; authKind: "MissingCredentials" | "InvalidBaseUrl" | "InvalidCredentials" | "AuthUnreachable"; …payload }`. `AuthError` is exposed as a narrowed channel alias `Extract<MarkSyncError, { kind: "Auth" }>` (mirroring `ConfigError`), so the provider declares `Result<ConfluenceCredentials, AuthError>` / `Result<ConfluenceIdentity, AuthError>` with full precision. The three exhaustive sites — `assertNeverMarkSyncError`, `mapMarkSyncErrorToCommandError`, `CODE_TO_EXIT` — are extended consistently so the `never`-check stays intact.
 
@@ -177,12 +178,14 @@ Flow 5 — doctor (later, MS2-E5-S2) consumes the capability:
 - [OUT] A `--token-file` flag (CEO-resolved **No** for MS-0002, Q1) (NG-5).
 - [OUT] The `doctor` command, formatter, and user-facing diagnostics (MS2-E5-S2) (NG-6).
 - [OUT] The full Confluence REST adapter / CRUD surface (MS2-E3-S4) (NG-7).
+- [OUT] v1 `user/current` fallback (deferred — v2 `user/by-me` is the sole MS-0002 validation endpoint; add v1 only if a tenant/credential lacks v2) (NG-8).
 
 ### 7.3 Deferred / Maybe-Later
 
 - **Keyring source behind the same seam** — the injected-source shape (DEC-1 generalized) lets a future keyring provider slot in without changing consumers; revisit when OPEN-Q8 is addressed.
 - **Token refresh / expiry handling** — relevant once OAuth lands (post-MS-0002).
-- **Configurable probe endpoint / timeout** — the v2/v1 fallback is fixed for MS-0002; make it configurable only if a target variant needs it.
+- **Configurable probe endpoint / timeout** — v2 `user/by-me` is the sole fixed probe for MS-0002; make it configurable only if a target variant needs it.
+- **v1 `user/current` fallback** — deferred (NG-8); v2 `user/by-me` is the sole MS-0002 validation endpoint (PM decision, DoR iter-1). Add the v1 fallback only if a tenant/credential lacks v2 access (DEC-5, RSK-6).
 - **`--token-file`** — recorded for future (Q1); env-only for MS-0002.
 
 ## 8. INTERFACES & INTEGRATION CONTRACTS
@@ -193,8 +196,7 @@ Consumed (read-only probe) — no endpoints are *exposed* by this story:
 
 | Method | Path | Purpose | On success | On failure |
 |--------|------|---------|-----------|-----------|
-| `GET` | `/wiki/api/v2/user/by-me` (primary) | Validate the credential + return current-user identity | 200 → `{ accountId, displayName }` | 401/403 → `InvalidCredentials` (no retry); 429 → backoff; other → mapped |
-| `GET` | `wiki/api/v1/user/current` (fallback) | Used when v2 is unavailable for the credential | 200 → identity | same mapping |
+| `GET` | `/wiki/api/v2/user/by-me` | Validate the credential + return current-user identity (the **sole** MS-0002 validation endpoint — no v1 fallback, DEC-5) | 200 → `{ accountId, displayName }` | 401/403 → `InvalidCredentials` (no retry); 429 → backoff; other → mapped |
 
 The probe is issued through the injected `fetch` (DEC-1) with the opaque `Authorization: <authHeader>` header. Only the identity fields are retained from the response.
 
@@ -215,7 +217,7 @@ N/A — no events or messages are introduced. Auth is a synchronous request/resp
 
 ### 8.4 External Integrations
 
-**Atlassian Confluence Cloud REST API** — the only external system contacted, via the read-only "current user" probe (v2 `/wiki/api/v2/user/by-me`, v1 fallback `wiki/api/v1/user/current`). Classic API-token Basic auth over the direct site URL (the MS-0001 spike PASS path). No new runtime dependencies are introduced: native `fetch` is used (typescript.md — no HTTP library). No OAuth, no PAT, no scoped-token paths are exercised in MS-0002.
+**Atlassian Confluence Cloud REST API** — the only external system contacted, via the read-only "current user" probe (v2 `/wiki/api/v2/user/by-me` — the sole MS-0002 validation endpoint; the v1 `user/current` fallback is deferred, NG-8). Classic API-token Basic auth over the direct site URL (the MS-0001 spike PASS path). No new runtime dependencies are introduced: native `fetch` is used (typescript.md — no HTTP library). No OAuth, no PAT, no scoped-token paths are exercised in MS-0002.
 
 ### 8.5 Backward Compatibility
 
@@ -250,7 +252,7 @@ No product telemetry (NFR-SEC-3 — no outbound telemetry; the only remote call 
 | RSK-3 | Token leak via the opaque `authHeader` reaching a `CommandResult`, warning, log, or error string | H | M | Secret isolation by construction (F-4/DEC-3): the raw token is not a field on the object; `resolveCredentials`/`validateCredentials` never place it in any output path; only `baseUrl` + masked email are surfaceable. The redaction layer (GH-16) is the backstop. Verified by capturing every output path and asserting 0 token matches (NFR-5). | L |
 | RSK-4 | Operator sets the token in a way the shell doesn't export (R1) | M | M | `MissingCredentials` message names the missing var(s) and links `.env.example` + the CREDENTIALS doc; `doctor` (MS2-E5-S2) surfaces this clearly. CEO-recorded. | L |
 | RSK-5 | Scoped-token/gateway confusion (the MS-0001 spike deviation) bleeds into MS-0002 | M | L | Explicitly out of scope (NG-4): no `*_SCOPED` / `*_CLOUD_ID` vars are read; classic API-token is the only supported path. A `403` from a scoped token surfaces as `InvalidCredentials` with a stable code, not a debugging path. | L |
-| RSK-6 | v2 `/user/by-me` unavailable for a given credential/tenant, masking a valid token as `InvalidCredentials` | M | L | Probe falls back to v1 `user/current` (F-2); both paths are exercised against the `Bun.serve` mock in integration. | L |
+| RSK-6 | A tenant/credential lacks access to v2 `/user/by-me`, masking a valid token as `InvalidCredentials` | M | L | v2 `user/by-me` is the **sole** MS-0002 validation endpoint (PM decision, DoR iter-1); if a tenant/credential lacks v2, that is a post-MS-0002 follow-up — the v1 `user/current` fallback is deferred (NG-8), not built here. The single v2 path is exercised against the `Bun.serve` mock in integration. | L |
 | RSK-7 | 429 storm / retry loop against Confluence | M | L | Bounded single backoff-and-retry on 429 per the spike rule (NFR-7); no retry on 401/403; no open-ended loop. | L |
 | RSK-8 | A new auth sub-case is added later but a handler forgets its `authKind` branch | M | L | The `authKind` union is itself exhaustively checked at the message/code-construction site (nested `never`-check), so adding a sub-case is a compile error until handled (mirrors the top-level discipline). | L |
 
@@ -272,7 +274,7 @@ No product telemetry (NFR-SEC-3 — no outbound telemetry; the only remote call 
 | Depends on | security-baseline.md | Credential-storage rules (NFR-SEC-6), redaction-layer architecture, "credentials never reach the output path by construction". |
 | Depends on | nonfunctional.md | NFR-SEC-1/SEC-2/SEC-6, INV-SEC-1, NFR-OBS-1/OBS-3. |
 | Depends on | typescript.md | Tier rules, `Result<T,E>`, native-`fetch` rule, "a dependency mocked in >1 unrelated test → consider an interface boundary (port)". |
-| Depends on | Atlassian Confluence Cloud REST API | The read-only probe target (v2 `user/by-me`, v1 `user/current`). |
+| Depends on | Atlassian Confluence Cloud REST API | The read-only probe target (v2 `user/by-me` — sole MS-0002 validation endpoint). |
 | Blocks | MS2-E3-S4 (Confluence adapter) | Consumes the resolved `ConfluenceCredentials` (the adapter injects `authHeader` into every request and never sees the raw token). |
 | Blocks | MS2-E5-S2 (`doctor`) | Calls `validateCredentials` to report auth health. |
 
@@ -293,7 +295,7 @@ No product telemetry (NFR-SEC-3 — no outbound telemetry; the only remote call 
 | DEC-2 | **Single `Auth` arm with a discriminated `authKind` (resolves the union-shape choice).** One new top-level arm `{ kind: "Auth"; authKind: "MissingCredentials" \| "InvalidBaseUrl" \| "InvalidCredentials" \| "AuthUnreachable"; …payload }` is added to `MarkSyncError`, rather than four separate top-level kinds. `AuthError = Extract<MarkSyncError, { kind: "Auth" }>` is the narrowed channel alias. The mapper's `Auth` case narrows on `authKind` to emit four stable per-case `error.code`s (`AUTH_MISSING_CREDENTIALS`, `AUTH_INVALID_BASE_URL`, `AUTH_INVALID_CREDENTIALS`, `AUTH_UNREACHABLE`), each → `EXIT_AUTH` (20); `retryable` is per-case (only `AUTH_UNREACHABLE` is true). | Four new top-level kinds would balloon the union 13→17 and force four cases in each of the three exhaustive sites for one cohesive "credential failed" cluster. The GH-15 `InvalidConfig` precedent — one kind carrying structured `ajvErrors[]` + `humanMessage` rather than one kind per ajv keyword — is the governing pattern: one `Auth` kind carrying a structured `authKind` payload. The top-level `kind` governs exit-class routing (all auth → 20); `authKind` governs the specific remediation/code/retryable. The `authKind` union is itself exhaustively checked at the code/message-construction site, so adding a sub-case stays a compile error until handled (RSK-8). The story's `AuthError{kind:"MissingCredentials"}` notation maps to `{ kind:"Auth", authKind:"MissingCredentials", missing:[] }`. | 2026-07-08 |
 | DEC-3 | **Secret isolation by construction: opaque `authHeader` + masked-only email.** The raw token is never a field on `ConfluenceCredentials`; `resolveCredentials`/`validateCredentials` never place the token (or raw email) into any `CommandResult`, warning, log, or thrown error; only `baseUrl` and the masked email are surfaceable. | INV-SEC-1 / NFR-SEC-1/2 require that no secret appear in any output path. security-baseline.md makes the redaction layer defense-in-depth, **not** the primary defense. Carrying only the opaque header (never the raw token) and the masked email means there is structurally nothing to leak from the provider; the redactor is the backstop that scrubs a stray `Basic <token>`. | 2026-07-08 |
 | DEC-4 | **Classic API-token only for MS-0002.** Only `MARKSYNC_CONFLUENCE_BASE_URL`, `MARKSYNC_USER_EMAIL`, `MARKSYNC_API_TOKEN` are read; no `*_SCOPED` / `*_CLOUD_ID` / OAuth / PAT paths. | The MS-0001 spike validated classic Basic auth over the direct site URL (PASS) and exposed the scoped-token deviation (a scoped token authenticated but lacked scopes). Classic API-token is the guaranteed MS-0002 path; the rest is deferred (NG-1..NG-4). | 2026-07-08 |
-| DEC-5 | **Probe strategy: v2 `user/by-me` primary, v1 `user/current` fallback; no retry on 401/403; bounded 429 backoff.** | MS-0001 spike rules are binding. v2 is the preferred "current user" endpoint; v1 is the fallback for credentials/tenants where v2 is unavailable (RSK-6). Retrying a 401/403 is pointless (a bad token stays bad) and was explicitly ruled out by the spike; 429 must be honored with bounded backoff to avoid storming Confluence. | 2026-07-08 |
+| DEC-5 | **Probe strategy: v2 `user/by-me` is the sole MS-0002 validation endpoint (no v1 fallback); no retry on 401/403; bounded 429 backoff.** | MS-0002 MVP minimal surface: v2 is the current documented "current user" endpoint, the story's "(or v1 user/current)" reads as an acceptable alternative rather than a mandatory dual-path fallback, and one network call = fewer failure modes. The v1 `user/current` fallback is explicitly deferred (NG-8) — add it only if a tenant/credential lacks v2 (PM decision, DoR iter-1). The MS-0001 spike rules are otherwise binding: retrying a 401/403 is pointless (a bad token stays bad) and was explicitly ruled out; 429 must be honored with bounded backoff to avoid storming Confluence. | 2026-07-08 |
 
 ## 16. AFFECTED COMPONENTS (HIGH-LEVEL)
 
@@ -409,6 +411,7 @@ All four share the top-level `kind: "Auth"` and the auth exit class (`EXIT_AUTH`
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-08 | spec-writer (GH-17) | Initial specification — formalized from the authoritative story file MS2-E2-S4, feature-cli.md §3.3, security-baseline.md (NFR-SEC-6), the existing `Result<T,E>`/`MarkSyncError`/`cli-error-map`/`exit-codes`/`redact` primitives (GH-14/GH-15/GH-16), and the MS-0001 spike rules. Encodes DEC-1 (injected-fetch seam) and DEC-2 (single `Auth` arm + `authKind`) resolving the two technical decisions the story delegates to delivery. |
+| 1.1 | 2026-07-08 | spec-writer (GH-17) | DoR iter-1 remediation (PM decision): dropped the v1 `user/current` fallback — v2 `user/by-me` is the sole MS-0002 validation endpoint. Updated F-2, DEC-5, §8.1/§8.4 interfaces, RSK-6, dependencies, front matter; added NG-8 + §7.2 [OUT] + §7.3 deferred entry for the v1 fallback. ACs (AC-1..AC-6), DEC-1, and DEC-2 union shape unchanged. |
 
 ---
 
