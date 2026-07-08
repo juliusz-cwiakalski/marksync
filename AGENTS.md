@@ -22,6 +22,32 @@ active milestone. See [doc/overview/02-roadmap.md](doc/overview/02-roadmap.md).
 
 > **New to ADOS?** See [doc/guides/onboarding-existing-project.md](doc/guides/onboarding-existing-project.md) or run `/bootstrap` to get started.
 
+## Code style
+
+MarkSync code is **AI-authored and human-reviewed**. The guiding principle:
+**self-documenting code, minimal comments, no spec restatements.**
+
+- **Code first, prose second.** Types, names, and structure carry meaning. A
+  comment explains only what the code cannot — a non-obvious decision, a
+  Confluence quirk, a security boundary.
+- **File headers ≤ 3 lines.** What the module is + one link to the spec/ADR if
+  load-bearing. No tier-rule essays, no ASCII tables, no design-decision
+  restatements.
+- **Cite the authority once.** When a choice is load-bearing, reference the
+  ADR/spec at the decision point and stop. Do not scatter `(DEC-x)`,
+  `(NFR-x)`, `(AC-x)` tags across every function and field — that is
+  alphabet-soup noise. References to docs/ADRs/tickets are encouraged when
+  they carry context.
+- **No JSDoc that restates the signature.** Reserve JSDoc for `@throws`,
+  `@example`, or invariants invisible from the type. `/** Resolve the output
+  format. */` above `resolveOutputFormat(...)` is noise.
+- **No duplicating specs in comments.** If it lives in the spec or ADR, link
+  it — don't copy it into a comment block.
+
+Authoritative detail and before/after examples:
+[.ai/rules/typescript.md](.ai/rules/typescript.md) → **Code style principles**
+and **Comments** sections.
+
 ## Delivery process
 
 Every change flows through 11 phases. `@pm` orchestrates; phases are gated but can be reopened when gaps are discovered.
@@ -44,98 +70,37 @@ Detail: [doc/guides/change-lifecycle.md](doc/guides/change-lifecycle.md)
 
 ## Agent team
 
-### Orchestration
-- `ceo` — **autonomous executive**: manages the backlog, delivers tickets, reviews and merges PRs on behalf of the human. Invoke with `@ceo continue project delivery`. Definition: [.opencode/agent/ceo.md](.opencode/agent/ceo.md)
-- `pm` — orchestrate changes; manage tickets via MCP; never implements code
-- `decision-advisor` — decisions of all types (architecture, product, business, technical, operating); decision record authoring (ADR/PDR/TDR/BDR/ODR) _(formerly `architect`)_
+**Orchestration:**
+- `ceo` — autonomous executive: backlog, ticket delivery, PR review/merge. `@ceo continue project delivery`
+- `pm` — orchestrates 11-phase lifecycle; manages tickets via MCP; never implements code
+- `decision-advisor` — all decision types (ADR/PDR/TDR/BDR/ODR) _(formerly `architect`)_
+- `decision-critic` — independent read-only challenger (PASS / PASS_WITH_RISKS / REWORK)
 
-### Decision review
-- `decision-critic` — independent, read-only decision challenger; tri-state verdict (PASS / PASS_WITH_RISKS / REWORK)
+**Delivery:** `spec-writer` · `plan-writer` · `test-plan-writer` · `coder` (delegates to `@designer`, `@decision-advisor`, `@committer`, `@runner`) · `readiness-reviewer` (DoR gate) · `reviewer` (spec/plan/quality, local + remote) · `review-feedback-applier` · `fixer` · `runner` · `doc-syncer` · `committer` · `pr-manager`
 
-### Onboarding
-- `bootstrapper` — run ADOS project inception for new or legacy projects
+**Specialized:** `bootstrapper` · `designer` · `editor` · `meeting-organizer` · `external-researcher` · `image-generator` · `image-reviewer` · `toolsmith`
 
-### Artifact creation
-- `spec-writer` — author change specifications
-- `plan-writer` — author implementation plans
-- `test-plan-writer` — author test plans with traceable coverage
-
-### Implementation
-- `coder` — execute plan phases; delegates to `@designer`, `@decision-advisor`, `@committer`, `@runner`
-- `designer` — visual design and UI implementation
-- `editor` — content rewrites and translations
-
-### Verification
-- `readiness-reviewer` — adversarial Definition of Ready gate; critiques change artifacts before delivery
-- `review-feedback-applier` — classify and apply accepted review feedback from PR/MR
-- `reviewer` — review changes against spec, plan, code quality heuristics, and repo rules (local + remote modes)
-- `fixer` — reproduce failures and apply targeted fixes
-- `runner` — execute commands, capture logs (subagent)
-
-### Documentation & release
-- `doc-syncer` — reconcile system docs with completed changes
-- `meeting-organizer` — prepare agendas and summarize meeting docs
-- `committer` — create one Conventional Commit
-- `pr-manager` — create/update PR/MR; enrich with ticket context via MCP
-
-### Specialized
-- `external-researcher` — research external sources via MCP
-- `image-generator` — generate AI images via text-to-image CLI
-- `image-reviewer` — analyze images, screenshots, and visual artifacts
-- `toolsmith` — create and tune agents, commands, and skills
-
-Full definitions: `~/.ados/repo/.opencode/agent/*.md` (global install)
+Full definitions: `~/.ados/repo/.opencode/agent/*.md`
 
 ## Commands
 
-| Command | Purpose |
-|---------|---------|
-| `/apply-review-feedback` | Classify and apply accepted PR/MR review feedback locally |
-| `/bootstrap` | Scaffold ADOS artifacts for an existing project |
-| `/plan-change` | Interactive planning session (prep context for /write-spec) |
-| `/write-spec <ref>` | Generate change specification |
-| `/write-test-plan <ref>` | Generate test plan |
-| `/write-plan <ref>` | Generate implementation plan |
-| `/check-readiness <ref>` | Run the Definition of Ready gate for a change |
-| `/run-plan <ref>` | Execute plan phases |
-| `/review <ref>` | Review change vs spec/plan |
-| `/review-deep <ref>` | Deep review with stronger reasoning model |
-| `/review-remote` | Review open PR/MR diff and optionally publish findings |
-| `/sync-docs <ref>` | Reconcile system docs from a change |
-| `/check` | Run quality gates (no fixes) |
-| `/check-fix` | Run quality gates and fix failures |
-| `/commit` | Create one Conventional Commit |
-| `/pr` | Create/update PR/MR |
-| `/plan-decision` | Interactive decision session (any type: architecture, product, business, technical, operating) |
-| `/write-decision` | Generate Decision Record (ADR/PDR/TDR/BDR/ODR) |
-| `/review-decision` | Independent decision challenge (delegates to `@decision-critic`) |
-| `/design` | Generate/update visual design assets |
+**Change delivery:** `/plan-change` · `/write-spec <ref>` · `/write-test-plan <ref>` · `/write-plan <ref>` · `/check-readiness <ref>` · `/run-plan <ref>` · `/sync-docs <ref>` · `/review <ref>` (`/review-deep` for stronger model) · `/review-remote` · `/check` · `/check-fix` · `/commit` · `/pr` · `/apply-review-feedback`
 
-Full definitions: `~/.ados/repo/.opencode/command/*.md` (global install)
+**Decisions:** `/plan-decision` · `/write-decision` · `/review-decision`
+
+**Other:** `/bootstrap` · `/design`
+
+Full definitions: `~/.ados/repo/.opencode/command/*.md`
 
 ## Using the system
 
-**Autopilot** (recommended) — `@pm` orchestrates all 11 phases:
+**Autopilot:** `@pm deliver change GH-<number>` — orchestrates all 11 phases.
 
-```
-@pm deliver change GH-<number>
-```
+**Autonomous CEO:** `@ceo continue project delivery` — full loop (backlog → ticket → PR → review → merge).
 
-**Autonomous CEO** — `@ceo` manages the full delivery loop (backlog → ticket → PR → review → merge):
+**Manual:** `/plan-change` → `/write-spec` → `/write-test-plan` → `/write-plan` → `/check-readiness` → `/run-plan` → `/sync-docs` → `/review` → `/check` → `/pr`
 
-```
-@ceo continue project delivery
-```
-
-**Manual** — you trigger each step:
-
-```
-/plan-change → /write-spec <ref> → /write-test-plan <ref> → /write-plan <ref>
-→ /check-readiness <ref> → /run-plan <ref> → /sync-docs <ref> → /review <ref> → /check → /pr
-```
-
-> `dod_check` (phase 10) is run by `@pm` before `/pr`; it has no dedicated
-> command — see [definition-of-done.md](doc/guides/definition-of-done.md).
+> `dod_check` (phase 10) is run by `@pm` before `/pr` — see [definition-of-done.md](doc/guides/definition-of-done.md).
 
 Guide: [doc/guides/opencode-agents-and-commands-guide.md](doc/guides/opencode-agents-and-commands-guide.md)
 
@@ -166,64 +131,46 @@ Before creating new documentation areas, agents should inspect [doc/documentatio
 ## Repo structure
 
 ```
-.
-├── AGENTS.md                        # this file — delivery system bootstrap
-├── README.md                        # project README (badges, what/why, tech stack)
-├── .opencode/
-│   └── agent/                       # project-local agents (CEO)
-├── .ai/
-│   ├── agent/                        # PM/PR/decision/code-review instructions (committed)
-│   ├── local/                        # git-ignored ephemeral agent state
-│   └── rules/                        # TypeScript + testing coding rules
-│       ├── README.md                 # rule index / routing table
-│       ├── typescript.md             # TS module structure, naming, Result<T,E>, Biome
-│       └── testing-strategy.md       # 6 test tiers, coverage rules, over-mocking guardrail
-├── .github/
-│   └── workflows/
-│       ├── ci.yml                    # fast loop: lint + typecheck + test + BDD + audit + link-check
-│       └── run-e2e.yml               # live-sandbox E2E gate (scheduled + label + manual)
-├── .editorconfig
-├── .env.example                      # canonical environment variable list (no values)
-├── scripts/                          # repo-internal automation (.sh extension)
-├── tools/                            # PATH-able CLI utilities (no .sh extension)
-└── doc/
-    ├── 00-index.md                   # documentation landing page
-    ├── documentation-profile.md      # write-safety contract (engineering-repo)
-    ├── documentation-handbook.md     # docs structure, conventions, workflow
-    ├── changes/                      # change artifacts (spec, plan, test-plan per workItemRef)
-    ├── decisions/                    # decision records (ADR/PDR/TDR/BDR/ODR)
-    │   ├── README.md
-    │   └── 00-index.md               # registry of all decisions
-    ├── guides/                       # how-to guides + project baselines (dev-env, security, a11y)
-    ├── inception/                    # project inception workspace (state, analysis, inputs)
-    ├── overview/                     # north star, roadmap, tech-stack, architecture, glossary, UL
-    ├── spec/                         # current system spec (features + nonfunctional)
-    └── templates/                    # core + profile-aware templates
+AGENTS.md                         # this file
+README.md
+.ai/
+  agent/                          # PM/PR/decision/code-review instructions (committed)
+  local/                          # git-ignored ephemeral agent state
+  rules/                          # typescript.md, testing-strategy.md
+.github/workflows/                # ci.yml (fast loop), run-e2e.yml (live-sandbox)
+.env.example                      # canonical env vars (no values)
+scripts/                          # repo-internal automation (.sh extension)
+tools/                            # PATH-able CLI utilities (no .sh extension)
+doc/
+  00-index.md                     # docs landing page
+  documentation-profile.md        # write-safety contract (engineering-repo)
+  documentation-handbook.md       # docs structure, conventions, workflow
+  changes/                        # change artifacts (spec, plan, test-plan per workItemRef)
+  decisions/                      # ADR/PDR/TDR/BDR/ODR + 00-index.md registry
+  guides/                         # dev-env, security, a11y baselines
+  inception/                      # inception workspace (state, analysis, inputs)
+  overview/                       # north star, roadmap, tech-stack, architecture, glossary, UL
+  spec/                           # current system spec (features + nonfunctional)
+  templates/                      # core + profile-aware templates
 ```
 
 ## Key references
 
 | Document | Description |
 |----------|-------------|
-| [.opencode/agent/ceo.md](.opencode/agent/ceo.md) | CEO agent — autonomous delivery executive |
 | [doc/overview/01-north-star.md](doc/overview/01-north-star.md) | Product north star, proxy metrics, guardrails |
-| [doc/overview/02-roadmap.md](doc/overview/02-roadmap.md) | Milestone roadmap (MS-0001 spike done; MS-0002 MVP active) |
 | [doc/overview/tech-stack.md](doc/overview/tech-stack.md) | Technology stack decisions |
-| [doc/overview/architecture-overview.md](doc/overview/architecture-overview.md) | Ports-and-adapters architecture, C4 diagrams, dependency matrix |
+| [doc/overview/architecture-overview.md](doc/overview/architecture-overview.md) | Ports-and-adapters, C4 diagrams, dependency matrix |
 | [doc/overview/glossary.md](doc/overview/glossary.md) | Terms and acronyms |
-| [doc/overview/ubiquitous-language.md](doc/overview/ubiquitous-language.md) | Bounded context — aggregates, entities, VOs, events, services |
+| [doc/overview/ubiquitous-language.md](doc/overview/ubiquitous-language.md) | Bounded context — aggregates, entities, VOs, events |
 | [doc/spec/nonfunctional.md](doc/spec/nonfunctional.md) | NFRs (performance, security, reliability) |
-| [.ai/rules/typescript.md](.ai/rules/typescript.md) | TypeScript coding conventions (module tiers, Result<T,E>, Biome) |
 | [.ai/rules/testing-strategy.md](.ai/rules/testing-strategy.md) | 6-tier testing strategy and coverage rules |
 | [.ai/agent/pm-instructions.md](.ai/agent/pm-instructions.md) | PM tracker configuration (GitHub Issues) |
 | [.ai/agent/decision-instructions.md](.ai/agent/decision-instructions.md) | Decision tracking conventions + strategic context |
 | [.ai/agent/pr-instructions.md](.ai/agent/pr-instructions.md) | PR/MR platform configuration (GitHub CLI) |
 | [.ai/agent/code-review-instructions.md](.ai/agent/code-review-instructions.md) | Repo-specific code review checklist |
-| [doc/guides/change-lifecycle.md](doc/guides/change-lifecycle.md) | Change delivery lifecycle (11-phase workflow, detailed) |
-| [doc/guides/definition-of-ready.md](doc/guides/definition-of-ready.md) | Definition of Ready gate (dor_check) |
 | [doc/guides/dev-environment.md](doc/guides/dev-environment.md) | Local dev setup, prerequisites, scripts |
 | [doc/guides/security-baseline.md](doc/guides/security-baseline.md) | Secret management, redaction, dependency audit |
 | [doc/guides/accessibility-baseline.md](doc/guides/accessibility-baseline.md) | CLI output accessibility, provenance panel contract |
 | [doc/decisions/00-index.md](doc/decisions/00-index.md) | Decision records index (ADR/PDR/TDR registry) |
-| [doc/documentation-handbook.md](doc/documentation-handbook.md) | Documentation layout standard |
 | [.env.example](.env.example) | Canonical environment variable list (no values) |
