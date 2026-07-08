@@ -1,10 +1,7 @@
 // src/app/credentials.ts
 //
-// The Confluence credential provider (GH-17 F-1/F-2/F-5). Resolves classic
-// API-token auth from the canonical env vars into an opaque `Basic` header
-// (email masked, raw token consumed and dropped), and validates it against
-// `GET /wiki/api/v2/user/by-me`. DEC-1: the only network I/O is the injected
-// `fetch` on `validateCredentials`; this module imports `#domain/*` only.
+// Confluence API-token credential provider — env → opaque Basic header; injected
+// fetch keeps it app-tier-pure (GH-17 DEC-1/DEC-3, INV-SEC-1: token never stored).
 
 import type {
 	AccountIdentity,

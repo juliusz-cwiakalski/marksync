@@ -5,7 +5,7 @@
 //
 // Asserts (mapped to the test matrix — TS-10):
 //   - the DEC-2 table end to end: every MarkSyncError.kind → stable code +
-//     retryable, exhaustive over all 13 kinds (NFR-3);
+//     retryable, exhaustive over all 14 kinds (NFR-3);
 //   - the AC-6 load-bearing mapping Conflict → { code: "CONFLICT",
 //     retryable: true } so the cli tier's codeToExitCode yields 30;
 //   - DEC-3 (NFR-SEC-1/2): no message leaks a Bearer/gho_/ghp_/ATATT token
@@ -30,7 +30,7 @@ function ajvError(message = "must be 1"): ConfigAjvError {
 
 describe("mapMarkSyncErrorToCommandError — DEC-2 table (exhaustive, NFR-3)", () => {
 	// One representative error per kind; code + retryable per the DEC-2 table.
-	// Keeping all 13 here is itself the exhaustiveness assertion (TS-10).
+	// Keeping all 14 here is itself the exhaustiveness assertion (TS-10).
 	const cases: ReadonlyArray<{
 		name: MarkSyncError["kind"];
 		err: MarkSyncError;

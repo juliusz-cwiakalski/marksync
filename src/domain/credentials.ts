@@ -1,9 +1,7 @@
 // src/domain/credentials.ts
 //
-// Credential + identity value types for the Confluence auth provider (GH-17
-// F-1/F-2). Domain-owned so the future infra adapter (E3-S4) can import them
-// without dragging the application tier — the architecture matrix forbids
-// `infra → app`.
+// Credential value types — the opaque auth header + masked email surface; the raw
+// token is never a field (GH-17 DEC-2/INV-SEC-1).
 
 /**
  * The resolved Confluence credential consumers receive (GH-17 DM-1).
