@@ -1,0 +1,5 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`TC-CONTRACT-001 — success CommandResult JSON wire shape (C-4) toMatchSnapshot (regression layer): success-wire-json 1`] = `"{"data":{"page_id":"12345","title":"Hello World","word_count":42},"exit_code":0,"run_id":"0192a3b4-c5d6-7e8f-90ab-cdef01234567","schema_version":1,"timing":{"duration_ms":137,"started_at":"2026-07-08T12:00:00.000Z"},"warnings":[{"code":"DEPRECATED_FIELD","message":"field 'x' is deprecated"}]}"`;
+
+exports[`TC-CONTRACT-002 — error CommandResult JSON wire shape (DEC-5 / AC-6) toMatchSnapshot (regression layer): error-wire-json 1`] = `"{"error":{"code":"CONFLICT","message":"remote version is ahead of local","retryable":true},"exit_code":30,"run_id":"0192a3b4-c5d6-7e8f-90ab-cdef01234567","schema_version":1}"`;
