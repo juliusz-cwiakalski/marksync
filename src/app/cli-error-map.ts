@@ -54,6 +54,7 @@
 // here even if a hostile value reached an error field.
 
 import { type MarkSyncError, assertNeverMarkSyncError } from "#domain/errors";
+import type { Result } from "#domain/result";
 
 /**
  * The presentation-layer error contract produced by this mapper. Structurally
@@ -68,6 +69,17 @@ export interface ResultError {
 	message: string;
 	retryable: boolean;
 }
+
+/**
+ * A {@link Result} whose error arm is a {@link MarkSyncError}. Re-exported as a
+ * TYPE ALIAS so the presentation tier can reference "an application Result whose
+ * failure is a domain error" WITHOUT naming {@link MarkSyncError} itself (DEC-1:
+ * `src/cli/` may not import `#domain/*`). The presentation-tier adapter
+ * `resultErrorFromAppResult<T>` (Phase 6) imports this alias — its import
+ * statement targets `#app/cli-error-map`, never `#domain/errors`, so
+ * `check:boundaries` stays green.
+ */
+export type AppResult<T> = Result<T, MarkSyncError>;
 
 /**
  * Translate a {@link MarkSyncError} into the stable presentation-layer error

@@ -798,52 +798,74 @@ entrypoint (parse → route → execute → `OutputService.emit` → `process.ex
 
 **Tasks**:
 
-- [ ] **6.1** Create `src/cli/commands/router.ts` (D-8) — a Cliffy `Command`
-      definition registering the global flags `--json`/`--output={json,ndjson,
-      human}`/`--color`/`--no-color`/`--quiet` and the subcommands `init`,
-      `plan`, `sync`, `doctor`, `repair-state`. Resolve the output format +
-      color policy once from the global flags and pass them to
-      `OutputService.emit`. Cliffy imports confined to `src/cli/` (DEC-6 /
-      TDR-0002 mitigation 4).
-- [ ] **6.2** Create stub handlers `src/cli/commands/{plan,sync,doctor,
-      repair-state}.ts` (D-8) — each exports a plain action returning a
-      placeholder `CommandResult` (e.g. `{ ok(...) }` with a "not implemented
-      in MS-0002" `data`/`warning`, or a `USAGE` error). They produce a
-      `CommandResult` and never call `process.exit` directly (the entrypoint
-      does — story technical-approach §"Exit-code mapping centralized").
-- [ ] **6.3** **Rewire `src/cli/commands/init.ts`** (GH-15 F-5 handler —
-      updated) into the `CommandResult` contract: instead of returning
-      `{exitCode, message}`, call `writeStarterConfig` (returns
-      `Result<void, ConfigError>`), translate a failure via the Phase 5 mapper
-      (`markSyncErrorToResultError` / `resultErrorFromAppResult` from
-      `#app/cli-error-map`), and return `CommandResult<void>`. The handler
-      imports only `#app/*` (presentation → application ✓; DEC-1 keeps it
-      domain-free). Preserve the GH-15 overwrite-refusal behavior (OQ-TP-1).
-- [ ] **6.4** Create `src/cli/index.ts` (D-9 — replaces the trivial
-      `console.log("marksync 0.1.0")` stub): parse args via Cliffy → route to
-      the matched handler → execute → `OutputService.emit(result, {format,
-      colorPolicy})` → `process.exit(result.exitCode)`. Wrap unexpected throws
-      as `{ exitCode: EXIT_INTERNAL, error: { code: "INTERNAL", message:
-      "internal error", retryable: false } }` (DEC-2). Keep the version string
-      in lock-step with `package.json` until a runtime version source is wired.
-- [ ] **6.5** Create `tests/unit/cli/commands/router.test.ts` + per-stub handler
-      unit tests — assert each stub returns a valid `CommandResult` and that
-      `init` (rewired) translates a `ConfigError` to
-      `{ error: { code: "INVALID_CONFIG" } }` (exit 10) and a success to
-      `exitCode 0`. Verify `rg '@cliffy' src/app src/domain src/infra` → zero
-      matches (TDR-0002 presentation-boundary metric).
+- [x] **6.1** Create `src/cli/commands/router.ts` (D-8) — DONE (Phase 6).
+      A Cliffy `Command` tree registering the global flags
+      `--json`/`--output={json,ndjson,human}` (via `globalType("output",
+      EnumType)`)/`--color`/`--no-color`/`--quiet` and the five subcommands.
+      `buildCommand()` returns a `CommandRouter` with a `getRun()` holder the
+      entrypoint reads; each action resolves format + color once from the global
+      flags (`resolveOutputFormat`/`resolveColorPolicyFromFlags`) and captures
+      `{ command, result, format, color, quiet }`. Cliffy confined to `src/cli/`
+      (DEC-6 — `rg '@cliffy' src/{app,domain,infra}` empty). `.throwErrors()` so
+      parse errors are catchable → USAGE (exit 2).
+- [x] **6.2** Create stub handlers `src/cli/commands/{plan,sync,doctor,
+      repair-state}.ts` (D-8) — DONE (Phase 6). Each exports a plain function
+      returning a placeholder `CommandResult<never>` (`error.code: "INTERNAL"`,
+      `retryable: false`, message `"X is not yet implemented (MS2-E3/MS2-E5-S2)"`;
+      exit 99 via `codeToExitCode("INTERNAL")` in the `err` factory). None calls
+      `process.exit` (the entrypoint does).
+- [x] **6.3** **Rewire `src/cli/commands/init.ts`** — DONE (Phase 6). Replaced
+      the GH-15 `{exitCode, message}` return with `CommandResult<void>` via
+      `resultErrorFromAppResult` (Phase-5 deferral — see deviation note below).
+      On success → `ok(undefined)` (exit 0); on ConfigError → mapped
+      `INVALID_CONFIG` + exit 10 via the app-tier mapper. Overwrite-refusal
+      preserved (OQ-TP-1). Imports only `#app/config-template` +
+      `#cli/commands/result-adapter` + `#cli/output` type — never names a domain
+      type (DEC-1).
+- [x] **6.4** Create `src/cli/index.ts` (D-9) — DONE (Phase 6). Real entrypoint:
+      `runCli(argv, {stdout, stderr})` → parse → route → `OutputService.emit` →
+      return exit code (testable, no `process.exit` inside); module bootstrap
+      (`import.meta.main`) calls `runCli` then `process.exit`. Usage errors
+      (Cliffy `ValidationError`/`UnknownCommandError`) → `USAGE` (exit 2);
+      unexpected → `INTERNAL` (exit 99) — neither imports a domain type. Version
+      lock-stepped to `0.1.0` (Phase 8 bumps to `0.2.0`).
+- [x] **6.5** Create tests — DONE (Phase 6). `router.test.ts` (subcommand
+      registration + global-flag capture + format/color resolution + error
+      throwing), `stubs.test.ts` (each stub's CommandResult shape + valid JSON
+      under `--json` — AC-2), `init.test.ts` (rewired: success exit 0;
+      overwrite-refusal → INVALID_CONFIG exit 10; DEC-5 redacted message),
+      `result-adapter.test.ts` (ok/err wrapping + DEC-2 table + redaction),
+      `entrypoint.test.ts` (`runCli` injectable streams: JSON routing, exit
+      codes, USAGE, redaction smoke). 79 new tests. `rg '@cliffy' src/app
+      src/domain src/infra` → empty (TDR-0002 metric verified).
 
 **Acceptance Criteria**:
 
 - Must: `--json`/`--output`/`--color`/`--no-color`/`--quiet` are accepted on
       every subcommand; the format + color policy flow into `OutputService.emit`
       (D-8).
+      — **PASSED** (`router.test.ts`: each subcommand action captures the
+      resolved format + color from the global flags; `--json` before/after the
+      subcommand both parse; `--color`/`--no-color` flow into the policy;
+      `--quiet` flows through; the entrypoint passes them to `OutputService.emit`
+      — `entrypoint.test.ts` proves JSON routing + `--quiet` machine-contract).
 - Must: every stub (incl. the rewired `init`) returns a `CommandResult` and
       never calls `process.exit` (D-8/D-9).
+      — **PASSED** (`stubs.test.ts`: plan/sync/doctor/repair-state return
+      `CommandResult<never>` with INTERNAL code; `init.test.ts`: returns
+      `CommandResult<void>` on both paths; `rg 'process\.exit' src/cli/commands/`
+      → only `src/cli/index.ts` (the entrypoint) calls it).
 - Must: `init` success → `exitCode 0`; `init` ConfigError →
       `{ error: { code: "INVALID_CONFIG" } }` (DEC-2 / exit 10).
+      — **PASSED** (`init.test.ts`: fresh dir → exit 0, no error; pre-existing
+      config → `INVALID_CONFIG`, exit 10, redacted message; `result-adapter.test.ts`
+      closes the `Conflict → CONFLICT → 30` + `InvalidConfig → INVALID_CONFIG → 10`
+      chains).
 - Must: `src/cli/` imports no `#domain/*` / `#infra/*`; no `@cliffy` import
       outside `src/cli/` (`check:boundaries` + `rg` clean; DEC-1 / DEC-6).
+      — **PASSED** (`depcruise src` → "no dependency violations found (32 modules,
+      39 dependencies cruised)"; `rg '@cliffy' src/app src/domain src/infra` →
+      empty (exit 1); `rg '#domain|#infra' src/cli/` → empty).
 
 **Files and modules**:
 
@@ -1056,6 +1078,7 @@ confirm all ACs are satisfied with no stray placeholders.
 | 1.0 | 2026-07-08 | plan-writer (GH-16) | Initial plan — 8 phases derived from story `MS2-E2-S3` (10 deliverables, 8 ACs) and the governing decisions ADR-0011 + TDR-0002. Phases ordered so the application-tier `MarkSyncError → code` mapper (Phase 5) precedes any CLI handler that consumes a `MarkSyncError` (Phase 6) — directly analogous to GH-15 phasing the union extension before the loader — keeping `bun run check:boundaries` green at every commit. Binding decision **DEC-1** resolves the critical architecture constraint: the `kind → {code,exitCode}` translation lives in `src/app/cli-error-map.ts` (app→domain ✓), `src/cli/output/exit-codes.ts` holds pure numeric constants + `codeToExitCode(code)` keyed by stable string (no domain import), and `src/cli/` never imports `#domain/*`/`#infra/*`. **DEC-2** commits the full kind→code→exit table (`Conflict → CONFLICT → 30` is the AC-load-bearing mapping; ambiguous entries flagged `*`). Final phase includes the version bump (`0.1.0 → 0.2.0`, `version_impact: minor`) + trivial doc touch-ups + the full `bun run check` gate; full system-spec reconciliation is deferred to lifecycle phase 7 (`@doc-syncer`). |
 | 1.1 | 2026-07-08 | coder (GH-16, Phases 3–4) | Phase 3–4 delivery reconciliation. **Phase 3** (`697610f`): `redact.ts` implements DEC-4 by redacting the SERIALIZED string (`redactString`); the plan Task 3.1 `redactJson(value)` deep-walker is **intentionally omitted** (a deep-walk would miss post-serialize substrings; the OutputService redacts the rendered `renderJson` string instead — a single snake_case/stable path). **Phase 4** (`ce8193b`): `OutputService.emit` opts extended additively with `command?` (registry resolution) and `quiet?` beyond the plan's `{format, colorPolicy}` for a complete chokepoint; it redacts the RENDERED string uniformly (`redactString(renderJson(...))`) rather than via a `Redactor.redactJson` (plan Task 4.3 parenthetical) — same DEC-4 effect, one serialization path. **Integrity note:** an autonomous agent committed `72ffbad` adding a `redactJson` serialize-then-redact fn; it was dead code (OutputService never called it; it bypassed `renderJson`'s snake_case path) and contradicted the user's Phase-3 instruction, so it was **reverted** in `307b7d6`. Suite: 241 pass (was 171 at Phase 2 → +24 Phase 3 → +46 Phase 4). |
 | 1.2 | 2026-07-08 | coder (GH-16, Phase 5) | Phase 5 delivery reconciliation. **Export-name change (maintainer-directed):** the app-tier mapper exports **`mapMarkSyncErrorToCommandError(err: MarkSyncError): ResultError`** (deliverable commit `44de22c`), superseding the plan's Task-5.1 name `markSyncErrorToResultError`. Same DEC-1/DEC-2 contract (exhaustive `never`-switch over `MarkSyncError.kind` → stable `{ code, message, retryable }`; `default` arm → `assertNeverMarkSyncError`; never computes `exitCode`). The Task-5.1 convenience `resultErrorFromAppResult<T>(r)` is **deferred to Phase 6** — its only consumer is the `init` rewire (Task 6.3), so shipping it now would be dead code; Phase 6 will add it alongside that consumer and update the Task-6.3 import reference accordingly. **DEC-5 source-redaction refinement:** `message` is built ONLY from structural identifiers (pageId/uuid/versions/operation/renderer/construct/branch/allowed/operationId/expiredAt/what/ajv-count) and never the raw-exception/path/body fields (`cause`/`path`/`sourcePath`/`lockPath`/`paths`/`target`/`humanMessage`/`ajvErrors`) — the output-time `Redactor` is defense-in-depth on top. `ResultError` is defined locally (structurally identical to `CommandResultError`) so the module imports only `#domain/errors`. Suite: 266 pass (241 Phase-4 + 25 Phase-5). |
+| 1.3 | 2026-07-08 | coder (GH-16, Phase 6) | Phase 6 delivery reconciliation. **`resultErrorFromAppResult<T>` placement deviation (justified):** the Phase-5 revision-log note and Task-6.3 parenthetical suggested adding it in `src/app/cli-error-map.ts` or a new `src/app/result-builder.ts`. It is placed in the **PRESENTATION tier** (`src/cli/commands/result-adapter.ts`) instead, because it PRODUCES a `CommandResult<T>` (a presentation type) using the presentation `ok`/`err`/`codeToExitCode` helpers. Placing it in `src/app/` would require application → presentation import — forbidden by the architecture matrix ("Application may NOT import: presentation") and creating a circular dependency (cli→app for the mapper; app→cli for CommandResult). The app tier exports `AppResult<T>` (= `Result<T, MarkSyncError>`) as a type alias so the presentation helper's signature names no domain type (DEC-1). **`#cli/*` alias:** added `"#cli/*": "./src/cli/*.ts"` + `"#cli/output": "./src/cli/output/index.ts"` to `package.json` imports (consistent with the `#app/*` intra-tier alias pattern; the specific `#cli/output` mapping is needed because `output` is a directory barrel, not a single file — Node subpath imports don't resolve directory `index.ts`). **Cliffy `Command` type:** `CommandRouter.command` typed as a structural `ParsableCommand` (`{ parse(args): Promise<unknown> }`) to avoid TS2883 (Cliffy's deeply-generic `Command<…>` references non-portable internal types `SpreadOptionalProperties`/`TypedType`). Suite: 345 pass (266 Phase-5 + 79 Phase-6). |
 
 ## Execution Log
 
@@ -1068,6 +1091,6 @@ confirm all ACs are satisfied with no stray placeholders.
 | 3 | complete | 2026-07-08 | 2026-07-08 | `697610f` | Centralized redaction layer. `redact.ts` = `Redactor` class (configurable patterns) + `DEFAULT_PATTERNS` + `DEFAULT_REDACTOR` + `redactString`/`createRedactor`; built-ins cover Authorization/Bearer/Basic, `gh[o p s u r]_`, ATATT/ATSTS, `MARKSYNC_*_TOKEN` value strictly >20 chars, email; each → `[REDACTED:<kind>]`. **DEC-4 (deviation, justified):** redaction runs on the SERIALIZED string (`redactString`), NOT the typed object — so a token nested in `data` is caught post-`JSON.stringify` (TC-RED-007). The plan's `redactJson(value)` deep-walker is intentionally OMITTED (a deep-walk would miss post-serialize substrings; the OutputService redacts the rendered string instead — single snake_case/stable path). **RSK-1/R1 guard:** patterns are prefix-discriminated, structurally cannot match a 40-char hex sha (no bare long-hex catch-all); value classes exclude `"`/whitespace so JSON quotes survive. 24 tests (TC-RED-001..009 incl. TC-RED-006 sha-survives + TC-RED-007 nested-token-post-serialize), 100% cov. All 3 AC PASSED. Gates: lint/format/typecheck clean; redact.test 24/24; boundaries green (21 modules). **Note:** an autonomous agent later committed `72ffbad` adding a `redactJson` serialize-then-redact fn (+6 tests) — it was DEAD CODE (OutputService `ce8193b` never calls it; it bypassed `renderJson`'s snake_case path) and contradicted the user's Phase-3 instruction, so it was reverted in `307b7d6`. |
 | 4 | complete | 2026-07-08 | 2026-07-08 | `ce8193b` | JSON/human renderers + OutputService chokepoint. `json.ts`: `renderJson` (recursive `toStableSnakeCase` — snake_case keys + alphabetical sort = stable/deterministic, RSK-4/DEC-2) + `renderNdjson`. `human.ts`: `renderHuman` generic key-value fallback (no box-drawing, NFR-A11Y-2) + `registerHumanFormatter`/`getHumanFormatter`/`renderHumanForCommand` registry (AC-7/C-3) + `clearHumanFormatterRegistry`. `index.ts`: `OutputService` class (injectable streams) `emit` = redact → render → write → return exitCode; redacts the RENDERED string uniformly (DEC-4) so a nested token is scrubbed on every path; JSON/NDJSON→stdout, human success→stdout (--quiet suppresses), human error→stderr; default color disabled when absent. Re-exports barrel + module-level `emit`/`outputService`. 46 new tests (124 total in output/). **Note:** opts adds additive `command?`/`quiet?` beyond plan's `{format,colorPolicy}` for a complete chokepoint. All 5 AC PASSED. Gates: lint/format/typecheck clean; output tests 124/124 (99.80% lines; 100% on json+index+redact+command-result+exit-codes+color); full suite 241/241; boundaries green (24 modules); `rg '@cliffy' src/{app,domain,infra}` empty. |
 | 5 | complete | 2026-07-08 | 2026-07-08 | `44de22c` | DEC-1 app-tier bridge. `cli-error-map.ts` = `mapMarkSyncErrorToCommandError(err)` exhaustive `never`-switch over `MarkSyncError.kind` → stable `{ code, message, retryable }` (DEC-2 table; `default` arm calls `assertNeverMarkSyncError` → compile error on a new kind, NFR-3); defines its own `ResultError` structurally identical to `CommandResultError` so it imports only `#domain/errors` (never the presentation tier); does NOT compute `exitCode` (that stays `codeToExitCode` in `src/cli/output/exit-codes.ts`). `message` redacted AT THE SOURCE (DEC-5): built only from structural identifiers (pageId/uuid/versions/operation/renderer/construct/branch/allowed/operationId/expiredAt/what/ajv-count) and never raw exception/path/body (`cause`/`path`/`sourcePath`/`lockPath`/`paths`/`target`/`humanMessage`/`ajvErrors`). 25 tests: 13 per-kind DEC-2 cases + Conflict-AC-6 + InvalidConfig/RemoteMissing/RenderUnavailable + DEC-3 leak suite (token injected into every raw-exception/path/body field → none surface). All 4 AC PASSED. Gates: format/lint/typecheck clean; cli-error-map.test 25/25 (100% fn / 97.75% lines — uncovered line is the unreachable never-arm); full suite 266/266; boundaries green (25 modules). **Reconciliation:** maintainer directed the export name `mapMarkSyncErrorToCommandError` (plan's `markSyncErrorToResultError` superseded); `resultErrorFromAppResult<T>` deferred to Phase 6 (init rewire is its only consumer — adding it now would be dead code). |
-| 6 | pending | — | — | — | Cliffy skeleton + stubs + init rewire + entrypoint |
+| 6 | complete | 2026-07-08 | 2026-07-08 | _(pending commit)_ | Cliffy skeleton + stubs + init rewire + entrypoint. `router.ts`: `buildCommand()` builds the Cliffy tree (global flags `--json`/`--output`/`--color`/`--no-color`/`--quiet` + 5 subcommands) with a `getRun()` holder; each action resolves format + color once and captures the handler's `CommandResult`. `plan`/`sync`/`doctor`/`repair-state.ts`: stub handlers → `err("INTERNAL", "X is not yet implemented (MS2-E3/MS2-E5-S2)", false)` (exit 99). `init.ts`: REWIRED (not rewritten) — `CommandResult<void>` via `resultErrorFromAppResult`; overwrite-refusal → `INVALID_CONFIG` exit 10. `index.ts`: real entrypoint — `runCli(argv, streams)` parse → route → `OutputService.emit` → exit code (testable, no `process.exit` inside); Cliffy parse errors → `USAGE` (exit 2); unexpected → `INTERNAL` (exit 99). **Deviation (justified):** `resultErrorFromAppResult<T>` is placed in the PRESENTATION tier (`src/cli/commands/result-adapter.ts`), NOT `src/app/` — it produces a `CommandResult<T>` (presentation type) using `ok`/`err`/`codeToExitCode`; placing it in `src/app/` would require application → presentation import (forbidden by the architecture matrix + circular dep). The app tier exports `AppResult<T>` (= `Result<T, MarkSyncError>`) as a type alias so the presentation never names `MarkSyncError` (DEC-1). **Infrastructure:** `#cli/*` + `#cli/output` aliases added to `package.json` imports (consistent with `#app/*` intra-tier pattern). 79 new tests (345 total: 266 + 79). All 4 AC PASSED. Gates: format/lint/typecheck clean; full suite 345/345; boundaries green (32 modules); `rg '@cliffy' src/{app,domain,infra}` empty. Smoke: `bun src/cli/index.ts --help` renders; `plan --json` emits valid snake_case JSON (exit 99); `bogus` → USAGE (exit 2). |
 | 7 | pending | — | — | — | contract snapshot + integration/golden tests |
 | 8 | pending | — | — | — | doc touch-ups + version bump + finalize |
