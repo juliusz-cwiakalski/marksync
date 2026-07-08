@@ -20,6 +20,7 @@ import {
 	DEFAULT_REDACTOR,
 	type RedactionPattern,
 	Redactor,
+	redactJson,
 	redactString,
 } from "../../../../src/cli/output/redact.ts";
 
@@ -183,6 +184,64 @@ describe("TC-RED-007 — token nested in data redacted after serialization (DEC-
 	test("human string with a nested token is caught (DEC-4 covers human path too)", () => {
 		const human = `synced page; owner token ${GHO} leaked in body`;
 		expect(redactString(human)).not.toContain(GHO);
+	});
+});
+
+describe("redactJson — DEC-4 serialize-then-redact (AC-1 / INV-SEC-1)", () => {
+	test("returns the serialized + redacted JSON text (a string); clean value stays valid JSON", () => {
+		const out = redactJson({
+			schemaVersion: 1,
+			runId: "r",
+			exitCode: 0,
+			data: { ok: true },
+		});
+		expect(typeof out).toBe("string");
+		// no secret present → output is still parseable JSON
+		const parsed = JSON.parse(out) as { data: { ok: boolean } };
+		expect(parsed.data.ok).toBe(true);
+	});
+
+	test("TC-RED-007 via redactJson: token nested in data caught AFTER serialization", () => {
+		// The token lives inside data.pageBody and only surfaces as a substring
+		// AFTER JSON.stringify. redactJson serializes FIRST, then redacts the
+		// string (DEC-4) — so the nested token is caught. This is the load-bearing
+		// DEC-4 case: it proves redaction runs on the serialized output, not the
+		// typed object.
+		const result = { data: { pageBody: `see ${GHO} embedded here` } };
+		expect(JSON.stringify(result)).toContain(GHO); // present pre-redaction
+		const out = redactJson(result);
+		expect(out).not.toContain(GHO);
+		expect(out).toContain("[REDACTED:github-token]");
+	});
+
+	test("a redacted JSON string value stays valid JSON (sentinel lives inside the quotes)", () => {
+		const out = redactJson({ token: GHO });
+		const parsed = JSON.parse(out) as { token: string };
+		expect(parsed.token).toBe("[REDACTED:github-token]");
+	});
+
+	test("redactJson catches a deeply-nested token (DEC-4 depth-independence)", () => {
+		const result = {
+			data: { remote: { headers: { auth: `Bearer ${BEARER_OPAQUE}` } } },
+			meta: { token: ATATT },
+		};
+		const out = redactJson(result);
+		expect(out).not.toContain(BEARER_OPAQUE);
+		expect(out).not.toContain(ATATT);
+		// and the JSON stays structurally valid (no quote damage)
+		expect(() => JSON.parse(out)).not.toThrow();
+	});
+
+	test("redactJson never throws — circular reference falls back to String()", () => {
+		const circular: Record<string, unknown> = {};
+		circular.self = circular;
+		expect(() => redactJson(circular)).not.toThrow();
+		expect(typeof redactJson(circular)).toBe("string");
+	});
+
+	test("DEFAULT_REDACTOR.redactJson matches the module-level redactJson", () => {
+		const value = { a: GHO, b: ATATT };
+		expect(DEFAULT_REDACTOR.redactJson(value)).toBe(redactJson(value));
 	});
 });
 

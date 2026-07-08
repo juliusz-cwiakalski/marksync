@@ -11,9 +11,15 @@
 // token nested inside an arbitrary `data` field — exposed only AFTER
 // `JSON.stringify` (e.g. a credential embedded inside a Markdown `pageBody`
 // string) — is still caught, because the regexes run over the whole rendered
-// string. There is intentionally NO deep-walking `redactJson(value)`: walking
-// the typed object would MISS substrings that only appear post-serialization,
-// which is exactly the class of leak DEC-4 exists to prevent. Redact the string.
+// string. There is NO deep-WALKING `redactJson(value)` over the typed object —
+// walking would MISS substrings that only appear post-serialization, which is
+// exactly the class of leak DEC-4 exists to prevent. Instead `redactJson(value)`
+// is provided as the DEC-4-correct serialize-then-redact convenience: it
+// `JSON.stringify`s the value and runs `redactString` on the resulting text, so
+// a token nested anywhere inside `data` is caught (TC-RED-007). Phase 4's
+// `renderJson` will swap stable-key-order + snake_case serialization in under
+// the same wrapper; until then `JSON.stringify` is used (DEC-4 holds because
+// redaction always runs on the serialized text).
 //
 // RSK-1 / R1 — over-redaction guard (CEO-recorded): patterns are deliberately
 // SPECIFIC. Each requires a credential-specific discriminator — a scheme prefix
@@ -96,6 +102,26 @@ export const DEFAULT_PATTERNS: readonly RedactionPattern[] = [
 ];
 
 /**
+ * Serialize `value` to a JSON string (DEC-4: redaction runs on THIS text). Never
+ * throws — circular references / BigInt fall back to `String(value)` so the
+ * Redactor always returns a string and still scrubs recognizable secrets in the
+ * textual form. (`JSON.stringify(undefined)` returns `undefined` — handled here.)
+ *
+ * NOTE (Phase 4): `JSON.stringify` does NOT yet produce stable key order or the
+ * snake_case wire shape — Phase 4's `renderJson` will centralize both under this
+ * same wrapper. DEC-4 is unaffected: redaction always operates on the serialized
+ * text handed to `redactString`.
+ */
+function serialize(value: unknown): string {
+	try {
+		const text = JSON.stringify(value);
+		return typeof text === "string" ? text : String(value);
+	} catch {
+		return String(value);
+	}
+}
+
+/**
  * A configurable redactor. Holds an ordered list of patterns and applies them
  * in sequence to the serialized output string, replacing each match with the
  * `[REDACTED:<kind>]` sentinel. Construct with custom patterns for tests or
@@ -104,7 +130,7 @@ export const DEFAULT_PATTERNS: readonly RedactionPattern[] = [
  *
  * `String.prototype.replace` with a global regex always starts from index 0
  * (no `lastIndex` carry-over), so a single `Redactor` instance is safe to reuse
- * across many `redactString` calls.
+ * across many `redactString` / `redactJson` calls.
  */
 export class Redactor {
 	private readonly patterns: readonly RedactionPattern[];
@@ -126,6 +152,17 @@ export class Redactor {
 		}
 		return out;
 	}
+
+	/**
+	 * Serialize `value` to JSON, then redact the SERIALIZED STRING (DEC-4). The
+	 * load-bearing invariant: a token nested inside a `data` field that is exposed
+	 * only AFTER `JSON.stringify` is still caught (TC-RED-007). Returns the
+	 * redacted JSON text. The OutputService chokepoint (Phase 4) calls this for
+	 * the JSON/NDJSON paths (`Redactor.redactJson` per plan Task 4.3).
+	 */
+	redactJson(value: unknown): string {
+		return this.redactString(serialize(value));
+	}
 }
 
 /** The default redactor with the built-in pattern set (spec F-4). */
@@ -134,10 +171,20 @@ export const DEFAULT_REDACTOR = new Redactor();
 /**
  * Redact `input` using the default pattern set. Module-level convenience over
  * `DEFAULT_REDACTOR.redactString` — the function the OutputService chokepoint
- * applies to every rendered output string (DEC-4 / INV-SEC-1).
+ * applies to every rendered human output string (DEC-4 / INV-SEC-1).
  */
 export function redactString(input: string): string {
 	return DEFAULT_REDACTOR.redactString(input);
+}
+
+/**
+ * Serialize `value` to JSON and redact the serialized string using the default
+ * pattern set (DEC-4). Module-level convenience over `DEFAULT_REDACTOR.redactJson`
+ * — proves redaction operates on the SERIALIZED output, so a token nested inside
+ * a `data` field (only exposed after `JSON.stringify`) is caught (TC-RED-007).
+ */
+export function redactJson(value: unknown): string {
+	return DEFAULT_REDACTOR.redactJson(value);
 }
 
 /**
