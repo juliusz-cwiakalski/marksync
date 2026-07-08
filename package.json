@@ -1,6 +1,6 @@
 {
 	"name": "marksync-for-confluence",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "CLI tool that synchronizes a Git-tracked Markdown corpus to Atlassian Confluence Cloud — deterministically, safely, and with a clear audit trail.",
 	"type": "module",
 	"license": "MIT",
@@ -19,7 +19,9 @@
 		"#domain/*": "./src/domain/*.ts",
 		"#app/*": "./src/app/*.ts",
 		"#infra/*": "./src/infra/*.ts",
-		"#shared/*": "./src/shared/*.ts"
+		"#shared/*": "./src/shared/*.ts",
+		"#cli/output": "./src/cli/output/index.ts",
+		"#cli/*": "./src/cli/*.ts"
 	},
 	"scripts": {
 		"lint": "biome lint .",
@@ -42,7 +44,10 @@
 		"typescript": "^6.0.3"
 	},
 	"dependencies": {
+		"@jsr/cliffy__command": "^1.2.1",
+		"@jsr/cliffy__flags": "^1.2.1",
 		"ajv": "^8.20.0",
+		"picocolors": "^1.1.1",
 		"yaml": "^2.9.0"
 	}
 }
