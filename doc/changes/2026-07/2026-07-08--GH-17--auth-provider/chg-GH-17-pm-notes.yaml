@@ -1,0 +1,45 @@
+change_id: GH-17
+title: "[MS2-E2-S4] Auth provider (API-token from env)"
+business_id: MS2-E2-S4
+branch: feat/GH-17/auth-provider
+change_folder: doc/changes/2026-07/2026-07-08--GH-17--auth-provider
+
+phases:
+  clarify_scope: { started: "2026-07-08T23:24:00Z", completed: "2026-07-08T23:25:00Z" }
+  specification: { started: "2026-07-08T23:32:00Z", completed: "2026-07-08T23:33:00Z" }
+  test_planning: { started: "2026-07-08T23:32:00Z", completed: "2026-07-08T23:33:00Z" }
+  delivery_planning: { started: "2026-07-08T23:32:00Z", completed: "2026-07-08T23:34:00Z" }
+  dor_check: { started: null, completed: null }
+  delivery: { started: null, completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+
+decisions:
+  - text: "DEC-1 (injected fetch): resolveCredentials/validateCredentials accept an injectable fetch-shaped fn defaulting to global fetch. Keeps src/app/credentials.ts importing #domain/* only (app-tier pure, unit-testable without Bun.serve). Resolved independently + identically by spec-writer AND plan-writer — strong coherence."
+    date: "2026-07-08"
+  - text: "DEC-2 (AuthError union shape): single new arm {kind:'Auth'; authKind:'MissingCredentials'|'InvalidBaseUrl'|'InvalidCredentials'|'AuthUnreachable'} mirroring the GH-15 InvalidConfig precedent (union 13→14, not 17). Resolved independently + identically by spec-writer AND plan-writer."
+    date: "2026-07-08"
+  - text: "PM-decided (stable error.code strings): endorse the spec's AUTH_-prefixed codes — AUTH_MISSING_CREDENTIALS, AUTH_INVALID_BASE_URL, AUTH_INVALID_CREDENTIALS, AUTH_UNREACHABLE — all → EXIT_AUTH (20); only AUTH_UNREACHABLE retryable. Plan-writer used unprefixed codes; spec is authoritative and the AUTH_ prefix aids operational grouping (grep). Test-plan pinned 'whatever is chosen' so this is non-breaking."
+    date: "2026-07-08"
+open_questions: []
+blockers: []
+
+notes:
+  - text: "Housekeeping retro: pm-context.yaml listed GH-16 as active_change with 'PR open awaiting review' but PR #44 was already merged (8c1d560 on main). State was detected stale on session start. Root cause: a prior session ended after creating the PR but before the merge event updated pm-context. Improvement: on session start, always re-verify active_change.pr_url merge state via gh before trusting the recorded state."
+    type: "retro"
+    date: "2026-07-08"
+  - text: "State at intake: ticket OPEN, no branch, no PR — fresh delivery. Both dependencies satisfied: GH-14 (scaffolding, MS2-E2-S1) merged ed1bcf2 → 4055622; GH-16 (CLI framework+redaction, MS2-E2-S3) merged 8c1d560. Story blocked_by=[MS2-E2-S1] only, fully resolved. pm-context.yaml was stale (listed GH-16 as active/open-PR); corrected during housekeeping (GH-16 moved to recently_delivered)."
+    type: "info"
+    workItemRef: "GH-17"
+    date: "2026-07-08"
+  - text: "Story file (doc/planning/milestones/MS-2/MS2-E2--foundation/MS2-E2-S4--auth-provider.md) is authoritative and complete: 6 testable ACs, explicit constraints (env-only / no keytar / fetch-based / masked email), defined test matrix (Unit + Integration w/ Bun.serve mock). No blocking questions for human; system spec feature-cli.md §3.3 + NFR-SEC-6 + R-SEC-1 align with story scope. No contradictions found."
+    type: "info"
+    workItemRef: "GH-17"
+    date: "2026-07-08"
+  - text: "Design point for spec/plan-writer (NOT a human blocker): AuthError has 4 sub-kinds (MissingCredentials, InvalidBaseUrl, InvalidCredentials, AuthUnreachable). Story says 'AuthError added to MarkSyncError (exhaustive union update)'. Two viable union shapes: (a) single arm {kind:'Auth'; ...sub} or (b) four separate arms. Also: validateCredentials does network I/O but story places file at src/app/credentials.ts — resolve via injected fetch to keep app-tier testable + dep-cruiser green. Both are in-scope technical decisions."
+    type: "decision"
+    workItemRef: "GH-17"
+    date: "2026-07-08"
