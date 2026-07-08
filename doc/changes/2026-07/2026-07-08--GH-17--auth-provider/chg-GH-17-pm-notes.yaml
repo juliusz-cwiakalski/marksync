@@ -10,7 +10,7 @@ phases:
   test_planning: { started: "2026-07-08T23:32:00Z", completed: "2026-07-08T23:33:00Z", reopened: "2026-07-08T23:40:00Z" }
   delivery_planning: { started: "2026-07-08T23:32:00Z", completed: "2026-07-08T23:34:00Z", reopened: "2026-07-08T23:40:00Z", reopened_again: "2026-07-08T23:52:00Z" }
   dor_check: { started: "2026-07-08T23:37:00Z", completed: "2026-07-09T00:05:00Z", iterations: 3, verdict: "READY" }
-  delivery: { started: null, completed: null }
+  delivery: { started: "2026-07-09T00:10:00Z", completed: null, resumed: "2026-07-09T00:30:00Z", note: "prior session interrupted mid-Phase-1; Phase-1 work kept (verified correct + typecheck green)" }
   system_spec_update: { started: null, completed: null }
   review_fix: { started: null, completed: null }
   quality_gates: { started: null, completed: null }
@@ -36,6 +36,9 @@ notes:
   - text: "DoR iter-2 NOT_READY retro: iter-1's 3 gaps all CLOSED, but reviewer caught a narrower shape divergence — plan used NESTED shape ({kind:'Auth'; auth:AuthErrorDetail} → err.auth.authKind) while spec+test-plan use FLAT ({kind:'Auth'; authKind:…} → error.authKind). Same failure CLASS as iter-1 critical (shape divergence → failing tests) but narrower. Root cause: the plan-writer's remediation pass fixed arm-count (1 vs 4) but invented a nested property-access path, and justified it by mis-citing the GH-15 ConfigError precedent as 'nested' when the live src/domain/errors.ts InvalidConfig arm is actually FLAT. Process improvement: when an author cites an existing-code precedent to justify a shape, the DoR reviewer (or PM) should spot-check the cited code; a mis-cited precedent is a strong divergence signal. Localized plan-only fix."
     type: "retro"
     date: "2026-07-08"
+  - text: "RESUME: prior @coder session was interrupted mid-Phase-1. State at resume: ticket OPEN/in-progress, no PR, branch feat/GH-17/auth-provider 2 commits ahead of origin/main (0 behind — clean sync, no merge needed). Uncommitted Phase-1 work in working tree: src/domain/errors.ts (flat Auth arm + AuthError + assertNeverMarkSyncError), src/app/cli-error-map.ts (case Auth narrows on err.authKind, 4 AUTH_ codes, nested never), src/cli/output/exit-codes.ts (4 codes → EXIT_AUTH=20). PM verified: typecheck GREEN; 1 existing test fails (exit-codes exhaustive-map snapshot needs the 4 new codes — that's Phase-3 work, not a regression). Decision: KEEP Phase-1 work (correct + matches plan), delegate to @coder to commit Phase 1 then execute Phases 2-6."
+    type: "info"
+    date: "2026-07-09"
   - text: "DoR iter-3 READY: all 10 facets pass, full convergence (flat Auth arm, AUTH_ codes, v2-only, injected-fetch-on-validate-only, rg-is-the-real-guard, INV-SEC-1 at integration). 3-iteration loop converged the artifacts. Non-blocking carry-forward: plan Phase-5 uses an 'e.g.' token SECRET_TOKEN_DO_NOT_LEAK_... while test-plan (authority) pins ATATT3xFfGF0SECRET_TOKEN_VALUE_x9 (matches atlassian-token redactor pattern for TC-SEC-003 defense-in-depth) — coder will follow the test-plan's authoritative string."
     type: "info"
     date: "2026-07-09"
