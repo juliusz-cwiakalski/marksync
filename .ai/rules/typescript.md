@@ -61,6 +61,16 @@ heuristic._
    the design. If removing the comment leaves the code equally understandable,
    delete it.
 
+6. **Boy scout rule.** When you touch a file for any reason, bring its header
+   into compliance (≤ 3 lines, trim bare tags). Do not mass-rewrite untouched
+   files — migrate opportunistically as part of normal work.
+
+7. **Explicit typing at boundaries, inference for locals.** All exported
+   functions have annotated return types and parameter types. Locals use
+   inference — the type is obvious from the initializer. This resolves the
+   tension between "explicit typing" (FSE-audit) and "let TS infer" (reviewer
+   ignore list).
+
 ### Before / after
 
 **Anti-pattern** (over-documented header — what NOT to produce):
@@ -204,8 +214,9 @@ export const EXIT_USAGE = 2;
    overrides (catches base-class change surprises).
 7. **`noUncheckedSideEffectImports: true`** — catches `import "something"` that
    silently does nothing if the module is missing.
-8. **`types: ["bun"]`** — Bun provides native types; no separate `@types/bun`
-   or `bun-types` package needed.
+8. **`types: ["bun"]`** — Bun provides native types. `@types/bun` is in
+   devDependencies for editor/IDE resolution; if Bun's bundled types suffice
+   in your environment, the devDependency can be removed.
 
 ### When `any` is acceptable (rare)
 
@@ -306,6 +317,26 @@ try {
 - **Errors carry context** — `pageId`, `sourcePath`, `operation`, `cause`. The
   redaction layer strips any secret material before output.
 - **No `throw new Error("string")`** in domain/infra code — use typed errors.
+- **Error message stability** — `error.code` is a stable contract (DEC-6);
+  machine consumers must key on `code` only. `error.message` is advisory
+  human-readable prose and may change between versions.
+- **Adding a `MarkSyncError` kind** — add a new kind only when the recovery
+  action differs from all existing kinds. If the user would take the same
+  action for two errors, they are the same kind. When adding a kind: update
+  `assertNeverMarkSyncError`, `mapMarkSyncErrorToCommandError`, `CODE_TO_EXIT`,
+  and the DEC-2 table in the same PR.
+
+### Logging conventions
+
+- **Never log raw `MarkSyncError` objects** — log only structural identifiers
+  (`{ kind, code }`). Fields like `cause`, `path`, `sourcePath`, `humanMessage`,
+  `ajvErrors` carry sensitive data that the redaction layer was designed to
+  keep out of output; serializing the full error to a log bypasses that design.
+- **Logs go to stderr only** — stdout is reserved for `--json` / machine output.
+- **Correlate with `runId`** — every log entry should carry the `CommandResult`
+  `runId` so logs are traceable to a specific run (NFR-OBS-2).
+- **The redaction layer applies to log output too** — or logs never serialize
+  error objects (defense in depth on top of the "never log raw errors" rule).
 
 ## IO boundaries
 
@@ -352,7 +383,9 @@ a process/system boundary, it passes through a schema.
     "#domain/*": "./src/domain/*",
     "#app/*": "./src/app/*",
     "#infra/*": "./src/infra/*",
-    "#shared/*": "./src/shared/*"
+    "#shared/*": "./src/shared/*",
+    "#cli/*": "./src/cli/*.ts",
+    "#cli/output": "./src/cli/output/index.ts"
   }
 }
 ```
@@ -412,29 +445,18 @@ for architecture rules, rules-as-code, and clear violation feedback for AI
 agents.
 
 ```jsonc
-// .dependency-cruiser.cjs
+// .dependency-cruiser.cjs — all forbidden tier directions (see tier table above)
 module.exports = {
   forbidden: [
-    {
-      name: "domain-may-not-import-infra",
-      from: { path: "src/domain/" },
-      to: { path: "src/infra/" }
-    },
-    {
-      name: "domain-may-not-import-app",
-      from: { path: "src/domain/" },
-      to: { path: "src/app/" }
-    },
-    {
-      name: "presentation-may-not-import-domain",
-      from: { path: "src/cli/" },
-      to: { path: "src/domain/" }
-    },
-    {
-      name: "presentation-may-not-import-infra",
-      from: { path: "src/cli/" },
-      to: { path: "src/infra/" }
-    }
+    { name: "domain-may-not-import-infra",   from: { path: "src/domain/" }, to: { path: "src/infra/" } },
+    { name: "domain-may-not-import-app",     from: { path: "src/domain/" }, to: { path: "src/app/" } },
+    { name: "domain-may-not-import-cli",     from: { path: "src/domain/" }, to: { path: "src/cli/" } },
+    { name: "app-may-not-import-cli",        from: { path: "src/app/" },    to: { path: "src/cli/" } },
+    { name: "infra-may-not-import-app",      from: { path: "src/infra/" },  to: { path: "src/app/" } },
+    { name: "infra-may-not-import-cli",      from: { path: "src/infra/" },  to: { path: "src/cli/" } },
+    { name: "presentation-may-not-import-domain", from: { path: "src/cli/" }, to: { path: "src/domain/" } },
+    { name: "presentation-may-not-import-infra",  from: { path: "src/cli/" }, to: { path: "src/infra/" } },
+    { name: "shared-may-not-import-any-tier", from: { path: "src/shared/" }, to: { path: "src/domain/ src/app/ src/infra/ src/cli/" } }
   ]
 };
 ```
@@ -627,20 +649,28 @@ export interface ResultError { code: string; message: string; retryable: boolean
 - **License audit.** `bun run license-audit` (via `license-checker` or
   `osv-scanner`) runs in CI. No GPL/AGPL dependencies (MarkSync is MIT).
 
-### Allowed dependency list (target)
+### Allowed dependency list
 
-| Dependency | Role | Status |
+**Installed:**
+
+| Dependency | Role |
+|---|---|
+| `@jsr/cliffy__command`, `@jsr/cliffy__flags` | CLI framework (TDR-0002) |
+| `ajv` | JSON Schema validation (config/lock) |
+| `picocolors` | Terminal coloring (ADR-0011 C-2) |
+| `yaml` | YAML parsing (`marksync.yml` + front-matter) |
+
+**Planned (not yet installed — install when the first consuming story lands):**
+
+| Dependency | Role | Milestone |
 |---|---|---|
-| `@cliffy/command`, `@cliffy/prompt`, `@cliffy/flags` | CLI framework | Pin post smoke-test (TDR-0002) |
-| `remark`, `remark-gfm`, `rehype`, `remark-rehype` | Markdown pipeline | Latest |
-| `mermaid` | Diagram rendering | Latest (ADR-0002) |
-| `jsdom` / `happy-dom` | Headless DOM | Latest |
-| `uuid` | UUID v7 | Latest |
-| `ajv` | JSON Schema validation | Latest |
-| `yaml` | YAML parsing (`marksync.yml` + front-matter) | Latest |
-| `zod` | Runtime typing | Latest |
-| `pino` | Structured logging | Latest |
-| `keytar` | OS keyring | Spike-gated (MS-0002 fallback: env) |
+| `remark`, `remark-gfm`, `rehype`, `remark-rehype` | Markdown pipeline | MS-0002 E3 |
+| `mermaid` | Diagram rendering (ADR-0002) | MS-0002 E3 |
+| `jsdom` / `happy-dom` | Headless DOM for Mermaid tests | MS-0002 E3 |
+| `uuid` | UUID v7 | MS-0002 E3 |
+| `zod` | Runtime validation at IO boundaries | MS-0002 E3 |
+| `pino` | Structured logging | MS-0002 |
+| `keytar` | OS keyring (fallback: env) | Spike-gated |
 
 **No HTTP client library** (`axios`, `node-fetch`). Use native `fetch`.
 **No crypto library.** Use native `crypto.subtle`.

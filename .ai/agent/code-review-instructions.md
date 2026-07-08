@@ -55,8 +55,9 @@ Ordered from most to least important for this repo:
 
 ### Architecture boundaries
 
-- [ ] No `import` from an adapter module into a domain module (enforced by
-      dependency-cruiser, TDR-0006 — but review confirms intent).
+- [ ] No `import` crosses a forbidden tier direction (all directions enforced
+      by dependency-cruiser — see typescript.md tier table). Confirm `app → cli`,
+      `infra → app`, `infra → cli`, `shared → any tier` are not violated.
 - [ ] Confluence-specific types (`Storage Format`, v2 response shapes) do not
       leak into domain or CLI layers.
 - [ ] New external integrations go through a defined port, not direct calls.
@@ -69,6 +70,10 @@ Ordered from most to least important for this repo:
 - [ ] Error messages are AI-agent-readable: include the failing input, the
       expected shape, and a suggested fix where possible.
 - [ ] No `try/catch` that swallows errors silently.
+- [ ] **Never log raw `MarkSyncError` objects** — log only `{ kind, code }`.
+      Fields like `cause`, `path`, `humanMessage` carry sensitive data that
+      bypasses the redaction layer if serialized to logs.
+- [ ] Logs go to stderr only (stdout is reserved for `--json` output).
 
 ### Testing
 
@@ -107,6 +112,17 @@ Ordered from most to least important for this repo:
       not deep relative paths (`../../../../src/...`).
 - [ ] **No trivially derivable logic**: don't enumerate every union member when
       the return type is already constrained by the input type.
+- [ ] **Boy scout rule**: files modified in this PR have headers ≤ 3 lines
+      (trim opportunistically on touch — don't mass-rewrite untouched files).
+- [ ] **Fragile runtime patterns**: string-based class detection, implicit
+      globals, or hardcoded version strings carry a justifying comment
+      explaining what would break and why no safer alternative exists.
+- [ ] **Structural type duplication**: duplicated types across tier boundaries
+      have a one-line comment noting the duplication + a structural
+      compatibility test asserting the two shapes stay in sync.
+- [ ] **New dependency**: justifies its weight, < 20 transitive deps, license
+      audited (non-GPL/AGPL), added to the allowed dependency list in
+      typescript.md.
 
 ### Confluence API correctness
 
