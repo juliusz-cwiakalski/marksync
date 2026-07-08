@@ -707,39 +707,71 @@ commit (Critical ordering constraint / RSK-2).
 
 **Tasks**:
 
-- [ ] **5.1** Create `src/app/cli-error-map.ts` (DEC-1 / DEC-2):
-      - `markSyncErrorToResultError(err: MarkSyncError): { code: string;
-        message: string; retryable: boolean }` — an exhaustive switch over
-        `err.kind` mapping each kind to its stable `code` (DEC-2 table) +
-        a stable, **redacted** `message` (never raw exception text / file paths
-        / request bodies — DEC-5) + a `retryable` flag (e.g. `Conflict`/`
-        ConcurrentWrite`/`StalePlan` retryable; `DuplicateUuid`/
-        `InvalidConfig` not). The `default` arm calls
-        `assertNeverMarkSyncError(err)` so adding a future kind is a compile
-        error until mapped (NFR-3 precedent from GH-15).
-      - `resultErrorFromAppResult<T>(r: Result<T, MarkSyncError>): {
-        ok: true; data: T } | { ok: false; error: ResultError }` convenience.
-- [ ] **5.2** Keep this module the **only** app→domain error bridge: it imports
-      `#domain/errors` + `#domain/result` (allowed — application → domain ✓)
-      and is imported by `src/cli/` (allowed — presentation → application ✓).
-      It does NOT compute `exitCode` (that is `codeToExitCode` in the cli tier).
-- [ ] **5.3** Create `tests/unit/app/cli-error-map.test.ts` — assert the DEC-2
-      table end to end: every `MarkSyncError` kind → expected `{code,
-      retryable}`; **`Conflict → { code: "CONFLICT", retryable: true }`** is
-      the AC-6 load-bearing case; and `message` is redacted (no token-shaped
-      substring survives). Include an exhaustive-compile assertion (the switch
-      covers all 13 kinds).
+- [x] **5.1** Create `src/app/cli-error-map.ts` (DEC-1 / DEC-2) — DONE (Phase 5, `44de22c`).
+      Export **`mapMarkSyncErrorToCommandError(err: MarkSyncError): ResultError`**
+      — an exhaustive switch over `err.kind` mapping each kind to its stable
+      `code` (DEC-2 table) + a stable, **redacted** `message` (never raw
+      exception text / file paths / request bodies — DEC-5; built only from
+      structural identifiers — pageId/uuid/versions/operation/renderer/construct/
+      branch/allowed/operationId/expiredAt/what/ajv-count — and NEVER
+      `cause`/`path`/`sourcePath`/`lockPath`/`paths`/`target`/`humanMessage`/
+      `ajvErrors` values) + a `retryable` flag (Conflict/RemoteMissing/LockDirty/
+      ConcurrentWrite/StalePlan retryable; the rest not). The `default` arm calls
+      `assertNeverMarkSyncError(err)` so adding a future kind is a compile error
+      until mapped (NFR-3). **Naming reconciliation (see Plan Revision Log 1.2):**
+      the maintainer directed the export name `mapMarkSyncErrorToCommandError`
+      (plan's `markSyncErrorToResultError` superseded); the
+      `resultErrorFromAppResult<T>` convenience is **deferred to Phase 6**, where
+      the `init` rewire is its only consumer — adding it now would be dead code.
+- [x] **5.2** Keep this module the **only** app→domain error bridge — DONE
+      (Phase 5, `44de22c`): it imports `#domain/errors` ONLY (allowed —
+      application → domain ✓) and defines its own `ResultError` shape
+      structurally identical to `CommandResultError` so it never imports the
+      presentation tier. It does NOT compute `exitCode` (that is
+      `codeToExitCode` in the cli tier). `depcruise src` → "no dependency
+      violations found (25 modules, 23 dependencies cruised)".
+- [x] **5.3** Create `tests/unit/app/cli-error-map.test.ts` — DONE (Phase 5,
+      `44de22c`; 25 tests). Asserts the DEC-2 table end to end: every
+      `MarkSyncError` kind → expected `{code, retryable}` (13 per-kind cases);
+      **`Conflict → { code: "CONFLICT", retryable: true }`** is the AC-6
+      load-bearing case; `InvalidConfig`/`RemoteMissing`/`RenderUnavailable`
+      named; and `message` is redacted — DEC-3 suite injects `Bearer`/`gho_`/
+      `ghp_`/`ATATT` tokens into every raw-exception/path/body field
+      (`cause`/`humanMessage`/`ajvErrors`/`paths`/`sourcePath`/`target`/`path`/
+      `lockPath`) and asserts none surface. Includes the 13-kind exhaustiveness
+      assertion (TS-10).
 
 **Acceptance Criteria**:
 
 - Must: every `MarkSyncError.kind` maps to a stable `code` + redacted `message`
       + `retryable` (DEC-2 / NFR-OBS-1).
+  — **PASSED** (`cli-error-map.test.ts`: 13 per-kind cases assert
+  `code`+`retryable` per DEC-2 + a non-empty stable message; DEC-3 suite proves
+  the message is redacted at the source; tests PASS 25/25).
 - Must: `Conflict → { code: "CONFLICT" }` so the cli tier's `codeToExitCode`
       yields `30` (AC-6 / NFR-OBS-1).
-- Must: `markSyncErrorToResultError`'s switch is exhaustive — adding a kind
+  — **PASSED** (Conflict → `{ code: "CONFLICT", retryable: true }`; combined
+  with Phase-2 `codeToExitCode("CONFLICT") === 30`, the AC-6 chain
+  `kind → code → exit` is closed end to end — TS-7/TS-9).
+- Must: `mapMarkSyncErrorToCommandError`'s switch is exhaustive — adding a kind
       without a case is a compile error (NFR-3 precedent).
+  — **PASSED** (`bun run typecheck` exit 0; the `default` arm calls
+  `assertNeverMarkSyncError(err)` — err is `never` only when all 13 kinds are
+  handled; a new kind leaves it non-`never` and the call site fails to compile).
 - Must: `cli-error-map.ts` is in `src/app/` and imports only `#domain/*`
       (`check:boundaries` clean; DEC-1).
+  — **PASSED** (module imports `#domain/errors` only; `depcruise src` →
+  "no dependency violations found (25 modules, 23 dependencies cruised)";
+  defines its own `ResultError` structurally so it never imports the
+  presentation tier).
+
+**Phase 5 verification** — `bun run format && bun run lint` (Biome clean),
+`bun run typecheck` (tsc strict — clean; the `never`-switch is load-bearing),
+`bun test tests/unit/app/cli-error-map.test.ts` (25 pass / 0 fail; 100%
+functions / 97.75% lines on `cli-error-map.ts` — the uncovered line is the
+unreachable `assertNeverMarkSyncError(err)` default arm, the exhaustiveness
+proof), `bun run check:boundaries` (green; 25 modules, +1 from Phase 4). Full
+repo suite `bun test` = **266 pass / 0 fail** (241 Phase-4 baseline + 25 new).
 
 **Files and modules**:
 
@@ -1023,6 +1055,7 @@ confirm all ACs are satisfied with no stray placeholders.
 |---------|------|--------|---------|
 | 1.0 | 2026-07-08 | plan-writer (GH-16) | Initial plan — 8 phases derived from story `MS2-E2-S3` (10 deliverables, 8 ACs) and the governing decisions ADR-0011 + TDR-0002. Phases ordered so the application-tier `MarkSyncError → code` mapper (Phase 5) precedes any CLI handler that consumes a `MarkSyncError` (Phase 6) — directly analogous to GH-15 phasing the union extension before the loader — keeping `bun run check:boundaries` green at every commit. Binding decision **DEC-1** resolves the critical architecture constraint: the `kind → {code,exitCode}` translation lives in `src/app/cli-error-map.ts` (app→domain ✓), `src/cli/output/exit-codes.ts` holds pure numeric constants + `codeToExitCode(code)` keyed by stable string (no domain import), and `src/cli/` never imports `#domain/*`/`#infra/*`. **DEC-2** commits the full kind→code→exit table (`Conflict → CONFLICT → 30` is the AC-load-bearing mapping; ambiguous entries flagged `*`). Final phase includes the version bump (`0.1.0 → 0.2.0`, `version_impact: minor`) + trivial doc touch-ups + the full `bun run check` gate; full system-spec reconciliation is deferred to lifecycle phase 7 (`@doc-syncer`). |
 | 1.1 | 2026-07-08 | coder (GH-16, Phases 3–4) | Phase 3–4 delivery reconciliation. **Phase 3** (`697610f`): `redact.ts` implements DEC-4 by redacting the SERIALIZED string (`redactString`); the plan Task 3.1 `redactJson(value)` deep-walker is **intentionally omitted** (a deep-walk would miss post-serialize substrings; the OutputService redacts the rendered `renderJson` string instead — a single snake_case/stable path). **Phase 4** (`ce8193b`): `OutputService.emit` opts extended additively with `command?` (registry resolution) and `quiet?` beyond the plan's `{format, colorPolicy}` for a complete chokepoint; it redacts the RENDERED string uniformly (`redactString(renderJson(...))`) rather than via a `Redactor.redactJson` (plan Task 4.3 parenthetical) — same DEC-4 effect, one serialization path. **Integrity note:** an autonomous agent committed `72ffbad` adding a `redactJson` serialize-then-redact fn; it was dead code (OutputService never called it; it bypassed `renderJson`'s snake_case path) and contradicted the user's Phase-3 instruction, so it was **reverted** in `307b7d6`. Suite: 241 pass (was 171 at Phase 2 → +24 Phase 3 → +46 Phase 4). |
+| 1.2 | 2026-07-08 | coder (GH-16, Phase 5) | Phase 5 delivery reconciliation. **Export-name change (maintainer-directed):** the app-tier mapper exports **`mapMarkSyncErrorToCommandError(err: MarkSyncError): ResultError`** (deliverable commit `44de22c`), superseding the plan's Task-5.1 name `markSyncErrorToResultError`. Same DEC-1/DEC-2 contract (exhaustive `never`-switch over `MarkSyncError.kind` → stable `{ code, message, retryable }`; `default` arm → `assertNeverMarkSyncError`; never computes `exitCode`). The Task-5.1 convenience `resultErrorFromAppResult<T>(r)` is **deferred to Phase 6** — its only consumer is the `init` rewire (Task 6.3), so shipping it now would be dead code; Phase 6 will add it alongside that consumer and update the Task-6.3 import reference accordingly. **DEC-5 source-redaction refinement:** `message` is built ONLY from structural identifiers (pageId/uuid/versions/operation/renderer/construct/branch/allowed/operationId/expiredAt/what/ajv-count) and never the raw-exception/path/body fields (`cause`/`path`/`sourcePath`/`lockPath`/`paths`/`target`/`humanMessage`/`ajvErrors`) — the output-time `Redactor` is defense-in-depth on top. `ResultError` is defined locally (structurally identical to `CommandResultError`) so the module imports only `#domain/errors`. Suite: 266 pass (241 Phase-4 + 25 Phase-5). |
 
 ## Execution Log
 
@@ -1034,7 +1067,7 @@ confirm all ACs are satisfied with no stray placeholders.
 | 2 | complete | 2026-07-08 | 2026-07-08 | `8d2e426` | CommandResult<T> + SCHEMA_VERSION + ok/err factories; exit-code constants + CODE_TO_EXIT + codeToExitCode (zero-import pure data, DEC-1); color policy + picocolors kit; 3 unit test files (54 tests, 100% cov on new src). All 4 AC PASSED. Gate: lint/format/typecheck/test(171 pass)/boundaries green. **ExitCode design note:** `err()` computes `exitCode` from `code` via `codeToExitCode(code)` (intra-tier import command-result→exit-codes, both src/cli/output/) so every error result carries the exit code matching its `error.code`; documented in a leading comment. |
 | 3 | complete | 2026-07-08 | 2026-07-08 | `697610f` | Centralized redaction layer. `redact.ts` = `Redactor` class (configurable patterns) + `DEFAULT_PATTERNS` + `DEFAULT_REDACTOR` + `redactString`/`createRedactor`; built-ins cover Authorization/Bearer/Basic, `gh[o p s u r]_`, ATATT/ATSTS, `MARKSYNC_*_TOKEN` value strictly >20 chars, email; each → `[REDACTED:<kind>]`. **DEC-4 (deviation, justified):** redaction runs on the SERIALIZED string (`redactString`), NOT the typed object — so a token nested in `data` is caught post-`JSON.stringify` (TC-RED-007). The plan's `redactJson(value)` deep-walker is intentionally OMITTED (a deep-walk would miss post-serialize substrings; the OutputService redacts the rendered string instead — single snake_case/stable path). **RSK-1/R1 guard:** patterns are prefix-discriminated, structurally cannot match a 40-char hex sha (no bare long-hex catch-all); value classes exclude `"`/whitespace so JSON quotes survive. 24 tests (TC-RED-001..009 incl. TC-RED-006 sha-survives + TC-RED-007 nested-token-post-serialize), 100% cov. All 3 AC PASSED. Gates: lint/format/typecheck clean; redact.test 24/24; boundaries green (21 modules). **Note:** an autonomous agent later committed `72ffbad` adding a `redactJson` serialize-then-redact fn (+6 tests) — it was DEAD CODE (OutputService `ce8193b` never calls it; it bypassed `renderJson`'s snake_case path) and contradicted the user's Phase-3 instruction, so it was reverted in `307b7d6`. |
 | 4 | complete | 2026-07-08 | 2026-07-08 | `ce8193b` | JSON/human renderers + OutputService chokepoint. `json.ts`: `renderJson` (recursive `toStableSnakeCase` — snake_case keys + alphabetical sort = stable/deterministic, RSK-4/DEC-2) + `renderNdjson`. `human.ts`: `renderHuman` generic key-value fallback (no box-drawing, NFR-A11Y-2) + `registerHumanFormatter`/`getHumanFormatter`/`renderHumanForCommand` registry (AC-7/C-3) + `clearHumanFormatterRegistry`. `index.ts`: `OutputService` class (injectable streams) `emit` = redact → render → write → return exitCode; redacts the RENDERED string uniformly (DEC-4) so a nested token is scrubbed on every path; JSON/NDJSON→stdout, human success→stdout (--quiet suppresses), human error→stderr; default color disabled when absent. Re-exports barrel + module-level `emit`/`outputService`. 46 new tests (124 total in output/). **Note:** opts adds additive `command?`/`quiet?` beyond plan's `{format,colorPolicy}` for a complete chokepoint. All 5 AC PASSED. Gates: lint/format/typecheck clean; output tests 124/124 (99.80% lines; 100% on json+index+redact+command-result+exit-codes+color); full suite 241/241; boundaries green (24 modules); `rg '@cliffy' src/{app,domain,infra}` empty. |
-| 5 | pending | — | — | — | app-tier MarkSyncError→code mapper |
+| 5 | complete | 2026-07-08 | 2026-07-08 | `44de22c` | DEC-1 app-tier bridge. `cli-error-map.ts` = `mapMarkSyncErrorToCommandError(err)` exhaustive `never`-switch over `MarkSyncError.kind` → stable `{ code, message, retryable }` (DEC-2 table; `default` arm calls `assertNeverMarkSyncError` → compile error on a new kind, NFR-3); defines its own `ResultError` structurally identical to `CommandResultError` so it imports only `#domain/errors` (never the presentation tier); does NOT compute `exitCode` (that stays `codeToExitCode` in `src/cli/output/exit-codes.ts`). `message` redacted AT THE SOURCE (DEC-5): built only from structural identifiers (pageId/uuid/versions/operation/renderer/construct/branch/allowed/operationId/expiredAt/what/ajv-count) and never raw exception/path/body (`cause`/`path`/`sourcePath`/`lockPath`/`paths`/`target`/`humanMessage`/`ajvErrors`). 25 tests: 13 per-kind DEC-2 cases + Conflict-AC-6 + InvalidConfig/RemoteMissing/RenderUnavailable + DEC-3 leak suite (token injected into every raw-exception/path/body field → none surface). All 4 AC PASSED. Gates: format/lint/typecheck clean; cli-error-map.test 25/25 (100% fn / 97.75% lines — uncovered line is the unreachable never-arm); full suite 266/266; boundaries green (25 modules). **Reconciliation:** maintainer directed the export name `mapMarkSyncErrorToCommandError` (plan's `markSyncErrorToResultError` superseded); `resultErrorFromAppResult<T>` deferred to Phase 6 (init rewire is its only consumer — adding it now would be dead code). |
 | 6 | pending | — | — | — | Cliffy skeleton + stubs + init rewire + entrypoint |
 | 7 | pending | — | — | — | contract snapshot + integration/golden tests |
 | 8 | pending | — | — | — | doc touch-ups + version bump + finalize |
