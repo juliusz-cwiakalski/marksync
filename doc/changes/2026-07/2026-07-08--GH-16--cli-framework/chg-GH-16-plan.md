@@ -1,0 +1,950 @@
+---
+# Copyright (c) 2025-2026 Juliusz Ćwiąkalski (https://www.cwiakalski.com | https://www.linkedin.com/in/juliusz-cwiakalski/ | https://www.cwiakalski-pub-gh/marksync-for-confluence | https://x.com/cwiakalski)
+# MIT License - see LICENSE file for full terms
+id: chg-GH-16-cli-framework
+status: Proposed
+created: 2026-07-08T14:37:17Z
+last_updated: 2026-07-08T14:37:17Z
+owners: [Juliusz Ćwiąkalski]
+service: marksync-cli
+labels: [MS-0002, MS2-E2, foundation, critical, observability, security, a11y]
+links:
+  change_spec: ./chg-GH-16-spec.md
+  story: ../../../planning/milestones/MS-2/MS2-E2--foundation/MS2-E2-S3--cli-framework.md
+  adr_0011_output_strategy: ../../../decisions/ADR-0011-cli-output-strategy.md
+  tdr_0002_cli_framework: ../../../decisions/TDR-0002-cli-framework.md
+  typescript_rules: ../../../.ai/rules/typescript.md
+  architecture: ../../../overview/architecture-overview.md
+  nonfunctional: ../../../spec/nonfunctional.md
+  gh15_plan_precedent: ../2026-07-07--GH-15--config-system/chg-GH-15-plan.md
+summary: >
+  Stand up the Cliffy CLI framework with ADR-0011's hybrid output strategy so
+  every command (`init`, `plan`, `sync`, `doctor`, `repair-state`) returns a
+  structured `CommandResult<T>`; a generic JSON renderer + generic human
+  renderer (with an optional per-command human formatter registry) render it; a
+  centralized redaction layer scrubs every output path (INV-SEC-1); stable exit
+  codes map per error class (NFR-OBS-1); and non-interactive color auto-detect
+  degrades gracefully in CI/scripts (NFR-A11Y-1/2). This story builds the
+  pipeline ONCE so later stories only produce a `CommandResult<T>`.
+version_impact: minor
+---
+
+# IMPLEMENTATION PLAN — GH-16: [MS2-E2-S3] CLI framework + CommandResult<T>
+
+## Context and Goals
+
+This plan delivers the **output + CLI backbone of MS-0002** (epic MS2-E2 —
+Foundation, third story). It is the contract every later command — `plan`,
+`sync`, `doctor`, `repair-state` — will consume. Concretely it establishes:
+
+- the **`CommandResult<T>`** envelope — `{ schemaVersion:1; runId; exitCode;
+  timing?; data?:T; error?:{code;message;retryable}; warnings?[] }` — the single
+  structured value every command returns (ADR-0011 Alternative 3 / C-4);
+- a **generic JSON renderer** (`renderJson` stable-key-order + `renderNdjson`)
+  that serializes any `CommandResult<T>` with zero per-command code (C-1);
+- a **generic human renderer** with key-value/table fallback PLUS a
+  `registerHumanFormatter<T>(command, fn)` registry for optional per-command
+  rich formatting (C-3);
+- the **centralized redaction layer** — a `Redactor` with configurable patterns
+  applied to ALL output before write, so no command can bypass it (C-5 /
+  INV-SEC-1 / NFR-SEC-2);
+- **stable exit codes** per error class (`0/2/10/20/30/40/50/70/99`) and the
+  `MarkSyncError.kind → error.code → exitCode` translation (NFR-OBS-1);
+- the **color policy** via `picocolors` with non-interactive auto-detect and
+  `--color`/`--no-color` overrides (NFR-A11Y-1/2);
+- the **`OutputService.emit()`** chokepoint: redact → render → write → return
+  exit code (the single point all output crosses);
+- the **Cliffy command skeleton** with global flags + stub handlers for
+  `init`/`plan`/`sync`/`doctor`/`repair-state`, rewiring the existing GH-15
+  `init` handler into the new `CommandResult` contract; and the real
+  `src/cli/index.ts` entrypoint (parse → route → execute → emit → exit).
+
+The plan is derived entirely from the authoritative story
+`MS2-E2-S3--cli-framework.md` (10 deliverables, 8 ACs) and the two governing
+decisions — **ADR-0011** (hybrid output strategy, implementation-plan §1–8) and
+**TDR-0002** (Cliffy, implementation-plan §1–7 incl. pin-after-smoke,
+presentation boundary, completions, compile gate). It invents no requirements.
+
+> **Scope-source note.** The change spec `chg-GH-16-spec.md` (same folder) is
+> the **contract authority**; this plan operationalizes it. The `CommandResult<T>`
+> envelope, ACs, DECs, and module residence are defined in the spec and must not
+> drift — where this plan gives field-level detail (e.g. Phase 2.1), the spec's
+> §5/§8/§15 definitions are authoritative on any conflict (DoR iter-1 reconciled
+> the `warnings`/`timing.duration_ms` shape and DEC numbering to the spec).
+
+### Binding decisions
+
+> **DEC numbering — cross-reference to the spec.** The spec's DEC log
+> (`chg-GH-16-spec.md` §15) is authoritative. This plan's binding decisions use
+> the labels below; the spec is the source of truth on any conflict:
+>
+> | This plan's label | Subject | Spec DEC (authoritative) |
+> |---|---|---|
+> | DEC-1 | Exit-code mapping tier placement | DEC-1 |
+> | DEC-2 | `kind → error.code → exitCode` mapping table | DEC-1 (the translation approach) |
+> | DEC-3 | `picocolors` (not chalk) | DEC-5 |
+> | DEC-4 | snake_case JSON + schema stability | DEC-2 |
+> | DEC-5 | Error representation `{code,message,retryable}` | DEC-3 |
+> | DEC-6 | Cliffy pin deferred to post-smoke; confined to `src/cli/` | DEC-5 |
+
+- **DEC-1 — Exit-code mapping tier placement (the CRITICAL architecture
+  constraint; resolves the story's `src/cli/output/exit-codes.ts` "Map
+  `MarkSyncError.kind → exitCode`" hint vs the dep-cruiser invariant).**
+  `.dependency-cruiser.cjs` enforces `presentation-may-not-import-domain` and
+  `presentation-may-not-import-infra` (severity `error`); `MarkSyncError` lives
+  in `src/domain/errors.ts`. Per the GH-15 `init.ts` precedent (which flows the
+  `Result` type in structurally "without naming any domain type"), the split is:
+  - **`MarkSyncError.kind → { error.code, message, retryable }` translation
+    lives in the APPLICATION tier** at `src/app/cli-error-map.ts` (app may import
+    domain — architecture matrix row: application → domain ✓). This module knows
+    the stable `error.code` strings and the redacted `message`; it does NOT
+    compute the numeric `exitCode`.
+  - **`src/cli/output/exit-codes.ts`** holds ONLY the numeric exit-code
+    CONSTANTS + a `codeToExitCode(code: string): number` map keyed by the STABLE
+    STRING `error.code`. It imports **no** tier (no `#domain/*`, no `#infra/*`);
+    it is pure data.
+  - **`src/cli/` never imports `#domain/*` or `#infra/*`.** The numeric
+    `exitCode` is attached to the top-level `CommandResult.exitCode` at the
+    presentation boundary via `codeToExitCode(resultError.code)`.
+  - _Alternative considered & rejected:_ placing the numeric constants in
+    `src/shared/` so non-cli consumers could read them. Rejected because exit
+    codes are inherently a process-boundary concept — only the CLI entrypoint
+    calls `process.exit` — and the output service (presentation tier,
+    `architecture-overview.md` row 87) owns exit-code rendering. `src/shared/`
+    stays pure utilities (string/path logic).
+- **DEC-2 — Full `MarkSyncError.kind → error.code → exitCode` mapping table
+  (plan-level commitment, traceable to NFR-OBS-1).** The only load-bearing
+  mapping (asserted by an AC) is **`Conflict → CONFLICT → 30`**. The remainder
+  is the MS-0002 default the plan commits to; entries marked `*` are best-fit
+  (no dedicated exit code exists in the story's `0/2/10/20/30/40/50/70/99` set)
+  and the maintainer may reclassify them at delivery without breaking any AC:
+
+  | `MarkSyncError.kind` | `error.code` (stable) | exit | class |
+  |---|---|---|---|
+  | `Conflict` | `CONFLICT` | 30 | conflict/drift _(AC-load-bearing)_ |
+  | `RemoteMissing` | `REMOTE_MISSING` | 40 | remote-missing |
+  | `DuplicateUuid` | `DUPLICATE_UUID` | 50 | invariant (INV-SAFE-3) |
+  | `UnsupportedConstruct` | `UNSUPPORTED_CONSTRUCT` | 99 `*` | other/uncategorized |
+  | `Forbidden` | `FORBIDDEN` | 20 | auth |
+  | `LockDirty` | `LOCK_DIRTY` | 30 | conflict/drift |
+  | `ConcurrentWrite` | `CONCURRENT_WRITE` | 30 | conflict (retryable) |
+  | `RenderUnavailable` | `RENDER_UNAVAILABLE` | 70 | render-unavailable |
+  | `StalePlan` | `STALE_PLAN` | 30 | conflict/drift |
+  | `ForbiddenBranch` | `FORBIDDEN_BRANCH` | 2 `*` | usage (branch-policy guard) |
+  | `TooLarge` | `TOO_LARGE` | 99 `*` | other/uncategorized |
+  | `UnresolvedLink` | `UNRESOLVED_LINK` | 99 `*` | other/uncategorized |
+  | `InvalidConfig` | `INVALID_CONFIG` | 10 | config |
+  | _(no domain kind — flag/arg parse failure)_ | `USAGE` | 2 | usage |
+  | _(no domain kind — unexpected throw)_ | `INTERNAL` | 99 | internal |
+
+  The `*` entries are candidates for dedicated exit codes in a future story;
+  the application tier keeps them in the catch-all class for MS-0002 so the
+  `never`-switch over `MarkSyncError.kind` stays exhaustive (no kind is left
+  unmapped).
+- **DEC-3 — `picocolors` for color (not `chalk`).** Already a `typescript.md`
+  rule; committed as binding here per ADR-0011 C-2. The output service handles
+  coloring centrally so command code never imports a color lib directly.
+- **DEC-4 — JSON casing + schema stability.** JSON output is **snake_case**
+  (blueprint §9 Q1, CEO-resolved) and carries `schemaVersion` (constant for
+  contract stability — ADR-0011 C-4). `renderJson` produces stable key order so
+  the contract snapshot is deterministic.
+- **DEC-5 — Error representation in JSON.** A top-level
+  `error:{ code, message, retryable }` where `message` is a stable, redacted,
+  human-readable string (never raw exception text, file paths, or partial
+  request bodies); the non-zero exit code and `error.code` correspond
+  (ADR-0011 2026-07-05 guidance; NFR-SEC-1/NFR-SEC-2).
+- **DEC-6 — Cliffy pin deferred to post-smoke.** `@cliffy/command` +
+  `@cliffy/flags` are added in Phase 1 but the exact version is locked only
+  after the `bun build --compile` smoke + `--help` render pass (TDR-0002
+  mitigation 1–2 / C-1 gate). Cliffy is confined to `src/cli/` (presentation
+  boundary — TDR-0002 mitigation 4); `rg '@cliffy' src/app src/domain src/infra`
+  must return zero matches.
+
+### Critical ordering constraint
+
+Per DEC-1 and the dep-cruiser invariant, the **application-tier mapper**
+(`src/app/cli-error-map.ts`, deliverable bridging domain→presentation) **must
+land before (or alongside)** any CLI handler that translates a `MarkSyncError`
+into a `CommandResult` (the init rewire). This is directly analogous to GH-15
+phasing the `InvalidConfig` union extension (Phase 2) before the loader (Phase
+4) so the typed channel is consistent from the first consumer commit. Here:
+**Phase 5 (app mapper) precedes Phase 6 (Cliffy stubs + init rewire).** We never
+merge a CLI handler that imports a not-yet-existent app mapper.
+
+### Open questions
+
+- **Version impact (no `version_impact` field in the story).** Defaulting to
+  `minor` per the GH-15 precedent (which bumped `0.0.0 → 0.1.0` for an
+  equivalently additive foundation story) and the additive nature of the CLI +
+  output pipeline. The final phase applies `0.1.0 → 0.2.0`; confirm with the
+  maintainer if the 0.x minor-vs-patch convention differs.
+  *(Specification detail — no `@decision-advisor` escalation unless the
+  maintainer disagrees.)*
+- **Exact Cliffy version lock (TDR-0002 unresolved Q).** Pin the latest
+  verified stable 1.x after the Phase 1 `bun build --compile` smoke test; decide
+  follow-policy (patch-only vs minor) for Renovate/Dependabot. Resolved at
+  delivery in Phase 1.
+- **Ambiguous exit-code mappings (DEC-2 `*` entries).** `UnsupportedConstruct`,
+  `ForbiddenBranch`, `TooLarge`, `UnresolvedLink` have no dedicated code in the
+  story's set; the plan commits a best-fit default and flags them for
+  maintainer reclassification. *(Specification detail.)*
+- **`CommandResult<T>` expressiveness for complex commands** (ADR-0011 negative
+  outcome). The envelope must carry plan-diffs / health-tables in later stories;
+  `T` is left generic here and concretized per command. No escalation — by
+  design (ADR-0011 Alternative 3).
+
+## Scope
+
+### In Scope
+
+- **D-1** — `src/cli/output/command-result.ts`: `CommandResult<T>` type +
+  `schemaVersion` constant; JSON uses snake_case (DEC-4).
+- **D-2** — `src/cli/output/json.ts`: `renderJson` (stable key order) +
+  `renderNdjson`.
+- **D-3** — `src/cli/output/human.ts`: generic key-value/table fallback +
+  `registerHumanFormatter<T>(command, fn)` registry.
+- **D-4** — `src/cli/output/redact.ts`: `Redactor` with configurable patterns
+  (Authorization, Bearer, `gho_`/`ATATT`/API-token shapes, emails,
+  `MARKSYNC_*_TOKEN` values >20 chars); applied to ALL output before write.
+- **D-5** — `src/cli/output/exit-codes.ts`: numeric exit-code constants +
+  `codeToExitCode(code)` map keyed by stable string (DEC-1 — NO domain import).
+- **D-6** — `src/cli/output/color.ts`: picocolors policy; non-interactive
+  detect; `--color`/`--no-color` overrides.
+- **D-7** — `src/cli/output/index.ts`: `OutputService.emit()` chokepoint
+  (redact → render → write → return exitCode).
+- **D-8** — Cliffy wiring `src/cli/commands/`: global flags
+  (`--json`/`--output`/`--color`/`--no-color`/`--quiet`) + stub handlers
+  (`init`/`plan`/`sync`/`doctor`/`repair-state`) returning placeholder
+  `CommandResult`.
+- **D-9** — `src/cli/index.ts`: real entrypoint (parse → route → execute →
+  emit → `process.exit`).
+- **D-10** — contract test (pinned JSON snapshot) + unit/integration/golden
+  tests per the test matrix.
+- **App-tier mapper** — `src/app/cli-error-map.ts`: `MarkSyncError.kind →
+  { code, message, retryable }` (DEC-1 — the bridge that keeps dep-cruiser
+  green).
+
+### Out of Scope
+
+- Real command logic for `plan`/`sync`/`doctor`/`repair` (later stories — these
+  stubs return placeholder `CommandResult`s).
+- NDJSON streaming for `sync --watch` (watch mode is post-MS-0002); the renderer
+  is wired but no watch command exists.
+- Per-command human formatters for every command (each lands with its command);
+  only the registry + one demonstration formatter ship here.
+- `@cliffy/prompt` interactive flows for `init`/`doctor` (MS-0003 / NG-5);
+  Phase 1 adds `@cliffy/command` + `@cliffy/flags` only.
+- Logging (pino) redaction wiring — the `Redactor` is reusable by logging in a
+  later story but pino itself is not added here.
+- Full system-spec reconciliation (`feature-cli.md` output section, ADR-0011
+  unresolved-Q closure, `tech-stack.md` Cliffy pin) — flagged for lifecycle
+  phase 7 (`@doc-syncer`); Phase 8 does only trivial inline touch-ups.
+
+### Constraints
+
+- **Tier rules** (`.ai/rules/typescript.md`, `architecture-overview.md` rows
+  199–202, enforced by `.dependency-cruiser.cjs`, severity `error`):
+  - `src/cli/` (presentation) may import `app` ONLY — **NOT** `domain` and
+    **NOT** `infra` (`presentation-may-not-import-domain` / `-infra`).
+  - `src/app/` (application) may import `domain` (+ infra via ports); not `cli`.
+  - `src/domain/` imports nothing tiered.
+  - `src/shared/` holds pure utilities with zero tier dependencies.
+  - **The load-bearing consequence (DEC-1):** `MarkSyncError → code/exitCode`
+    translation lives in `src/app/`; `src/cli/output/exit-codes.ts` is pure data
+    keyed by stable string.
+- **Cliffy presentation boundary (TDR-0002 mitigation 4):** all `@cliffy`
+  imports confined to `src/cli/`; `rg '@cliffy' src/app src/domain src/infra` →
+  zero matches.
+- **Strict TS** (`verbatimModuleSyntax`, `isolatedModules`,
+  `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitAny`):
+  type-only imports use `import type`; `array[i]` is `T | undefined`.
+- **ESM-only**; path aliases via `package.json` `"imports"` (`#domain/*`,
+  `#app/*`, `#infra/*`, `#shared/*`) — no tsconfig `paths`.
+- **Redaction by construction (NFR-SEC-2):** every output path crosses the
+  `Redactor`; no raw secret may reach stdout/stderr.
+- **Stable contract (NFR-OBS-2):** `schemaVersion` constant + stable JSON key
+  order + pinned snapshot test.
+- **Quality gate:** `bun run check` = lint + format:check + typecheck + test +
+  check:boundaries; must exit 0.
+- **Conventional Commits** (commitlint + husky); each phase = one logical
+  commit; `bun run check:boundaries` green at every commit.
+- **Compile gate (TDR-0002 C-1):** Phase 1 `bun build --compile` smoke + binary
+  `--help` render must pass before the Cliffy version is locked.
+- **Version:** currently `0.1.0` (GH-15); final phase applies the
+  `version_impact: minor` bump → `0.2.0`.
+
+### Risks
+
+- **RSK-1 — Over-redaction** (a legit sha matches a token pattern). Mitigated by
+  specific patterns (`ATATT…`, `gho_…`, `Bearer …`, `MARKSYNC_*_TOKEN` env
+  value length >20) and a unit test asserting a 40-char hex sha is **NOT**
+  redacted (story R1, CEO-recorded). Phase 3.
+- **RSK-2 — dep-cruiser violation** from placing the `MarkSyncError` mapping in
+  `src/cli/`. Mitigated by DEC-1 (mapper in `src/app/`; `exit-codes.ts` pure
+  data) + the Phase 5-before-6 ordering. `check:boundaries` runs every phase.
+- **RSK-3 — Cliffy `bun build --compile` failure** (smaller ecosystem). Mitigated
+  by the Phase 1 smoke gate before version lock (TDR-0002 C-1 🟡); fallback
+  watchlist (Crust/Bunli/Clerc; commander + prompt lib + completion glue) behind
+  the same presentation boundary.
+- **RSK-4 — Contract snapshot drift / unstable JSON key order.** Mitigated by
+  `renderJson` stable-key-order serialization + a pinned snapshot contract test
+  (ADR-0011 C-4). Phases 4 & 7.
+- **RSK-5 — Non-interactive detection wrong across environments.** Mitigated by
+  a unit-test matrix mocking `isTTY`/`CI`/`NO_COLOR`/`TERM` (NFR-A11Y-1) +
+  integration assertions via `Bun.spawn` piping. Phases 2 & 7.
+- **RSK-6 — Box-drawing / ANSI leaks into plain-log mode.** Mitigated by an
+  NFR-A11Y-2 test asserting `--no-color --output=human` produces plain text (no
+  box-drawing chars, no ANSI). Phases 4 & 7.
+- **RSK-7 — Contract surface too narrow for future commands** (ADR-0011 negative
+  outcome). Mitigated by leaving `CommandResult<T>` generic (`T` concretized per
+  command); accepted by design.
+
+### Success Metrics
+
+- A `CommandResult` carrying a synthetic token in any field → emitted JSON/human
+  output contains **NO** token (INV-SEC-1; redaction verified by grep on captured
+  stdout) — AC-1.
+- Every stub command produces valid JSON with `--json` (parseable; matches the
+  pinned snapshot) — AC-2.
+- Piped output (`... | cat`) contains zero ANSI; `--color` forces; `--no-color`
+  disables (NFR-A11Y-1) — AC-3.
+- `--no-color --output=human` produces plain-text output (no box-drawing, no
+  ANSI) readable by screen readers / plain-log pipelines (NFR-A11Y-2) — AC-4.
+- Adding a new stub command requires **ZERO** changes to `json.ts`/`human.ts`/
+  `redact.ts` (ADR-0011 C-3) — AC-5.
+- `error.code: "CONFLICT"` → process exits `30` (NFR-OBS-1) — AC-6.
+- `registerHumanFormatter` produces richer output than the generic fallback for a
+  registered command; unregistered commands use the fallback — AC-7.
+- `bun run check` exits 0; the contract test is green — AC-8.
+
+## Phases
+
+> Each phase is one logical Conventional Commit and is independently verifiable
+> by the listed command(s). Files are listed as `path (new | updated)`. Tier
+> placements respect the dependency-direction matrix (see Constraints) and the
+> DEC-1 mapper split. `bun run check:boundaries` is run in **every** phase so
+> the dep-cruiser invariant holds at every commit.
+
+---
+
+### Phase 1: Runtime dependencies, compile-smoke gate, and scaffolding
+
+**Goal**: Add the three runtime dependencies this story requires
+(`@cliffy/command`, `@cliffy/flags`, `picocolors`), pass the TDR-0002 C-1
+`bun build --compile` + `--help` smoke gate before locking versions, and prove
+dependency hygiene (license + transitive-dep thresholds + unchanged tier
+boundaries) before any output code lands.
+
+**Tasks**:
+
+- [ ] **1.1** Add `@cliffy/command` and `@cliffy/flags` to `package.json`
+      `dependencies` at the latest verified stable 1.x (TDR-0002 — both are on
+      the allowed-dependency list in `typescript.md`); run `bun install` and
+      commit the updated lockfile. Record the pinned versions in the commit body.
+- [ ] **1.2** Add `picocolors` to `package.json` `dependencies` (typescript.md
+      allowed list; the chosen coloring lib per ADR-0011 C-2 / DEC-3); commit
+      lockfile.
+- [ ] **1.3** **Compile-smoke gate (TDR-0002 C-1 — the load-bearing check):**
+      run `bun build --compile src/cli/index.ts --outfile marksync-smoke` against
+      a minimal Cliffy `--help` harness, execute the resulting binary on the
+      host OS, and assert it renders `marksync --help` with **zero compile
+      warnings attributed to Cliffy**. Only after this passes is the version
+      lock (1.1/1.2) final; if it fails, escalate to the TDR-0002 fallback
+      watchlist (`@decision-advisor`) before proceeding. Record the smoke result
+      in the commit body and in `chg-GH-16-pm-notes.yaml`.
+- [ ] **1.4** Verify transitive-dependency thresholds: each new dep ≤ 20
+      transitive deps (`bunx license-checker --summary` or `bunx npm ls <pkg>`).
+      `picocolors` is zero-dependency; Cliffy modular packages should be
+      near-zero. Record counts in the commit body.
+- [ ] **1.5** Verify license hygiene — reject GPL/AGPL/LGPL/UNLICENSED; MIT/ISC/
+      Apache-2.0/BSD acceptable (NFR-SEC-4).
+- [ ] **1.6** Confirm the quality-gate baseline still passes after the dep
+      additions: `bun run typecheck`, `bun run check:boundaries`
+      (`rg '@cliffy' src/app src/domain src/infra` → zero matches; TDR-0002
+      presentation-boundary metric), `bun run format:check`.
+
+**Acceptance Criteria**:
+
+- Must: `@cliffy/command`, `@cliffy/flags`, `picocolors` resolvable at runtime;
+      `bun install` clean.
+- Must: the compiled binary renders `--help` with zero Cliffy-attributed compile
+      warnings (TDR-0002 C-1 gate — versions locked only after this passes).
+- Must: no new dependency exceeds the transitive-dep threshold; no forbidden
+      license.
+- Must: `bun run check:boundaries` exits 0; no `@cliffy` import outside
+      `src/cli/`.
+- Should: the smoke harness is retained (or scripted under `scripts/`) so the
+      compile gate can run in CI.
+
+**Files and modules**:
+
+- Code areas: `package.json` (updated), `bun.lock` (updated); optional
+  `scripts/cliffy-compile-smoke.sh` (new — retains the gate).
+- System docs: none (the `tech-stack.md` Cliffy provisional entry → pinned is
+  reconciled by `@doc-syncer` in lifecycle phase 7; flagged in Phase 8).
+
+**Tests**:
+
+- Manual + scripted: `bun build --compile` + binary `--help` (TDR-0002 C-1).
+- `bun run typecheck`; `bun run check:boundaries`.
+- License/transitive audit (`bunx license-checker`).
+
+**Completion signal**: `feat(cli): add cliffy and picocolors dependencies`
+
+---
+
+### Phase 2: CommandResult<T> type, exit-code constants, and color policy (foundational, no domain deps)
+
+**Goal**: Land the three foundational output primitives that depend on no tier
+(no `#domain/*`, no `#infra/*`): the `CommandResult<T>` envelope + `schemaVersion`
+constant (D-1), the numeric exit-code constants + `codeToExitCode(code)` map
+(D-5, DEC-1), and the picocolors color policy with non-interactive auto-detect
+(D-6). These are consumed by every later phase.
+
+**Tasks**:
+
+- [ ] **2.1** Create `src/cli/output/command-result.ts` (D-1):
+      - `CommandResult<T>` interface:
+        `{ schemaVersion: typeof SCHEMA_VERSION; runId: string; exitCode: number;
+        timing?: { startedAt: string; durationMs: number }; data?: T;
+        error?: { code: string; message: string; retryable: boolean };
+        warnings?: Array<{ code: string; message: string }> }`.
+      - `export const SCHEMA_VERSION = 1 as const;` (ADR-0011 C-4 — contract
+        stability).
+      - A small factory `ok<T>(data: T, meta): CommandResult<T>` and
+        `err(code, message, meta): CommandResult<never>` (ergonomics; the
+        exitCode is filled by the caller via `codeToExitCode`, keeping this
+        module tier-pure).
+      - Document the snake_case JSON contract (DEC-4) and the `error` shape
+        (DEC-5) in a leading comment citing ADR-0011.
+- [ ] **2.2** Create `src/cli/output/exit-codes.ts` (D-5 / DEC-1):
+      - Named numeric constants: `EXIT_OK=0`, `EXIT_USAGE=2`, `EXIT_CONFIG=10`,
+        `EXIT_AUTH=20`, `EXIT_CONFLICT=30`, `EXIT_REMOTE_MISSING=40`,
+        `EXIT_INVARIANT=50`, `EXIT_RENDER_UNAVAILABLE=70`, `EXIT_INTERNAL=99`.
+      - A `Record<string, number>` mapping the stable `error.code` strings of
+        DEC-2 → the constants (e.g. `"CONFLICT" → 30`, `"INVALID_CONFIG" → 10`,
+        `"REMOTE_MISSING" → 40`, `"RENDER_UNAVAILABLE" → 70`, `"USAGE" → 2`,
+        `"INTERNAL" → 99`, …) and `codeToExitCode(code: string): number`
+        (unknown codes → `EXIT_INTERNAL` with a documented fallback).
+      - **Zero tier imports** — pure data. A leading comment cites DEC-1 /
+        DEC-2 and the GH-15 `init.ts` structural-type precedent.
+- [ ] **2.3** Create `src/cli/output/color.ts` (D-6):
+      - `resolveColorPolicy(opts: { color?: boolean; noColor?: boolean }): {
+        enabled: boolean }` honoring `--color`/`--no-color` overrides, else
+        non-interactive detect: `!process.stdout.isTTY || !!process.env.CI ||
+        !!process.env.NO_COLOR || process.env.TERM === "dumb"` (ADR-0011 C-2 /
+        NFR-A11Y-1).
+      - A thin `picocolors` wrapper whose color methods are no-ops when
+        `enabled === false` (so human renderers call color unconditionally and
+        the policy decides whether codes emit).
+- [ ] **2.4** Create `tests/unit/cli/output/exit-codes.test.ts` — assert
+      `codeToExitCode("CONFLICT") === 30` (AC-6), plus every DEC-2 row and the
+      unknown-code → `EXIT_INTERNAL` fallback.
+- [ ] **2.5** Create `tests/unit/cli/output/color.test.ts` — a matrix over
+      mocked `isTTY`/`CI`/`NO_COLOR`/`TERM` asserting: piped (no TTY) → disabled;
+      `CI`/`NO_COLOR`/`TERM=dumb` → disabled; `--color` forces on even when
+      piped; `--no-color` forces off even on a TTY (RSK-5 / AC-3).
+- [ ] **2.6** Create `tests/unit/cli/output/command-result.test.ts` — assert the
+      `ok`/`err` factories produce the documented shape incl. `schemaVersion=1`
+      and optional `timing`/`warnings` (exactOptionalPropertyTypes-safe).
+
+**Acceptance Criteria**:
+
+- Must: `codeToExitCode("CONFLICT") === 30` (AC-6 / NFR-OBS-1).
+- Must: `exit-codes.ts` imports no `#domain/*` / `#infra/*`
+      (`check:boundaries` clean; DEC-1).
+- Must: color policy disables on every non-interactive signal and honors both
+      overrides (AC-3 / NFR-A11Y-1).
+- Must: `CommandResult<T>` shape compiles under strict mode and carries
+      `schemaVersion=1`.
+
+**Files and modules**:
+
+- Code areas: `src/cli/output/command-result.ts` (new),
+  `src/cli/output/exit-codes.ts` (new), `src/cli/output/color.ts` (new).
+- System docs: none (the output contract is reconciled into
+  `doc/spec/features/feature-cli.md` in lifecycle phase 7).
+
+**Tests**:
+
+- `bun test tests/unit/cli/output/{exit-codes,color,command-result}.test.ts`
+- `bun run typecheck`; `bun run check:boundaries`.
+
+**Completion signal**: `feat(cli): add CommandResult, exit codes, and color policy`
+
+---
+
+### Phase 3: Centralized redaction layer
+
+**Goal**: Deliver D-4 — the `Redactor` that scrubs every output path before
+write (INV-SEC-1 / NFR-SEC-2). Patterns are data, not secret values; the layer
+is applied centrally by `OutputService` (Phase 4) so no command can bypass it
+(ADR-0011 C-5).
+
+**Tasks**:
+
+- [ ] **3.1** Create `src/cli/output/redact.ts` (D-4) — a `Redactor` with
+      configurable patterns covering at minimum:
+      - `Authorization: <scheme> <token>` headers;
+      - `Bearer <token>` and `Basic <token>`;
+      - GitHub PATs `gho_…` / `ghp_…` / `ghs_…` shapes;
+      - Atlassian tokens `ATATT…` shapes;
+      - generic API-token-shaped strings (long high-entropy base64/hex);
+      - email addresses;
+      - `MARKSYNC_*_TOKEN` env values with length > 20 (story R1 / DEC).
+      Provide `redactString(s: string): string` and `redactJson(value: unknown):
+      unknown` (deep-walk objects/arrays, replacing matches with a stable
+      `[REDACTED:<kind>]` token). Patterns must be specific enough to NOT match
+      a 40-char hex sha (RSK-1).
+- [ ] **3.2** Implement the **hex-sha guard** (story R1 / RSK-1): the matcher
+      explicitly excludes 40-char hex strings (Git sha shape). Add a leading
+      comment citing the CEO-recorded resolution.
+- [ ] **3.3** Create `tests/unit/cli/output/redact.test.ts` — per-pattern
+      assertions: a synthetic token in each shape is fully redacted; AND a
+      40-char hex sha is **NOT** redacted (RSK-1 closure / AC-1). Cover nested
+      JSON objects, arrays, and string interpolation ("error at gho_xxx").
+- [ ] **3.4** Confirm tier purity: `redact.ts` imports no tier (pure regex +
+      walk); it MAY import `#shared/*` if a shared helper fits, else stays
+      self-contained.
+
+**Acceptance Criteria**:
+
+- Must: every documented secret shape is replaced with `[REDACTED:<kind>]` across
+      JSON values and human strings (AC-1 / INV-SEC-1).
+- Must: a 40-char hex sha survives redaction unmodified (RSK-1).
+- Must: `redact.ts` imports no `#domain/*` / `#infra/*`
+      (`check:boundaries` clean).
+
+**Files and modules**:
+
+- Code areas: `src/cli/output/redact.ts` (new).
+- System docs: none (the redaction contract is described in
+  `doc/guides/security-baseline.md` and `doc/spec/nonfunctional.md` NFR-SEC-2).
+
+**Tests**:
+
+- `bun test tests/unit/cli/output/redact.test.ts`
+- `bun run typecheck`; `bun run check:boundaries`.
+
+**Completion signal**: `feat(cli): add centralized redaction layer`
+
+---
+
+### Phase 4: JSON renderer, generic human renderer + registry, and OutputService chokepoint
+
+**Goal**: Deliver D-2, D-3, and D-7 — the renderers and the single chokepoint
+that ties them together with redaction and color. `OutputService.emit()` is the
+only point all output crosses: redact → render (per selected format) → write
+stdout/stderr → return the exit code.
+
+**Tasks**:
+
+- [ ] **4.1** Create `src/cli/output/json.ts` (D-2):
+      - `renderJson(result: CommandResult<unknown>): string` — `JSON.stringify`
+        with **stable key order** (canonicalize object keys, e.g. via a
+        deterministic replacer / sort) so the contract snapshot is deterministic
+        (RSK-4 / ADR-0011 C-4). Output is snake_case (DEC-4) — map the
+        camelCase TS fields to snake_case JSON keys at render time (keep the TS
+        type idiomatic; transform on emit).
+      - `renderNdjson(results: Iterable<CommandResult<unknown>>): string` — one
+        JSON object per line (wired for future streaming; no watch command
+        exists yet — Out of Scope).
+- [ ] **4.2** Create `src/cli/output/human.ts` (D-3):
+      - A generic key-value/table fallback `renderHuman(result, colorPolicy)`
+        for any `CommandResult<T>` — readable plain text with NO box-drawing
+        characters (NFR-A11Y-2). Color is applied via the `color.ts` wrapper
+        (no-op when disabled).
+      - `registerHumanFormatter<T>(command: string, fn: (result:
+        CommandResult<T>, colorPolicy) => string): void` registry + an internal
+        lookup so `renderHuman` consults a registered formatter first and falls
+        back to the generic renderer when none is registered (AC-7).
+- [ ] **4.3** Create `src/cli/output/index.ts` (D-7) — the `OutputService`:
+      - `emit(result: CommandResult<unknown>, opts: { format: "json" | "ndjson"
+        | "human"; colorPolicy }): number` — **redact** (`Redactor.redactJson`
+        for JSON/NDJSON, `redactString` for human) → **render** (per format) →
+        **write** (`process.stdout`/`process.stderr`) → **return** `exitCode`.
+        Single chokepoint; no other code writes command output directly
+        (ADR-0011 C-5).
+      - `--quiet` suppresses non-error human output (stdout), still emits errors
+        to stderr; JSON is unaffected (machine contract preserved).
+- [ ] **4.4** Create `tests/unit/cli/output/json.test.ts` — assert stable key
+      order (two equal results serialize identically regardless of insertion
+      order), snake_case keys, and the `error` shape (DEC-5). Include a
+      representative snapshot fixture.
+- [ ] **4.5** Create `tests/unit/cli/output/human.test.ts` — assert (a) a
+      registered formatter's output differs from (and is richer than) the
+      generic fallback (AC-7); (b) `--no-color` output contains no ANSI and no
+      box-drawing chars (RSK-6 / NFR-A11Y-2).
+- [ ] **4.6** Create `tests/unit/cli/output/output-service.test.ts` — assert the
+      redact → render → write → return-exitCode pipeline on a captured buffer
+      (inject a writable stream), covering all three formats and the
+      `--quiet` path.
+
+**Acceptance Criteria**:
+
+- Must: JSON output has stable key order + snake_case keys (DEC-4 / RSK-4).
+- Must: a registered human formatter is preferred; unregistered commands use the
+      fallback (AC-7).
+- Must: `--no-color --output=human` output is plain text — no ANSI, no
+      box-drawing (AC-4 / NFR-A11Y-2 / RSK-6).
+- Must: `OutputService.emit` redacts on every format path and returns the
+      result's `exitCode` (ADR-0011 C-5 / AC-1).
+- Must: `check:boundaries` clean (output modules import no domain/infra).
+
+**Files and modules**:
+
+- Code areas: `src/cli/output/json.ts` (new), `src/cli/output/human.ts` (new),
+  `src/cli/output/index.ts` (new). Consumes Phase 2 (`command-result`,
+  `exit-codes`, `color`) + Phase 3 (`redact`).
+- System docs: none.
+
+**Tests**:
+
+- `bun test tests/unit/cli/output/{json,human,output-service}.test.ts`
+- `bun run typecheck`; `bun run check:boundaries`.
+
+**Completion signal**: `feat(cli): add JSON/human renderers and OutputService`
+
+---
+
+### Phase 5: Application-tier MarkSyncError → CommandResult/code mapper
+
+**Goal**: Deliver the DEC-1 bridge — `src/app/cli-error-map.ts`, the **only**
+module that translates `MarkSyncError.kind` into the stable `{ error.code,
+message, retryable }` shape (`CommandResult.error`). This is the application-tier
+counterpart to `exit-codes.ts`; it lands **before** any CLI handler consumes a
+`MarkSyncError` (Phase 6) so the dep-cruiser invariant holds at every later
+commit (Critical ordering constraint / RSK-2).
+
+**Tasks**:
+
+- [ ] **5.1** Create `src/app/cli-error-map.ts` (DEC-1 / DEC-2):
+      - `markSyncErrorToResultError(err: MarkSyncError): { code: string;
+        message: string; retryable: boolean }` — an exhaustive switch over
+        `err.kind` mapping each kind to its stable `code` (DEC-2 table) +
+        a stable, **redacted** `message` (never raw exception text / file paths
+        / request bodies — DEC-5) + a `retryable` flag (e.g. `Conflict`/`
+        ConcurrentWrite`/`StalePlan` retryable; `DuplicateUuid`/
+        `InvalidConfig` not). The `default` arm calls
+        `assertNeverMarkSyncError(err)` so adding a future kind is a compile
+        error until mapped (NFR-3 precedent from GH-15).
+      - `resultErrorFromAppResult<T>(r: Result<T, MarkSyncError>): {
+        ok: true; data: T } | { ok: false; error: ResultError }` convenience.
+- [ ] **5.2** Keep this module the **only** app→domain error bridge: it imports
+      `#domain/errors` + `#domain/result` (allowed — application → domain ✓)
+      and is imported by `src/cli/` (allowed — presentation → application ✓).
+      It does NOT compute `exitCode` (that is `codeToExitCode` in the cli tier).
+- [ ] **5.3** Create `tests/unit/app/cli-error-map.test.ts` — assert the DEC-2
+      table end to end: every `MarkSyncError` kind → expected `{code,
+      retryable}`; **`Conflict → { code: "CONFLICT", retryable: true }`** is
+      the AC-6 load-bearing case; and `message` is redacted (no token-shaped
+      substring survives). Include an exhaustive-compile assertion (the switch
+      covers all 13 kinds).
+
+**Acceptance Criteria**:
+
+- Must: every `MarkSyncError.kind` maps to a stable `code` + redacted `message`
+      + `retryable` (DEC-2 / NFR-OBS-1).
+- Must: `Conflict → { code: "CONFLICT" }` so the cli tier's `codeToExitCode`
+      yields `30` (AC-6 / NFR-OBS-1).
+- Must: `markSyncErrorToResultError`'s switch is exhaustive — adding a kind
+      without a case is a compile error (NFR-3 precedent).
+- Must: `cli-error-map.ts` is in `src/app/` and imports only `#domain/*`
+      (`check:boundaries` clean; DEC-1).
+
+**Files and modules**:
+
+- Code areas: `src/app/cli-error-map.ts` (new).
+- System docs: none.
+
+**Tests**:
+
+- `bun test tests/unit/app/cli-error-map.test.ts`
+- `bun run typecheck` (the exhaustive-switch `never`-check is load-bearing);
+  `bun run check:boundaries`.
+
+**Completion signal**: `feat(app): add MarkSyncError to CommandResult mapper`
+
+---
+
+### Phase 6: Cliffy command skeleton, stub handlers, init rewire, and entrypoint
+
+**Goal**: Deliver D-8 and D-9 — the Cliffy command router with global flags and
+stub handlers returning placeholder `CommandResult`s (real logic is later
+stories), rewire the existing GH-15 `init` handler into the `CommandResult`
+contract via the Phase 5 mapper, and stand up the real `src/cli/index.ts`
+entrypoint (parse → route → execute → `OutputService.emit` → `process.exit`).
+
+**Tasks**:
+
+- [ ] **6.1** Create `src/cli/commands/router.ts` (D-8) — a Cliffy `Command`
+      definition registering the global flags `--json`/`--output={json,ndjson,
+      human}`/`--color`/`--no-color`/`--quiet` and the subcommands `init`,
+      `plan`, `sync`, `doctor`, `repair-state`. Resolve the output format +
+      color policy once from the global flags and pass them to
+      `OutputService.emit`. Cliffy imports confined to `src/cli/` (DEC-6 /
+      TDR-0002 mitigation 4).
+- [ ] **6.2** Create stub handlers `src/cli/commands/{plan,sync,doctor,
+      repair-state}.ts` (D-8) — each exports a plain action returning a
+      placeholder `CommandResult` (e.g. `{ ok(...) }` with a "not implemented
+      in MS-0002" `data`/`warning`, or a `USAGE` error). They produce a
+      `CommandResult` and never call `process.exit` directly (the entrypoint
+      does — story technical-approach §"Exit-code mapping centralized").
+- [ ] **6.3** **Rewire `src/cli/commands/init.ts`** (GH-15 F-5 handler —
+      updated) into the `CommandResult` contract: instead of returning
+      `{exitCode, message}`, call `writeStarterConfig` (returns
+      `Result<void, ConfigError>`), translate a failure via the Phase 5 mapper
+      (`markSyncErrorToResultError` / `resultErrorFromAppResult` from
+      `#app/cli-error-map`), and return `CommandResult<void>`. The handler
+      imports only `#app/*` (presentation → application ✓; DEC-1 keeps it
+      domain-free). Preserve the GH-15 overwrite-refusal behavior (OQ-TP-1).
+- [ ] **6.4** Create `src/cli/index.ts` (D-9 — replaces the trivial
+      `console.log("marksync 0.1.0")` stub): parse args via Cliffy → route to
+      the matched handler → execute → `OutputService.emit(result, {format,
+      colorPolicy})` → `process.exit(result.exitCode)`. Wrap unexpected throws
+      as `{ exitCode: EXIT_INTERNAL, error: { code: "INTERNAL", message:
+      "internal error", retryable: false } }` (DEC-2). Keep the version string
+      in lock-step with `package.json` until a runtime version source is wired.
+- [ ] **6.5** Create `tests/unit/cli/commands/router.test.ts` + per-stub handler
+      unit tests — assert each stub returns a valid `CommandResult` and that
+      `init` (rewired) translates a `ConfigError` to
+      `{ error: { code: "INVALID_CONFIG" } }` (exit 10) and a success to
+      `exitCode 0`. Verify `rg '@cliffy' src/app src/domain src/infra` → zero
+      matches (TDR-0002 presentation-boundary metric).
+
+**Acceptance Criteria**:
+
+- Must: `--json`/`--output`/`--color`/`--no-color`/`--quiet` are accepted on
+      every subcommand; the format + color policy flow into `OutputService.emit`
+      (D-8).
+- Must: every stub (incl. the rewired `init`) returns a `CommandResult` and
+      never calls `process.exit` (D-8/D-9).
+- Must: `init` success → `exitCode 0`; `init` ConfigError →
+      `{ error: { code: "INVALID_CONFIG" } }` (DEC-2 / exit 10).
+- Must: `src/cli/` imports no `#domain/*` / `#infra/*`; no `@cliffy` import
+      outside `src/cli/` (`check:boundaries` + `rg` clean; DEC-1 / DEC-6).
+
+**Files and modules**:
+
+- Code areas: `src/cli/commands/router.ts` (new), `src/cli/commands/{plan,sync,
+  doctor,repair-state}.ts` (new), `src/cli/commands/init.ts` (updated —
+  rewire), `src/cli/index.ts` (updated — real entrypoint). Consumes Phase 2–5
+  (`command-result`, `exit-codes`, `color`, renderers, `OutputService`,
+  `#app/cli-error-map`).
+- System docs: none.
+
+**Tests**:
+
+- `bun test tests/unit/cli/commands/`
+- `bun run typecheck`; `bun run check:boundaries`; `rg '@cliffy' src/app
+  src/domain src/infra` → empty.
+
+**Completion signal**: `feat(cli): add cliffy command skeleton and entrypoint`
+
+---
+
+### Phase 7: Contract/golden snapshot + unit/integration/golden test coverage
+
+**Goal**: Deliver D-10 — the contract test pinning the JSON schema + the
+remaining unit tests + the integration tests (capture stdout/stderr via
+`Bun.spawn`, assert redaction + format + exit code end-to-end) + the golden
+snapshot. This phase closes AC-1 through AC-7 with traceable tests.
+
+**Tasks**:
+
+- [ ] **7.1** Create the **contract snapshot test**
+      `tests/golden/cli-output.snapshot.test.ts` (D-10 / ADR-0011 C-4) — a
+      pinned JSON snapshot of a representative `CommandResult` (success with
+      data, and an error variant) asserting the emitted `--json` shape is
+      stable: snake_case keys, `schemaVersion=1`, `runId` present, `error`
+      shape per DEC-5. Snapshot stored under `tests/golden/fixtures/`. Update
+      only deliberately (regression = CI failure).
+- [ ] **7.2** Create **integration tests** `tests/integration/cli-output.test.ts`
+      using `Bun.spawn` to run the real entrypoint and capture stdout/stderr:
+      - **AC-1 / INV-SEC-1:** a `CommandResult` carrying a synthetic token in any
+        field → emitted JSON **and** human output contain NO token (assert by
+        grep on captured stdout).
+      - **AC-2:** every stub command under `--json` produces valid JSON matching
+        the snapshot.
+      - **AC-3:** piped (`... | cat`) output has zero ANSI; `--color` forces
+        ANSI; `--no-color` disables (NFR-A11Y-1).
+      - **AC-4:** `--no-color --output=human` plain text, no box-drawing, no
+        ANSI (NFR-A11Y-2).
+      - **AC-6:** a synthetic `{ error: { code: "CONFLICT" } }` → process exits
+        `30` (assert spawn exit code).
+- [ ] **7.3** Create the **zero-adapter-change test**
+      `tests/integration/cli-add-command.test.ts` (AC-5 / ADR-0011 C-3): add a
+      throwaway stub command in the test and assert `json.ts`, `human.ts`, and
+      `redact.ts` are byte-unchanged (e.g. hash the three files before/after the
+      stub is registered, or assert via git that no diff touches them). This
+      proves adding a command requires no central-adapter edits.
+- [ ] **7.4** Fill any remaining unit gaps surfaced by integration (e.g. NDJSON
+      one-object-per-line; `--quiet` stderr-only error path; the
+      `registerHumanFormatter` richer-vs-fallback assertion under color).
+- [ ] **7.5** Run the full unit + integration + golden suite; confirm every AC
+      has ≥1 passing test mapped in the Test Scenarios table.
+
+**Acceptance Criteria**:
+
+- Must: the contract snapshot test pins the JSON schema and is green (AC-8 /
+      ADR-0011 C-4).
+- Must: integration tests prove AC-1 (redaction by grep), AC-2 (valid JSON +
+      snapshot match), AC-3 (piped no-ANSI / overrides), AC-4 (plain-log mode),
+      AC-6 (`CONFLICT → 30`) end-to-end via the real entrypoint.
+- Must: AC-5 proven — a new stub command is added with zero changes to
+      `json.ts`/`human.ts`/`redact.ts`.
+- Must: `bun run check` (incl. integration + golden) exits 0.
+
+**Files and modules**:
+
+- Code areas: `tests/golden/cli-output.snapshot.test.ts` (new),
+  `tests/golden/fixtures/command-result.*.json` (new snapshot fixtures),
+  `tests/integration/cli-output.test.ts` (new),
+  `tests/integration/cli-add-command.test.ts` (new); any residual unit test
+  additions under `tests/unit/cli/output/`.
+- System docs: none.
+
+**Tests**:
+
+- `bun test tests/golden/ tests/integration/ tests/unit/cli/`
+- `bun run check` (the full gate — AC-8).
+
+**Completion signal**: `test(cli): add contract snapshot and integration tests`
+
+---
+
+### Phase 8: Documentation touch-ups, version bump, and finalize
+
+**Goal**: Apply trivial inline doc touch-ups flagged for this phase (full
+system-spec reconciliation is lifecycle phase 7 / `@doc-syncer`), apply the
+version bump per `version_impact: minor`, run the final full quality gate, and
+confirm all ACs are satisfied with no stray placeholders.
+
+**Tasks**:
+
+- [ ] **8.1** Inline documentation touch-ups (full doc-sync is lifecycle phase 7;
+      this phase does only trivial inline references): add/confirm a brief
+      comment block in `src/cli/output/exit-codes.ts` cross-referencing the
+      DEC-2 table, and ensure every new `src/cli/output/*.ts` file has the
+      tier-rule + ADR-0011 citation in its leading comment. Flag the following
+      for `@doc-syncer` (do NOT rewrite here): `feature-cli.md` output section;
+      ADR-0011 unresolved-Q (camelCase vs snake_case) closure — CEO-resolved
+      snake_case; `tech-stack.md` Cliffy provisional entry → pinned;
+      `nonfunctional.md` exit-code table; `security-baseline.md` redaction;
+      `architecture-overview.md` output-service row; `code-review-instructions.md`
+      CLI-output checklist.
+- [ ] **8.2** Apply the version bump per repo conventions for
+      `version_impact: minor`: `package.json` `0.1.0` → `0.2.0`; update the
+      `src/cli/index.ts` version string to match (lock-step with `package.json`
+      until a runtime version source is wired — GH-15 precedent). Confirm with
+      the maintainer if the 0.x minor-vs-patch convention differs (Open
+      questions).
+- [ ] **8.3** Final review sweep: confirm all phase tasks are checked, every AC
+      (AC-1..AC-8) has a passing test mapped in the Test Scenarios table, and
+      there are no stray `<...>` placeholders or TODOs in shipped code
+      (`rg "TODO|FIXME|XXX|HACK" src/` → none).
+- [ ] **8.4** Run the full quality gate: `bun run check` (lint + format:check +
+      typecheck + test + check:boundaries) — must exit 0 (AC-8 / NFR-6).
+      Re-confirm the TDR-0002 presentation-boundary metric
+      (`rg '@cliffy' src/app src/domain src/infra` → empty) and that the
+      contract snapshot is green.
+
+**Acceptance Criteria**:
+
+- Must: version bumped per `version_impact: minor` (`0.1.0 → 0.2.0`).
+- Must: `bun run check` exits 0 (AC-8 / NFR-6); contract snapshot green.
+- Must: no `@cliffy` import outside `src/cli/`; `check:boundaries` 0 violations
+      (TDR-0002 mitigation 4 / DEC-1).
+- Should: doc-sync items flagged for `@doc-syncer` are recorded in
+      `chg-GH-16-pm-notes.yaml` for lifecycle phase 7.
+
+**Files and modules**:
+
+- Code areas: `package.json` (version bump), `src/cli/index.ts` (version
+  string), `src/cli/output/exit-codes.ts` (comment cross-ref — trivial).
+- System docs: none rewritten here (flagged for lifecycle phase 7 /
+      `@doc-syncer`).
+
+**Tests**:
+
+- `bun run check` (the full gate — AC-8).
+- `rg '@cliffy' src/app src/domain src/infra` → empty.
+
+**Completion signal**: `feat(cli): finalize CLI framework and output pipeline`
+
+---
+
+## Test Scenarios
+
+| ID | Scenario | Phases | AC |
+|----|----------|--------|----|
+| TS-1 | `CommandResult` with a synthetic token in any field → emitted JSON **and** human output contain NO token (grep on captured stdout) | 3, 4, 7 | AC-1 / INV-SEC-1 |
+| TS-2 | A 40-char hex sha is **NOT** redacted (over-redaction guard) | 3 | AC-1 / RSK-1 |
+| TS-3 | Every stub command under `--json` produces valid JSON matching the pinned snapshot | 4, 7 | AC-2 |
+| TS-4 | Piped (`... \| cat`) output has zero ANSI; `--color` forces; `--no-color` disables | 2, 7 | AC-3 / NFR-A11Y-1 |
+| TS-5 | `--no-color --output=human` plain text — no box-drawing, no ANSI | 4, 7 | AC-4 / NFR-A11Y-2 |
+| TS-6 | A new stub command is added with zero changes to `json.ts`/`human.ts`/`redact.ts` | 6, 7 | AC-5 / ADR-0011 C-3 |
+| TS-7 | `error.code: "CONFLICT"` → process exits `30` | 2, 5, 7 | AC-6 / NFR-OBS-1 |
+| TS-8 | `registerHumanFormatter` output is richer than the generic fallback; unregistered → fallback | 4 | AC-7 |
+| TS-9 | `codeToExitCode("CONFLICT") === 30` + every DEC-2 row + unknown-code fallback | 2 | AC-6 / DEC-2 |
+| TS-10 | `MarkSyncError.kind → {code,message,retryable}` exhaustive over all 13 kinds; `Conflict → CONFLICT` | 5 | AC-6 / NFR-3 |
+| TS-11 | `init` rewire: success → exit 0; `ConfigError → INVALID_CONFIG` (exit 10) | 6 | DEC-2 |
+| TS-12 | `bun build --compile` binary renders `--help` with zero Cliffy compile warnings | 1 | TDR-0002 C-1 |
+| TS-13 | `rg '@cliffy' src/app src/domain src/infra` → empty (presentation boundary) | 1, 6, 8 | DEC-6 / TDR-0002 |
+| TS-14 | `bun run check` (lint + format:check + typecheck + test + boundaries) exits 0; contract snapshot green | 8 | AC-8 / NFR-6 |
+| TS-15 | `check:boundaries`: `src/cli/**` imports no domain/infra; `src/app/cli-error-map.ts` imports domain only | 2–6 | Constraints / DEC-1 |
+
+## Artifacts and Links
+
+| Artifact | Location | Type |
+|----------|----------|------|
+| Authoritative story | `doc/planning/milestones/MS-2/MS2-E2--foundation/MS2-E2-S3--cli-framework.md` | Scope |
+| PM notes | `./chg-GH-16-pm-notes.yaml` | Orchestration |
+| Sibling plan (format precedent) | `../2026-07-07--GH-15--config-system/chg-GH-15-plan.md` | Plan |
+| Output strategy decision | `doc/decisions/ADR-0011-cli-output-strategy.md` | Decision (ADR) |
+| CLI framework decision | `doc/decisions/TDR-0002-cli-framework.md` | Decision (TDR) |
+| `CommandResult<T>` envelope | `src/cli/output/command-result.ts` | Code (new) |
+| Exit-code constants + map | `src/cli/output/exit-codes.ts` | Code (new) |
+| Color policy | `src/cli/output/color.ts` | Code (new) |
+| Redaction layer | `src/cli/output/redact.ts` | Code (new) |
+| JSON renderer | `src/cli/output/json.ts` | Code (new) |
+| Human renderer + registry | `src/cli/output/human.ts` | Code (new) |
+| OutputService chokepoint | `src/cli/output/index.ts` | Code (new) |
+| MarkSyncError→code mapper | `src/app/cli-error-map.ts` | Code (new — DEC-1) |
+| Cliffy router + stubs | `src/cli/commands/{router,plan,sync,doctor,repair-state}.ts` | Code (new) |
+| `init` handler (rewired) | `src/cli/commands/init.ts` | Code (updated — GH-15) |
+| CLI entrypoint | `src/cli/index.ts` | Code (updated — replaces stub) |
+| Contract snapshot | `tests/golden/cli-output.snapshot.test.ts` + `tests/golden/fixtures/` | Test (new) |
+| Integration tests | `tests/integration/cli-{output,add-command}.test.ts` | Test (new) |
+| Coding rules | `.ai/rules/typescript.md` | Convention |
+| Architecture | `doc/overview/architecture-overview.md` | System doc |
+| NFRs | `doc/spec/nonfunctional.md` (NFR-OBS-1/2, NFR-A11Y-1/2, NFR-SEC-1/2) | System doc |
+
+## Remediation
+
+<!-- Placeholder — populated by @reviewer (lifecycle phase 8) / @readiness-reviewer
+     (phase 5 DoR). Each accepted finding becomes a checked task with a target
+     phase and commit. -->
+
+- [ ] _(none yet — DoR gate pending)_
+
+## Plan Revision Log
+
+| Version | Date | Author | Changes |
+|---------|------|--------|---------|
+| 1.0 | 2026-07-08 | plan-writer (GH-16) | Initial plan — 8 phases derived from story `MS2-E2-S3` (10 deliverables, 8 ACs) and the governing decisions ADR-0011 + TDR-0002. Phases ordered so the application-tier `MarkSyncError → code` mapper (Phase 5) precedes any CLI handler that consumes a `MarkSyncError` (Phase 6) — directly analogous to GH-15 phasing the union extension before the loader — keeping `bun run check:boundaries` green at every commit. Binding decision **DEC-1** resolves the critical architecture constraint: the `kind → {code,exitCode}` translation lives in `src/app/cli-error-map.ts` (app→domain ✓), `src/cli/output/exit-codes.ts` holds pure numeric constants + `codeToExitCode(code)` keyed by stable string (no domain import), and `src/cli/` never imports `#domain/*`/`#infra/*`. **DEC-2** commits the full kind→code→exit table (`Conflict → CONFLICT → 30` is the AC-load-bearing mapping; ambiguous entries flagged `*`). Final phase includes the version bump (`0.1.0 → 0.2.0`, `version_impact: minor`) + trivial doc touch-ups + the full `bun run check` gate; full system-spec reconciliation is deferred to lifecycle phase 7 (`@doc-syncer`). |
+
+## Execution Log
+
+<!-- Populated during delivery (lifecycle phase 6, @coder). One row per phase. -->
+
+| Phase | Status | Started | Completed | Commit | Notes |
+|-------|--------|---------|-----------|--------|-------|
+| 1 | pending | — | — | — | deps + TDR-0002 C-1 compile-smoke gate |
+| 2 | pending | — | — | — | CommandResult + exit-codes + color |
+| 3 | pending | — | — | — | redaction layer |
+| 4 | pending | — | — | — | JSON/human renderers + OutputService |
+| 5 | pending | — | — | — | app-tier MarkSyncError→code mapper |
+| 6 | pending | — | — | — | Cliffy skeleton + stubs + init rewire + entrypoint |
+| 7 | pending | — | — | — | contract snapshot + integration/golden tests |
+| 8 | pending | — | — | — | doc touch-ups + version bump + finalize |
