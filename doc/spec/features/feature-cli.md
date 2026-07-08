@@ -5,11 +5,11 @@ ados_distribution: project-generated
 id: SPEC-CLI
 status: Current
 created: 2026-07-06
-last_updated: 2026-07-06
+last_updated: 2026-07-08
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: []
+  related_changes: [GH-15]
   decisions: [ADR-0011, TDR-0002]
   contracts: []
 ---
@@ -43,7 +43,7 @@ JSON/NDJSON output.
 
 | Command | Purpose |
 |---|---|
-| `init` | Initialize MarkSync in a repo: create config, discover pages, assign UUIDs |
+| `init` | Initialize MarkSync in a repo: create config, discover pages, assign UUIDs. (MS-0002: config scaffolding only — writes a starter `marksync.yml` and refuses to overwrite an existing one; discovery and UUID assignment are later milestones.) |
 | `plan` | Compute sync plan (dry-run): what will be created/updated/moved/no-op |
 | `sync` | Execute plan: apply changes to Confluence |
 | `doctor` | Health check: auth, permissions, API connectivity, config validity |
@@ -93,7 +93,7 @@ parses args, delegates to domain services, and renders `CommandResult<T>`.
 | ResultRenderer | `CommandResult<T>` → JSON/NDJSON/human output |
 | RedactionLayer | Centralized secret scrubbing for all output |
 | AuthProvider | Token/keyring resolution |
-| ConfigLoader | YAML config + JSON Schema validation |
+| ConfigLoader | Reads + ajv-validates `marksync.yml`, returns `Result<ProjectConfig, ConfigError>` (YAML parse → `allErrors` → `applyDefaults`); pure — no Git/tree I/O (`src/app/config.ts`) |
 
 ### 4.3 Key decisions
 
@@ -109,7 +109,7 @@ parses args, delegates to domain services, and renders `CommandResult<T>`.
 - [ ] Exit codes are stable and documented.
 - [ ] Color is auto-disabled when not a TTY or `NO_COLOR` set (NFR-A11Y-1).
 - [ ] `doctor` verifies: auth, base URL, space access, permissions, config
-      validity.
+      validity (surfaces `ConfigError`/`InvalidConfig` from `loadConfig`).
 - [ ] `--dry-run` / `plan` shows every intended mutation before any write.
 
 ## 6. References

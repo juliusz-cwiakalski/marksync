@@ -5,13 +5,13 @@ ados_distribution: redistributable
 id: CONVENTIONS-TYPESCRIPT
 status: Draft
 created: 2026-07-05
-last_updated: 2026-07-07
+last_updated: 2026-07-08
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0006, ADR-0011, TDR-0002, TDR-0003, TDR-0004, TDR-0005, TDR-0006, TDR-0008]
-  related_changes: [GH-14]
+  related_changes: [GH-14, GH-15]
   summary: "TypeScript + Bun conventions — module structure, naming, error handling, IO boundaries, linting, formatting for MarkSync."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -168,6 +168,7 @@ export type Result<T, E> =
 
 // src/domain/errors.ts — typed domain errors (discriminated union).
 // The live definition is authoritative; reproduced here for convention reference.
+// (`ConfigAjvError`, carried by the `InvalidConfig` arm, is defined in errors.ts.)
 export type MarkSyncError =
   | { kind: "Conflict"; pageId: string; baseVersion: number; remoteVersion: number }
   | { kind: "RemoteMissing"; pageId: string }
@@ -180,7 +181,11 @@ export type MarkSyncError =
   | { kind: "StalePlan"; operationId: string; expiredAt: string }
   | { kind: "ForbiddenBranch"; branch: string; allowed: string[] }
   | { kind: "TooLarge"; pageId: string; what: string }
-  | { kind: "UnresolvedLink"; sourcePath: string; target: string };
+  | { kind: "UnresolvedLink"; sourcePath: string; target: string }
+  // Config-failure arm (GH-15): invalid marksync.yml. Carries the config path,
+  // the structured ajv errors (ConfigAjvError[]), and an AI-readable
+  // humanMessage (field path + expected vs actual + suggested fix).
+  | { kind: "InvalidConfig"; path: string; ajvErrors: ConfigAjvError[]; humanMessage: string };
 
 // The exhaustive `never`-check lives alongside the union as
 // `assertNeverMarkSyncError(error)` — switching over every `kind` so adding a
