@@ -12,9 +12,9 @@ phases:
   delivery: { started: "2026-07-07T00:05:00Z", completed: "2026-07-07T00:30:00Z" }
   system_spec_update: { started: "2026-07-07T00:30:00Z", completed: "2026-07-07T01:00:00Z" }
   review_fix: { started: "2026-07-07T01:00:00Z", completed: "2026-07-07T01:30:00Z" }
-  quality_gates: { started: "2026-07-07T01:30:00Z", completed: null }
-  dod_check: { started: null, completed: null }
-  pr_creation: { started: null, completed: null, url: null }
+  quality_gates: { started: "2026-07-07T01:30:00Z", completed: "2026-07-07T01:35:00Z" }
+  dod_check: { started: "2026-07-07T01:35:00Z", completed: "2026-07-07T01:40:00Z" }
+  pr_creation: { started: "2026-07-07T01:40:00Z", completed: null, url: null }
 
 decisions:
   - text: "YAML library choice: use `yaml` (npm, ESM, actively maintained) — single dep parses both marksync.yml and front-matter blocks. CEO-resolved in story Q1."
