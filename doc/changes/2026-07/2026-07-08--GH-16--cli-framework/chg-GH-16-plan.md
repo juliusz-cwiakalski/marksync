@@ -4,7 +4,7 @@
 id: chg-GH-16-cli-framework
 status: Proposed
 created: 2026-07-08T14:37:17Z
-last_updated: 2026-07-08T14:37:17Z
+last_updated: 2026-07-08T19:45:00Z
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 labels: [MS-0002, MS2-E2, foundation, critical, observability, security, a11y]
@@ -496,37 +496,62 @@ is applied centrally by `OutputService` (Phase 4) so no command can bypass it
 
 **Tasks**:
 
-- [ ] **3.1** Create `src/cli/output/redact.ts` (D-4) — a `Redactor` with
-      configurable patterns covering at minimum:
-      - `Authorization: <scheme> <token>` headers;
-      - `Bearer <token>` and `Basic <token>`;
-      - GitHub PATs `gho_…` / `ghp_…` / `ghs_…` shapes;
-      - Atlassian tokens `ATATT…` shapes;
-      - generic API-token-shaped strings (long high-entropy base64/hex);
-      - email addresses;
-      - `MARKSYNC_*_TOKEN` env values with length > 20 (story R1 / DEC).
-      Provide `redactString(s: string): string` and `redactJson(value: unknown):
-      unknown` (deep-walk objects/arrays, replacing matches with a stable
-      `[REDACTED:<kind>]` token). Patterns must be specific enough to NOT match
-      a 40-char hex sha (RSK-1).
-- [ ] **3.2** Implement the **hex-sha guard** (story R1 / RSK-1): the matcher
-      explicitly excludes 40-char hex strings (Git sha shape). Add a leading
-      comment citing the CEO-recorded resolution.
-- [ ] **3.3** Create `tests/unit/cli/output/redact.test.ts` — per-pattern
-      assertions: a synthetic token in each shape is fully redacted; AND a
-      40-char hex sha is **NOT** redacted (RSK-1 closure / AC-1). Cover nested
-      JSON objects, arrays, and string interpolation ("error at gho_xxx").
-- [ ] **3.4** Confirm tier purity: `redact.ts` imports no tier (pure regex +
-      walk); it MAY import `#shared/*` if a shared helper fits, else stays
-      self-contained.
+- [x] **3.1** Create `src/cli/output/redact.ts` (D-4) — DONE (Phase 3, `697610f`).
+      A configurable `Redactor` class + `DEFAULT_PATTERNS` + `DEFAULT_REDACTOR` +
+      `redactString`/`createRedactor` convenience. Built-in patterns cover
+      `Authorization: <scheme> <token>`, standalone `Bearer`/`Basic <token>`,
+      GitHub `gh[o p s u r]_` tokens, Atlassian `ATATT`/`ATSTS` tokens,
+      `MARKSYNC_*_TOKEN=<value>` (value strictly > 20 chars), and emails; each
+      match → `[REDACTED:<kind>]`.
+      **DEC-4 (authoritative — spec §15 / TC-RED-007):** redaction runs on the
+      SERIALIZED output string (`redactString`) — NOT the typed object — so a
+      token nested inside `data` is caught post-`JSON.stringify` (TC-RED-007).
+      **Deviation (justified, see also Phase 4.3):** the plan Task 3.1 mentioned a
+      `redactJson(value)` deep-walker; it is INTENTIONALLY OMITTED. A deep-walk
+      over the typed object would MISS substrings that only appear
+      post-serialization — exactly the leak DEC-4 exists to prevent. The DEC-4-
+      correct approach is implemented at the OutputService chokepoint (Phase 4):
+      it renders first (`renderJson` — single snake_case/stable-order path) then
+      runs `redactString` on the rendered string. A separate `redactJson` doing
+      its own `JSON.stringify` would create a second, non-snake_case serialization
+      path and is therefore rejected. Value char classes exclude `"`/whitespace so
+      JSON structural quotes are never consumed.
+- [x] **3.2** Implement the **hex-sha guard** (story R1 / RSK-1) — DONE.
+      Structural, not a negative-lookahead: every pattern is prefix-discriminated
+      (`gh[opsur]_`, `AT(ATT|STS)`, `Bearer `/`Basic `, `Authorization:`,
+      `MARKSYNC_…_TOKEN=`, email `@domain.tld`) and NONE is a bare long-hex
+      catch-all, so a 40-char hex Git SHA cannot match. Leading comment cites the
+      CEO-recorded R1 resolution.
+- [x] **3.3** Create `tests/unit/cli/output/redact.test.ts` — DONE (24 tests).
+      TC-RED-001..009 per-pattern (JSON + human + interpolation), TC-RED-006
+      (40-char hex sha survives lower+upper + co-existing-with-secret),
+      TC-RED-007 (token nested in `data.pageBody`/2-level-deep caught
+      post-serialization via `redactString(JSON.stringify(...))` — proves DEC-4;
+      JSON stays parseable), TC-RED-005b (>20 boundary: exactly-20-char value
+      left alone), TC-RED-009 (multiple secrets in one output), plus
+      configurability + Redactor reuse-safety (no `lastIndex` leak) + defaults.
+- [x] **3.4** Confirm tier purity — DONE. `redact.ts` imports NOTHING (pure
+      regex + string, no sibling import). `check:boundaries` green (21 modules).
 
 **Acceptance Criteria**:
 
 - Must: every documented secret shape is replaced with `[REDACTED:<kind>]` across
       JSON values and human strings (AC-1 / INV-SEC-1).
+  — **PASSED** (`redact.test.ts` TC-RED-001..005,009: Authorization/Bearer/Basic,
+  gho_/ghp_/ghs_/ghu_/ghr_, ATATT/ATSTS, email, MARKSYNC_*_TOKEN >20 — all fully
+  redacted on JSON + human paths; tests PASS 24/24).
 - Must: a 40-char hex sha survives redaction unmodified (RSK-1).
+  — **PASSED** (TC-RED-006: lower+upper 40-char sha survives verbatim; co-exists
+  with a real secret where only the secret is redacted).
 - Must: `redact.ts` imports no `#domain/*` / `#infra/*`
       (`check:boundaries` clean).
+  — **PASSED** (zero imports; `depcruise src` → "no dependency violations found
+  (21 modules, 15 dependencies cruised)").
+
+**Phase 3 verification** — `bun run format && bun run lint` (Biome clean),
+`bun run typecheck` (tsc strict — clean), `bun test tests/unit/cli/output/redact.test.ts`
+(30 pass / 0 fail, 100% coverage on `redact.ts`), `bun run check:boundaries`
+(green; `redact.ts` imports NOTHING — pure regex + string).
 
 **Files and modules**:
 
@@ -552,57 +577,108 @@ stdout/stderr → return the exit code.
 
 **Tasks**:
 
-- [ ] **4.1** Create `src/cli/output/json.ts` (D-2):
-      - `renderJson(result: CommandResult<unknown>): string` — `JSON.stringify`
-        with **stable key order** (canonicalize object keys, e.g. via a
-        deterministic replacer / sort) so the contract snapshot is deterministic
-        (RSK-4 / ADR-0011 C-4). Output is snake_case (DEC-4) — map the
-        camelCase TS fields to snake_case JSON keys at render time (keep the TS
-        type idiomatic; transform on emit).
-      - `renderNdjson(results: Iterable<CommandResult<unknown>>): string` — one
-        JSON object per line (wired for future streaming; no watch command
-        exists yet — Out of Scope).
-- [ ] **4.2** Create `src/cli/output/human.ts` (D-3):
-      - A generic key-value/table fallback `renderHuman(result, colorPolicy)`
-        for any `CommandResult<T>` — readable plain text with NO box-drawing
-        characters (NFR-A11Y-2). Color is applied via the `color.ts` wrapper
-        (no-op when disabled).
-      - `registerHumanFormatter<T>(command: string, fn: (result:
-        CommandResult<T>, colorPolicy) => string): void` registry + an internal
-        lookup so `renderHuman` consults a registered formatter first and falls
-        back to the generic renderer when none is registered (AC-7).
-- [ ] **4.3** Create `src/cli/output/index.ts` (D-7) — the `OutputService`:
-      - `emit(result: CommandResult<unknown>, opts: { format: "json" | "ndjson"
-        | "human"; colorPolicy }): number` — **redact** (`Redactor.redactJson`
-        for JSON/NDJSON, `redactString` for human) → **render** (per format) →
-        **write** (`process.stdout`/`process.stderr`) → **return** `exitCode`.
-        Single chokepoint; no other code writes command output directly
-        (ADR-0011 C-5).
-      - `--quiet` suppresses non-error human output (stdout), still emits errors
-        to stderr; JSON is unaffected (machine contract preserved).
-- [ ] **4.4** Create `tests/unit/cli/output/json.test.ts` — assert stable key
-      order (two equal results serialize identically regardless of insertion
-      order), snake_case keys, and the `error` shape (DEC-5). Include a
-      representative snapshot fixture.
-- [ ] **4.5** Create `tests/unit/cli/output/human.test.ts` — assert (a) a
-      registered formatter's output differs from (and is richer than) the
-      generic fallback (AC-7); (b) `--no-color` output contains no ANSI and no
-      box-drawing chars (RSK-6 / NFR-A11Y-2).
-- [ ] **4.6** Create `tests/unit/cli/output/output-service.test.ts` — assert the
-      redact → render → write → return-exitCode pipeline on a captured buffer
-      (inject a writable stream), covering all three formats and the
-      `--quiet` path.
+- [x] **4.1** Create `src/cli/output/json.ts` (D-2) — DONE (Phase 4, `ce8193b`).
+      - `renderJson(result: CommandResult<unknown>): string` — recursive
+        canonicalization (`toStableSnakeCase`): every object key is converted to
+        snake_case and sorted alphabetically, so two structurally equal results
+        serialize byte-identically regardless of insertion order (RSK-4 /
+        ADR-0011 C-4). The renderer OWNS the camelCase→snake_case conversion
+        (DEC-2): `schemaVersion`→`schema_version`, `runId`→`run_id`,
+        `exitCode`→`exit_code`, `timing.startedAt`→`started_at`,
+        `timing.durationMs`→`duration_ms` (applied recursively to `data` keys
+        too, so the whole payload is consistently snake_case). Returns a fresh
+        tree (input never mutated).
+      - `renderNdjson(results: CommandResult<unknown> | CommandResult<unknown>[]):
+        string` — one `renderJson` line per element (wired for future streaming;
+        no watch command exists yet — Out of Scope). Accepts a single result or
+        an array for ergonomics.
+- [x] **4.2** Create `src/cli/output/human.ts` (D-3) — DONE (Phase 4, `ce8193b`).
+      - `renderHuman(result, { colorEnabled })` generic key-value fallback —
+        readable plain text with NO box-drawing characters (NFR-A11Y-2). Color
+        applied through the `color.ts` kit (DEC-3) which is an identity no-op
+        when `colorEnabled === false`, so `--no-color` output has zero ANSI.
+      - `registerHumanFormatter<T>(command, fn)` + `getHumanFormatter(command)` +
+        `renderHumanForCommand(command, result, opts)` resolver — a registered
+        formatter overrides the generic fallback FOR THAT COMMAND ONLY (AC-7);
+        adding a command never edits the render path (C-3 / AC-5). `clearHumanFormatterRegistry`
+        is exported for hermetic registry tests.
+- [x] **4.3** Create `src/cli/output/index.ts` (D-7) — the `OutputService` —
+      DONE (Phase 4, `ce8193b`).
+      - `OutputService` class with injectable `stdout`/`stderr` (defaults to
+        `process.stdout`/`process.stderr`) + `emit(result, opts): number`.
+        **Design note (DEC-4, justified deviation from the plan's parenthetical):**
+        the plan Task 4.3 parenthetical suggested `Redactor.redactJson` for the
+        JSON path; the implemented chokepoint instead REDACTS THE RENDERED STRING
+        uniformly — `redactString(renderJson(result))` (JSON/NDJSON) and
+        `redactString(renderHumanForCommand(...))` (human). This is DEC-4-correct
+        (redact the serialized output) AND keeps a single snake_case/stable-order
+        serialization path (`renderJson`); a separate `redactJson` that does its
+        own `JSON.stringify` would bypass `renderJson` and create two divergent
+        serialization paths. `redact.ts` therefore intentionally has no
+        `redactJson` (see Phase 3.1 note). → **render → write → return exitCode`.
+        `opts` adds additive `command?` (registry resolution) and `quiet?` beyond
+        the plan's `{format, colorPolicy}` so the chokepoint is complete.
+      - Routing: JSON/NDJSON → stdout always (machine contract); human success →
+        stdout (suppressed under `--quiet`); human error → stderr always
+        (`--quiet` only suppresses non-error stdout). Default color disabled when
+        `opts.color` absent (safe/no-ANSI). Also re-exports the full presentation
+        surface (D-7 barrel) + a module-level `emit`/`outputService` convenience.
+- [x] **4.4** Create `tests/unit/cli/output/json.test.ts` — DONE. Asserts valid
+      parseable JSON; snake_case keys (top-level + timing + recursive `data`);
+      stable key order (two equal results byte-identical regardless of insertion
+      order; alphabetical top-level order; no RNG leakage across two renders);
+      `schema_version === 1`; success + error variants (`exit_code` 0/non-zero,
+      `error.code`); `warnings` array; `renderNdjson` one-object-per-line (single
+      + array). ~22 tests.
+- [x] **4.5** Create `tests/unit/cli/output/human.test.ts` — DONE. Asserts (a)
+      generic fallback key-value; (b) a registered formatter's output differs
+      from AND is richer than the fallback (strictly more chars + more lines) +
+      scoped to the registered command only + `undefined` command → fallback +
+      re-register replaces (AC-7); (c) `--no-color`/plain mode → NO ANSI (ESC
+      scan via `codePointAt`) and NO box-drawing (U+2500–U+257F) for fallback +
+      error + registered-formatter-honoring-kit (AC-4 / NFR-A11Y-2 / RSK-6); and
+      that `colorEnabled:true` DOES emit ANSI (proves the kit is wired). ~18 tests.
+- [x] **4.6** Create `tests/unit/cli/output/output-service.test.ts` — DONE.
+      Injectable `CaptureStream` proves the pipeline: a `gho_…` token nested in
+      `data` is scrubbed on EVERY format path — JSON/NDJSON stdout, human stdout,
+      human error stderr (INV-SEC-1 by real-output grep, never a mock); `--json` →
+      parseable snake_case JSON on stdout; `--output=human` success → stdout,
+      error → stderr; `--quiet` suppresses non-error human stdout (errors still
+      surface) and does NOT affect JSON; a registered formatter resolves via
+      `opts.command` through the chokepoint (AC-7); `emit` returns the result
+      `exitCode` (success 0, CONFLICT 30, INVALID_CONFIG 10); default-color (no
+      policy) human output has no ANSI; module-level `emit()` delegates to the
+      default instance (redacts + returns exitCode). ~16 tests.
 
 **Acceptance Criteria**:
 
 - Must: JSON output has stable key order + snake_case keys (DEC-4 / RSK-4).
+  — **PASSED** (`json.test.ts`: two equal results byte-identical regardless of
+  insertion order; keys are `schema_version`/`run_id`/`exit_code`/`started_at`/
+  `duration_ms` recursively; tests PASS).
 - Must: a registered human formatter is preferred; unregistered commands use the
       fallback (AC-7).
+  — **PASSED** (`human.test.ts`: registered `plan` formatter richer than fallback
+  (more chars + lines); unregistered `sync` → fallback; tests PASS).
 - Must: `--no-color --output=human` output is plain text — no ANSI, no
       box-drawing (AC-4 / NFR-A11Y-2 / RSK-6).
+  — **PASSED** (ESC-scan + U+2500–U+257F scan on fallback/error/registered output
+  with `colorEnabled:false` → zero matches; tests PASS).
 - Must: `OutputService.emit` redacts on every format path and returns the
       result's `exitCode` (ADR-0011 C-5 / AC-1).
+  — **PASSED** (`output-service.test.ts`: token in `data` scrubbed on JSON/NDJSON/
+  human-stdout/human-stderr; `emit` returns exitCode 0/30/10; tests PASS).
 - Must: `check:boundaries` clean (output modules import no domain/infra).
+  — **PASSED** (`depcruise src` → "no dependency violations found (24 modules, 22
+  dependencies cruised)"; `src/cli/output/*` import only sibling output modules).
+
+**Phase 4 verification** — `bun run format && bun run lint` (Biome clean),
+`bun run typecheck` (tsc strict — clean), `bun test tests/unit/cli/output/`
+(124 pass / 0 fail; 100% lines on color/command-result/exit-codes/json/redact +
+index; 98.36% human; 99.80% overall on the output src set), `bun run check:boundaries`
+(green, 24 modules). Full repo suite `bun test` = 241 pass / 0 fail (171 Phase-2
+baseline + 24 Phase-3 + 46 Phase-4). TDR-0002 metric `rg '@cliffy' src/app
+src/domain src/infra` → empty.
 
 **Files and modules**:
 
@@ -955,8 +1031,8 @@ confirm all ACs are satisfied with no stray placeholders.
 |-------|--------|---------|-----------|--------|-------|
 | 1 | pending | — | — | — | deps + TDR-0002 C-1 compile-smoke gate |
 | 2 | complete | 2026-07-08 | 2026-07-08 | `8d2e426` | CommandResult<T> + SCHEMA_VERSION + ok/err factories; exit-code constants + CODE_TO_EXIT + codeToExitCode (zero-import pure data, DEC-1); color policy + picocolors kit; 3 unit test files (54 tests, 100% cov on new src). All 4 AC PASSED. Gate: lint/format/typecheck/test(171 pass)/boundaries green. **ExitCode design note:** `err()` computes `exitCode` from `code` via `codeToExitCode(code)` (intra-tier import command-result→exit-codes, both src/cli/output/) so every error result carries the exit code matching its `error.code`; documented in a leading comment. |
-| 3 | pending | — | — | — | redaction layer |
-| 4 | pending | — | — | — | JSON/human renderers + OutputService |
+| 3 | complete | 2026-07-08 | 2026-07-08 | `697610f` + `72ffbad` | Centralized redaction layer. `redact.ts` = `Redactor` class (configurable patterns) + `DEFAULT_PATTERNS` + `DEFAULT_REDACTOR` + `redactString`/`redactJson`/`createRedactor`; built-ins cover Authorization/Bearer/Basic, `gh[o p s u r]_`, ATATT/ATSTS, `MARKSYNC_*_TOKEN` value strictly >20 chars, email; each → `[REDACTED:<kind>]`. **DEC-4 (authoritative):** redaction runs on the SERIALIZED string, NOT the typed object — so a token nested in `data` is caught post-`JSON.stringify` (TC-RED-007). `redactJson(value): string` is PROVIDED (`72ffbad`) as the DEC-4-correct serialize-then-redact convenience (`JSON.stringify` → `redactString`) + a `Redactor.redactJson` method the OutputService calls for JSON/NDJSON (plan Task 4.3). What is REJECTED is a DEEP-WALKING `redactJson` over the typed object — it would miss post-serialize substrings. **RSK-1/R1 guard:** patterns are prefix-discriminated, structurally cannot match a 40-char hex sha (no bare long-hex catch-all); value classes exclude `"`/whitespace so JSON quotes survive. 30 tests (24 per-pattern + 6 `redactJson` DEC-4 cases; TC-RED-001..009 incl. TC-RED-006 sha-survives + TC-RED-007 nested-token-post-serialize via inline `redactString(JSON.stringify)` AND via `redactJson`), 100% cov. All 3 AC PASSED. Gates: lint/format/typecheck clean; redact.test 30/30; boundaries green (`redact.ts` zero-import). |
+| 4 | complete | 2026-07-08 | 2026-07-08 | `ce8193b` | JSON/human renderers + OutputService chokepoint. `json.ts`: `renderJson` (recursive `toStableSnakeCase` — snake_case keys + alphabetical sort = stable/deterministic, RSK-4/DEC-2) + `renderNdjson`. `human.ts`: `renderHuman` generic key-value fallback (no box-drawing, NFR-A11Y-2) + `registerHumanFormatter`/`getHumanFormatter`/`renderHumanForCommand` registry (AC-7/C-3) + `clearHumanFormatterRegistry`. `index.ts`: `OutputService` class (injectable streams) `emit` = redact → render → write → return exitCode; redacts the RENDERED string uniformly (DEC-4) so a nested token is scrubbed on every path; JSON/NDJSON→stdout, human success→stdout (--quiet suppresses), human error→stderr; default color disabled when absent. Re-exports barrel + module-level `emit`/`outputService`. 46 new tests (124 total in output/). **Note:** opts adds additive `command?`/`quiet?` beyond plan's `{format,colorPolicy}` for a complete chokepoint. All 5 AC PASSED. Gates: lint/format/typecheck clean; output tests 124/124 (99.80% lines; 100% on json+index+redact+command-result+exit-codes+color); full suite 241/241; boundaries green (24 modules); `rg '@cliffy' src/{app,domain,infra}` empty. |
 | 5 | pending | — | — | — | app-tier MarkSyncError→code mapper |
 | 6 | pending | — | — | — | Cliffy skeleton + stubs + init rewire + entrypoint |
 | 7 | pending | — | — | — | contract snapshot + integration/golden tests |
