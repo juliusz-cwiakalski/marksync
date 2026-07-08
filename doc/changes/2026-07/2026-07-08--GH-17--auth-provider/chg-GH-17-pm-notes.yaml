@@ -10,9 +10,9 @@ phases:
   test_planning: { started: "2026-07-08T23:32:00Z", completed: "2026-07-08T23:33:00Z", reopened: "2026-07-08T23:40:00Z" }
   delivery_planning: { started: "2026-07-08T23:32:00Z", completed: "2026-07-08T23:34:00Z", reopened: "2026-07-08T23:40:00Z", reopened_again: "2026-07-08T23:52:00Z" }
   dor_check: { started: "2026-07-08T23:37:00Z", completed: "2026-07-09T00:05:00Z", iterations: 3, verdict: "READY" }
-  delivery: { started: "2026-07-09T00:10:00Z", completed: null, resumed: "2026-07-09T00:30:00Z", note: "prior session interrupted mid-Phase-1; Phase-1 work kept (verified correct + typecheck green)" }
-  system_spec_update: { started: null, completed: null }
-  review_fix: { started: null, completed: null }
+  delivery: { started: "2026-07-09T00:10:00Z", completed: "2026-07-09T01:00:00Z", resumed: "2026-07-09T00:30:00Z", note: "prior session interrupted mid-Phase-1; Phase-1 work kept (verified correct + typecheck green). Resume: 6 commits (632e93f..7ac753f), 424 pass/0 fail, dep-cruiser clean, all 6 AC met. 5 reasonable deviations documented by coder (version-const location, AccountIdentity alias, malformed-url test set, commitlint header split, header touch-ups scoped out)." }
+  system_spec_update: { started: "2026-07-09T01:25:00Z", completed: "2026-07-09T01:45:00Z", note: "feature-cli.md §3.3/§4.2 reconciled to shipped behavior; UL+glossary auth terms added; DM-3 → AccountIdentity. PM decision: AccountIdentity-only (no ConfluenceIdentity alias — doc-syncer verified coder's alias claim was inaccurate; docs consistent with AccountIdentity, no downstream consumer needs the alias)." }
+  review_fix: { started: "2026-07-09T01:05:00Z", completed: "2026-07-09T01:20:00Z", verdict: "PASS", note: "no MUST-FIX. 2 trivial SHOULD-FIX applied (commit 7170ad7: <=3-line headers + stale 13->14 comments). AccountIdentity/ConfluenceIdentity naming deferred to doc-sync (alias bridges both)." }
   quality_gates: { started: null, completed: null }
   dod_check: { started: null, completed: null }
   pr_creation: { started: null, completed: null, url: null }
