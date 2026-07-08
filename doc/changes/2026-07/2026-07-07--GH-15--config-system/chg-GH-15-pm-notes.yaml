@@ -14,7 +14,7 @@ phases:
   review_fix: { started: "2026-07-07T01:00:00Z", completed: "2026-07-07T01:30:00Z" }
   quality_gates: { started: "2026-07-07T01:30:00Z", completed: "2026-07-07T01:35:00Z" }
   dod_check: { started: "2026-07-07T01:35:00Z", completed: "2026-07-07T01:40:00Z" }
-  pr_creation: { started: "2026-07-07T01:40:00Z", completed: null, url: null }
+  pr_creation: { started: "2026-07-07T01:40:00Z", completed: "2026-07-07T01:45:00Z", url: "https://github.com/juliusz-cwiakalski/marksync/pull/42", pr_number: 42 }
 
 decisions:
   - text: "YAML library choice: use `yaml` (npm, ESM, actively maintained) — single dep parses both marksync.yml and front-matter blocks. CEO-resolved in story Q1."
@@ -40,5 +40,11 @@ notes:
     type: "retro"
     date: "2026-07-07"
   - text: "DoR iter-2 READY (10/10 facets PASS). Fixes: test-plan hierarchy → domain tier + init helper renamed config-template (a7cabfc); plan DEC-5 commits zero-dep src/shared/glob.ts, no picomatch (bf5f431). Residual non-blocking nit: test-plan doesn't enumerate tests/unit/shared/glob.test.ts but TC-SELECT covers transitively; @coder will create per plan Phase 1."
+    type: "info"
+    date: "2026-07-07"
+  - text: "Delivery complete: 9 phases, 117 tests pass / 0 fail, dep-cruiser clean. ConfigError (InvalidConfig) added to MarkSyncError union (13 kinds) + assertNeverMarkSyncError. DEC-2 enforced: granularity squash-only, commit-by-commit rejected (ADR-0010 C-5). Review verdict PASS (20/20, 0 blocking). 4 advisory nits (M1 yaml in allowed-deps table — fixed; M2 plan 9.3 checkbox — fixed; M3 redundant import — optional; M4 uncovered branches — optional). @pr-manager stalled on reporting but PR #42 created successfully."
+    type: "info"
+    date: "2026-07-07"
+  - text: "PR #42 open, MERGEABLE, awaiting review/merge by CEO (Mode A) or human + batch-deliver.sh (Mode B). PM NOT authorized to merge per current delivery-mode policy."
     type: "info"
     date: "2026-07-07"
