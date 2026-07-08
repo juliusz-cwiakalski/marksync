@@ -9,15 +9,14 @@ phases:
   test_planning: { started: "2026-07-08T00:10:00Z", completed: "2026-07-08T00:50:00Z" }
   delivery_planning: { started: "2026-07-08T00:10:00Z", completed: "2026-07-08T00:15:00Z" }
   dor_check: { started: "2026-07-08T00:50:00Z", completed: "2026-07-08T01:10:00Z", verdict: "READY (iter-2, 10/10 facets)" }
-  delivery: { started: null, completed: null }
-  system_spec_update: { started: null, completed: null }
+  delivery: { started: "2026-07-08T01:10:00Z", completed: "2026-07-08T20:30:00Z" }
+  system_spec_update: { started: "2026-07-08T20:30:00Z", completed: "2026-07-08T20:40:00Z" }
   review_fix: { started: null, completed: null }
   quality_gates: { started: null, completed: null }
   dod_check: { started: null, completed: null }
   pr_creation: { started: null, completed: null, url: null }
 
-decisions:
-  - text: "Exit-code mapping tier placement (architecture tension resolved): the story file lists `src/cli/output/exit-codes.ts` to 'Map MarkSyncError.kind → exitCode', but .dependency-cruiser.cjs enforces `presentation-may-not-import-domain` (severity error) and MarkSyncError lives in src/domain/errors.ts. Resolution per the GH-15 init.ts precedent (which uses Result structurally 'without naming any domain type'): (a) the `MarkSyncError.kind → {error.code, exitCode}` translation MUST live in the application tier (src/app/), which is permitted to import domain; (b) exit-code numeric CONSTANTS may live in src/shared/ (zero tier deps) or src/cli/output/; (c) src/cli/output/ owns only the stable-string/code → process.exit() translation and never names MarkSyncError. Architecture rules (TDR-0006) are authoritative; the story's file-path hint is a planning approximation, not a contract."
+decisions:  - text: "Exit-code mapping tier placement (architecture tension resolved): the story file lists `src/cli/output/exit-codes.ts` to 'Map MarkSyncError.kind → exitCode', but .dependency-cruiser.cjs enforces `presentation-may-not-import-domain` (severity error) and MarkSyncError lives in src/domain/errors.ts. Resolution per the GH-15 init.ts precedent (which uses Result structurally 'without naming any domain type'): (a) the `MarkSyncError.kind → {error.code, exitCode}` translation MUST live in the application tier (src/app/), which is permitted to import domain; (b) exit-code numeric CONSTANTS may live in src/shared/ (zero tier deps) or src/cli/output/; (c) src/cli/output/ owns only the stable-string/code → process.exit() translation and never names MarkSyncError. Architecture rules (TDR-0006) are authoritative; the story's file-path hint is a planning approximation, not a contract."
     date: "2026-07-08"
   - text: "Cliffy dependency source = JSR (not npm). Re-verification (TDR-0002 AI-assistance disclosure anticipated this) found @cliffy/command and @cliffy/flags are NOT on npm (404) — c4spar/cliffy moved to JSR-only publishing (v1.2.1 on jsr.io, the exact version TDR-0002 selected). The npm package `cliffy` (v2.5.1) is a DIFFERENT project (a REPL tool) — NOT a substitute. Resolution: install via the JSR npm-proxy using `.npmrc` (`@jsr:registry=https://npm.jsr.io`) + `@jsr/cliffy__command` / `@jsr/cliffy__flags` package names. This is the same c4spar/cliffy 1.2.1 library TDR-0002 selected — only the resolution mechanism changed. Import path in code: `@jsr/cliffy__command`. Doc-sync needed (phase 7): update typescript.md allowed-deps list + TDR-0002 registry framing (assumed npm)."
     date: "2026-07-08"
@@ -38,7 +37,13 @@ notes:
   - text: "DoR iter-1 NOT_READY (8/10): plan drifted from spec on CommandResult<T> contract — warnings string[] vs {code,message}[] (blocking), elapsedMs vs durationMs, DEC numbering drift, stale scope-source note. Load-bearing DEC-1 tier split was already consistent (the risk that sank GH-15 iter-1 stayed closed)."
     type: "retro"
     date: "2026-07-08"
-  - text: "DoR iter-2 READY (10/10): 4 surgical fixes applied (warnings→Array<{code,message}>, elapsedMs→durationMs, DEC cross-ref table added, scope-source note corrected, test-plan DEC-2 refs→DEC-1 spec). CommandResult<T> now byte-identical across spec/plan/test-plan. Non-blocking advisory: exit-code classification of LOCK_DIRTY/CONCURRENT_WRITE/STALE_PLAN (30 vs 50) — handed to @coder spot-check + @doc-syncer phase-7."
+  - text: "DELIVERY COMPLETE (phases 1-8): 370 tests / 0 fail, 2 golden snapshots, dep-cruiser clean (32 modules). All 8 ACs met: AC-1 INV-SEC-1 (redaction verified on real captured bytes via TC-INT-001 + unit TC-RED-*); AC-2 --json valid+snapshot (TC-CONTRACT-001/002 byte-exact); AC-3 piped-no-color/--color/--no-color (TC-INT-002); AC-4 plain-log mode (TC-HUMAN-005); AC-5 zero-central-coupling C-3 (TC-C3-001); AC-6 CONFLICT→exit 30 (TC-INT-003); AC-7 registerHumanFormatter (TC-HUMAN-002/003); AC-8 bun run check green. Version bumped 0.1.0→0.2.0 (minor). Implementation: 10 feat/test commits. NOTE: PM authored integration tests directly (coder stalled 2x on them) + Phase 1 deps directly (coder blocked on JSR discovery) — both documented as subagent-stall fallbacks per GH-13 precedent."
+    type: "info"
+    date: "2026-07-08"
+  - text: "CONCURRENT-EDITOR WARNING: an autonomous process committed 2 out-of-scope doc commits to the branch (30138d4 docs(agents) + bcacc18 docs(rules)) — AGENTS.md/typescript.md/code-review-instructions.md reorganization + .opencode/agent/ceo.md deletion. These are ADOS-framework doc changes, NOT GH-16 deliverables. Flagged for reviewer; PR will squash so history is clean, but the reviewer should assess whether to keep the doc content. PM discarded working-tree re-modifications 2x (git checkout) but the committed versions remain."
+    type: "retro"
+    date: "2026-07-08"
+  - text: "Doc-sync (lifecycle phase 7): closed ADR-0011 camelCase/snake_case unresolved question (resolved snake_case, GH-16 DEC-2). Deferred to reviewer/human: typescript.md allowed-deps JSR framing update, tech-stack.md Cliffy pin, feature-cli.md output-strategy section reconciliation — the concurrent editor's bcacc18 already touched typescript.md/code-review-instructions so those need human review anyway."
     type: "info"
     date: "2026-07-08"
   - text: "State detection: GH-16 OPEN (labels change/feature/MS-0002/priority:critical), no PR exists, on main (clean). Brand-new delivery — full 11-phase lifecycle."

@@ -241,7 +241,7 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes only via accepted cost.
 
 ### Unresolved Questions
 
-- [ ] Should the JSON schema use camelCase or snake_case? (owner: Juliusz Ćwiąkalski)
+- [x] ~~Should the JSON schema use camelCase or snake_case?~~ **Resolved (GH-16 / blueprint §9): snake_case.** The TS type uses camelCase internally; the JSON renderer owns the camelCase→snake_case conversion (DEC-2).
 - [ ] Should NDJSON be the default for streaming commands like `sync --watch`? (owner: Juliusz Ćwiąkalski)
 - [ ] ~~How should errors be represented in JSON output — a top-level `error` field vs. an error exit code + stderr JSON?~~ **Guidance (2026-07-05):** errors MUST pass through the same centralized redaction layer as all other output (NFR-SEC-1/NFR-SEC-2). JSON errors should use a top-level `error` object with `{ code, message, retryable }` — where `message` is a stable, redacted, human-readable string (never raw exception text, file paths, or partial request bodies). The non-zero exit code and the `error.code` must correspond. This ties directly to NFR-SEC-1 (no secrets in any output) and NFR-SEC-2 (redaction by construction).
 
