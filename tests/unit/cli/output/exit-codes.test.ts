@@ -40,6 +40,11 @@ const EXPECTED: Record<string, number> = {
 	TOO_LARGE: 99,
 	UNRESOLVED_LINK: 99,
 	INVALID_CONFIG: 10,
+	// GH-17 — four AUTH_ codes share the auth exit class (spec DM-4).
+	AUTH_MISSING_CREDENTIALS: 20,
+	AUTH_INVALID_BASE_URL: 20,
+	AUTH_INVALID_CREDENTIALS: 20,
+	AUTH_UNREACHABLE: 20,
 	USAGE: 2,
 	INTERNAL: 99,
 };
@@ -87,6 +92,22 @@ describe("CODE_TO_EXIT — every DEC-2 row (stable code → exit)", () => {
 		expect(CODE_TO_EXIT.LOCK_DIRTY).toBe(EXIT_CONFLICT);
 		expect(CODE_TO_EXIT.CONCURRENT_WRITE).toBe(EXIT_CONFLICT);
 		expect(CODE_TO_EXIT.STALE_PLAN).toBe(EXIT_CONFLICT);
+	});
+
+	test("the four GH-17 AUTH_ codes all resolve to EXIT_AUTH (20)", () => {
+		// All four auth codes share the auth exit class (spec DM-4 / DEC-2).
+		expect(CODE_TO_EXIT.AUTH_MISSING_CREDENTIALS).toBe(EXIT_AUTH);
+		expect(CODE_TO_EXIT.AUTH_INVALID_BASE_URL).toBe(EXIT_AUTH);
+		expect(CODE_TO_EXIT.AUTH_INVALID_CREDENTIALS).toBe(EXIT_AUTH);
+		expect(CODE_TO_EXIT.AUTH_UNREACHABLE).toBe(EXIT_AUTH);
+		for (const code of [
+			"AUTH_MISSING_CREDENTIALS",
+			"AUTH_INVALID_BASE_URL",
+			"AUTH_INVALID_CREDENTIALS",
+			"AUTH_UNREACHABLE",
+		] as const) {
+			expect(codeToExitCode(code)).toBe(20);
+		}
 	});
 
 	for (const [code, expected] of Object.entries(EXPECTED)) {
