@@ -15,7 +15,7 @@ phases:
   review_fix: { started: "2026-07-09T01:05:00Z", completed: "2026-07-09T01:20:00Z", verdict: "PASS", note: "no MUST-FIX. 2 trivial SHOULD-FIX applied (commit 7170ad7: <=3-line headers + stale 13->14 comments). AccountIdentity/ConfluenceIdentity naming deferred to doc-sync (alias bridges both)." }
   quality_gates: { started: "2026-07-09T01:50:00Z", completed: "2026-07-09T01:52:00Z", result: "bun run check exit 0 — 424 pass/0 fail, dep-cruiser clean (34 modules, 0 violations), lint+format+typecheck clean" }
   dod_check: { started: "2026-07-09T01:52:00Z", completed: "2026-07-09T01:55:00Z", verdict: "PASS", note: "all 6 AC met: AC1 creds+Basic header (TC-AUTH-001), AC2 MissingCredentials naming vars (TC-AUTH-002..005), AC3 validate 200/401/403/429/network (TC-INT-AUTH-001..006), AC4 INV-SEC-1 token-absent capture-and-grep (4 test files), AC5 email masked (TC-SEC-002), AC6 bun run check green. DEC-1 rg-empty verified. 10 commits on branch." }
-  pr_creation: { started: "2026-07-09T01:55:00Z", completed: null, url: null }
+  pr_creation: { started: "2026-07-09T01:55:00Z", completed: "2026-07-09T01:55:00Z", url: "https://github.com/juliusz-cwiakalski/marksync/pull/48" }
 
 decisions:
   - text: "DEC-1 (injected fetch): validateCredentials accepts an injectable fetch-shaped fn defaulting to global fetch (resolveCredentials is pure env logic, no fetch param). Keeps src/app/credentials.ts importing #domain/* only (app-tier pure, unit-testable without Bun.serve). Resolved independently + identically by spec-writer AND plan-writer — strong coherence."
