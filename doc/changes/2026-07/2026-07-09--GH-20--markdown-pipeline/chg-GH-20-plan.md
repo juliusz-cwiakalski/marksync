@@ -493,28 +493,33 @@ key on.
 
 **Tasks**:
 
-- [ ] **3.1** Create `src/domain/render/canonicalize.ts` (new):
+- [x] **3.1** Create `src/domain/render/canonicalize.ts` (new):
       - `type CanonicalHast = HastRoot` (a branded alias documenting that the tree is in
         canonical form).
+        *(Exported `CanonicalHast = Root` alias.)*
       - `canonicalize(hast: HastRoot): CanonicalHast` — deep-clone with: (a) every
         element's `properties`/attributes serialized in sorted-key order; (b) collapsible
         whitespace normalized (leading/trailing + runs → single space in text nodes, per
         a documented rule sufficient for AC-F3-1); (c) `position` metadata stripped (no
         source-location leakage into the hash).
+        *(Drops structural `\n`-only text nodes remark-rehype inserts between block
+        siblings; strips `position`; sorts `properties`; converts `raw` HAST nodes →
+        `text` so the renderer's text-escaping handles DEC-4 uniformly.)*
       - `contentHash(canonical: CanonicalHast): string` —
         `node:crypto.createHash("sha256").update(stableStringify(canonical)).digest("hex")`
         (PD-2). `stableStringify` = deterministic JSON (sorted keys, no whitespace). Raw
         digest only — no wire-format prefix (OQ-1: consumer owns prefix).
       - Imports: type-only `hast` types + `node:crypto`. **No** infra/app/cli.
       - ≤ 3-line header; cite ADR-0005 + UL "Content Hash" once.
-- [ ] **3.2** Create `tests/unit/domain/render/canonicalize.test.ts` (new) — **Unit**:
+- [x] **3.2** Create `tests/unit/domain/render/canonicalize.test.ts` (new) — **Unit**
+      (7 tests PASS, real bridge → real canonicalize → real hash):
       - **TC-HASH-001 (AC-F3-1):** bridge a fixture → `canonicalize` → `contentHash`;
-        call `contentHash` twice on the same `CanonicalHast` → identical digest.
+        call `contentHash` twice on the same `CanonicalHast` → identical digest; idempotent.
       - **TC-HASH-002 (AC-F3-1):** two HASTs differing only in attribute order or
         `position` → `canonicalize` → identical digest (canonicalization is the contract).
       - **TC-HASH-003:** two semantically-different fixtures → different digests.
-      - **TC-HASH-004:** digest is lowercase hex, length 64, matches a hardcoded
-        expected value for a known fixture (pins the algorithm — no prefix).
+      - **TC-HASH-004:** digest is lowercase hex, length 64, no prefix, matches the pinned
+        value `d5338622…ced6f` for `# Title` (algorithm pin).
 
 **Acceptance Criteria**:
 
@@ -939,7 +944,7 @@ behavior.
 | 0 — Dep install | ✅ | 2026-07-09 | 2026-07-09 | _pending_ | 510 pass / 0 fail | remark/rehype ecosystem + mdast/hast types |
 | 1 — parseMarkdown | ✅ | 2026-07-09 | 2026-07-09 | _pending_ | 9 tests PASS | F-1 |
 | 2 — MDAST→HAST bridge | ✅ | 2026-07-09 | 2026-07-09 | feat(markdown): MDAST→HAST bridge via remark-rehype (GH-20) | 525 pass / 0 fail | F-2; allowDangerousHtml preserves raw HTML for DEC-4 escape; 6 tests PASS |
-| 3 — canonicalize + contentHash | ⏳ | | | | | F-3 / AC-F3-1 |
+| 3 — canonicalize + contentHash | ✅ | 2026-07-09 | 2026-07-09 | feat(render): canonicalize HAST + contentHash sha256 (GH-20) | 532 pass / 0 fail | F-3 / AC-F3-1; raw→text, structural-ws drop, sorted props; 7 tests PASS |
 | 4 — unsupported classifier | ⏳ | | | | | F-5 / AC-F5-1 |
 | 5 — renderStorage + 25 golden | ⏳ | | | | | F-4 / F-6 / AC-F4-1 / AC-F4-2 |
 | 6 — injection safety + DEC-4/DEC-5 | ⏳ | | | | | F-7 / AC-F4-4 |
