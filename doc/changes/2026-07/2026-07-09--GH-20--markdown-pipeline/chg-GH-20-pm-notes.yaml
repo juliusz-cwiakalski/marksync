@@ -11,12 +11,12 @@ phases:
   test_planning: { started: "2026-07-09T00:02:00Z", completed: "2026-07-09T00:03:00Z" }
   delivery_planning: { started: "2026-07-09T00:03:00Z", completed: "2026-07-09T00:04:00Z" }
   dor_check: { started: "2026-07-09T00:05:00Z", completed: "2026-07-09T00:30:00Z" }
-  delivery: { started: "2026-07-09T00:31:00Z", completed: null }
-  system_spec_update: { started: null, completed: null }
-  review_fix: { started: null, completed: null }
-  quality_gates: { started: null, completed: null }
-  dod_check: { started: null, completed: null }
-  pr_creation: { started: null, completed: null, url: null }
+  delivery: { started: "2026-07-09T00:31:00Z", completed: "2026-07-09T01:30:00Z" }
+  system_spec_update: { started: "2026-07-09T01:31:00Z", completed: "2026-07-09T02:00:00Z" }
+  review_fix: { started: "2026-07-09T01:31:00Z", completed: "2026-07-09T02:10:00Z" }
+  quality_gates: { started: "2026-07-09T02:11:00Z", completed: "2026-07-09T02:11:00Z" }
+  dod_check: { started: "2026-07-09T02:12:00Z", completed: "2026-07-09T02:12:00Z" }
+  pr_creation: { started: "2026-07-09T02:13:00Z", completed: null, url: null }
 
 decisions:
   - text: >
@@ -66,6 +66,19 @@ notes:
       origin/main (doc-only chore: pm sync + ados update #54): 510 pass / 0
       fail, dep-cruiser clean (49 modules). DoD reminder: honor fidelity bar 25
       (not the story file's stale 27) per PM-DEC-1.
+    type: info
+    date: 2026-07-09
+  - text: >
+      Delivery + review PASS. Implementation: 5 modules (parse, mdast-to-hast,
+      unsupported, canonicalize, storage) + 25 golden pairs + tests, 692/0
+      green, dep-cruiser clean (59 modules). Review iter-1 = PASS (0 BLOCKER/0
+      MAJOR/3 MINOR); applied the 3 MINOR polish fixes (duplicate import ->
+      single statement; 5-line header -> 3-line; dropped dead 'rehype' dep
+      which is only transitive via remark-rehype) in 695fa25, gate stayed green.
+      Doc-sync (055f42f) resolved all 6 doc gaps incl. ParseError drift at
+      architecture-overview:219. DoD PASS: errors.ts/result.ts untouched
+      (UnsupportedConstruct reused not redefined); mermaid/jsdom absent (E4-S1);
+      fidelity bar 25 honored.
     type: info
     date: 2026-07-09
   - text: >
