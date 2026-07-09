@@ -47,6 +47,9 @@ const EXPECTED: Record<string, number> = {
 	AUTH_INVALID_BASE_URL: 20,
 	AUTH_INVALID_CREDENTIALS: 20,
 	AUTH_UNREACHABLE: 20,
+	// GH-21 — transport-failure codes, best-fit catch-all (no dedicated class yet).
+	RATE_LIMITED: 99,
+	REMOTE_UNREACHABLE: 99,
 	USAGE: 2,
 	INTERNAL: 99,
 };

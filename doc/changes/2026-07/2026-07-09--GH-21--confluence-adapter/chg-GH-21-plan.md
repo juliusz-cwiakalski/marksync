@@ -424,12 +424,14 @@ story). No production code yet — just the dependency + a green gate.
 
 **Tasks**:
 
-- [ ] **0.1** Add `zod` (`^<current-major>`) to `package.json` `dependencies`;
+- [x] **0.1** Add `zod` (`^<current-major>`) to `package.json` `dependencies`;
       run `bun install` (the committed `bun.lock` pins exact). Confirm no HTTP
       library / crypto library is introduced (DEC-6 / NFR-11).
-- [ ] **0.2** `bun run check` exits 0 with the current suite (no behavior change);
+      — `zod@4.4.3` installed; zero runtime deps (verified).
+- [x] **0.2** `bun run check` exits 0 with the current suite (no behavior change);
       `check:boundaries` clean. Confirm `zod` resolves (`import { z } from "zod"`
       typechecks) but is **not yet imported** by any `src/` module.
+      — `typecheck` + `check:boundaries` green; `grep "zod" src/` = 0 matches.
 
 **Acceptance Criteria**:
 
@@ -1133,7 +1135,7 @@ reconciliation handoff (the final release phase per the plan template).
 
 | Phase | Status | Started | Completed | Commit | `bun run check` | Notes |
 |-------|--------|---------|-----------|--------|------------------|-------|
-| 0 — `zod` install + gate | ☐ | | | _pending_ | _pending_ | PD-2; first consuming story |
+| 0 — `zod` install + gate | ✅ | 2026-07-10 | 2026-07-10 | a7a97b1 | PASS (692/0) | PD-2; first consuming story; zod@4.4.3, 0 runtime deps |
 | 1 — error arms (×2) + 3 sites | ☐ | | | _pending_ | _pending_ | F-9 / AC-Q-1 / RSK-6; typecheck safety net |
 | 2 — port + value types + boundary test | ☐ | | | _pending_ | _pending_ | F-1 / AC-F1-1 |
 | 3 — ConfluenceClient | ☐ | | | _pending_ | _pending_ | F-2 / AC-F2-1/2/3 |
