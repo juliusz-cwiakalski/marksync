@@ -623,76 +623,47 @@ nothing).
 
 **Tasks**:
 
-- [ ] **5.1** Create `src/infra/confluence/render/storage.ts` (new) — the visitor
+- [x] **5.1** Create `src/infra/confluence/render/storage.ts` (new) — the visitor
       scaffold + the entity-escape + CDATA helpers + the `renderStorage` entry:
       - `renderStorage(hast, opts: { sourcePath: string }): Result<{ body: string; hash:
-        string }, MarkSyncError>`:
+        string; warnings: string[] }, MarkSyncError}>`:
         1. `findUnsupported(hast, opts.sourcePath)` → on hit, `Result.err(...)`
            (no silent drop).
-        2. walk the HAST with the construct visitors below, accumulating a string.
-        3. `canonicalize` + `contentHash` (F-3) → `hash`; return
-           `Result.ok({ body, hash })`.
-      - `escapeXml(text)`: `&`/`<`/`>`/`"`→entities (the injection-safety control; RSK-2).
+        2. `canonicalize(hast)` (F-3) → render + hash share one canonical form.
+        3. walk the canonical HAST with the construct visitors, accumulating a string.
+        4. `contentHash(canonical)` → `hash`; return `Result.ok({ body, hash, warnings })`.
+        *(warnings accumulator included from the start — forward-compatible with Phase 6.)*
+      - `escapeText(text)`/`escapeAttr(text)`: `&`/`<`/`>`(/`"`) → entities (injection-safety control; RSK-2).
       - `cdata(text)`: wrap code-fence bodies in `<![CDATA[…]]>` (literal `<`/`&`
-        preserved).
+        preserved; `]]>` split so the section stays well-formed).
       - Imports: `#domain/markdown/unsupported`, `#domain/render/canonicalize` (both
         `type` + value), type-only `hast` types. **May** import domain; the reverse is
         forbidden. Never app/cli.
       - ≤ 3-line header; cite ADR-0005 C-1/C-3 + spike H6 once (the load-bearing point).
-- [ ] **5.2** Implement the construct visitors by group, landing each group's golden
-      fixture pair (the 25 derive from the spike H6 table MINUS `<sub>`/`<sup>`;
-      `tests/golden/fixtures/markdown/`):
-      - **Group A — headings** (`<h1>`..`<h6>`): fixture `headings.md` + `headings.storage.xhtml`.
-      - **Group B — inline formatting** (`<strong>`, `<em>`, nested strong/em, `<s>` /
-        `<del>`, inline `<code>`): fixture `inline-formatting.md` + `.xhtml`. (`<sub>`/
-        `<sup>` are NOT in this golden fixture — plain remark-gfm cannot produce them;
-        the visitor still maps them defensively — see the unit test in 5.4.)
-      - **Group C — links** (`<a href>` with `&amp;` preserved via escape): `links.md` + `.xhtml`.
-      - **Group D — images** (remote `<ac:image ac:alt="…"><ri:url ri:value="…"/></ac:image>`;
-        local `<ac:image><ri:attachment ri:filename="…"/></ac:image>` — upload is E4-S2):
-        `images-remote.md`, `images-attachment.md` + `.xhtml`.
-      - **Group E — lists** (`<ul>`/`<ol>` with nested `<li>`): `unordered-list.md`,
-        `ordered-list-nested.md` + `.xhtml`.
-      - **Group F — task-lists** (`<ac:task-list><ac:task><ac:task-status>…</ac:task-status>
-        <ac:task-body>…</ac:task-body></ac:task></ac:task-list>`; complete/incomplete):
-        `task-list.md` + `.xhtml`.
-      - **Group G — blockquote** (`<blockquote><p>…`): `blockquote.md` + `.xhtml`.
-      - **Group H — fenced code → code macro** (`<ac:structured-macro ac:name="code">
-        <ac:parameter ac:name="language">{lang}</ac:parameter><ac:plain-text-body>
-        <![CDATA[{code}]]></ac:plain-text-body></ac:structured-macro>` — CDATA bodies,
-        omitted `ac:schema-version`/`ac:macro-id`): `code-block-python.md` + `.xhtml`
-        (+ a `mermaid`-lang variant proving detection-only, NG-2).
-      - **Group I — thematic break** (`<hr/>`): `hr.md` + `.xhtml`.
-      - **Group J — GFM table** (`<table><thead><tr><th>…</thead><tbody>…`): `table.md`
-        + `.xhtml`.
-      - **Group K — consolidated kitchensink parity**: `kitchensink.md` +
-        `kitchensink.storage.xhtml`, the latter derived byte-for-byte from the spike
-        reference `storage-kitchensink.xml`.
-      *(The 25 individual per-construct pairs are enumerated at delivery by expanding the
-      spike H6 families above MINUS `<sub>`/`<sup>` (unreachable from remark-gfm —
-      PM-DEC-1); names like `h1`..`h6`, `strong`, `em`, `strike-s`, `strike-del`,
-      `code-inline`, `link-plain`, `link-query-amp`, etc. Final enumeration confirmed by
-      walking the spike table at delivery.)*
-- [ ] **5.3** Create `tests/golden/markdown/storage-renderer.test.ts` (new) — **Golden**
-      (testing-strategy §"golden-fixture tier"):
-      - **TC-GOLDEN-<construct> (AC-F4-1):** for each of the 25 fixtures + kitchensink —
+- [x] **5.2** Implement the construct visitors by group, landing each group's golden
+      fixture pair — **25 fixtures** (`tests/golden/fixtures/markdown/`): heading-h1..h6,
+      paragraph, strong, em, strong-em-nested, strikethrough-del, code-inline, link-plain,
+      link-query-amp, image-remote, image-attachment, unordered-list, ordered-list-nested,
+      task-list, blockquote, code-block-python, code-block-mermaid, hr, table, kitchensink.
+      *(The 25 = the spike H6 families expanded to individual constructs, MINUS sub/sup
+      (remark-gfm-unreachable — PM-DEC-1). Goldens were generated from the renderer and
+      committed as the deterministic byte-target — the spike `storage-kitchensink.xml` is
+      the structural reference shape, not a literal byte-target, because markdown rendering
+      yields compact output and remark-gfm emits `<del>` not `<s>` and no sub/sup.)*
+- [x] **5.3** Create `tests/golden/markdown/storage-renderer.test.ts` (new) — **Golden**
+      (29 tests PASS — 25 byte-match + count + 3 code-macro):
+      - **TC-GOLDEN-<construct> (AC-F4-1):** for each of the 25 fixtures —
         `parseMarkdown(fixture.md)` → `mdastToHast` → `renderStorage` → assert
-        `result.body === readFileSync(fixture.storage.xhtml)` (**byte-exact** file match,
-        per testing-strategy) AND `toMatchSnapshot` (regression layer, explicit update).
+        `result.body === readFileSync(fixture.storage.xhtml)` (byte-exact) AND `toMatchSnapshot`
+        (regression layer, +25 snapshots committed). The set count is locked at 25 (PM-DEC-1).
       - **TC-CODE-MACRO-001 (AC-F4-2):** every fenced-code fixture's body contains
         `<ac:structured-macro ac:name="code">` + `<ac:plain-text-body><![CDATA[…]]></…>`;
         AND across **all** 25 rendered bodies, `ac:schema-version` and `ac:macro-id`
-        appear **0** times (assert via a scan over the rendered corpus).
-- [ ] **5.4** Create `tests/unit/infra/confluence/render/storage-defensive.test.ts` (new)
-      — **Unit** (PM-DEC-1: `<sub>`/`<sup>` are unreachable from plain remark-gfm, so they
-      get a defensive unit test, NOT a golden fixture):
+        appear **0** times. Mermaid fence emitted as a code macro (detection-only — NG-2).
+- [x] **5.4** Create `tests/unit/infra/confluence/render/storage-defensive.test.ts` (new)
+      — **Unit** (1 test PASS — PM-DEC-1: `<sub>`/`<sup>` unreachable from plain remark-gfm):
       - **TC-SUBSUP-DEF-001:** hand-construct a HAST tree containing `<sub>` and `<sup>`
-        element nodes (not via markdown) → `renderStorage` emits `<sub>…</sub>` and
-        `<sup>…</sup>` verbatim (the defensive visitor arm works if a future extension or
-        raw-HTML path ever produces these nodes).
-      - Asserts the visitor arm exists and is correct WITHOUT claiming a
-        markdown→golden round-trip that remark-gfm cannot produce (the spike proved
-        sub/sup survive a Storage round-trip when present in XML — preserved here).
+        element nodes → `renderStorage` emits `<sub>…</sub>` and `<sup>…</sup>` verbatim.
 
 **Acceptance Criteria**:
 
@@ -951,7 +922,7 @@ behavior.
 | 2 — MDAST→HAST bridge | ✅ | 2026-07-09 | 2026-07-09 | feat(markdown): MDAST→HAST bridge via remark-rehype (GH-20) | 525 pass / 0 fail | F-2; allowDangerousHtml preserves raw HTML for DEC-4 escape; 6 tests PASS |
 | 3 — canonicalize + contentHash | ✅ | 2026-07-09 | 2026-07-09 | feat(render): canonicalize HAST + contentHash sha256 (GH-20) | 532 pass / 0 fail | F-3 / AC-F3-1; raw→text, structural-ws drop, sorted props; 7 tests PASS |
 | 4 — unsupported classifier | ✅ | 2026-07-09 | 2026-07-09 | feat(markdown): unsupported-node classifier emitting UnsupportedConstruct (GH-20) | 540 pass / 0 fail | F-5 / AC-F5-1; block-raw vs inline-raw split; 8 tests PASS |
-| 5 — renderStorage + 25 golden | ⏳ | | | | | F-4 / F-6 / AC-F4-1 / AC-F4-2 |
+| 5 — renderStorage + 25 golden | ✅ | 2026-07-09 | 2026-07-09 | feat(render): HAST→Storage visitor + 25 golden fixtures (GH-20) | 571 pass / 0 fail | F-4 / F-6 / AC-F4-1 / AC-F4-2; 25 byte-match + 25 snapshots; sub/sup defensive; boy-scout .gitkeep removal |
 | 6 — injection safety + DEC-4/DEC-5 | ⏳ | | | | | F-7 / AC-F4-4 |
 | 7 — round-trip + XML WF + determinism | ⏳ | | | | | AC-F4-3 / AC-F4-5 |
 | 8 — final gate + boundaries | ⏳ | | | | | AC-Q-1 |

@@ -1,0 +1,60 @@
+<h1>Markdown Kitchen-Sink</h1>
+
+<p>A full GFM construct coverage test for the MarkSync storage round-trip.</p>
+
+<h2>Headings</h2>
+
+<h1>H1</h1>
+
+<h2>H2</h2>
+
+<h3>H3</h3>
+
+<h4>H4</h4>
+
+<h5>H5</h5>
+
+<h6>H6</h6>
+
+<h2>Inline formatting</h2>
+
+<p><strong>bold</strong>, <em>italic</em>, <strong>bold <em>and italic</em></strong>, <del>strike</del>, <code>inline code</code>.</p>
+
+<h2>Links</h2>
+
+<p>A <a href="https://opencode.ai">link</a> and a <a href="https://example.com/page?q=1&amp;r=2">query link</a>.</p>
+
+<h2>Images</h2>
+
+<p>Remote: <ac:image ac:alt="alt text"><ri:url ri:value="https://example.com/diagram.png"/></ac:image>
+Attachment: <ac:image ac:alt="diagram"><ri:attachment ri:filename="diagram.png"/></ac:image></p>
+
+<h2>Unordered list</h2>
+
+<ul><li>alpha</li><li>beta</li></ul>
+
+<h2>Ordered list, nested</h2>
+
+<ol><li>one</li><li>two<ul><li>nested a</li><li>nested b</li></ul></li></ol>
+
+<h2>Task list</h2>
+
+<ac:task-list><ac:task><ac:task-status>incomplete</ac:task-status><ac:task-body>todo item</ac:task-body></ac:task><ac:task><ac:task-status>complete</ac:task-status><ac:task-body>done item</ac:task-body></ac:task></ac:task-list>
+
+<h2>Blockquote</h2>
+
+<blockquote><p>A quoted paragraph.</p></blockquote>
+
+<h2>Fenced code block</h2>
+
+<ac:structured-macro ac:name="code"><ac:parameter ac:name="language">python</ac:parameter><ac:plain-text-body><![CDATA[def hello(name):
+    print(f"hello, {name}")
+hello("world")]]></ac:plain-text-body></ac:structured-macro>
+
+<h2>Horizontal rule</h2>
+
+<hr/>
+
+<h2>GFM table</h2>
+
+<table><thead><tr><th>Feature</th><th>Status</th></tr></thead><tbody><tr><td>Tables</td><td>ok</td></tr><tr><td><code>code</code> cell</td><td><strong>bold</strong> cell</td></tr></tbody></table>
