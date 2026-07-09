@@ -639,7 +639,7 @@ test proving a duplicated-UUID fixture yields the fatal error. Consumes the
 
 **Tasks**:
 
-- [ ] **3.1** Create `src/domain/identity/duplicate-detector.ts` (new):
+- [x] **3.1** Create `src/domain/identity/duplicate-detector.ts` (new):
       - `detectDuplicateUuids(docs: { path: string; uuid?: DocumentId }[]): Result<
         void, MarkSyncError>` — iterate once, build a `Map<string, string[]>`
         keyed by the uuid string, pushing each doc's `path`; docs with `uuid ===
@@ -656,7 +656,7 @@ test proving a duplicated-UUID fixture yields the fatal error. Consumes the
         `#domain/identity/document-id` (`type DocumentId`). No tiered import.
       - ≤ 3-line header citing ADR-0006 C-4 / INV-SAFE-3 once at the
         load-bearing point.
-- [ ] **3.2** Create `tests/domain/identity/duplicate-detector.test.ts` (new) —
+- [x] **3.2** Create `tests/domain/identity/duplicate-detector.test.ts` (new) —
       **Unit**; the safety-critical test (release-blocking per the testing-strategy
       INV-SAFE-3 row; no mocks — real fixtures). The halt-signal case (TC-DUP-007)
       folds IN HERE — no separate integration file (PM-RECON-1 Decision C / Finding
@@ -1031,7 +1031,8 @@ only trivial inline touch-ups.
 |-------|--------|---------|-----------|--------|-------|
 | 0 | ✅ DONE | 2026-07-09 | 2026-07-09 | `0c9dcfa` | `bun add uuid` → resolved `uuid@14.0.1` (v9+, bundled types, no `@types/uuid`); `typecheck` exit 0; `check:boundaries` exit 0 (34 modules, 40 deps); `rg '"uuid"' src/` empty. NFR-13 trivially satisfied (zero transitive deps). |
 | 1 | ✅ DONE | 2026-07-09 | 2026-07-09 | `35a399a` | `uuid.ts` (UUID_V7_REGEX + generateUuidV7/isUuidV7/assertUuidV7) + `document-id.ts` (branded DocumentId + DocumentIdError + parseDocumentId). Cycle broken: uuid.ts imports `type DocumentId` only (elided at runtime). Unit tests: 9 pass / 0 fail, 516 expects. `typecheck` exit 0; `check:boundaries` exit 0 (37 modules, 43 deps). |
-| 2 | ✅ DONE | 2026-07-09 | 2026-07-09 | _pending_ | `frontmatter.ts` — readUuid (tolerant) + injectUuid (idempotent, byte-stable via surgical text insertion; injectable generator). Uses `yaml` directly (PD-1). Unit tests: 11 pass / 0 fail incl. TC-FM-007 exact-string byte-stability (Buffer.equals) + CRLF preservation + idempotency + re-clone + path-independence. `typecheck` exit 0; `check:boundaries` exit 0 (38 modules, 46 deps). |
+| 2 | ✅ DONE | 2026-07-09 | 2026-07-09 | `2b7cdef` | `frontmatter.ts` — readUuid (tolerant) + injectUuid (idempotent, byte-stable via surgical text insertion; injectable generator). Uses `yaml` directly (PD-1). Unit tests: 11 pass / 0 fail incl. TC-FM-007 exact-string byte-stability (Buffer.equals) + CRLF preservation + idempotency + re-clone + path-independence. `typecheck` exit 0; `check:boundaries` exit 0 (38 modules, 46 deps). |
+| 3 | ✅ DONE | 2026-07-09 | 2026-07-09 | _pending_ | `duplicate-detector.ts` — O(n) `Map<uuid,path[]>`, first-collision-only, consumes the EXISTING DuplicateUuid arm (no errors.ts edit). Unit tests: 9 pass / 0 fail incl. TC-DUP-001 (INV-SAFE-3 fatal), TC-DUP-005 (3-way + first-collision-only), TC-DUP-006 (error-arm regression via assertNeverMarkSyncError), TC-DUP-007 (halt signal — returned not thrown), TC-SCALE-001 (500-doc smoke). `typecheck` exit 0; `check:boundaries` exit 0 (39 modules, 47 deps). |
 | 1 | pending | — | — | — | uuid.ts (generation + assert) + document-id.ts (branded VO + parse) + unit tests |
 | 2 | pending | — | — | — | frontmatter.ts (byte-stable read/inject, idempotent) + unit tests (byte-stability inline TC-FM-007; NO integration/golden file) |
 | 3 | pending | — | — | — | duplicate-detector.ts (INV-SAFE-3 fatal, first-collision-only) + unit tests (TC-DUP-001 fatal, TC-DUP-007 halt-signal, TC-SCALE-001 scale smoke) |
