@@ -12,7 +12,7 @@ area: domain
 document_classification: current-truth
 links:
   related_decisions: [ADR-0005, ADR-0006, ADR-0010, ADR-0011, PDR-0001]
-  related_changes: [GH-15, GH-17, GH-18]
+  related_changes: [GH-15, GH-17, GH-18, GH-19]
   summary: "Ubiquitous language — the precise, bounded-context vocabulary binding domain concepts to code for MarkSync's Markdown-to-TargetSystem synchronization domain."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -52,9 +52,9 @@ events) and their relationships. Distinct from the reader-friendly
 | Term | Meaning | Type | Relationships |
 |---|---|---|---|
 | **Source Document** | The Markdown file as read from a committed Git revision. Has: front-matter (including UUID), MDAST content, resolved assets, and a relative path within the configured root. | Entity (within Managed Document) | belongs to → Managed Document |
-| **Page Binding** | The durable mapping between a Document Identity and a target-system page. Records: page ID, parent page ID, last-known remote version, content hashes, and the shared-base snapshot. Code construct: the `PageBinding` interface (`src/domain/binding/page-binding.ts`) — landed as a type with identity-binding semantics; persisted in the lock file by E3-S2. | Entity (within Document Identity) | 1:1 → Target Page; 1:1 → Shared Base |
+| **Page Binding** | The durable mapping between a Document Identity and a target-system page. Records: page ID, parent page ID, last-known remote version, content hashes, and the shared-base snapshot. Code construct: the `PageBinding` interface (`src/domain/binding/page-binding.ts`) — landed as a type with identity-binding semantics (GH-18); first-persisted into the committed lock by GH-19 (`src/app/lock.ts`). | Entity (within Document Identity) | 1:1 → Target Page; 1:1 → Shared Base |
 | **Target Page** | The remote page as seen from the target system. Has: page ID, version number, body representation (Storage/ADF), content properties, and attachments. | Entity (behind TargetSystem port) | belongs to → Page Binding; has → Content Properties |
-| **Shared Base** | The agreed "last published" snapshot for a document: body hash, attachment hashes, version number, and provenance commit. Stored in the lock file; enables drift detection by comparison with current Source Document and Target Page. | Entity (within Page Binding) | belongs to → Page Binding |
+| **Shared Base** | The agreed "last published" snapshot for a document: body hash, attachment hashes, version number, and provenance commit. Stored in the committed lock (`marksync.lock.yml`, `src/app/lock.ts`); enables drift detection by comparison with current Source Document and Target Page. | Entity (within Page Binding) | belongs to → Page Binding |
 
 ### Value Objects
 
@@ -80,7 +80,7 @@ events) and their relationships. Distinct from the reader-friendly
 | **Drift Detected** | A managed page's remote state diverged from the shared base; publish was blocked to prevent silent overwrite. Carries: page ID, sync state, base/remote hashes. | Domain event | produces → Conflict |
 | **Duplicate UUID Detected** | Two source documents share the same Document Identity UUID. Fatal before any write (INV-SAFE-3). Realized as `err({ kind: "DuplicateUuid"; uuid; paths })` returned by `detectDuplicateUuids` (`src/domain/identity/duplicate-detector.ts`) — a `Result` value, not an emitted event; the push flow treats it as fatal and halts. | Domain event | triggers → Halt |
 | **Remote Missing Detected** | A managed page's remote returned not-found. The invariant (INV-SAFE-2) prevents silent re-creation; the user must explicitly acknowledge. | Domain event | produces → Conflict |
-| **Lock Updated** | The lock file's shared-base entry for a document was atomically updated after a successful publish. | Domain event | — |
+| **Lock Updated** | The lock file's shared-base entry for a document was atomically updated after a successful publish. Realized by `saveLock`/`mergeBindings` (`src/app/lock.ts`), which serialize line-oriented UUID-ordered YAML and write it atomically (`src/infra/lock/store.ts`). | Domain event | — |
 | **Journal Written** | A mutation was journaled immediately after execution, enabling partial-apply recovery. | Domain event | — |
 
 ### Domain Services
@@ -135,6 +135,22 @@ validates the credential against Confluence, never retaining the raw token
 | **AccountIdentity** | The success payload of `validateCredentials` (`src/domain/credentials.ts`): `{ accountId, displayName }`, parsed from Confluence's v2 `user/by-me` response. | Value object | produced by → Credential Provider |
 | **AuthError** | The auth-failure arm (`kind: "Auth"`) of the `MarkSyncError` union, discriminated further on `authKind` (`MissingCredentials` \| `InvalidBaseUrl` \| `InvalidCredentials` \| `AuthUnreachable`). The credential provider narrows its `Result` error channel to this arm. | Value object (error) | member of → MarkSyncError |
 | **Credential Provider** | Application service (`resolveCredentials` / `validateCredentials` / `maskEmail`, `src/app/credentials.ts`) that reads the canonical env vars, builds the opaque `authHeader`, masks the email, and probes Confluence's v2 `user/by-me` endpoint via an injected `fetch`. Imports only `#domain/*`; the raw token is consumed inside `base64` and never stored on a returned object. | Application service | produces → ConfluenceCredentials, AccountIdentity; emits → AuthError |
+
+### State (shared base, lock, cache)
+
+_Committed shared base + disposable cache + content-property cross-check + branch
+gate (ADR-0006 C-2 / C-3 / Cross-check / Branch restriction). Names bind to their
+code constructs._
+
+| Term | Meaning | Type | Relationships |
+|---|---|---|---|
+| **Lock (LockFile)** | The committed, versioned shared-base file `marksync.lock.yml` at the repo root: `{ version: 1; targets: Record<targetId, { documents: Record<DocumentId, PageBinding> }> }`. Serialized line-oriented and UUID-ordered for clean cross-branch merges; written atomically (temp + `fs.rename`); holds no secrets. Code: `LockFile`/`LockTarget` (`src/domain/config/lock-types.ts`, mirrors `lock-schema.json` v1), loader/saver/merger `loadLock`/`saveLock`/`serializeLock`/`mergeBindings` (`src/app/lock.ts`), atomic store `writeAtomic` (`src/infra/lock/store.ts`). A missing lock is the initial state `ok(empty LockFile)`, not an error. | Value object (committed artifact) | holds → Shared Base (per Page Binding) |
+| **Disposable Cache** | The gitignored `.marksync/` tree, split into `cache/` (CI-cacheable, reconstructable artifacts), `journal/` (run-specific), and `conflicts/` (run-specific). Deleting the whole tree changes no plan (ADR-0006 C-3). Overridable via `MARKSYNC_CACHE_DIR`. Code: `resolveCacheDir`/`ensureCacheLayout`/`CACHE_SUBDIRS` (`src/app/cache.ts`). | Value object (infrastructure) | distinct from → Lock (the lock is the base; the cache is never needed for correctness) |
+| **Content-Property Cross-Check** | Pure domain functions comparing the lock against the remote `marksync.metadata` content property (ADR-0006 Cross-check; no I/O — the property fetch is the Confluence adapter). `reconcileWithProperty` flags a `sourceCommit` mismatch as `LockDirty`; `rebuildLockFromConfluence` reconstructs a `PageBinding` from the remote property + page facts + hashes (the lost-lock recovery path). Code: `src/domain/state/reconcile.ts`. | Domain service | consumes → Page Binding, MetadataProperty; produces → LockDirty |
+| **Branch Gate** | Application decision confining sync to `sync.allowBranches` (default `["main"]`) — Markdown sync treated as a documentation deployment. `MARKSYNC_ALLOW_BRANCHES` augments the allowed set for the process (feature-branch previews); deny produces `ForbiddenBranch`. Code: `assertBranchAllowed` (`src/app/branch.ts`). | Application service | produces → ForbiddenBranch |
+| **MetadataProperty** | The remote `marksync.metadata` content property (system spec §9.3): `{ schemaVersion, projectId, targetId, documentId, sourcePath, sourceCommit, sourceContentHash, renderedBodyHash, toolVersion, synchronizedAt, operationId }`. Caller-supplied input to the cross-check; fetched by the Confluence adapter. | Value object | input to → Content-Property Cross-Check |
+| **CorruptLock** | The corrupt-lock arm (`kind: "CorruptLock"`) of `MarkSyncError`: a present-but-invalid lock (bad `version`, missing field, unparseable YAML). Distinct recovery action (regenerate / `rebuildLockFromConfluence`) from `LockDirty` (property tamper → reconcile). Carries `path`, optional `ajvErrors`, and an AI-readable `humanMessage`. | Value object (error) | member of → MarkSyncError |
+| **LockError** | The lock-failure arms of `MarkSyncError` (`CorruptLock` \| `LockDirty` \| `ConcurrentWrite`) — the narrowed `Result` error `loadLock`/`saveLock` declare (`src/domain/config/lock-types.ts` re-exports it), mirroring `ConfigError`/`AuthError`. | Value object (error) | member of → MarkSyncError |
 
 ## Context map
 

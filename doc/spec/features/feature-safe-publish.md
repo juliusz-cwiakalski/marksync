@@ -9,7 +9,7 @@ last_updated: 2026-07-09
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: [GH-18]
+  related_changes: [GH-18, GH-19]
   decisions: [ADR-0005, ADR-0006, ADR-0010, ADR-0011]
   contracts: []
 ---
@@ -53,8 +53,18 @@ conflict classification that **refuses to silently overwrite remote work**.
 - **Document identity:** immutable UUID v7 in source front-matter
   (`marksync.uuid`); Confluence page ID = remote identity; title/path are
   mutable.
-- **Lock file:** committed, versioned — records the shared base (last known
-  remote state per document). Survives clones/branches/CI.
+- **Lock file:** a single committed `marksync.lock.yml` at the repo root —
+  versioned (`version: 1`) with a per-target `targets:` map of
+  `DocumentId → PageBinding`, serialized line-oriented and UUID-ordered so two
+  branches adding different documents merge cleanly, and written atomically (temp
+  + rename). It is the shared base (last known remote state per document), holds
+  no secrets, and survives clones/branches/CI. *(delivered — GH-19)*
+- **State primitives:** the disposable `.marksync/{cache,journal,conflicts}/`
+  cache (deleting it changes no plan — ADR-0006 C-3), the pure
+  `marksync.metadata` content-property cross-check (`reconcileWithProperty` →
+  `LockDirty`; `rebuildLockFromConfluence` reconstructs a lost lock), and the
+  `sync.allowBranches` branch gate (`ForbiddenBranch` on non-allowed branches).
+  *(delivered — GH-19)*
 - **Drift detection:** classifies each document as `NO_CHANGE` /
   `LOCAL_AHEAD` / `REMOTE_AHEAD` / `DIVERGED` / `REMOTE_MISSING` /
   `LOCAL_MISSING` using canonical semantic hashing (raw + canonical +
@@ -101,7 +111,7 @@ a `TargetSystem` port. The Confluence adapter is the sole implementation.
 |---|---|
 | Markdown pipeline | remark/HAST → Storage Format conversion (canonical GFM subset) |
 | Identity service | UUID v7 assignment, front-matter management |
-| State manager | Lock file read/write, cache management, drift comparison |
+| State manager | Committed `marksync.lock.yml` load/save/merge (`loadLock`/`saveLock`/`mergeBindings`, `src/app/lock.ts`), disposable `.marksync/` cache layout (`src/app/cache.ts`), pure content-property cross-check (`src/domain/state/reconcile.ts`), branch gate (`assertBranchAllowed`, `src/app/branch.ts`) *(delivered — GH-19)* |
 | Drift classifier | Canonical hash comparison → `NO_CHANGE` / `LOCAL_AHEAD` / etc. |
 | Sync engine | Orchestrates plan → apply per document; journal/replay |
 | Confluence adapter | `TargetSystem` port implementation (v2/v1 API) |

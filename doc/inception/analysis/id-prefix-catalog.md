@@ -5,7 +5,7 @@ ados_distribution: project
 id: ID-PREFIX-CATALOG
 status: Draft
 created: 2026-07-04
-last_updated: 2026-07-04
+last_updated: 2026-07-09
 owners: [Juliusz Ćwiąkalski]
 area: process
 document_classification: current-truth
@@ -55,7 +55,7 @@ plans. Do **not** invent new prefixes casually. Extend this catalog first.
 | `AC-` | Acceptance criterion | `AC-<SCOPE>-<N>` | `AC-MS-0002-1`, `AC-SEC-1` |
 | `FR-` | Functional requirement | `FR-<AREA>-<N>` | `FR-AUTH-007` from the system spec |
 | `NFR-` | Non-functional requirement | `NFR-<AREA>-<N>` or `NFR-001` | `NFR-SEC-1`, `NFR-001` |
-| `INV-` | Invariant / release-blocking guardrail | `INV-<AREA>-<N>` | `INV-SAFE-1`: no silent overwrite; `INV-SAFE-2`: no silent re-create of REMOTE_MISSING; `INV-SAFE-3`: duplicate-UUID fatal; `INV-SEC-1`: no secrets in output |
+| `INV-` | Invariant / release-blocking guardrail | `INV-<AREA>-<N>` | `INV-SAFE-1`: no silent overwrite; `INV-SAFE-2`: no silent re-create of REMOTE_MISSING; `INV-SAFE-3`: duplicate-UUID fatal; `INV-SEC-1`: no secrets in output (verified for the committed lock — GH-19 TC-NOSECRET-001) |
 | `G-` | North-star guardrail | `G-<AREA>-<N>` | `G-SAFE-1`, `G-DX-1` |
 | `MET-` | Metric | `MET-<AREA>-<N>` | `MET-MS-0002-1`: publish success rate |
 | `CC-` | Cross-cutting concern | `CC-<AREA>-<N>` | `CC-OBS-1`, `CC-SEC-1` |

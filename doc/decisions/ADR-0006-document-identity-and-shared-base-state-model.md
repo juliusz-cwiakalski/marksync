@@ -6,7 +6,7 @@ decision_type: adr
 status: Accepted
 created: 2026-07-04
 decision_date: null
-last_updated: 2026-07-05
+last_updated: 2026-07-09
 summary: "Document identity = immutable source-side UUID v7; shared base = committed versioned lock file; cache = disposable (single CI-cacheable dir); duplicate-UUID is fatal before any write; decentralized coordination via Confluence 409 + operation-ID dedup (no shared service); commit ID recorded per Confluence page version; sync restricted to configured branches. Establishes the safety foundation for drift detection, concurrency control, and reverse sync."
 owners:
   - Juliusz Ćwiąkalski
@@ -48,7 +48,7 @@ revisit_triggers:
   - "Reverse sync (`MS-0005+`) requires a base representation the lock cannot express."
   - "CI concurrency proves unachievable with a committed lock + optimistic 409 concurrency alone."
 links:
-  related_changes: []
+  related_changes: [GH-19]
   supersedes: []
   superseded_by: []
   spec: ["../inception/system-specification-draft-from-ai-brainstorm.md"]
@@ -285,14 +285,14 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes with accepted cost.
 
 - [x] **UUID version:** resolved → **UUID v7** (time-sortable; KSUID considered, rejected on TS-library weakness). See Identity section.
 - [x] **Lease backend:** resolved → **optimistic concurrency via Confluence 409 + operation-ID dedup + stale-plan expiry** (no pessimistic lease / no shared service; C-6). See Concurrency control section.
-- [ ] **Lock-file granularity:** single repo-wide lock vs per-target lock files. Per-target reduces merge conflicts but adds file count. (owner: JC — default assumption: per-target)
 - [ ] **Stale-plan expiry window:** default 15 min assumed; confirm. (owner: JC)
+- [x] **Lock-file granularity:** resolved → **a single repo-wide `marksync.lock.yml`** with a per-target `targets:` map (per-target organization inside one committed file). Decided in GH-19 DEC-1; the line-oriented, UUID-ordered, UUID-keyed format keeps cross-branch merges clean (a real `git merge-file` of two branches adding different-UUID documents merges with no manual conflict — AC-MERGE-1).
 - [x] **Default sync granularity:** resolved → **squash by default for `MS-0002`**; commit-by-commit deferred to a future milestone. See ADR-0010 (revised).
 
 ## Implementation Plan
 
 1. **`marksync init` / first-publish** generates a UUID per document and writes it to front-matter.
-2. **Lock file** implemented per spec §9.3 schema v1; atomic write; line-oriented format for mergeability.
+2. **Lock file** — delivered (GH-19): `marksync.lock.yml` schema v1 (`src/domain/config/lock-schema.json`), loader/saver/merger (`loadLock`/`saveLock`/`mergeBindings`, `src/app/lock.ts`), atomic write via temp + `fs.rename` (`src/infra/lock/store.ts`), line-oriented UUID-ordered format for mergeability. The disposable cache layout (`src/app/cache.ts`) and the pure content-property cross-check (`src/domain/state/reconcile.ts`) landed alongside it.
 3. **Content property** `marksync.metadata` written after a successful body update (cross-check).
 4. **Concurrency control** implemented in the push executor: optimistic 409 check, operation-ID dedup, stale-plan expiry.
 5. **`repair-state`** for stale locks + journal replay (R-USA-3).
@@ -320,7 +320,11 @@ cross-check is `validated` (A-FEA-4, A-FEA-5).
 
 ## Lessons Learned (Retrospective)
 
-TODO: Populate after implementation.
+- The shared-base lock (`marksync.lock.yml`) landed in GH-19 as a single
+  repo-wide file with a per-target `targets:` map, resolving the open
+  granularity question: a line-oriented, UUID-ordered, UUID-keyed format lets two
+  branches adding different-UUID documents merge cleanly (verified with a real
+  `git merge-file`) without manual conflict resolution.
 
 ## References
 
