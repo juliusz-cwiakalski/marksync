@@ -5,11 +5,11 @@ ados_distribution: project-generated
 id: SPEC-SAFE-PUBLISH
 status: Current
 created: 2026-07-06
-last_updated: 2026-07-06
+last_updated: 2026-07-09
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: []
+  related_changes: [GH-18]
   decisions: [ADR-0005, ADR-0006, ADR-0010, ADR-0011]
   contracts: []
 ---
@@ -50,8 +50,9 @@ conflict classification that **refuses to silently overwrite remote work**.
 
 ### 3.1 Capabilities
 
-- **Document identity:** immutable UUID v7 in source front-matter; Confluence
-  page ID = remote identity; title/path are mutable.
+- **Document identity:** immutable UUID v7 in source front-matter
+  (`marksync.uuid`); Confluence page ID = remote identity; title/path are
+  mutable.
 - **Lock file:** committed, versioned — records the shared base (last known
   remote state per document). Survives clones/branches/CI.
 - **Drift detection:** classifies each document as `NO_CHANGE` /

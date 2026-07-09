@@ -898,7 +898,7 @@ only trivial inline touch-ups.
 
 **Tasks**:
 
-- [ ] **6.1** **Boundaries verification:** `bun run check:boundaries` exits 0 (the
+- [x] **6.1** **Boundaries verification:** `bun run check:boundaries` exits 0 (the
       4 dep-cruiser rules — `domain→infra`, `domain→app`, `cli→domain`,
       `cli→infra` — all green; identity/binding purity + CLI purity enforced).
       `rg '#infra|#app' src/domain/identity/ src/domain/binding/` → empty (no
@@ -906,13 +906,13 @@ only trivial inline touch-ups.
       are allowed). `rg '#domain|#infra' src/cli/commands/init.ts` → empty (the
       CLI delegates to app only). Record the dep-cruise module count in the
       execution log.
-- [ ] **6.2** Apply the version bump per repo conventions for
+- [x] **6.2** Apply the version bump per repo conventions for
       `version_impact: minor`: `package.json` `0.3.0` → `0.4.0`; update
       `CLI_VERSION` in `src/cli/commands/router.ts` (line 41) to match
       (lock-step with `package.json` until a runtime version source is wired —
       GH-15/GH-16/GH-17 precedent). Confirm with the maintainer if the 0.x
       minor-vs-patch convention differs (Open Questions).
-- [ ] **6.3** Inline documentation touch-ups (full doc-sync is lifecycle phase 7):
+- [x] **6.3** Inline documentation touch-ups (full doc-sync is lifecycle phase 7):
       ensure the new modules have compliant ≤ 3-line headers citing the
       load-bearing authority (ADR-0006 C-1/C-4, INV-SAFE-3) at the decision point
       only — no tier-rule essays, no bare compliance tags. Flag the following for
@@ -923,11 +923,11 @@ only trivial inline touch-ups.
       `src/domain/binding/`); `id-prefix-catalog.md` INV-SAFE-3 traceability;
       ADR-0006 Implementation Plan items 1 (init UUID assignment) + partial;
       `typescript.md` "Planned" → "Installed" for `uuid`.
-- [ ] **6.4** Final review sweep: confirm all phase tasks are checked, every AC
+- [x] **6.4** Final review sweep: confirm all phase tasks are checked, every AC
       (AC-1..AC-6) has a passing test mapped in the Test Scenarios table, and
       there are no stray `<...>` placeholders or TODOs in shipped code
       (`rg "TODO|FIXME|XXX|HACK" src/` → none).
-- [ ] **6.5** Run the full quality gate: `bun run check` (lint + format:check +
+- [x] **6.5** Run the full quality gate: `bun run check` (lint + format:check +
       typecheck + test + check:boundaries) — must exit 0 (AC-6). Re-confirm the
       Phase-3 INV-SAFE-3 test (TC-DUP-001) is green and the Phase-2 byte-stability
       test (TC-FM-007, inline unit assertion) is green.
@@ -1038,10 +1038,5 @@ only trivial inline touch-ups.
 | 2 | ✅ DONE | 2026-07-09 | 2026-07-09 | `2b7cdef` | `frontmatter.ts` — readUuid (tolerant) + injectUuid (idempotent, byte-stable via surgical text insertion; injectable generator). Uses `yaml` directly (PD-1). Unit tests: 11 pass / 0 fail incl. TC-FM-007 exact-string byte-stability (Buffer.equals) + CRLF preservation + idempotency + re-clone + path-independence. `typecheck` exit 0; `check:boundaries` exit 0 (38 modules, 46 deps). |
 | 3 | ✅ DONE | 2026-07-09 | 2026-07-09 | `df7ad68` | `duplicate-detector.ts` — O(n) `Map<uuid,path[]>`, first-collision-only, consumes the EXISTING DuplicateUuid arm (no errors.ts edit). Unit tests: 9 pass / 0 fail incl. TC-DUP-001 (INV-SAFE-3 fatal), TC-DUP-005 (3-way + first-collision-only), TC-DUP-006 (error-arm regression via assertNeverMarkSyncError), TC-DUP-007 (halt signal — returned not thrown), TC-SCALE-001 (500-doc smoke). `typecheck` exit 0; `check:boundaries` exit 0 (39 modules, 47 deps). |
 | 4 | ✅ DONE | 2026-07-09 | 2026-07-09 | `6acee8b` | `page-binding.ts` — PageBinding interface (13 fields, `uuid: DocumentId`) + isPageBinding structural guard. TYPE only (no persistence). Unit tests: 3 pass / 0 fail incl. TC-PB-001/002 compile guards (@ts-expect-error for missing fields + bare-string uuid) + TC-PB-003 narrowing. `typecheck` exit 0; `check:boundaries` exit 0 (40 modules, 47 deps; binding→identity ✓). |
-| 5 | ✅ DONE | 2026-07-09 | 2026-07-09 | _pending_ | `identity-assign.ts` (app orchestrator, real node:fs/promises) + `init.ts` (async, delegates to app, IDENTITY_ASSIGNED warning) + router init action awaited + init.test.ts adapted to async. Integration test (5 cases via OS temp dirs): 5 pass. Full suite: 461 pass / 0 fail. `typecheck` exit 0; `check:boundaries` exit 0 (42 modules, 54 deps). |
-| 1 | pending | — | — | — | uuid.ts (generation + assert) + document-id.ts (branded VO + parse) + unit tests |
-| 2 | pending | — | — | — | frontmatter.ts (byte-stable read/inject, idempotent) + unit tests (byte-stability inline TC-FM-007; NO integration/golden file) |
-| 3 | pending | — | — | — | duplicate-detector.ts (INV-SAFE-3 fatal, first-collision-only) + unit tests (TC-DUP-001 fatal, TC-DUP-007 halt-signal, TC-SCALE-001 scale smoke) |
-| 4 | pending | — | — | — | page-binding.ts (PageBinding type + identity-binding semantics) + structural tests |
-| 5 | pending | — | — | — | identity-assign.ts (app orchestrator, real fs) + init.ts UUID-assignment wiring + integration test (temp dirs) |
-| 6 | pending | — | — | — | boundaries verification + version bump (0.3.0 → 0.4.0) + `bun run check` green |
+| 5 | ✅ DONE | 2026-07-09 | 2026-07-09 | `5bf256b` | `identity-assign.ts` (app orchestrator, real node:fs/promises) + `init.ts` (async, delegates to app, IDENTITY_ASSIGNED warning) + router init action awaited + init.test.ts adapted to async. Integration test (5 cases via OS temp dirs): 5 pass. Full suite: 461 pass / 0 fail. `typecheck` exit 0; `check:boundaries` exit 0 (42 modules, 54 deps). |
+| 6 | ✅ DONE | 2026-07-09 | 2026-07-09 | `c3c8c60` | Version bump `0.3.0` → `0.4.0` (`package.json` + `CLI_VERSION`); initCommand success-path coverage (IDENTITY_ASSIGNED warning + empty-corpus early return) + removed unused `STARTER_CONFIG` import; frontmatter header trim. `bun run check` green: 463 pass / 0 fail, 100% functions, dep-cruiser clean (42 modules). |

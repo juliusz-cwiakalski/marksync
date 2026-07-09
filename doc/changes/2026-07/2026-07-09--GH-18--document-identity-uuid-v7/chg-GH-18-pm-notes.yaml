@@ -15,11 +15,11 @@ phases:
   test_planning: { started: 2026-07-09, completed: 2026-07-09 }
   delivery_planning: { started: 2026-07-09, completed: 2026-07-09 }
   dor_check: { started: 2026-07-09, completed: 2026-07-09 }
-  delivery: { started: 2026-07-09, completed: null }
-  system_spec_update: { started: null, completed: null }
-  review_fix: { started: null, completed: null }
-  quality_gates: { started: null, completed: null }
-  dod_check: { started: null, completed: null }
+  delivery: { started: 2026-07-09, completed: 2026-07-09 }
+  system_spec_update: { started: 2026-07-09, completed: 2026-07-09 }
+  review_fix: { started: 2026-07-09, completed: 2026-07-09 }
+  quality_gates: { started: 2026-07-09, completed: 2026-07-09 }
+  dod_check: { started: 2026-07-09, completed: null }
   pr_creation: { started: null, completed: null, url: null }
 
 decisions:
