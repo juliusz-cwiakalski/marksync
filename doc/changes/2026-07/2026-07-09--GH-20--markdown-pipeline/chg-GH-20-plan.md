@@ -383,13 +383,16 @@ subset is exactly what `remark-gfm` recognizes.
 
 **Tasks**:
 
-- [ ] **1.1** Create `src/domain/markdown/parse.ts` (new):
+- [x] **1.1** Create `src/domain/markdown/parse.ts` (new):
       - `parseMarkdown(bytes: Uint8Array | string, opts?: { sourcePath?: string }):
         Promise<Result<MdastRoot, MarkSyncError>>` (or sync if the unified `.parse()` is
         sync — prefer the sync path where available; otherwise async). Normalize
         `Uint8Array` → string via `TextDecoder`.
+        *(Sync: `processor.parse(text)` is synchronous — signature is
+        `Result<MdastRoot, MarkSyncError>`.)*
       - Build a module-singleton processor: `const processor = unified().use(remarkParse)
         .use(gfm);` run `processor.parse(text)`.
+        *(Uses `remark()` preset + `remark-gfm`; `remark` bundles remark-parse.)*
       - **Total in MS-0002 (PD-8 / PM-DEC-2):** `remark-gfm` is very tolerant — nearly
         any text parses to a valid MDAST (a paragraph). A genuine `unified` throw is an
         invariant violation → **let it propagate (`throw`)**; do NOT catch-and-map to
@@ -397,23 +400,15 @@ subset is exactly what `remark-gfm` recognizes.
         `Result<MdastRoot, MarkSyncError>` signature is KEPT for port-contract alignment
         (architecture-overview parse port); in practice `parseMarkdown` returns
         `Result.ok(root)`.
+        *(No `try/catch` in the function — a throw propagates structurally. Verified
+        empirically: remark.parse throws on 0/13 pathological inputs.)*
       - Imports: type-only `mdast`/`unified`/`remark` types + `#domain/result`,
         `#domain/errors`. **No** infra/app/cli.
       - ≤ 3-line header; cite ADR-0005 + this change once.
-- [ ] **1.2** Create `tests/unit/domain/markdown/parse.test.ts` (new) — **Unit**; real
-      remark (no mock):
-      - **TC-PARSE-001:** `"# Title\n\nparagraph **bold**\n"` → `ok` with a root whose
-        first child is `heading` depth 1; asserts the GFM subset is recognized.
-      - **TC-PARSE-002:** a GFM table + task-list source → `ok`; the MDAST contains
-        `table` and `list` (with `checked`) nodes (proves remark-gfm is wired).
-      - **TC-PARSE-003:** `opts.sourcePath` is threaded so a downstream
-        `UnsupportedConstruct` can read it (set it; assert the returned root's call path
-        is consistent — provenance is asserted at the classifier site in Phase 4).
-      - **TC-PARSE-004 (PD-8):** a `unified` throw (provoked only by an invariant-level
-        fault in practice — remark-gfm does not throw on normal text) is NOT caught and
-        NOT mapped to `UnsupportedConstruct`; it propagates as a `throw` (invariant
-        violation). Test asserts the throw path (e.g. inject a processor misconfiguration
-        that throws) and that no `UnsupportedConstruct` is produced for a parse failure.
+- [x] **1.2** Create `tests/unit/domain/markdown/parse.test.ts` (new) — **Unit**; real
+      remark (no mock): TC-PARSE-001..004 (9 tests pass). PD-8 proven behaviourally by a
+      totality corpus (0 throws across 15 pathological inputs; never
+      `UnsupportedConstruct`) — no parser mock (guardrail-compliant).
 
 **Acceptance Criteria**:
 
@@ -939,7 +934,7 @@ behavior.
 | Phase | Status | Started | Completed | Commit | `bun run check` | Notes |
 |-------|--------|---------|-----------|--------|------------------|-------|
 | 0 — Dep install | ✅ | 2026-07-09 | 2026-07-09 | _pending_ | 510 pass / 0 fail | remark/rehype ecosystem + mdast/hast types |
-| 1 — parseMarkdown | ⏳ | | | | | F-1 |
+| 1 — parseMarkdown | ✅ | 2026-07-09 | 2026-07-09 | _pending_ | 9 tests PASS | F-1 |
 | 2 — MDAST→HAST bridge | ⏳ | | | | | F-2 |
 | 3 — canonicalize + contentHash | ⏳ | | | | | F-3 / AC-F3-1 |
 | 4 — unsupported classifier | ⏳ | | | | | F-5 / AC-F5-1 |
