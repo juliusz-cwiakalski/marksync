@@ -1,0 +1,94 @@
+change_id: GH-19
+title: "[MS2-E3-S2] State manager (committed lock + disposable cache + property cross-check)"
+story_ref: doc/planning/milestones/MS-2/MS2-E3--safe-publish-core/MS2-E3-S2--state-manager.md
+branch: feat/GH-19/state-manager-lock-cache
+slug: state-manager-lock-cache
+
+phases:
+  clarify_scope: { started: "2026-07-09T00:00:00Z", completed: "2026-07-09T00:00:00Z" }
+  specification: { started: "2026-07-09T00:00:00Z", completed: "2026-07-09T00:00:00Z" }
+  test_planning: { started: "2026-07-09T00:00:00Z", completed: "2026-07-09T00:00:00Z" }
+  delivery_planning: { started: "2026-07-09T00:00:00Z", completed: "2026-07-09T00:00:00Z" }
+  dor_check: { started: "2026-07-09T00:00:00Z", completed: null }
+  delivery: { started: null, completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+
+decisions:
+  - text: >
+      Lock-file structure = SINGLE committed `marksync.lock.yml` at repo root with a
+      `targets:` map; each target holds a `documents:` block keyed by UUID v7, written
+      line-oriented/UUID-ordered to be mergeable. Resolves ADR-0006 unresolved Q1.
+      "Per-target" = per-target ORGANIZATION inside one committed file, not one file per
+      target. Matches system spec §9.3 lock schema verbatim. Filename `.yml` (matches the
+      `marksync.yml` config convention).
+    date: 2026-07-09
+  - text: >
+      `CorruptLock` added as a new MarkSyncError kind (invalid version / missing field /
+      unparseable). `LockDirty` and `ConcurrentWrite` already exist. Adding a kind
+      triggers the documented "add a kind" procedure: update assertNeverMarkSyncError,
+      cli-error-map.ts, exit-codes.ts CODE_TO_EXIT, DEC-2 table — all in this change.
+    date: 2026-07-09
+  - text: >
+      `reconcileWithProperty` and `rebuildLockFromConfluence` are PURE functions over
+      caller-supplied records (property + pageVersion + hashes passed IN). The actual
+      content-property fetch lives in E3-S4. Keeps GH-19 dependency-free of network code.
+    date: 2026-07-09
+  - text: >
+      Stale-plan window default 15 min via existing `sync.stalePlanMinutes` (already in
+      config schema from GH-15). No new config field needed for the window itself.
+    date: 2026-07-09
+  - text: >
+      Delivery mode for this change: PM authors the change documents (spec/test-plan/plan)
+      DIRECTLY, not via @spec-writer/@test-plan-writer/@plan-writer subagents, because
+      repeated subagent delegations were externally interrupted (3x) in this session —
+      per the GH-13 precedent ("PM executes directly when subagents stall in this
+      environment"). Source-code implementation still delegated to @coder. Documents are
+      not source code, so this does not violate the PM no-source-code constraint.
+    date: 2026-07-09
+
+open_questions: []
+
+blockers: []
+
+notes:
+  - text: >
+      Branch base was dirty on resume: a stray local commit `f03b1be fix(script):
+      deliver ticket script uses the pm agent` (the human's deliver-script tweak,
+      unrelated to GH-19) sat on top of the stale base c4b6648. origin/main had advanced
+      to 6811c6b. Resolved: preserved f03b1be on side branch
+      `preserve/deliver-script-pm-agent-f03b1be`, then `git reset --hard origin/main` to
+      get a clean up-to-date base. This kept the unrelated commit out of the GH-19 PR.
+    type: retro
+    workItemRef: GH-19
+    date: 2026-07-09
+  - text: >
+      `git reset --hard origin/main` WIPED the untracked change folder + pm-notes.yaml
+      (unusual — reset --hard normally preserves untracked files; the "chore: ados
+      update" commit may have restructured doc/changes). Lesson: commit or stash PM
+      artifacts BEFORE running reset --hard on a branch. Recreated the folder + notes
+      from context. Going forward: commit the pm-notes scaffold immediately after
+      creation.
+    type: retro
+    workItemRef: GH-19
+    date: 2026-07-09
+  - text: >
+      GH-19 dependency `blocked_by MS2-E3-S1` (= GH-18) RESOLVED — GH-18 (PR #50) merged
+      2026-07-09T05:17:08Z (c4b6648), issue 18 CLOSED. pm-context was stale again (listed
+      GH-18 PR as open at intake). Moved GH-18 to recently_delivered. 2nd consecutive
+      ticket whose pm-context state lagged one merge cycle.
+    type: retro
+    workItemRef: GH-19
+    date: 2026-07-09
+  - text: >
+      Intake cross-check vs system spec: no blocking contradictions. GH-18 foundation in
+      place — PageBinding (src/domain/binding/page-binding.ts) with all ADR-0006 fields +
+      operationId + attachmentHashes; MarkSyncError already has LockDirty/ConcurrentWrite/
+      ForbiddenBranch; config loader (src/app/config.ts) is the ajv+yaml+Result pattern to
+      mirror for loadLock/saveLock; ajv/yaml/uuid deps installed — NO new deps needed.
+    type: info
+    workItemRef: GH-19
+    date: 2026-07-09
