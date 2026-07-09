@@ -703,35 +703,33 @@ through), plus the task-list + regular-list mixing warning.
 
 **Tasks**:
 
-- [ ] **6.1** Harden `escapeXml` coverage + add the task-list-mixing detection to
+- [x] **6.1** Harden `escapeXml` coverage + add the task-list-mixing detection to
       `src/infra/confluence/render/storage.ts`:
-      - Confirm `escapeXml` is applied to **every** text/attribute emission path outside
-        CDATA (the injection-safety control). Add a `warnings: string[]` accumulator to
-        `renderStorage`'s opts/result shape (non-breaking: the success payload becomes
-        `{ body; hash; warnings }` — `warnings` defaults to `[]`).
-      - Task-list mixing (DEC-5 / NFR-9): when a document mixes `<ac:task-list>` with
-        regular `<li>` siblings, push a deterministic warning (e.g.
-        `"task-list mixed with regular list items — unrepresentable"`). The construct is
-        surfaced, not silently mangled.
-- [ ] **6.2** Create `tests/golden/markdown/injection-safety.test.ts` (new) — **Golden/
-      property** (NFR-SEC-5 / RSK-2):
-      - **TC-INJECT-001 (AC-F4-4):** a Markdown doc whose **text** contains
-        `<ac:structured-macro>…</ac:structured-macro>`, `<ac:parameter>…`,
-        `<ac:plain-text-body>…` fragments → after parse→bridge→render, the output
-        contains **0** `<ac:structured-macro>` elements derived from source (the only
-        `ac:structured-macro` in legitimate output is the converter's own code-fence
-        emission — assert the malicious one is escaped to inert text).
-      - **TC-INJECT-002 (AC-F4-4):** `<script>alert(1)</script>` in source text → output
-        contains **0** executable content (`<script>` is escaped; no raw tag survives).
-      - **TC-INJECT-003:** a fenced ```code block whose body literally is the macro XML
-        → wrapped in the converter's own CDATA code macro (that is the converter emitting,
-        not injecting); assert the body is inside CDATA and the outer macro is the
-        converter's exactly-one `ac:structured-macro`.
-      - **TC-RAWHTML-001 (DEC-4 / NFR-8):** `<b>raw</b>` inline HTML in source → output
-        is **escaped** (`&lt;b&gt;raw&lt;/b&gt;`); **0** bytes of raw HTML pass through.
-      - **TC-TASKMIX-001 (DEC-5 / NFR-9):** a doc mixing task-list items with regular
-        list items → `renderStorage` result carries a `warnings` entry (surfaced, not
-        silently wrong).
+      - Confirmed `escapeText`/`escapeAttr` is applied to **every** text/attribute
+        emission path outside CDATA (the injection-safety control). The `warnings:
+        string[]` accumulator is part of the `renderStorage` result shape
+        (non-breaking: `{ body; hash; warnings }`).
+      - Task-list mixing (DEC-5 / NFR-9): `detectTaskMix` runs in both
+        `renderListItems` and `renderTaskList` — when a list mixes task items with
+        regular `<li>` siblings it pushes the deterministic warning
+        `"task-list mixed with regular list items — unrepresentable"`. The construct
+        is surfaced, not silently mangled.
+- [x] **6.2** Create `tests/golden/markdown/injection-safety.test.ts` (new) —
+      **Golden/property** (9 tests PASS — NFR-SEC-5 / RSK-2):
+      - **TC-INJECT-001 (AC-F4-4):** source text containing `<ac:structured-macro>…`,
+        `<ac:parameter>…`, `<ac:plain-text-body>…` → output contains **0**
+        source-derived `<ac:structured-macro>`/`<ac:parameter>`/`<ac:plain-text-body>`
+        tags (all escaped to inert entities).
+      - **TC-INJECT-002 (AC-F4-4):** `<script>alert(1)</script>` in source text → **0**
+        executable content (`<script>` escaped).
+      - **TC-INJECT-003:** a fenced code block whose body literally is the macro XML
+        → wrapped in the converter's own CDATA code macro; exactly one
+        `ac:structured-macro` *element* (outside CDATA), the body inside CDATA inert.
+      - **TC-RAWHTML-001 (DEC-4 / NFR-8):** `<b>raw</b>` inline HTML → escaped
+        (`&lt;b&gt;raw&lt;/b&gt;`); **0** bytes of raw HTML passthrough.
+      - **TC-TASKMIX-001 (DEC-5 / NFR-9):** a list mixing task-list items with
+        regular items → `warnings` carries the deterministic entry; a clean task-list
+        emits no warning (no false positive).
 
 **Acceptance Criteria**:
 
@@ -923,6 +921,6 @@ behavior.
 | 3 — canonicalize + contentHash | ✅ | 2026-07-09 | 2026-07-09 | feat(render): canonicalize HAST + contentHash sha256 (GH-20) | 532 pass / 0 fail | F-3 / AC-F3-1; raw→text, structural-ws drop, sorted props; 7 tests PASS |
 | 4 — unsupported classifier | ✅ | 2026-07-09 | 2026-07-09 | feat(markdown): unsupported-node classifier emitting UnsupportedConstruct (GH-20) | 540 pass / 0 fail | F-5 / AC-F5-1; block-raw vs inline-raw split; 8 tests PASS |
 | 5 — renderStorage + 25 golden | ✅ | 2026-07-09 | 2026-07-09 | feat(render): HAST→Storage visitor + 25 golden fixtures (GH-20) | 571 pass / 0 fail | F-4 / F-6 / AC-F4-1 / AC-F4-2; 25 byte-match + 25 snapshots; sub/sup defensive; boy-scout .gitkeep removal |
-| 6 — injection safety + DEC-4/DEC-5 | ⏳ | | | | | F-7 / AC-F4-4 |
+| 6 — injection safety + DEC-4/DEC-5 | ✅ | 2026-07-09 | 2026-07-09 | test(render): injection-safety + raw-HTML escape + task-list warning (GH-20) | 580 pass / 0 fail | F-7 / AC-F4-4; 9 property tests PASS |
 | 7 — round-trip + XML WF + determinism | ⏳ | | | | | AC-F4-3 / AC-F4-5 |
 | 8 — final gate + boundaries | ⏳ | | | | | AC-Q-1 |
