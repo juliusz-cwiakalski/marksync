@@ -872,17 +872,17 @@ phase the full port is implemented and ready for integration testing.
 
 **Tasks**:
 
-- [ ] **6.1** Create `src/infra/confluence/schemas/search.ts` +
+- [x] **6.1** Create `src/infra/confluence/schemas/search.ts` +
       `src/infra/confluence/schemas/restrictions.ts` (new) — minimal v1 zod
       schemas for the CQL search result + the restrictions read.
-- [ ] **6.2** Create `src/infra/confluence/search.ts` (new) — `SearchService`:
+- [x] **6.2** Create `src/infra/confluence/search.ts` (new) — `SearchService`:
       `search(cql) → Result<PageRef[], MarkSyncError>` — `v1` CQL search (page
       discovery for `doctor`/discovery). Kept minimal (NFR-MAINT-2).
-- [ ] **6.3** Create `src/infra/confluence/restrictions.ts` (new) —
+- [x] **6.3** Create `src/infra/confluence/restrictions.ts` (new) —
       `RestrictionsService`: `get(pageId) → Result<PageRestrictions, MarkSyncError>`
       — `GET v1("/content/{id}/restriction")` read (supports the 403/
       permission-awareness story, R-FEA-10). Kept minimal.
-- [ ] **6.4** Create `src/infra/confluence/provenance.ts` (new) —
+- [x] **6.4** Create `src/infra/confluence/provenance.ts` (new) —
       `formatVersionMessage(input) → string`: the `version.message` formatter
       (ADR-0006/ADR-0010 provenance; NFR-REL-9). Produces a clear MarkSync/Git
       prefix + the head commit id + a compact included-commit summary,
@@ -892,14 +892,14 @@ phase the full port is implemented and ready for integration testing.
       the adapter; it takes adapter-agnostic input (commit id + subjects) and
       produces the string. Consumed by E3-S6/E4-S3; `PageService.update` sets it
       on `version.message`.
-- [ ] **6.5** Create `src/infra/confluence/target.ts` (new) —
+- [x] **6.5** Create `src/infra/confluence/target.ts` (new) —
       `class ConfluenceTarget implements TargetSystem` (PD-7): composes the
       `ConfluenceClient` + `PageService` + `PropertyService` + `AttachmentService`
       + `SearchService` + `RestrictionsService`; `renderBody(hast, opts)`
       delegates to the GH-20 `renderStorage` (`#infra/confluence/render/storage`)
       — DEC-5 / PD-1. Every method returns `Result<T, MarkSyncError>`. This is
       the sole `TargetSystem` implementor; the single seam E3-S5/E3-S6/E4 call.
-- [ ] **6.6** Create `tests/unit/infra/confluence/search.test.ts`,
+- [x] **6.6** Create `tests/unit/infra/confluence/search.test.ts`,
       `tests/unit/infra/confluence/restrictions.test.ts`,
       `tests/unit/infra/confluence/provenance.test.ts` (new) — **Unit**:
       - **TC-SEARCH-001:** a mocked CQL result → validated + mapped.
@@ -909,7 +909,7 @@ phase the full port is implemented and ready for integration testing.
         `MAX_VERSION_MESSAGE_LEN` (a payload exceeding the limit is trimmed, not
         truncated mid-token where avoidable); deterministic (same input → same
         string across runs).
-- [ ] **6.7** Create `tests/unit/infra/confluence/target.test.ts` (new) —
+- [x] **6.7** Create `tests/unit/infra/confluence/target.test.ts` (new) —
       **Unit**: `ConfluenceTarget` wires every port op to its service; a
       smoke-assert that `renderBody` delegates to `renderStorage` (a tiny HAST →
       a body + hash); the class satisfies the `TargetSystem` interface (TS
@@ -1141,6 +1141,6 @@ reconciliation handoff (the final release phase per the plan template).
 | 3 — ConfluenceClient | ✅ | 2026-07-10 | 2026-07-10 | 7e7bd54 | PASS (716/0) | F-2 / AC-F2-1/2/3; injected fetch+delay seams; infra-tier redactor mirror |
 | 4 — PageService + 409 + 403 | ✅ | 2026-07-10 | 2026-07-10 | 608e75f | PASS (727/0) | F-3 / F-7 / AC-F3-1 / AC-F7-1; added title to UpdatePageRequest (v2 PUT requires it) |
 | 5 — Property + Attachment | ✅ | 2026-07-10 | 2026-07-10 | ae971ad | PASS (739/0) | F-4 / F-5 / AC-F4-1 / AC-F5-1; v2 properties + v1 attachments |
-| 6 — Search/Restrictions + provenance + adapter | ☐ | | | _pending_ | _pending_ | F-6 / F-8 |
+| 6 — Search/Restrictions + provenance + adapter | ✅ | 2026-07-10 | 2026-07-10 | a28e32d | PASS (760/0) | F-6 / F-8; added target wiring tests for per-file coverage |
 | 7 — integration (Bun.serve mock) | ☐ | | | _pending_ | _pending_ | all ACs |
 | 8 — final gate + boundary + doc handoff | ☐ | | | _pending_ | _pending_ | AC-Q-1 |
