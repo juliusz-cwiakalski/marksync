@@ -1,0 +1,83 @@
+change_id: GH-18
+title: "[MS2-E3-S1] Document identity (UUID v7) + front-matter binding"
+branch: feat/GH-18/document-identity-uuid-v7
+slug: document-identity-uuid-v7
+
+phases:
+  clarify_scope: { started: 2026-07-09, completed: 2026-07-09 }
+  # CEO reconciliation (2026-07-09 03:05Z): prior PM session checkpointed only
+  # Phase 1 at 01:51, then continued and wrote the Phase 2/3/4 artifacts
+  # (spec 01:57 / test-plan 01:59 / plan 02:00, each 61-69KB complete docs)
+  # before the session was interrupted WITHOUT updating these markers. Marking
+  # 2-4 completed to match disk reality; dor_check remains the resume point and
+  # will adversarially validate these artifacts before Phase 6.
+  specification: { started: 2026-07-09, completed: 2026-07-09 }
+  test_planning: { started: 2026-07-09, completed: 2026-07-09 }
+  delivery_planning: { started: 2026-07-09, completed: 2026-07-09 }
+  dor_check: { started: null, completed: null }
+  delivery: { started: null, completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+
+decisions: []
+
+open_questions: []
+
+blockers: []
+
+notes:
+  - text: >
+      clarify_scope complete. Loaded authoritative scope from story file
+      doc/planning/milestones/MS-2/MS2-E3--safe-publish-core/MS2-E3-S1--document-identity.md,
+      feature spec feature-safe-publish.md, ADR-0006, epic MS2-E3, coding rules
+      (typescript.md, testing-strategy.md). Cross-checked against current source.
+    type: info
+    workItemRef: GH-18
+    date: 2026-07-09
+  - text: >
+      Dependencies resolved: blocked_by MS2-E2-S1 (GH-14 merged 4055622) and
+      MS2-E2-S2 (GH-15 merged ed1bcf2). Also benefits from GH-16 (CLI framework)
+      and GH-17 (auth provider, merged 4281c95) already on main.
+    type: info
+    workItemRef: GH-18
+    date: 2026-07-09
+  - text: >
+      Existing source state: DuplicateUuid error kind already in errors.ts
+      ({kind:"DuplicateUuid"; uuid; paths[]}); Result<T,E> with ok/err
+      constructors in result.ts; src/domain/identity/ and src/domain/binding/
+      are empty .gitkeep skeletons ready for this story. `yaml` package
+      installed (^2.9.0) for front-matter.
+    type: info
+    workItemRef: GH-18
+    date: 2026-07-09
+  - text: >
+      First consuming story for the `uuid` package — coder must `bun add uuid`
+      (v9+ for v7()) as part of delivery. typescript.md lists uuid as planned
+      for MS-0002 E3. UUID v7 chosen over v4/KSUID per ADR-0006 (time-sortable,
+      solid library, zero schema-change cost vs v4).
+    type: info
+    workItemRef: GH-18
+    date: 2026-07-09
+  - text: >
+      Invariant label discrepancy: GH-18 issue body AC references "INV-SAFE-2"
+      but the duplicate-UUID-fatal invariant is INV-SAFE-3 per the canonical
+      id-prefix-catalog.md, the story file, the feature spec, and ADR-0006
+      (INV-SAFE-2 = no silent re-create of REMOTE_MISSING). Story file is
+      authoritative (pm-instructions: "Git files are authoritative for story
+      scope"). Treated as a label typo in the issue body — NOT blocking; the
+      correct invariant INV-SAFE-3 governs this change.
+    type: info
+    workItemRef: GH-18
+    date: 2026-07-09
+  - text: >
+      Doc impacts identified for phase 7 (doc-syncer): feature-safe-publish.md
+      identity capability (already described, may need current-truth update once
+      implemented); ubiquitous-language.md (DocumentId, PageBinding are UL terms
+      that must bind to code); id-prefix-catalog.md (INV-SAFE-3); ADR-0006
+      (implementation plan items 1 + partial). No blockers.
+    type: info
+    workItemRef: GH-18
+    date: 2026-07-09
