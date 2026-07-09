@@ -5,13 +5,13 @@ ados_distribution: redistributable
 id: CONVENTIONS-TYPESCRIPT
 status: Draft
 created: 2026-07-05
-last_updated: 2026-07-09
+last_updated: 2026-07-10
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0006, ADR-0011, TDR-0002, TDR-0003, TDR-0004, TDR-0005, TDR-0006, TDR-0008]
-  related_changes: [GH-14, GH-15, GH-16, GH-18, GH-20]
+  related_changes: [GH-14, GH-15, GH-16, GH-18, GH-20, GH-21]
   summary: "TypeScript + Bun conventions — module structure, naming, error handling, IO boundaries, linting, formatting for MarkSync."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -264,7 +264,13 @@ export type MarkSyncError =
   // Config-failure arm (GH-15): invalid marksync.yml. Carries the config path,
   // the structured ajv errors (ConfigAjvError[]), and an AI-readable
   // humanMessage (field path + expected vs actual + suggested fix).
-  | { kind: "InvalidConfig"; path: string; ajvErrors: ConfigAjvError[]; humanMessage: string };
+  | { kind: "InvalidConfig"; path: string; ajvErrors: ConfigAjvError[]; humanMessage: string }
+  // Transport-failure arms (GH-21): RateLimited = exhausted-429 backoff;
+  // RemoteUnreachable = exhausted-5xx / network / schema-drift. The optional
+  // `retryAfterMs`/`status`/`cause` fields stay in the typed error for redacted
+  // logging only — never interpolated into CLI-facing messages (DEC-9).
+  | { kind: "RateLimited"; retryAfterMs?: number }
+  | { kind: "RemoteUnreachable"; status?: number; cause: string };
 
 // The exhaustive `never`-check lives alongside the union as
 // `assertNeverMarkSyncError(error)` — switching over every `kind` so adding a
@@ -347,9 +353,10 @@ better type inference than `ajv`, single-package simplicity). `ajv` is retained
 only for user-authored JSON Schema files (config/lock) where the schema is the
 source of truth and the user may edit it directly.
 
-> **Note:** `zod` is planned but not yet installed — install when the first
-> consuming story lands (MS-0002 E3). Until then, use `unknown` + manual
-> narrowing with a TODO.
+> **Note:** `zod` is installed and is the boundary validator for every
+> Confluence REST response (GH-21) — each adapter return crosses a `zod`
+> schema before becoming a typed value. `ajv` remains the validator for
+> user-authored JSON Schema (config/lock).
 
 | Boundary | Validator | Type | Rationale |
 |---|---|---|---|
@@ -665,6 +672,7 @@ export interface ResultError { code: string; message: string; retryable: boolean
 | `yaml` | YAML parsing (`marksync.yml` + front-matter) |
 | `remark`, `remark-gfm`, `remark-rehype` | Markdown pipeline — bytes → MDAST → HAST → Storage (GH-20; `rehype` is transitive via `remark-rehype`, not a direct dep) |
 | `uuid` | UUID v7 generation (`v7`, `src/domain/identity/uuid.ts`; GH-18) |
+| `zod` | Runtime validation at IO boundaries — every Confluence REST response is `zod`-validated before crossing into a typed adapter return (GH-21) |
 
 > **Type-only devDependencies** (zero runtime surface): `@types/hast`,
 > `@types/mdast` (HAST/MDAST type models for the markdown pipeline; GH-20).
@@ -675,7 +683,6 @@ export interface ResultError { code: string; message: string; retryable: boolean
 |---|---|---|
 | `mermaid` | Diagram rendering (ADR-0002) | MS-0002 E4-S1 |
 | `jsdom` / `happy-dom` | Headless DOM for Mermaid tests | MS-0002 E4-S1 |
-| `zod` | Runtime validation at IO boundaries | MS-0002 E3 |
 | `pino` | Structured logging | MS-0002 |
 | `keytar` | OS keyring (fallback: env) | Spike-gated |
 

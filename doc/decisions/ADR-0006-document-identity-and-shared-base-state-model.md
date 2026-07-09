@@ -6,7 +6,7 @@ decision_type: adr
 status: Accepted
 created: 2026-07-04
 decision_date: null
-last_updated: 2026-07-09
+last_updated: 2026-07-10
 summary: "Document identity = immutable source-side UUID v7; shared base = committed versioned lock file; cache = disposable (single CI-cacheable dir); duplicate-UUID is fatal before any write; decentralized coordination via Confluence 409 + operation-ID dedup (no shared service); commit ID recorded per Confluence page version; sync restricted to configured branches. Establishes the safety foundation for drift detection, concurrency control, and reverse sync."
 owners:
   - Juliusz Ćwiąkalski
@@ -48,7 +48,7 @@ revisit_triggers:
   - "Reverse sync (`MS-0005+`) requires a base representation the lock cannot express."
   - "CI concurrency proves unachievable with a committed lock + optimistic 409 concurrency alone."
 links:
-  related_changes: [GH-19]
+  related_changes: [GH-19, GH-21]
   supersedes: []
   superseded_by: []
   spec: ["../inception/system-specification-draft-from-ai-brainstorm.md"]
@@ -325,6 +325,17 @@ cross-check is `validated` (A-FEA-4, A-FEA-5).
   granularity question: a line-oriented, UUID-ordered, UUID-keyed format lets two
   branches adding different-UUID documents merge cleanly (verified with a real
   `git merge-file`) without manual conflict resolution.
+- **The Confluence adapter (GH-21) validated the load-bearing controls against
+  real traffic over a `Bun.serve` mock:** the **409 optimistic-concurrency gate**
+  (C-5/C-6) parses as designed — `errors[0].code:"CONFLICT"` plus the
+  version-laden title yields a typed `Conflict` with correctly extracted version
+  numbers (never swapped); the **content-property cross-check** is wired through
+  the v2 `PropertyService` (the `marksync.metadata` string round-trips
+  byte-for-byte, incl. ~8 KB — spike H2); and the **403 → warn+skip (never
+  delete+recreate)** obligation (INV-SAFE-1) is enforced — a 403 produces
+  `Forbidden` and the path issues zero delete/recreate operations. The 409 gate,
+  the property cross-check, and the 403 policy now exist as code, not just as
+  this decision's text; their live-tenant confirmation is wired for E5-S1.
 
 ## References
 

@@ -6,7 +6,7 @@ decision_type: adr
 status: Accepted
 created: 2026-07-04
 decision_date: null
-last_updated: 2026-07-05
+last_updated: 2026-07-10
 summary: "Squash by default: one Confluence page version per sync with a compact provenance summary in version.message. Commit-by-commit sync (Confluence history mirrors Git history) is deferred to a future milestone as an opt-in option. Rationale: simplicity of implementation, reduced rate-limit/burst risk, and sufficient end-user value (detailed history remains in Git)."
 owners:
   - Juliusz Ćwiąkalski
@@ -48,7 +48,7 @@ revisit_triggers:
   - "Atlassian changes page version/history APIs so version.message is removed, hidden, or no longer returned consistently."
   - "Reverse-sync or drift-detection requirements need a different per-version provenance shape."
 links:
-  related_changes: []
+  related_changes: [GH-21]
   supersedes: []
   superseded_by: []
   spec: ["../inception/system-specification-draft-from-ai-brainstorm.md"]
@@ -234,8 +234,8 @@ Before implementation, MarkSync must run a small verification spike to determine
 
 ### Unresolved Questions
 
-- [ ] What is the verified usable length limit for Confluence `version.message` / page-history description entries? (owner: Juliusz Ćwiąkalski; required before implementation)
-- [ ] What deterministic truncation format should be used for over-limit squash commit lists? (owner: Juliusz Ćwiąkalski)
+- [ ] What is the verified usable length limit for Confluence `version.message` / page-history description entries? (owner: Juliusz Ćwiąkalski; required before implementation) — **Implementation status (GH-21):** the provenance formatter (`src/infra/confluence/provenance.ts`) trims deterministically to a conservative named default `MAX_VERSION_MESSAGE_LEN = 255` pending empirical confirmation against the live tenant. The exact limit remains **TO CONFIRM** and will be verified in the E5-S1 live-smoke; the constant is the single knob to tighten. No MS-0002 flow depends on the exact value.
+- [ ] What deterministic truncation format should be used for over-limit squash commit lists? (owner: Juliusz Ćwiąkalski) — **Implementation status (GH-21):** the formatter drops whole trailing subjects (never mid-token where avoidable) and appends an ellipsis so truncation is visible.
 - [ ] Should the canonical machine prefix be human-first (`MarkSync Git sync:`) or compact-first (`marksync:squash commit=<sha>`), or both? (owner: Juliusz Ćwiąkalski)
 - [ ] Which future milestone should track commit-by-commit opt-in if demand arises? (owner: Juliusz Ćwiąkalski)
 
