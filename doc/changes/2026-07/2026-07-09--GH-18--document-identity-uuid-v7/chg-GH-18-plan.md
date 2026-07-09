@@ -524,7 +524,7 @@ app `parseFrontMatter`) and surgical text insertion (PD-3 — not a
 
 **Tasks**:
 
-- [ ] **2.1** Create `src/domain/identity/frontmatter.ts` (new):
+- [x] **2.1** Create `src/domain/identity/frontmatter.ts` (new):
       - `readUuid(source: string): DocumentId | undefined` — locate the leading
         gray-matter block (`---` … `---`/`...`); parse the fenced YAML with the
         `yaml` package; read `marksync.uuid` if it is a string; return
@@ -552,7 +552,7 @@ app `parseFrontMatter`) and surgical text insertion (PD-3 — not a
         `type DocumentId`). No tiered import.
       - ≤ 3-line header citing ADR-0006 (`marksync.uuid` identity) + the
         byte-stability invariant once.
-- [ ] **2.2** Create `tests/domain/identity/frontmatter.test.ts` (new) — **Unit**.
+- [x] **2.2** Create `tests/domain/identity/frontmatter.test.ts` (new) — **Unit**.
       Byte-stability is an inline **exact-string assertion in this file** (NOT a
       separate `tests/golden/` fixture, NOT an integration file — PM-RECON-1
       Decision C / Finding 3d). Uses import aliases; no mocks.
@@ -1030,7 +1030,8 @@ only trivial inline touch-ups.
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
 | 0 | ✅ DONE | 2026-07-09 | 2026-07-09 | `0c9dcfa` | `bun add uuid` → resolved `uuid@14.0.1` (v9+, bundled types, no `@types/uuid`); `typecheck` exit 0; `check:boundaries` exit 0 (34 modules, 40 deps); `rg '"uuid"' src/` empty. NFR-13 trivially satisfied (zero transitive deps). |
-| 1 | ✅ DONE | 2026-07-09 | 2026-07-09 | _pending_ | `uuid.ts` (UUID_V7_REGEX + generateUuidV7/isUuidV7/assertUuidV7) + `document-id.ts` (branded DocumentId + DocumentIdError + parseDocumentId). Cycle broken: uuid.ts imports `type DocumentId` only (elided at runtime). Unit tests: 9 pass / 0 fail, 516 expects. `typecheck` exit 0; `check:boundaries` exit 0 (37 modules, 43 deps). |
+| 1 | ✅ DONE | 2026-07-09 | 2026-07-09 | `35a399a` | `uuid.ts` (UUID_V7_REGEX + generateUuidV7/isUuidV7/assertUuidV7) + `document-id.ts` (branded DocumentId + DocumentIdError + parseDocumentId). Cycle broken: uuid.ts imports `type DocumentId` only (elided at runtime). Unit tests: 9 pass / 0 fail, 516 expects. `typecheck` exit 0; `check:boundaries` exit 0 (37 modules, 43 deps). |
+| 2 | ✅ DONE | 2026-07-09 | 2026-07-09 | _pending_ | `frontmatter.ts` — readUuid (tolerant) + injectUuid (idempotent, byte-stable via surgical text insertion; injectable generator). Uses `yaml` directly (PD-1). Unit tests: 11 pass / 0 fail incl. TC-FM-007 exact-string byte-stability (Buffer.equals) + CRLF preservation + idempotency + re-clone + path-independence. `typecheck` exit 0; `check:boundaries` exit 0 (38 modules, 46 deps). |
 | 1 | pending | — | — | — | uuid.ts (generation + assert) + document-id.ts (branded VO + parse) + unit tests |
 | 2 | pending | — | — | — | frontmatter.ts (byte-stable read/inject, idempotent) + unit tests (byte-stability inline TC-FM-007; NO integration/golden file) |
 | 3 | pending | — | — | — | duplicate-detector.ts (INV-SAFE-3 fatal, first-collision-only) + unit tests (TC-DUP-001 fatal, TC-DUP-007 halt-signal, TC-SCALE-001 scale smoke) |
