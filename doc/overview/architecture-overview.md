@@ -12,7 +12,7 @@ area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005, ADR-0006]
-  related_changes: [GH-18]
+  related_changes: [GH-18, GH-20]
   summary: "Architecture overview — ports-and-adapters CLI; Markdown→Storage pipeline; Confluence Cloud adapter; UUID+lock state model; no hosted backend."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -93,7 +93,7 @@ section below govern residence and dependency direction._
 | Hierarchy planner | MarkSync binary | domain | Page graph, titles, parents, document-node resolution |
 | Link resolver | MarkSync binary | domain | Resolve local Markdown cross-document links to target-system page IDs/URLs so Confluence internal links work after sync |
 | State classifier | MarkSync binary | domain | Compare local/remote/base → NO_CHANGE/LOCAL_AHEAD/REMOTE_AHEAD/DIVERGED/REMOTE_MISSING/etc. |
-| Markdown parser | MarkSync binary | domain | Markdown → MDAST/HAST (remark); canonical subset validation |
+| Markdown parser | MarkSync binary | domain | Markdown → MDAST/HAST (remark + remark-gfm); canonical subset validation. `parseMarkdown` (`src/domain/markdown/parse.ts`) → `mdastToHast` bridge (`src/domain/markdown/mdast-to-hast.ts`) → unsupported-node classifier emitting `UnsupportedConstruct` (`src/domain/markdown/unsupported.ts`) → canonical HAST + `contentHash` sha256 (`src/domain/render/canonicalize.ts`) *(delivered — GH-20)* |
 | Asset resolver | MarkSync binary | domain | Safe path/hash/dedup prep for images + attachments |
 | Mermaid artifact manager | MarkSync binary | domain | Calculate Mermaid content hash, detect whether a given hash already exists on the target, orchestrate render→upload→reference |
 | Push executor | MarkSync binary | infrastructure | Ordered safe writes via `TargetSystem` port; journal; optimistic concurrency |
@@ -108,7 +108,7 @@ section below govern residence and dependency direction._
 |---|---|---|---|
 | Confluence client | MarkSync binary | infrastructure | `ConfluenceClient` → Cloud REST v2/v1; pages, content properties, hierarchy |
 | Confluence attachment manager | MarkSync binary | infrastructure | Attachment upload/update/download (V1-only); hash-based dedup; existence detection |
-| Confluence Storage renderer | MarkSync binary | infrastructure (adapter) | HAST → Confluence Storage XHTML (ADR-0005); target-specific body representation |
+| Confluence Storage renderer | MarkSync binary | infrastructure (adapter) | HAST → Confluence Storage XHTML string-builder visitor (ADR-0005); `renderStorage(hast, opts) → { body, hash, warnings }` (`src/infra/confluence/render/storage.ts`); CDATA code bodies, omitted `ac:schema-version`/`ac:macro-id`, `<ac:task-list>` as its own block *(delivered — GH-20)* |
 | Confluence reverse converter | MarkSync binary | infrastructure (adapter) | Storage/ADF → Markdown (later phase; `MS-0005+`); target-specific body parsing |
 | Confluence content property manager | MarkSync binary | infrastructure (adapter) | `marksync.metadata` property read/write (v2); lock cross-check data |
 | Confluence page-history provenance | MarkSync binary | infrastructure (adapter) | `version.message` formatting per ADR-0010; MarkSync/Git prefix; squash summary |
@@ -216,11 +216,11 @@ the integration-scenarios docs (`doc/inception/integration-scenarios/`)._
 |---|---|---|---|---|
 | app → git port | readCommitted | `readCommitted(ref, patterns)` | `Map<path, bytes>` | `RefNotFound`, `BadPath` |
 | app → git port | worktreeStatus | `worktreeStatus(paths)` | `WorktreeStatus` | — |
-| app → markdown port | parse | `parse(bytes)` | `MdastRoot` | `ParseError` |
+| app → markdown port | parse | `parseMarkdown(bytes, opts?)` | `Result<MdastRoot, MarkSyncError>` | total in MS-0002 — a genuine parse failure is an invariant violation that `throw`s (no `ParseError` arm exists in `MarkSyncError`) |
 | app → target system port | getPage | `getPage(id, repr)` | `Page` | `NotFound`, `Forbidden`, `Conflict` |
 | app → target system port | updatePage | `updatePage(req)` | `Page` | `Conflict` (409 → drift) |
 | app → target system port | putProperty | `putProperty(pageId, key, value)` | `void` | `Conflict`, `TooLarge` |
-| app → target system port | renderBody | `renderBody(mdast, opts)` | `{ bodyRepr, hash }` | `UnsupportedConstruct` |
+| app → target system port | renderBody | `renderStorage(hast, opts)` (Confluence adapter realization) | `{ body, hash, warnings }` | `UnsupportedConstruct` |
 | app → target system port | attachmentExists | `attachmentExists(pageId, hash)` | `boolean` | `Forbidden` |
 | app → target system port | uploadAttachment | `uploadAttachment(pageId, artifact)` | `AttachmentRef` | `TooLarge`, `Forbidden` |
 | app → target system port | reverseConvert | `reverseConvert(bodyRepr)` | `MdastRoot` | `UnsupportedConstruct` (`MS-0005+`) |

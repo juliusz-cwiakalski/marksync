@@ -1,0 +1,126 @@
+change_id: GH-20
+title: "[MS2-E3-S3] Markdown pipeline (remark/HAST -> Confluence Storage Format)"
+branch: feat/GH-20/markdown-pipeline
+change_folder: doc/changes/2026-07/2026-07-09--GH-20--markdown-pipeline
+story_file: doc/planning/milestones/MS-2/MS2-E3--safe-publish-core/MS2-E3-S3--markdown-pipeline.md
+business_id: MS2-E3-S3
+
+phases:
+  clarify_scope: { started: "2026-07-09T00:00:00Z", completed: "2026-07-09T00:00:00Z" }
+  specification: { started: "2026-07-09T00:01:00Z", completed: "2026-07-09T00:01:00Z" }
+  test_planning: { started: "2026-07-09T00:02:00Z", completed: "2026-07-09T00:03:00Z" }
+  delivery_planning: { started: "2026-07-09T00:03:00Z", completed: "2026-07-09T00:04:00Z" }
+  dor_check: { started: "2026-07-09T00:05:00Z", completed: "2026-07-09T00:30:00Z" }
+  delivery: { started: "2026-07-09T00:31:00Z", completed: "2026-07-09T01:30:00Z" }
+  system_spec_update: { started: "2026-07-09T01:31:00Z", completed: "2026-07-09T02:00:00Z" }
+  review_fix: { started: "2026-07-09T01:31:00Z", completed: "2026-07-09T02:10:00Z" }
+  quality_gates: { started: "2026-07-09T02:11:00Z", completed: "2026-07-09T02:11:00Z" }
+  dod_check: { started: "2026-07-09T02:12:00Z", completed: "2026-07-09T02:12:00Z" }
+  pr_creation: { started: "2026-07-09T02:13:00Z", completed: null, url: null }
+
+decisions:
+  - text: >
+      PM-DEC-1 (sub/sup scope, DoR iter-1): remark-gfm cannot produce <sub>/<sup>
+      (non-GFM syntax ~text~/^text^); the spike kitchensink that listed them was
+      HAND-AUTHORED Storage XML, not markdown-generated. Decision: the visitor
+      handles <sub>/<sup> HAST nodes DEFENSIVELY (renders correctly if a future
+      extension/raw-HTML produces them) but they are EXCLUDED from the golden
+      Markdown fixture set (unreachable from plain remark-gfm). Fidelity bar
+      re-baselined to the actual remark-gfm-reachable constructs (~25). Spike
+      proved sub/sup survive Storage round-trip when present in XML — preserved
+      by the defensive visitor. PM-decided (technical-scope clarification, not
+      product direction; reversible; documented as spec DEC).
+    date: 2026-07-09
+  - text: >
+      PM-DEC-2 (ParseError, DoR iter-1): architecture-overview.md:219 documents
+      the parse port as '-> MdastRoot | ParseError' but ParseError does not exist
+      in MarkSyncError and NG-7 forbids adding kinds. remark-gfm is effectively
+      total (very tolerant; produces best-effort MDAST). Decision: keep the
+      Result<MdastRoot, MarkSyncError> signature for port-contract alignment but
+      treat parseMarkdown as total in MS-0002 — a genuine parse failure is an
+      invariant violation -> throw (per typescript.md error handling). Do NOT
+      overload UnsupportedConstruct. Flag architecture-overview:219 for phase-7
+      doc-sync. PM-decided.
+    date: 2026-07-09
+
+open_questions: []
+blockers: []
+
+notes:
+  - text: >
+      DoR iter-1 returned NOT_READY (adversarial gate worked as intended).
+      BLOCKER: <sub>/<sup> unreachable from remark-gfm (spike kitchensink was
+      hand-authored XML, not markdown) — 27/27 internally inconsistent. MAJOR:
+      ParseError documented at architecture-overview:219 but absent from
+      MarkSyncError; plan's proposal to map a unified throw onto
+      UnsupportedConstruct overloads that arm. MINORs: OQ-TP-1 vs PD-4 status
+      mismatch; 27-provenance overstated; stale renderer path in
+      testing-strategy.md:44; dep-cruiser claim overstated (only enforces 4 of
+      the directions).       Re-opening specification + test_planning; delivery_planning
+      nits ride along. PM decisions PM-DEC-1/PM-DEC-2 resolve the two blockers.
+    type: retro
+    date: 2026-07-09
+  - text: >
+      DoR iter-2 = READY (all 7 iter-1 findings RESOLVED; 4 new MINOR/NIT
+      observations non-blocking). Baseline after resume-sync merge from
+      origin/main (doc-only chore: pm sync + ados update #54): 510 pass / 0
+      fail, dep-cruiser clean (49 modules). DoD reminder: honor fidelity bar 25
+      (not the story file's stale 27) per PM-DEC-1.
+    type: info
+    date: 2026-07-09
+  - text: >
+      Delivery + review PASS. Implementation: 5 modules (parse, mdast-to-hast,
+      unsupported, canonicalize, storage) + 25 golden pairs + tests, 692/0
+      green, dep-cruiser clean (59 modules). Review iter-1 = PASS (0 BLOCKER/0
+      MAJOR/3 MINOR); applied the 3 MINOR polish fixes (duplicate import ->
+      single statement; 5-line header -> 3-line; dropped dead 'rehype' dep
+      which is only transitive via remark-rehype) in 695fa25, gate stayed green.
+      Doc-sync (055f42f) resolved all 6 doc gaps incl. ParseError drift at
+      architecture-overview:219. DoD PASS: errors.ts/result.ts untouched
+      (UnsupportedConstruct reused not redefined); mermaid/jsdom absent (E4-S1);
+      fidelity bar 25 honored.
+    type: info
+    date: 2026-07-09
+  - text: >
+      Intake: clarify_scope complete. Story file MS2-E3-S3 is authoritative
+      scope. Requirements complete and consistent with system spec — no STOP
+      needed. Dependency MS2-E2-S1 (GH-14 scaffolding) merged. Loads of
+      pre-existing contracts ready: Result<T,E> (src/domain/result.ts),
+      MarkSyncError.UnsupportedConstruct arm (src/domain/errors.ts line 45),
+      empty skeletons at domain/markdown/, domain/render/, infra/confluence/.
+      Spike H6 (doc/inception/tmp/confluence-api-validation-spike/findings/
+      atlassian-api-spike-findings.md lines 17-41) gives the exact 27-construct
+      mapping table + 3 converter rules (CDATA code bodies; omit ac:schema-
+      version/ac:macro-id; task-list is its own block). Kitchensink fixture at
+      doc/inception/tmp/confluence-api-validation-spike/examples/pages/
+      storage-kitchensink.xml is the golden reference.
+    type: info
+    date: 2026-07-09
+  - text: >
+      Housekeeping at intake: GH-19 (PR #52) was already MERGED
+      (2026-07-09T16:47:15Z, merge commit d21320a) and issue CLOSED, but
+      pm-context.yaml still listed it as active_change awaiting review. Moved
+      GH-19 to recently_delivered. Recurring stale-context issue (3rd time —
+      GH-17, GH-18, now GH-19 were all discovered merged at next intake).
+    type: retro
+    date: 2026-07-09
+
+doc_risks:
+  - path: doc/spec/features/feature-safe-publish.md
+    risk: "Markdown pipeline component (§4.2) needs a '(delivered — GH-20)' tag like GH-19 did for state manager."
+    owner: doc-syncer
+  - path: doc/overview/architecture-overview.md
+    risk: "'Markdown parser' + 'Confluence Storage renderer' components (§Components) need delivered tags; related_changes needs GH-20. ALSO: line 219 documents parse port as '-> MdastRoot | ParseError' but ParseError does not exist in MarkSyncError (PM-DEC-2: parseMarkdown treated as total; throw on invariant violation). Reconcile the port contract."
+    owner: doc-syncer
+  - path: doc/overview/ubiquitous-language.md
+    risk: "Body Representation + Content Hash VOs need code-construct binding (src/domain/render/canonicalize.ts); related_changes needs GH-20."
+    owner: doc-syncer
+  - path: .ai/rules/typescript.md
+    risk: "'Planned (not yet installed)' table lists remark/rehype as MS-0002 E3 — THIS story installs them. Move to Installed table. (mermaid stays planned — E4-S1.)"
+    owner: doc-syncer
+  - path: .ai/rules/testing-strategy.md
+    risk: "Line 44 references stale path 'src/infra/render/storage-renderer.ts'; actual path is 'src/infra/confluence/render/storage.ts' (DoR iter-1 finding 5). Fix during phase-7 doc-sync."
+    owner: doc-syncer
+  - path: doc/decisions/ADR-0005-page-body-representation-storage-not-adf.md
+    risk: "'Lessons Learned (Retrospective)' is TODO — populate after implementation per ADR template."
+    owner: doc-syncer

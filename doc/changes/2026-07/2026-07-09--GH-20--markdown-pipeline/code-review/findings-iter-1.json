@@ -1,0 +1,35 @@
+[
+  {
+    "id": 1,
+    "severity": "minor",
+    "confidence": "high",
+    "file": "src/infra/confluence/render/storage.ts",
+    "line": 8,
+    "title": "Duplicate import statement from #domain/render/canonicalize",
+    "description": "Lines 8 and 9 are two separate import statements from the same module (one type-only, one value). The typescript.md 'One import statement per module' rule and the code-review checklist ('Import hygiene: one import statement per module') require these to be combined into a single statement using the inline `type` modifier. All other modules in this change comply; this one slips.",
+    "suggestedFix": "Combine into one statement: `import { type CanonicalHast, canonicalize, contentHash } from \"#domain/render/canonicalize\";`",
+    "ac": null
+  },
+  {
+    "id": 2,
+    "severity": "minor",
+    "confidence": "high",
+    "file": "src/infra/confluence/render/storage.ts",
+    "line": 1,
+    "title": "File header exceeds the 3-line cap (5 comment lines)",
+    "description": "The header comment block spans lines 1-5. AGENTS.md and .ai/rules/typescript.md both cap file headers at <= 3 lines ('no spec restatements, tier-rule essays'). The content is load-bearing (the 3 spike converter rules at the visitor) and good, but it exceeds the documented cap. The other four new modules all comply at 1-2 lines.",
+    "suggestedFix": "Condense to <= 3 lines, e.g. keep line 1 (the cite line) and fold the three spike rules into a compact 1-2 line summary, or move the per-rule detail to the inline call sites that already reference 'rule #1/#2/#3'.",
+    "ac": null
+  },
+  {
+    "id": 3,
+    "severity": "minor",
+    "confidence": "high",
+    "file": "package.json",
+    "line": 53,
+    "title": "rehype is a direct runtime dependency but is never imported in src/",
+    "description": "`rehype` is listed in package.json `dependencies` (NFR-11 / spec 8.4 mandate it) but no `src/` module imports it. The bridge uses `unified` (a transitive dep of remark) + `remark-rehype` directly, which is sufficient. This is dead weight that the 'Minimal dependencies' rule (typescript.md) and the review checklist ('New dependency: justifies its weight') guard against. Note `unified` is imported (mdast-to-hast.ts) without being a declared dep either; both are transitively present via the unified ecosystem, so this is low-risk, but the declared-vs-used set is inverted.",
+    "suggestedFix": "Either drop `rehype` from `dependencies` (it remains transitively available via remark-rehype) and reconcile NFR-11/spec 8.4 via phase-7 doc-sync; or add a one-line note explaining why it is a direct dep. Separately consider declaring `unified` as a direct dep since it is imported directly.",
+    "ac": null
+  }
+]

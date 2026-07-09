@@ -6,7 +6,7 @@ decision_type: adr
 status: Accepted
 created: 2026-07-03
 decision_date: null
-last_updated: 2026-07-03
+last_updated: 2026-07-09
 summary: "Generate Confluence Storage Format (XHTML + ac:/ri: macros) as MarkSync's write target, not ADF. Storage is accepted by the v2 page API, round-trips losslessly for all GFM constructs, is far simpler to emit from Markdown, and matches unanimous ecosystem precedent."
 owners:
   - Juliusz Ćwiąkalski
@@ -47,7 +47,7 @@ revisit_triggers:
   - "A Markdown construct MarkSync must support is found to have no lossless Storage representation (would force an ADF/macro hybrid)."
   - "The new editor stops converting storage↔ADF losslessly for a construct MarkSync relies on."
 links:
-  related_changes: []
+  related_changes: [GH-20]
   supersedes: []
   superseded_by: []
   spec: ["../inception/system-specification-draft-from-ai-brainstorm.md"]
@@ -210,7 +210,13 @@ Both representations are API-accepted, but Storage is fidelity-proven (spike K1:
 
 ## Lessons Learned (Retrospective)
 
-TODO: Populate after implementation.
+**Implemented by [GH-20](../changes/2026-07/2026-07-09--GH-20--markdown-pipeline/chg-GH-20-spec.md) (`MS2-E3-S3` Markdown pipeline).** The decision's three converter obligations were discharged by a HAST→Storage string-builder visitor at `src/infra/confluence/render/storage.ts` (`renderStorage(hast, opts) → { body, hash, warnings }`):
+
+- **C-1 (lossless fidelity):** 25 of 25 `remark-gfm`-reachable constructs byte-match their golden `.storage.xhtml` snapshots (`tests/golden/fixtures/markdown/`), including a kitchensink fixture that round-trips all construct families in one body.
+- **C-3 (well-formed XML):** every rendered fixture parses as valid XML; entities are escaped outside CDATA; fenced-code bodies are wrapped in `<![CDATA[…]]>` with `ac:schema-version`/`ac:macro-id` **omitted** (Confluence assigns them) — 0 occurrences in any rendered output.
+- **Raw-HTML sanitisation / injection safety (NFR-SEC-5):** malicious source text (macro-injection payloads, `<script>` fragments) is entity-escaped on emission — 0 `<ac:structured-macro>` elements derived from source, 0 executable content. Raw inline HTML is escaped (supported-but-escaped), never passed through.
+
+**Fidelity-bar scope clarification (PM-DEC-1).** The spike's 27/27 figure was proven on hand-authored Storage XML (a Storage→ADF→Storage round-trip), not on Markdown→Storage. The Markdown→Storage golden set covers the 25 `remark-gfm`-reachable constructs; `<sub>`/`<sup>` are handled **defensively** in the visitor (they render correctly if a future remark extension or raw HTML ever produces such a node) but are excluded from the golden set because plain `remark-gfm` cannot produce them. A future construct that MarkSync needs but that lacks a lossless Storage representation would trigger this ADR's revisit triggers (macro fallback or re-decision), per the "do not silently degrade" obligation — enforced today by the unsupported-node classifier (`src/domain/markdown/unsupported.ts`), the first producer of the pre-existing `UnsupportedConstruct` error arm.
 
 ## References
 
