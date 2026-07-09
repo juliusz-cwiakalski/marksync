@@ -2,9 +2,9 @@
 # Copyright (c) 2025-2026 Juliusz Ćwiąkalski (https://www.cwiakalski.com | https://www.linkedin.com/in/juliusz-cwiakalski/ | https://x.com/cwiakalski)
 # MIT License - see LICENSE file for full terms
 id: chg-GH-18-document-identity-uuid-v7
-status: Proposed
+status: Updated
 created: 2026-07-09T00:00:00Z
-last_updated: 2026-07-09T00:00:00Z
+last_updated: 2026-07-09T12:00:00Z
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 labels: [MS-0002, MS2-E3, safe-publish, critical, identity, safety, foundation]
@@ -85,7 +85,7 @@ The plan is derived entirely from the authoritative story
 > plan operationalizes the authoritative story file plus the `clarify_scope`
 > intake verification; where the spec later diverges, the spec wins on contract
 > matters (AC wording, DEC table) and this plan is reconciled in a revision-log
-> entry. The four binding decisions below are encoded as committed.
+> entry. The five binding decisions below are encoded as committed.
 
 ### Binding decisions
 
@@ -93,7 +93,7 @@ The plan is derived entirely from the authoritative story
 > (`chg-GH-18-pm-notes.yaml`). They are committed here; delivery must not
 > re-litigate them.
 
-- **DEC-1 — Domain-tier identity uses the `yaml` package directly; it CANNOT
+- **PD-1 — Domain-tier identity uses the `yaml` package directly; it CANNOT
   reuse the app-tier `parseFrontMatter`.** The story's "Use the YAML parser from
   E2-S2" refers to the **`yaml` dependency** (`^2.9.0`, the same package
   `src/app/document-config.ts` imports), NOT the application helper
@@ -105,10 +105,10 @@ The plan is derived entirely from the authoritative story
     allowed — not tiers) + domain siblings (`#domain/identity/uuid`,
     `#domain/identity/document-id`) only. It re-implements the gray-matter fence
     detection **without** the app helper's CRLF→LF normalization (byte-stability
-    forbids normalization — DEC-3).
+    forbids normalization — PD-3).
   - The application-tier orchestrator (Phase 5) MAY import `#domain/identity/*`
     (app→domain ✓) and is where any file I/O lives.
-- **DEC-2 — `injectUuid` is a pure domain string transform; `marksync init`
+- **PD-2 — `injectUuid` is a pure domain string transform; `marksync init`
   UUID assignment is application-orchestrated; the CLI delegates.** File discovery
   + read/write-back is application-tier (a new `src/app/identity-assign.ts`),
   which calls the pure `injectUuid` per doc; `src/cli/commands/init.ts` calls that
@@ -117,7 +117,7 @@ The plan is derived entirely from the authoritative story
   `#domain/*` (`presentation-may-not-import-domain`, dep-cruiser-enforced). The
   existing `initCommand` stays presentation-thin (it already delegates config
   writing to `#app/config-template`).
-- **DEC-3 — Byte-stability is achieved by surgical text insertion, NOT
+- **PD-3 — Byte-stability is achieved by surgical text insertion, NOT
   `yaml.stringify`-round-tripping the front-matter.** `injectUuid` MUST preserve
   the rest of the document byte-for-byte except the injected key — NO whitespace
   normalization, NO key reordering, NO re-quoting (AC: "running twice yields the
@@ -130,7 +130,7 @@ The plan is derived entirely from the authoritative story
   `<generated-v7>` is the freshly generated `DocumentId`).
   A dedicated byte-stability test asserts `injectUuid`'s output is a strict
   superset of the input bytes (Phase 2 — the load-bearing test for AC).
-- **DEC-4 — `parseDocumentId` uses a narrow domain-local `DocumentIdError`, NOT a
+- **PD-4 — `parseDocumentId` uses a narrow domain-local `DocumentIdError`, NOT a
   new `MarkSyncError` union arm.** The intake verified the `DuplicateUuid` arm
   already exists and **no union change is needed**; adding a new
   `InvalidDocumentId` arm to the global union would force the full GH-15/GH-17
@@ -145,8 +145,11 @@ The plan is derived entirely from the authoritative story
   path with an exit code, promote `DocumentIdError` to a union arm at that story
   (flagged in Open Questions). `assertUuidV7(s): asserts s is DocumentId` throws
   for true invariant-violation paths (typescript.md "throw is for invariant
-  violations").
-- **DEC-5 — `uuid` v9+ ships its own bundled TypeScript types; `@types/uuid` is
+  violations"). **[PM-RECON-1 Decision A — AUTHORITATIVE]** This position
+  (`Result<DocumentId, DocumentIdError>`, narrow domain-local type, NOT a
+  `MarkSyncError` arm) is confirmed authoritative; the spec is being reconciled
+  to match it. No substance change in iter-2.
+- **PD-5 — `uuid` v9+ ships its own bundled TypeScript types; `@types/uuid` is
   NOT required.** Verified at plan time (`npm view uuid types` →
   `./dist/index.d.ts`). Phase 0 runs only `bun add uuid`; no `@types/uuid`.
 
@@ -160,7 +163,7 @@ The plan is derived entirely from the authoritative story
   applies `0.3.0 → 0.4.0`; confirm with the maintainer if the 0.x minor-vs-patch
   convention differs. *(Specification detail — no `@decision-advisor` escalation
   unless the maintainer disagrees.)*
-- **Promote `DocumentIdError` to a `MarkSyncError` union arm?** (DEC-4.) Defer
+- **Promote `DocumentIdError` to a `MarkSyncError` union arm?** (PD-4.) Defer
   until a publish-path consumer needs a malformed-UUID exit code. Not blocking
   for this story — `detectDuplicateUuids` already surfaces the safety-critical
   duplicate case via the existing `DuplicateUuid` arm. *(Delivery-time detail.)*
@@ -180,12 +183,12 @@ The plan is derived entirely from the authoritative story
 - **D-2** — `src/domain/identity/document-id.ts` (new): branded
   `type DocumentId = string & { __brand: "DocumentId" }`; narrow
   `type DocumentIdError = { kind: "InvalidDocumentId"; value: string }`;
-  `parseDocumentId(s): Result<DocumentId, DocumentIdError>` (DEC-4).
+  `parseDocumentId(s): Result<DocumentId, DocumentIdError>` (PD-4).
 - **D-3** — `src/domain/identity/frontmatter.ts` (new): `readUuid(source):
   DocumentId | undefined` (tolerant — undefined on absent/malformed); `injectUuid(
   source): { source: string; uuid: DocumentId }` (idempotent — writes a UUID only
   if absent; byte-stable — preserves the rest of the doc byte-for-byte except the
-  injected key, NO normalization; DEC-3 surgical insertion via the `yaml`
+  injected key, NO normalization; PD-3 surgical insertion via the `yaml`
   package). Touches ONLY the front-matter block.
 - **D-4** — `src/domain/identity/duplicate-detector.ts` (new): `detectDuplicateUuids(
   docs: { path: string; uuid?: DocumentId }[]): Result<void, MarkSyncError>` →
@@ -199,21 +202,26 @@ The plan is derived entirely from the authoritative story
   toolVersion }`) + identity-binding semantics (C-1) + an `isPageBinding` type
   guard. TYPE only — no persistence (E3-S2).
 - **D-6** — `src/app/identity-assign.ts` (new) + `src/cli/commands/init.ts`
-  (updated): the application-tier orchestrator (`assignUuids` over discovered
-  managed docs — read, `injectUuid` if absent, write back, return summary) and
-  the `marksync init` integration (DEC-2 — CLI delegates to app, imports no
-  domain).
-- **D-7** — Unit + integration tests: uuid generation/regex/assert
-  (`tests/unit/domain/identity/uuid.test.ts`), `DocumentId` branding + parse
-  (`tests/unit/domain/identity/document-id.test.ts`), front-matter read/inject
-  idempotency + byte-stability + body preservation
-  (`tests/unit/domain/identity/frontmatter.test.ts` +
-  `tests/integration/identity-frontmatter.test.ts`), duplicate detection
-  (`tests/unit/domain/identity/duplicate-detector.test.ts`), `PageBinding`
-  structural/branding (`tests/unit/domain/binding/page-binding.test.ts`), the
-  init assignment (`tests/unit/app/identity-assign.test.ts` + extended
-  `tests/unit/cli/commands/init.test.ts`). The **`DuplicateUuid` fatal unit test**
-  (deliverable 7) lives in `duplicate-detector.test.ts` (TC-DUP-001).
+  (updated): the application-tier orchestrator (`assignUuidsFromDisk` over
+  discovered managed docs — read, `injectUuid` if absent, write back, return
+  summary) and the `marksync init` integration (PD-2 — CLI delegates to app,
+  imports no domain).
+- **D-7** — Unit + integration tests (paths/tiers per PM-RECON-1 Decision C): uuid
+  generation/regex/assert (`tests/domain/identity/uuid.test.ts` — Unit),
+  `DocumentId` branding + parse (`tests/domain/identity/document-id.test.ts` —
+  Unit), front-matter read/inject idempotency + byte-stability (inline exact-string
+  assertion — NOT a `tests/golden/` fixture) + body preservation + re-clone recovery
+  + path-independence (`tests/domain/identity/frontmatter.test.ts` — Unit),
+  duplicate detection incl. the INV-SAFE-3 fatal test (TC-DUP-001) + the halt-signal
+  (TC-DUP-007) + the scale smoke (TC-SCALE-001)
+  (`tests/domain/identity/duplicate-detector.test.ts` — Unit), `PageBinding`
+  structural/branding (`tests/domain/binding/page-binding.test.ts` — Unit), the init
+  UUID assignment via real file I/O in OS temp dirs
+  (`tests/integration/identity/identity-assign.test.ts` — Integration). The
+  **`DuplicateUuid` fatal unit test** (deliverable 7) lives in
+  `duplicate-detector.test.ts` (TC-DUP-001). A BDD contributing scenario is drafted
+  under `tests/bdd/features/` only; step defs are deferred to E5-S1 (GH-29) — out of
+  this plan's implementation scope.
 
 ### Out of Scope
 
@@ -230,8 +238,12 @@ The plan is derived entirely from the authoritative story
   discovery semantics are later (story deliverable 6 caveat).
 - **`marksync.metadata` remote content property / cross-check** (ADR-0006 Shared
   base) — infra/write-path, E3-S4.
-- **New `MarkSyncError` union arm for malformed UUID** (DEC-4) — deferred until a
+- **New `MarkSyncError` union arm for malformed UUID** (PD-4) — deferred until a
   publish-path consumer needs it.
+- **BDD step defs + zero-writes E2E** (PM-RECON-1 Decision C) — GH-18 has no write
+  path, so the zero-writes E2E + BDD step definitions are deferred to E5-S1
+  (GH-29). This story contributes only a DRAFT feature scenario under
+  `tests/bdd/features/` (a documentation contribution, not implemented here).
 - **Full system-spec reconciliation** (`feature-safe-publish.md` identity
   capability current-truth update, `ubiquitous-language.md` `DocumentId`/
   `PageBinding` code-binding, `id-prefix-catalog.md` INV-SAFE-3, ADR-0006
@@ -272,9 +284,9 @@ The plan is derived entirely from the authoritative story
   inside `generateUuidV7` / `parseDocumentId` (the brand-erection seams).
 - **`uuid` v9+ for `v7()`** (ADR-0006 — v7 over v4 for time-sortability; KSUID
   rejected on TS-library weakness). First consuming story → Phase 0 `bun add uuid`
-  (DEC-5 — bundled types, no `@types/uuid`).
+  (PD-5 — bundled types, no `@types/uuid`).
 - **Byte-stability** (AC): `injectUuid` preserves the rest of the doc
-  byte-for-byte except the injected key; NO whitespace normalization (DEC-3).
+  byte-for-byte except the injected key; NO whitespace normalization (PD-3).
 - **Canonical front-matter key** (story Q1, resolved): `marksync.uuid` (under the
   `marksync` namespace, alongside the GH-15 `marksync.title`/`parent`/`exclude`
   overrides). Read by exact path.
@@ -296,7 +308,7 @@ The plan is derived entirely from the authoritative story
   ADR-0006 C-1). If `injectUuid` round-trips the front-matter through
   `yaml.stringify`, it reformats the author's block (key order, quoting, flow vs
   block style, trailing whitespace) — corrupting diffs and violating the
-  byte-stability AC. Mitigated by DEC-3 (surgical text insertion) and a dedicated
+  byte-stability AC. Mitigated by PD-3 (surgical text insertion) and a dedicated
   byte-stability test (Phase 2): the test asserts the output equals the input
   with ONLY the `marksync.uuid` key inserted, byte-for-byte, and that a second
   `injectUuid` call is a no-op returning identical bytes.
@@ -367,7 +379,11 @@ dependency-only commit so Phase 1 has a compile target.
 - [ ] **0.1** Run `bun add uuid` (resolves `^9.0.0`+, which provides `v7()`
       per RFC 9562). Confirm `package.json` `dependencies` gains `"uuid"` and the
       lockfile updates. **Do NOT add `@types/uuid`** — `uuid` v9+ ships its own
-      bundled types (`./dist/index.d.ts`, verified — DEC-5).
+      bundled types (`./dist/index.d.ts`, verified — PD-5). **NFR-13 note
+      (PM-RECON-1 / Finding 7):** `uuid` is a zero-dependency package, so the
+      ≤20-transitive-dependency budget (NFR-13) is satisfied trivially; no
+      separate verification step is needed. The license/transitive-dependency
+      audit runs via the repo quality gate (`bun run check` / CI).
 - [ ] **0.2** Boundary/typecheck sanity: confirm `bun run typecheck` exits 0 (the
       new dep introduces no type error under `verbatimModuleSyntax` /
       `isolatedModules`); `bun run check:boundaries` exits 0 (no tier violation);
@@ -377,9 +393,11 @@ dependency-only commit so Phase 1 has a compile target.
 **Acceptance Criteria**:
 
 - Must: `package.json` `dependencies` includes `uuid` (v9+); `bun.lock` updated;
-      no `@types/uuid` added (DEC-5).
+      no `@types/uuid` added (PD-5).
 - Must: `bun run typecheck` + `bun run check:boundaries` exit 0 (RSK-6
       precondition — the dep resolves cleanly under strict ESM).
+- Must: NFR-13 satisfied — `uuid` adds zero transitive dependencies (verified
+      trivially; the transitive/license audit runs in `bun run check` / CI).
 - Should: the resolved `uuid` version recorded for traceability.
 
 **Files and modules**:
@@ -425,7 +443,7 @@ import only `uuid` (third-party) + domain siblings — `check:boundaries`-enforc
         (the branded VO — ADR-0006 / story Technical approach). A bare `string`
         cannot be assigned to it.
       - `export type DocumentIdError = { kind: "InvalidDocumentId"; value: string }`
-        (DEC-4 — domain-local; NOT a `MarkSyncError` arm).
+        (PD-4 — domain-local; NOT a `MarkSyncError` arm).
       - `parseDocumentId(s: string): Result<DocumentId, DocumentIdError>` —
         `isUuidV7(s)` (imported from `#domain/identity/uuid`) → `Result.ok(s as
         DocumentId)`; else `Result.err({ kind: "InvalidDocumentId", value: s })`.
@@ -436,8 +454,8 @@ import only `uuid` (third-party) + domain siblings — `check:boundaries`-enforc
         `uuid.ts` import only the type via `import type { DocumentId }`. Confirm no
         runtime circular import (`bun run typecheck` + a smoke import in the test).
       - ≤ 3-line header; cite ADR-0006 C-1 once.
-- [ ] **1.3** Create `tests/unit/domain/identity/uuid.test.ts` (new) — uses import
-      aliases (`#domain/identity/uuid`); no mocks (real `v7()`).
+- [ ] **1.3** Create `tests/domain/identity/uuid.test.ts` (new) — **Unit**; uses
+      import aliases (`#domain/identity/uuid`); no mocks (real `v7()`).
       - **TC-UUID-001 (AC-2):** `generateUuidV7()` matches `UUID_V7_REGEX`; the
         13th hex digit is `7`; the 17th is in `[89ab]`.
       - **TC-UUID-002 (AC-2 / time-sortability):** two `generateUuidV7()` calls
@@ -452,7 +470,7 @@ import only `uuid` (third-party) + domain siblings — `check:boundaries`-enforc
         on a valid v7; throws on a malformed value.
       - **TC-UUID-005 (uniqueness smoke):** 1000 `generateUuidV7()` calls produce
         1000 distinct strings (sanity — not a collision-proof guarantee).
-- [ ] **1.4** Create `tests/unit/domain/identity/document-id.test.ts` (new).
+- [ ] **1.4** Create `tests/domain/identity/document-id.test.ts` (new) — **Unit**.
       - **TC-DOCID-001 (branding):** a `DocumentId` is assignable to `string` but a
         bare `string` is NOT assignable to `DocumentId` (compile-time assertion via
         a `// @ts-expect-error` line — the brand is nominal).
@@ -482,8 +500,8 @@ import only `uuid` (third-party) + domain siblings — `check:boundaries`-enforc
 
 **Tests**:
 
-- `bun test tests/unit/domain/identity/uuid.test.ts`
-- `bun test tests/unit/domain/identity/document-id.test.ts`
+- `bun test tests/domain/identity/uuid.test.ts`
+- `bun test tests/domain/identity/document-id.test.ts`
 - `bun run typecheck`; `bun run check:boundaries`.
 
 **Completion signal**: `feat(identity): add UUID v7 generation and DocumentId value object`
@@ -495,8 +513,8 @@ import only `uuid` (third-party) + domain siblings — `check:boundaries`-enforc
 **Goal**: Deliver D-3 — `readUuid` (tolerant) and `injectUuid` (idempotent,
 byte-stable). This is the **load-bearing phase for the byte-stability AC** (RSK-1):
 `injectUuid` must preserve the rest of the document byte-for-byte except the
-injected key. Uses the `yaml` package directly (DEC-1 — domain may not import the
-app `parseFrontMatter`) and surgical text insertion (DEC-3 — not a
+injected key. Uses the `yaml` package directly (PD-1 — domain may not import the
+app `parseFrontMatter`) and surgical text insertion (PD-3 — not a
 `yaml.stringify` round-trip).
 
 **Tasks**:
@@ -515,7 +533,7 @@ app `parseFrontMatter`) and surgical text insertion (DEC-3 — not a
         UUID; AC / RSK-5). If absent:
         - generate a fresh `generateUuidV7()`;
         - insert `marksync.uuid` carrying the generated v7 into the front-matter
-          by **surgical text insertion** (DEC-3): if a front-matter block exists,
+          by **surgical text insertion** (PD-3): if a front-matter block exists,
           append a `uuid: <generated-v7>` line under the `marksync:` map (or add
           the whole `marksync:` map + `uuid` key if `marksync:` is absent) without
           disturbing any other byte; if NO front-matter block exists, prepend a
@@ -523,13 +541,16 @@ app `parseFrontMatter`) and surgical text insertion (DEC-3 — not a
         - return `{ source: <the new source string>, uuid }` (where `<the new
           source string>` is the surgically-updated text).
         - The insertion MUST NOT normalize whitespace, reorder keys, re-quote, or
-          touch the document body (DEC-3 / AC).
+          touch the document body (PD-3 / AC).
       - Imports: `yaml` (`parse as parseYaml`), `#domain/identity/uuid`
         (`generateUuidV7`), `#domain/identity/document-id` (`parseDocumentId`,
         `type DocumentId`). No tiered import.
       - ≤ 3-line header citing ADR-0006 (`marksync.uuid` identity) + the
         byte-stability invariant once.
-- [ ] **2.2** Create `tests/unit/domain/identity/frontmatter.test.ts` (new).
+- [ ] **2.2** Create `tests/domain/identity/frontmatter.test.ts` (new) — **Unit**.
+      Byte-stability is an inline **exact-string assertion in this file** (NOT a
+      separate `tests/golden/` fixture, NOT an integration file — PM-RECON-1
+      Decision C / Finding 3d). Uses import aliases; no mocks.
       - **TC-FM-001 (read present):** `readUuid` on a doc with a valid
         `marksync.uuid` → the `DocumentId`; on a doc with no front-matter →
         `undefined`; on a doc with front-matter but no `marksync.uuid` →
@@ -550,24 +571,27 @@ app `parseFrontMatter`) and surgical text insertion (DEC-3 — not a
         without disturbing the `title` key or its formatting.
       - **TC-FM-006 (CRLF preservation):** a CRLF document's `\r\n` sequences
         outside the inserted key are preserved byte-for-byte (no LF normalization —
-        DEC-3; contrast the app `parseFrontMatter` which normalizes).
-- [ ] **2.3** Create `tests/integration/identity-frontmatter.test.ts` (new) — the
-      **byte-stability + re-clone** integration assertions (AC-3 / AC-5), real
-      fixtures (no mocks):
-      - **TC-INT-FM-001 (byte-stability — AC-3, RSK-1):** take a representative
-        fixture doc (front-matter with several keys + a multi-paragraph body with
-        code fences/tables), `injectUuid`, then assert the output equals the input
-        with ONLY the single `uuid:` line added — compare byte arrays and
-        confirm `new Set(inputBytes) ⊆ new Set(outputBytes)` minus the inserted
-        line, and that the body substring is byte-identical. Then `injectUuid`
-        again on the output → byte-identical to the first output (idempotency).
-      - **TC-INT-FM-002 (re-clone recovery — AC-5):** simulate a re-clone by
-        taking `injectUuid`'s committed output (the source with the UUID written),
-        then `readUuid` on a fresh copy → returns the SAME `DocumentId` (identity
+        PD-3; contrast the app `parseFrontMatter` which normalizes).
+      - **TC-FM-007 (byte-stability — exact-string, AC-3 / RSK-1):** take a
+        representative fixture string (front-matter with several keys + a
+        multi-paragraph body with code fences/tables); `injectUuid`, then assert the
+        output EQUALS the input with ONLY the single `uuid:` line inserted — compare
+        via exact-string equality (`assert.strictEqual(output, expectedWithLine)`)
+        and confirm the body substring is byte-identical. Then `injectUuid` again on
+        the output → exact-string identical to the first output (idempotency).
+        (Folded from the former `tests/integration/identity-frontmatter.test.ts` —
+        PM-RECON-1 Decision C; replaces the byte-array-superset assertion.)
+      - **TC-FM-008 (re-clone recovery — AC-5):** take `injectUuid`'s committed
+        output, then `readUuid` on it → returns the SAME `DocumentId` (identity
         survives re-clone — no regeneration).
-      - **TC-INT-FM-003 (path independence — AC-4):** the same front-matter block
-        read from two different `sourcePath`s yields the same uuid (identity is
-        independent of path — ADR-0006 C-1).
+      - **TC-FM-009 (path-independence — AC-4):** `readUuid` depends only on the
+        front-matter content; the same block yields the same uuid regardless of any
+        path (ADR-0006 C-1).
+
+      > No separate `tests/integration/identity-frontmatter.test.ts` and no
+      > `tests/golden/` fixture (PM-RECON-1 Decision C / Finding 3a+3d): the
+      > byte-stability, re-clone, and path-independence assertions are inline unit
+      > cases (TC-FM-007..009) in this file.
 
 **Acceptance Criteria**:
 
@@ -575,13 +599,14 @@ app `parseFrontMatter`) and surgical text insertion (DEC-3 — not a
       returns the committed UUID on a valid doc (TC-FM-001..002).
 - Must: `injectUuid` is idempotent — an already-assigned doc returns byte-identical
       source + the existing uuid (AC-3 / TC-FM-004); a second pass is a no-op
-      (TC-INT-FM-001).
+      (TC-FM-007).
 - Must: **byte-stability** — `injectUuid`'s output is the input with ONLY the
       `uuid` key inserted; the body and every other front-matter byte are
-      preserved (DEC-3 / AC-3 / RSK-1 / TC-INT-FM-001). NO whitespace
-      normalization (TC-FM-006).
-- Must: re-clone recovers the same UUID without regeneration (AC-5 /
-      TC-INT-FM-002).
+      preserved (PD-3 / AC-3 / RSK-1 / TC-FM-007 — inline exact-string unit
+      assertion, NO golden/integration fixture per PM-RECON-1 Decision C). NO
+      whitespace normalization (TC-FM-006).
+- Must: re-clone recovers the same UUID without regeneration (AC-5 / TC-FM-008);
+      identity is path-independent (AC-4 / TC-FM-009).
 - Must: `check:boundaries` clean (frontmatter imports `yaml` + domain siblings
       only).
 
@@ -593,8 +618,7 @@ app `parseFrontMatter`) and surgical text insertion (DEC-3 — not a
 
 **Tests**:
 
-- `bun test tests/unit/domain/identity/frontmatter.test.ts`
-- `bun test tests/integration/identity-frontmatter.test.ts`
+- `bun test tests/domain/identity/frontmatter.test.ts`
 - `bun run typecheck`; `bun run check:boundaries`.
 
 **Completion signal**: `feat(identity): add byte-stable front-matter UUID read and inject`
@@ -618,16 +642,20 @@ test proving a duplicated-UUID fixture yields the fatal error. Consumes the
         After the pass, if any map entry has `paths.length > 1`, return `Result.err(
         { kind: "DuplicateUuid"; uuid: <the duplicated key>; paths: <the sharing
         paths> })` — `uuid` set to the duplicated key, `paths` set to the sharing
-        paths (return
-        on the FIRST duplicate found — deterministic order by sorting the map keys
-        or scanning in input order). Otherwise `Result.ok(undefined)`.
+        paths. **First-collision-only reporting** (PM-RECON-1 Decision B / matches
+        the spec): a single `DuplicateUuid` error is returned carrying ONE uuid and
+        its sharing paths; report the first colliding uuid (deterministic order by
+        sorting the map keys or scanning in input order). Do NOT enumerate every
+        colliding uuid in one error. Otherwise `Result.ok(undefined)`.
       - Imports: `#domain/errors` (`type MarkSyncError`), `#domain/result`,
         `#domain/identity/document-id` (`type DocumentId`). No tiered import.
       - ≤ 3-line header citing ADR-0006 C-4 / INV-SAFE-3 once at the
         load-bearing point.
-- [ ] **3.2** Create `tests/unit/domain/identity/duplicate-detector.test.ts` (new)
-      — the safety-critical test (release-blocking per the testing-strategy
-      INV-SAFE-3 row; no mocks — real fixtures).
+- [ ] **3.2** Create `tests/domain/identity/duplicate-detector.test.ts` (new) —
+      **Unit**; the safety-critical test (release-blocking per the testing-strategy
+      INV-SAFE-3 row; no mocks — real fixtures). The halt-signal case (TC-DUP-007)
+      folds IN HERE — no separate integration file (PM-RECON-1 Decision C / Finding
+      3a).
       - **TC-DUP-001 (INV-SAFE-3 / AC-1 / deliverable 7 — the fatal test):** a
         fixture with TWO docs sharing the same `marksync.uuid` →
         `detectDuplicateUuids` returns `err({ kind: "DuplicateUuid"; uuid; paths })`
@@ -642,10 +670,20 @@ test proving a duplicated-UUID fixture yields the fatal error. Consumes the
         doc's path is NOT in `paths`).
       - **TC-DUP-005 (3-way dup lists all 3):** three docs sharing one uuid →
         `err(DuplicateUuid)` with `paths.length === 3`.
-      - **TC-DUP-006 (deterministic + O(n)):** a large synthetic fixture (e.g.
-        500 docs, one duplicate pair) → the error is returned (not thrown) and
-        names the pair; the detector visits each doc once (assert via the returned
-        error shape, not internals).
+      - **TC-DUP-006 (error-arm regression — NOT the scale test):** reserved in the
+        test-plan for the `DuplicateUuid` error-arm regression (error shape,
+        non-throw contract, `Result` discipline). Do NOT repurpose this ID for the
+        scale test (PM-RECON-1 Decision G / Finding 4).
+      - **TC-DUP-007 (halt-signal — folded in per PM-RECON-1 Decision C):** assert
+        the returned error on a duplicate IS the fatal `DuplicateUuid` — the halt
+        signal a write flow would gate on. The error is RETURNED, not thrown. GH-18
+        has no write path, so the zero-writes E2E is deferred to E5-S1 (GH-29).
+      - **TC-SCALE-001 (scale smoke — NFR, PM-RECON-1 Decision D):** a synthetic
+        500-doc corpus with one duplicate pair → `detectDuplicateUuids` COMPLETES
+        WITHOUT ERROR and returns `err(DuplicateUuid)` naming the pair. O(n) is
+        guaranteed BY CONSTRUCTION (single pass, `Map<uuid, path[]>`) — no strict
+        ms-p95 assertion (CI-flaky; the scale requirement is demoted to an NFR in
+        the spec).
 
 **Acceptance Criteria**:
 
@@ -668,7 +706,7 @@ test proving a duplicated-UUID fixture yields the fatal error. Consumes the
 
 **Tests**:
 
-- `bun test tests/unit/domain/identity/duplicate-detector.test.ts`
+- `bun test tests/domain/identity/duplicate-detector.test.ts`
 - `bun run typecheck`; `bun run check:boundaries`.
 
 **Completion signal**: `feat(identity): add fatal duplicate-UUID detector (INV-SAFE-3)`
@@ -700,7 +738,7 @@ is E3-S2); this story defines what E3-S2/E3-S5/E3-S6 will consume.
       - ≤ 3-line header citing ADR-0006 (Shared-base schema) + the C-1
         identity-binding semantics (the uuid is the durable identity; pageId is
         the mutable remote identity recorded in the lock — E3-S2) once.
-- [ ] **4.2** Create `tests/unit/domain/binding/page-binding.test.ts` (new).
+- [ ] **4.2** Create `tests/domain/binding/page-binding.test.ts` (new) — **Unit**.
       - **TC-PB-001 (structural shape):** a complete literal `PageBinding` (with a
         `DocumentId` uuid) satisfies the interface (compile-time); a literal
         missing any of the 13 fields is a compile error (`@ts-expect-error`).
@@ -726,7 +764,7 @@ is E3-S2); this story defines what E3-S2/E3-S5/E3-S6 will consume.
 
 **Tests**:
 
-- `bun test tests/unit/domain/binding/page-binding.test.ts`
+- `bun test tests/domain/binding/page-binding.test.ts`
 - `bun run typecheck`; `bun run check:boundaries`.
 
 **Completion signal**: `feat(binding): add PageBinding type with identity-binding semantics`
@@ -736,7 +774,7 @@ is E3-S2); this story defines what E3-S2/E3-S5/E3-S6 will consume.
 ### Phase 5: `marksync init` UUID assignment (application orchestrator + CLI wiring)
 
 **Goal**: Deliver D-6 — inject a UUID v7 into each discovered managed doc's
-front-matter when `marksync init` runs. Per DEC-2: a new application-tier
+front-matter when `marksync init` runs. Per PD-2: a new application-tier
 orchestrator owns the file I/O (discover → read → `injectUuid` if absent → write
 back → summary); the CLI `init` command delegates to it and imports NO domain
 (dep-cruiser `cli→domain` enforced). This story implements the identity-assignment
@@ -749,74 +787,79 @@ back → summary); the CLI `init` command delegates to it and imports NO domain
       - `export interface AssignedDoc { sourcePath: string; uuid: DocumentId;
         written: boolean; }` — `written` is true when a UUID was injected (file
         changed), false when one already existed (idempotent skip).
-      - `export function assignUuids(docs: { sourcePath: string; source: string }[]):
-        AssignedDoc[]` — for each doc, call `injectUuid(source)` (Phase 2); if the
-        returned `source` differs from the input, the orchestrator records
-        `written: true` (the caller — the CLI — owns the actual `fs` write, OR the
-        orchestrator takes an injectable `writeFile`-like sink to stay testable;
-        choose the injectable-sink form so the orchestrator stays pure and
-        unit-testable without touching disk). Return the per-doc summary.
-      - `export function assignUuidsFromDisk(cwd: string, opts?: { writeFile?:
-        typeof import("node:fs/promises").writeFile; readFile?: typeof import(
-        "node:fs/promises").readFile; }): Promise<Result<AssignedDoc[],
-        MarkSyncError>>` — the disk-bound variant the CLI calls: discover managed
-        docs via `selectFiles` (reuse `#app/config`'s `selectFiles` + `loadConfig`),
-        read each, run `assignUuids`, write back only the changed docs via the
-        injectable `writeFile` (defaulting to node `fs/promises`'s `writeFile`).
-        Returns `Result` so the CLI maps errors through the existing
-        `resultErrorFromAppResult` adapter (GH-16 precedent); config-load failures
-        reuse the existing `ConfigError` channel (`loadConfig`'s `Result`), and
-        unexpected IO failures propagate to the CLI entrypoint's INTERNAL catch
-        (the existing DEC-2/DEC-5 throw→INTERNAL pattern) — **no new error arm**.
-      - Imports: `#domain/identity/frontmatter` (`injectUuid`), `#domain/identity/
-        document-id` (`type DocumentId`), `#domain/result`, `#app/config`
-        (`selectFiles`, `loadConfig`). No `#cli/*`, no `#infra/*`.
-      - ≤ 3-line header citing the story + DEC-2 once.
+      - `export function assignUuidsFromDisk(cwd: string): Promise<Result<
+        AssignedDoc[], MarkSyncError>>` — the disk-bound orchestrator the CLI calls:
+        discover managed docs via `selectFiles` (reuse `#app/config`'s `selectFiles`
+        + `loadConfig`), read each via `node:fs/promises`, run `injectUuid` (Phase 2)
+        per doc, write back ONLY the changed docs via `node:fs/promises`'s
+        `writeFile`, return the per-doc summary. Returns `Result` so the CLI maps
+        errors through the existing `resultErrorFromAppResult` adapter (GH-16
+        precedent); config-load failures reuse the existing `ConfigError` channel
+        (`loadConfig`'s `Result`), and unexpected IO failures propagate to the CLI
+        entrypoint's INTERNAL catch (the existing throw→INTERNAL pattern —
+        GH-15/GH-16/GH-17 precedent) — **no new error arm**. Uses real
+        `node:fs/promises` directly; the integration test (5.3) exercises it via OS
+        temp dirs (PM-RECON-1 Decision C — Integration tier; no injectable sink
+        needed).
+      - Imports: `node:fs/promises`, `node:path`, `#domain/identity/frontmatter`
+        (`injectUuid`), `#domain/identity/document-id` (`type DocumentId`),
+        `#domain/result`, `#app/config` (`selectFiles`, `loadConfig`). No `#cli/*`,
+        no `#infra/*`.
+      - ≤ 3-line header citing the story + PD-2 once.
 - [ ] **5.2** Update `src/cli/commands/init.ts` (updated) — after the existing
       `writeStarterConfig` succeeds, call `assignUuidsFromDisk(dir)` and fold its
       result into the `CommandResult` via the existing `resultErrorFromAppResult`
-      adapter (DEC-2 — CLI delegates to app; names no domain type). If config
+      adapter (PD-2 — CLI delegates to app; names no domain type). If config
       creation is refused (already exists), the existing behavior is preserved
-      (OQ-TP-1) — UUID assignment runs only on a successful init. Keep the handler
-      presentation-thin: it never imports `#domain/*` / `#infra/*`
-      (dep-cruiser-enforced). Summarize assigned/skipped counts in the success
-      `CommandResult` message (structural counts only — safe to surface).
-- [ ] **5.3** Create `tests/unit/app/identity-assign.test.ts` (new) — injects an
-      in-memory `writeFile`/`readFile` sink (no real disk) so the orchestrator is
-      tested purely.
+      (OQ-TP-1) — UUID assignment runs only on a successful init (asserted in the
+      integration test, 5.3 / TC-ASSIGN-005). Keep the handler presentation-thin:
+      it never imports `#domain/*` / `#infra/*` (dep-cruiser-enforced). Summarize
+      assigned/skipped counts in the success `CommandResult` message (structural
+      counts only — safe to surface).
+- [ ] **5.3** Create `tests/integration/identity/identity-assign.test.ts` (new) —
+      **Integration tier**, real file I/O via OS temp dirs (`fs.mkdtemp`), no mocks
+      (PM-RECON-1 Decision C / Finding 3b — init tests are Integration, not Unit).
+      Each test builds a tiny corpus on disk (a temp dir + `.marksync` config +
+      managed `.md` files), runs `assignUuidsFromDisk(tmpDir)`, and asserts on the
+      written files.
       - **TC-ASSIGN-001 (inject into absent):** one doc with no front-matter →
-        `written: true`, the flushed bytes contain a `marksync.uuid` matching the
-        returned uuid; `parseDocumentId` accepts it.
+        `written: true`; the file on disk now contains a `marksync.uuid` matching
+        the returned uuid; `parseDocumentId` accepts it.
       - **TC-ASSIGN-002 (idempotent skip):** one doc that already has a
-        `marksync.uuid` → `written: false`; the sink's `writeFile` is NOT called
-        for it (no write — AC / RSK-5).
+        `marksync.uuid` → `written: false`; the file is NOT rewritten (bytes
+        unchanged — AC / RSK-5).
       - **TC-ASSIGN-003 (mixed corpus):** a corpus of N docs, some with / some
         without a uuid → exactly the without-uuid docs are written, each exactly
         once; the with-uuid docs are skipped.
       - **TC-ASSIGN-004 (byte-stability through the orchestrator):** a doc with
         rich front-matter + body that gets a uuid injected is written back
-        byte-identical to `injectUuid`'s direct output (the orchestrator does not
-        reformat — it passes `injectUuid`'s bytes straight to the sink).
-- [ ] **5.4** Extend `tests/unit/cli/commands/init.test.ts` (updated) — assert
-      `initCommand` triggers UUID assignment after a successful config write (via
-      a stubbed/spied app seam or by asserting the success message carries
-      assigned/skipped counts), and that a refused-overwrite init does NOT assign
-      (preserved behavior). Mirror the existing init-test harness.
+        byte-identical to `injectUuid`'s direct output (read the file back from
+        disk and compare — the orchestrator does not reformat; it writes
+        `injectUuid`'s bytes straight to disk).
+      - **TC-ASSIGN-005 (refused-overwrite init does not assign):** when config
+        creation is refused (config already exists), UUID assignment does NOT run
+        (preserved behavior — OQ-TP-1).
+
+      > No separate `tests/unit/app/identity-assign.test.ts` and no extension of
+      > `tests/unit/cli/commands/init.test.ts` for UUID assignment (PM-RECON-1
+      > Decision C): the init UUID-assignment behavior is covered by this single
+      > Integration test through real disk.
 
 **Acceptance Criteria**:
 
 - Must: `src/cli/commands/init.ts` imports NO `#domain/*` / `#infra/*`
       (dep-cruiser `cli→domain` / `cli→infra` enforced); the new
       `src/app/identity-assign.ts` imports `#domain/*` + `#app/*` only —
-      `check:boundaries` clean (DEC-2 / RSK-3).
+      `check:boundaries` clean (PD-2 / RSK-3).
 - Must: `marksync init` injects a UUID v7 into each discovered managed doc's
       front-matter and writes the file (D-6 / TC-ASSIGN-001).
 - Must: a doc that already has a UUID is NOT rewritten (idempotent — AC / RSK-5 /
       TC-ASSIGN-002).
 - Must: the orchestrator is byte-stable through the write path (TC-ASSIGN-004) —
-      it passes `injectUuid`'s bytes straight to the sink, no reformatting.
-- Should: the disk-bound variant uses an injectable `writeFile`/`readFile` so the
-      unit tests stay hermetic (no temp dirs required for the core logic).
+      it writes `injectUuid`'s bytes straight to disk, no reformatting.
+- Must: a refused-overwrite init does NOT assign UUIDs (TC-ASSIGN-005 / OQ-TP-1).
+- Should: the Integration test uses real OS temp dirs (no mocks) per
+      PM-RECON-1 Decision C.
 
 **Files and modules**:
 
@@ -827,9 +870,8 @@ back → summary); the CLI `init` command delegates to it and imports NO domain
 
 **Tests**:
 
-- `bun test tests/unit/app/identity-assign.test.ts`
-- `bun test tests/unit/cli/commands/init.test.ts`
-- `bun run typecheck`; `bun run check:boundaries` (DEC-2 load-bearing for the CLI
+- `bun test tests/integration/identity/identity-assign.test.ts`
+- `bun run typecheck`; `bun run check:boundaries` (PD-2 load-bearing for the CLI
   tier).
 
 **Completion signal**: `feat(init): assign UUID v7 to discovered docs on marksync init`
@@ -879,7 +921,7 @@ only trivial inline touch-ups.
 - [ ] **6.5** Run the full quality gate: `bun run check` (lint + format:check +
       typecheck + test + check:boundaries) — must exit 0 (AC-6). Re-confirm the
       Phase-3 INV-SAFE-3 test (TC-DUP-001) is green and the Phase-2 byte-stability
-      test (TC-INT-FM-001) is green.
+      test (TC-FM-007, inline unit assertion) is green.
 
 **Acceptance Criteria**:
 
@@ -889,7 +931,7 @@ only trivial inline touch-ups.
 - Must: version bumped per `version_impact: minor` (`0.3.0 → 0.4.0`) in both
       `package.json` and `CLI_VERSION`.
 - Must: `bun run check` exits 0 (AC-6); the INV-SAFE-3 (TC-DUP-001) and
-      byte-stability (TC-INT-FM-001) tests green.
+      byte-stability (TC-FM-007) tests green.
 - Must: every AC (AC-1..AC-6) maps to ≥ 1 passing test (Test Scenarios table); no
       stray placeholders/TODOs in shipped code.
 - Should: doc-sync items flagged for `@doc-syncer` recorded in
@@ -919,19 +961,22 @@ only trivial inline touch-ups.
 | TS-1 | Two docs share `marksync.uuid` → `detectDuplicateUuids` returns `err({ kind: "DuplicateUuid"; uuid; paths })` listing both paths (the fatal test) | 3 | AC-1 / INV-SAFE-3 |
 | TS-2 | `generateUuidV7()` matches the v7 regex (version nibble `7`, valid variant); two calls ~10 ms apart are time-sortable (non-decreasing 48-bit ms prefix) | 1 | AC-2 |
 | TS-3 | `injectUuid` is idempotent: an already-assigned doc returns byte-identical source + existing uuid; a second pass is a no-op | 2 | AC-3 |
-| TS-4 | `injectUuid` byte-stability: the output is the input with ONLY the `uuid` key inserted; body + every other front-matter byte preserved; NO whitespace normalization (incl. CRLF) | 2 | AC-3 / RSK-1 |
+| TS-4 | `injectUuid` byte-stability: the output is the input with ONLY the `uuid` key inserted; body + every other front-matter byte preserved; NO whitespace normalization (incl. CRLF) — inline exact-string unit assertion (TC-FM-007), NOT a golden/integration fixture | 2 | AC-3 / RSK-1 |
 | TS-5 | A doc moved/renamed (different `sourcePath`) retains its UUID — identity independent of path (ADR-0006 C-1) | 2 | AC-4 |
 | TS-6 | A re-clone (fresh checkout with committed front-matter) recovers the same UUID via `readUuid` — no regeneration | 2 | AC-5 |
 | TS-7 | `bun run check` (lint + format:check + typecheck + test + boundaries) exits 0; identity/binding import no tier | 0–6 | AC-6 |
-| TS-8 | `DocumentId` is a branded nominal type — a bare `string` is not assignable to it (`@ts-expect-error`) | 1 | DEC-4 / branding |
-| TS-9 | `parseDocumentId` on a valid v7 → `ok(DocumentId)`; on a malformed value → `err({ kind: "InvalidDocumentId"; value })` (narrow domain-local error — NO union arm added) | 1 | DEC-4 |
+| TS-8 | `DocumentId` is a branded nominal type — a bare `string` is not assignable to it (`@ts-expect-error`) | 1 | PD-4 / branding |
+| TS-9 | `parseDocumentId` on a valid v7 → `ok(DocumentId)`; on a malformed value → `err({ kind: "InvalidDocumentId"; value })` (narrow domain-local error — NO union arm added) | 1 | PD-4 |
 | TS-10 | `readUuid` is tolerant — absent/malformed front-matter or a malformed value → `undefined`, never throws | 2 | D-3 |
 | TS-11 | `detectDuplicateUuids`: no-dup → `ok`; missing-uuid docs are NOT duplicates; a 3-way dup lists all 3 paths; mixed (1 missing + 2 sharing) names only the sharing pair | 3 | AC-1 / D-4 |
 | TS-12 | `PageBinding` has exactly the 13 fields with `uuid: DocumentId` (branded); `isPageBinding` narrows structurally | 4 | D-5 |
 | TS-13 | `marksync init` injects a UUID v7 into each discovered doc without one and writes the file; docs that already have a UUID are NOT rewritten (idempotent) | 5 | D-6 / RSK-5 |
-| TS-14 | The CLI `init` command imports no `#domain/*` / `#infra/*`; `src/app/identity-assign.ts` imports `#domain/*` + `#app/*` only; `src/domain/identity/*` + `src/domain/binding/*` import no tier (`check:boundaries`-enforced) | 1–5 | DEC-1 / DEC-2 / RSK-3 |
-| TS-15 | `uuid` v9+ resolves under strict ESM + `verbatimModuleSyntax`; bundled types (no `@types/uuid`) | 0 | DEC-5 / RSK-6 |
-| TS-16 | The orchestrator passes `injectUuid`'s bytes straight to the write sink (byte-stability through the init write path — no reformatting) | 5 | DEC-3 / RSK-1 |
+| TS-14 | The CLI `init` command imports no `#domain/*` / `#infra/*`; `src/app/identity-assign.ts` imports `#domain/*` + `#app/*` only; `src/domain/identity/*` + `src/domain/binding/*` import no tier (`check:boundaries`-enforced) | 1–5 | PD-1 / PD-2 / RSK-3 |
+| TS-15 | `uuid` v9+ resolves under strict ESM + `verbatimModuleSyntax`; bundled types (no `@types/uuid`) | 0 | PD-5 / RSK-6 |
+| TS-16 | The orchestrator writes `injectUuid`'s bytes straight to disk (byte-stability through the init write path — no reformatting) | 5 | PD-3 / RSK-1 |
+| TS-17 | **TC-SCALE-001 (NFR, PM-RECON-1 Decision D):** a 500-doc corpus with one duplicate pair → `detectDuplicateUuids` completes without error and returns `err(DuplicateUuid)`; O(n) by construction (single pass + `Map`), NO strict ms-p95 assertion | 3 | NFR (complexity) |
+| TS-18 | **TC-DUP-007 (halt-signal, PM-RECON-1 Decision C):** a duplicate yields the fatal `DuplicateUuid` error, RETURNED not thrown — the halt signal a write flow gates on (zero-writes E2E deferred to E5-S1 / GH-29) | 3 | AC-1 / INV-SAFE-3 |
+| TS-19 | **NFR-13 (PM-RECON-1 / Finding 7):** `uuid` is zero-dependency — the ≤20-transitive-dep budget is satisfied trivially; license/transitive audit runs via `bun run check` / CI (no separate step) | 0 | NFR-13 |
 
 ## Artifacts and Links
 
@@ -954,14 +999,13 @@ only trivial inline touch-ups.
 | `marksync init` UUID assignment wiring | `src/cli/commands/init.ts` | Code (updated — D-6) |
 | Existing `DuplicateUuid` arm (consumed unchanged) | `src/domain/errors.ts` | Code (unchanged) |
 | Existing `Result<T,E>` (`Result.ok`/`Result.err`) | `src/domain/result.ts` | Code (unchanged) |
-| uuid unit tests | `tests/unit/domain/identity/uuid.test.ts` | Test (new — D-7) |
-| document-id unit tests | `tests/unit/domain/identity/document-id.test.ts` | Test (new — D-7) |
-| frontmatter unit tests | `tests/unit/domain/identity/frontmatter.test.ts` | Test (new — D-7) |
-| frontmatter byte-stability + re-clone integration tests | `tests/integration/identity-frontmatter.test.ts` | Test (new — D-7) |
-| duplicate-detector unit tests (INV-SAFE-3 fatal test) | `tests/unit/domain/identity/duplicate-detector.test.ts` | Test (new — D-7) |
-| PageBinding structural tests | `tests/unit/domain/binding/page-binding.test.ts` | Test (new — D-7) |
-| identity-assign orchestrator tests | `tests/unit/app/identity-assign.test.ts` | Test (new — D-7) |
-| init command UUID-assignment tests | `tests/unit/cli/commands/init.test.ts` | Test (updated — D-7) |
+| uuid unit tests | `tests/domain/identity/uuid.test.ts` | Test (new — D-7, Unit) |
+| document-id unit tests | `tests/domain/identity/document-id.test.ts` | Test (new — D-7, Unit) |
+| frontmatter unit tests (read/inject + inline byte-stability TC-FM-007 + re-clone TC-FM-008 + path-independence TC-FM-009) | `tests/domain/identity/frontmatter.test.ts` | Test (new — D-7, Unit) |
+| duplicate-detector unit tests (INV-SAFE-3 fatal TC-DUP-001 + halt-signal TC-DUP-007 + scale smoke TC-SCALE-001) | `tests/domain/identity/duplicate-detector.test.ts` | Test (new — D-7, Unit) |
+| PageBinding structural tests | `tests/domain/binding/page-binding.test.ts` | Test (new — D-7, Unit) |
+| identity-assign integration tests (init UUID assignment, real file I/O via temp dirs) | `tests/integration/identity/identity-assign.test.ts` | Test (new — D-7, Integration) |
+| BDD contributing scenario (DRAFT only — step defs deferred to E5-S1 / GH-29) | `tests/bdd/features/` | Test (contributed draft — D-7) |
 | Coding rules (tiers, branding, Result, comments) | `.ai/rules/typescript.md` | Convention |
 | Testing strategy (INV-SAFE-3 release-blocking, over-mocking guardrail) | `.ai/rules/testing-strategy.md` | Convention |
 | Architecture (tier matrix, dep-cruiser rules) | `doc/overview/architecture-overview.md` | System doc |
@@ -971,7 +1015,8 @@ only trivial inline touch-ups.
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
-| 1.0 | 2026-07-09 | plan-writer (GH-18) | Initial plan — 7 phases (0–6) derived from story `MS2-E3-S1` (7 deliverables, 6 ACs) and ADR-0006 (C-1 identity survives clones/branches/renames; C-4 duplicate fatal). **DEC-1 (domain purity / `yaml` direct):** identity lives in `src/domain/identity/` which may import nothing tiered (dep-cruiser `domain→infra` / `domain→app` enforced), so `frontmatter.ts` uses the `yaml` package directly and CANNOT reuse the app-tier `parseFrontMatter` (the story's "YAML parser from E2-S2" = the `yaml` dependency, not the helper). **DEC-2 (init is application-orchestrated):** `injectUuid` is a pure domain string transform; the file I/O lives in a new `src/app/identity-assign.ts`; `src/cli/commands/init.ts` delegates and imports no domain (dep-cruiser `cli→domain` enforced). **DEC-3 (byte-stability via surgical insertion):** `injectUuid` does NOT round-trip front-matter through `yaml.stringify` (that would reformat the author's block); it inserts the `marksync.uuid` key with minimal text surgery — preserves the rest of the doc byte-for-byte (NO whitespace normalization). **DEC-4 (narrow `DocumentIdError`, no union arm):** `parseDocumentId` returns `Result<DocumentId, DocumentIdError>` with a domain-local `DocumentIdError`; the intake-verified existing `DuplicateUuid` arm is consumed unchanged (no Phase-1 exhaustiveness churn). **DEC-5 (`uuid` v9+ bundled types):** `@types/uuid` NOT required (verified). Phasing: Phase 0 installs `uuid`; Phase 1 uuid.ts + document-id.ts; Phase 2 byte-stable frontmatter.ts (load-bearing byte-stability test); Phase 3 duplicate-detector.ts (INV-SAFE-3 fatal test — deliverable 7); Phase 4 PageBinding type; Phase 5 init UUID assignment; Phase 6 boundaries + version bump `0.3.0 → 0.4.0` + `bun run check` green. Out of scope: lock persistence (E3-S2), drift (E3-S5), the Confluence write (E3-S4/E3-S6). `version_impact: minor` defaulted from the GH-15/GH-16/GH-17 precedent (open question). Note: the change spec `chg-GH-18-spec.md` is not yet authored at plan time; this plan operationalizes the authoritative story + intake verification and will be reconciled if the spec diverges. |
+| 1.0 | 2026-07-09 | plan-writer (GH-18) | Initial plan — 7 phases (0–6) derived from story `MS2-E3-S1` (7 deliverables, 6 ACs) and ADR-0006 (C-1 identity survives clones/branches/renames; C-4 duplicate fatal). **PD-1 (domain purity / `yaml` direct):** identity lives in `src/domain/identity/` which may import nothing tiered (dep-cruiser `domain→infra` / `domain→app` enforced), so `frontmatter.ts` uses the `yaml` package directly and CANNOT reuse the app-tier `parseFrontMatter` (the story's "YAML parser from E2-S2" = the `yaml` dependency, not the helper). **PD-2 (init is application-orchestrated):** `injectUuid` is a pure domain string transform; the file I/O lives in a new `src/app/identity-assign.ts`; `src/cli/commands/init.ts` delegates and imports no domain (dep-cruiser `cli→domain` enforced). **PD-3 (byte-stability via surgical insertion):** `injectUuid` does NOT round-trip front-matter through `yaml.stringify` (that would reformat the author's block); it inserts the `marksync.uuid` key with minimal text surgery — preserves the rest of the doc byte-for-byte (NO whitespace normalization). **PD-4 (narrow `DocumentIdError`, no union arm):** `parseDocumentId` returns `Result<DocumentId, DocumentIdError>` with a domain-local `DocumentIdError`; the intake-verified existing `DuplicateUuid` arm is consumed unchanged (no Phase-1 exhaustiveness churn). **PD-5 (`uuid` v9+ bundled types):** `@types/uuid` NOT required (verified). Phasing: Phase 0 installs `uuid`; Phase 1 uuid.ts + document-id.ts; Phase 2 byte-stable frontmatter.ts (load-bearing byte-stability test); Phase 3 duplicate-detector.ts (INV-SAFE-3 fatal test — deliverable 7); Phase 4 PageBinding type; Phase 5 init UUID assignment; Phase 6 boundaries + version bump `0.3.0 → 0.4.0` + `bun run check` green. Out of scope: lock persistence (E3-S2), drift (E3-S5), the Confluence write (E3-S4/E3-S6). `version_impact: minor` defaulted from the GH-15/GH-16/GH-17 precedent (open question). Note: the change spec `chg-GH-18-spec.md` is not yet authored at plan time; this plan operationalizes the authoritative story + intake verification and will be reconciled if the spec diverges. |
+| 1.1 | 2026-07-09 | plan-writer (GH-18) | **iter-2 — PM-RECON-1 reconciliation** (DoR iter-1 Findings 3, 4, 5, 7). Brought the plan into compliance with the authoritative spec/test-plan reconciliation decisions. **Decision E / Finding 5 (namespace):** renamed this plan's `DEC-1..DEC-5` → `PD-1..PD-5` (Plan Decisions) throughout to avoid colliding with the spec's `DEC-#` namespace (the line-770 reference to the prior plans' throw→INTERNAL pattern was reworded to `GH-15/GH-16/GH-17 precedent` to remove the ambiguity). **Decision C / Finding 3 (test layout + tiers):** realigned all test paths/tiers to the authoritative layout — Unit tests now live at `tests/domain/...` (not `tests/unit/domain/...`): `tests/domain/identity/{uuid,document-id,frontmatter,duplicate-detector}.test.ts` + `tests/domain/binding/page-binding.test.ts`; the init UUID-assignment test moved to `tests/integration/identity/identity-assign.test.ts` (Integration, real file I/O via OS temp dirs — was Unit with an in-memory sink). Folded the former `tests/integration/identity-frontmatter.test.ts` INTO `frontmatter.test.ts` as inline exact-string unit assertions (TC-FM-007 byte-stability, TC-FM-008 re-clone, TC-FM-009 path-independence) — NO separate `tests/golden/` fixture and NO integration file. Folded TC-DUP-007 (halt-signal) INTO `duplicate-detector.test.ts` (no separate integration file; GH-18 has no write path → zero-writes E2E deferred to E5-S1 / GH-29). Removed the separate `tests/unit/app/identity-assign.test.ts` and the `tests/unit/cli/commands/init.test.ts` extension (consolidated into the single integration test). Simplified the orchestrator to real `node:fs/promises` (dropped the injectable sink). A BDD contributing scenario is a DRAFT under `tests/bdd/features/` only (step defs out of scope — E5-S1 / GH-29). **Decision G / Finding 4 (TC-ID integrity):** the 500-doc scale test is `TC-SCALE-001` (NOT `TC-DUP-006`); TC-DUP-006 stays the error-arm regression owned by the test-plan. **Decision D (scale):** TC-SCALE-001 asserts O(n) by construction + a coarse "completes on 500 docs without error" smoke; NO strict ms-p95 assertion (CI-flaky; scale demoted to an NFR). **Decision B (collision reporting):** confirmed first-collision-only (a single `DuplicateUuid` error carrying one uuid + its paths) — explicit note added to Phase 3. **Decision A (parseDocumentId):** PD-4 substance unchanged and confirmed AUTHORITATIVE (`Result<DocumentId, DocumentIdError>`, narrow domain-local type, NOT a `MarkSyncError` arm); the spec is being reconciled to match. **Finding 7 (NFR-13):** added a note that `uuid` is zero-dependency so the ≤20-transitive-dep budget is satisfied trivially; license/transitive audit runs via `bun run check` / CI (no separate step). Test Scenarios table gained TS-17 (scale), TS-18 (halt-signal), TS-19 (NFR-13); Artifacts + Execution Log realigned to the new paths/tiers. No phase added/removed; no PD-1..PD-5 substance changed except PD-4's confirmatory annotation. |
 
 ## Execution Log
 
@@ -979,10 +1024,10 @@ only trivial inline touch-ups.
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| 0 | pending | — | — | — | install `uuid` v9+ dependency + typecheck/boundary sanity |
+| 0 | pending | — | — | — | install `uuid` v9+ dependency (zero-dep → NFR-13 trivial) + typecheck/boundary sanity |
 | 1 | pending | — | — | — | uuid.ts (generation + assert) + document-id.ts (branded VO + parse) + unit tests |
-| 2 | pending | — | — | — | frontmatter.ts (byte-stable read/inject, idempotent) + unit + integration tests |
-| 3 | pending | — | — | — | duplicate-detector.ts (INV-SAFE-3 fatal) + unit tests (TC-DUP-001) |
+| 2 | pending | — | — | — | frontmatter.ts (byte-stable read/inject, idempotent) + unit tests (byte-stability inline TC-FM-007; NO integration/golden file) |
+| 3 | pending | — | — | — | duplicate-detector.ts (INV-SAFE-3 fatal, first-collision-only) + unit tests (TC-DUP-001 fatal, TC-DUP-007 halt-signal, TC-SCALE-001 scale smoke) |
 | 4 | pending | — | — | — | page-binding.ts (PageBinding type + identity-binding semantics) + structural tests |
-| 5 | pending | — | — | — | identity-assign.ts (app orchestrator) + init.ts UUID-assignment wiring + tests |
+| 5 | pending | — | — | — | identity-assign.ts (app orchestrator, real fs) + init.ts UUID-assignment wiring + integration test (temp dirs) |
 | 6 | pending | — | — | — | boundaries verification + version bump (0.3.0 → 0.4.0) + `bun run check` green |
