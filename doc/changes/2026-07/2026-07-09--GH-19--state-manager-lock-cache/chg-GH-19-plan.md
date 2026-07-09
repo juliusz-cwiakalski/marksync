@@ -352,7 +352,7 @@ round-trip (save→load → equal) and the two-branch mergeability invariant (AC
 
 **Tasks**:
 
-- [ ] **3.1** Extend `src/app/lock.ts` with `saveLock` + `mergeBindings` + serialization:
+- [x] **3.1** Extend `src/app/lock.ts` with `saveLock` + `mergeBindings` + serialization:
       - `serializeLock(lock: LockFile): string` — emit line-oriented YAML: top-level
         `version` + `targets`, each target's `documents` serialized in **sorted UUID
         order** (deterministic, mergeable — PD-1). Use `yaml.stringify` with block style
@@ -362,8 +362,8 @@ round-trip (save→load → equal) and the two-branch mergeability invariant (AC
       - `mergeBindings(a: LockFile, b: LockFile): LockFile` — union targets; within a
         target, union `documents` by UUID; on a UUID present in both, last-write-wins with
         a deterministic tiebreak (PD-4). Pure.
-      - ≤ 3-line header.
-- [ ] **3.2** Create `tests/integration/lock/lock-roundtrip.test.ts` (new) —
+      - ≤ 3-line header. *(done — serializeLock (canonical field order + sorted UUID/target keys, lineWidth:0); saveLock(cwd, lock) → writeAtomic; mergeBindings union with b-wins on collision. NOTE: saveLock takes `cwd` as its first arg (the plan's `saveLock(lock)` was underspecified — a write needs a path); recorded in execution log)*
+- [x] **3.2** Create `tests/integration/lock/lock-roundtrip.test.ts` (new) —
       **Integration**; temp cwd:
       - **TC-LOCK-006:** `saveLock` then `loadLock` → deep-equal `LockFile`; assert the
         on-disk file is UUID-ordered (entries appear sorted).
@@ -372,7 +372,7 @@ round-trip (save→load → equal) and the two-branch mergeability invariant (AC
         line-structured YAML has no overlapping changed regions) → clean merge containing
         all three. Also assert `mergeBindings(loadA, loadB)` is the union without loss.
       - **TC-NOSECRET-001:** serialize a full lock; assert the file contains no
-        credential/token/email field (INV-SEC-1).
+        credential/token/email field (INV-SEC-1). *(done — TC-LOCK-006 lossless+UUID-ordered; TC-MERGE-001 mergeBindings union + last-write-wins + a REAL `git merge-file` returning status 0 (clean, no markers); TC-NOSECRET-001 no secret tokens. All PASS)*
 
 **Acceptance Criteria**:
 

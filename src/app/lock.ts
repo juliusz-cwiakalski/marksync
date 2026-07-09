@@ -1,18 +1,20 @@
-// loadLock — the committed shared-base loader (ADR-0006 C-2). Mirrors the
-// GH-15 config-loader pattern: read -> yaml parse -> ajv (allErrors+verbose)
-// -> Result<LockFile, LockError>. A missing lock is ok(empty) (DEC-5); only a
-// present-but-invalid lock is err(CorruptLock).
+// Lock loader + saver (ADR-0006 C-2). loadLock mirrors the GH-15 config-loader
+// pattern (read -> yaml -> ajv -> Result); saveLock serializes line-oriented,
+// UUID-ordered YAML and writes it atomically. mergeBindings is the deterministic
+// union primitive. A missing lock is ok(empty) (DEC-5); only a present-but-
+// invalid lock is err(CorruptLock).
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import Ajv from "ajv";
-import { parse as parseYaml } from "yaml";
+import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { formatAjvErrors, mapAjvErrors } from "#app/config-errors";
 import type { LockFile } from "#domain/config/lock-types";
 import type { PageBinding } from "#domain/binding/page-binding";
 import type { ConfigAjvError, LockError } from "#domain/errors";
 import type { DocumentId } from "#domain/identity/document-id";
 import { Result } from "#domain/result";
+import { writeAtomic } from "#infra/lock/store";
 import lockSchema from "../domain/config/lock-schema.json" with {
 	type: "json",
 };
@@ -131,6 +133,85 @@ function coerceLockFile(parsed: unknown): LockFile {
 		for (const [uuid, entry] of Object.entries(target.documents)) {
 			const branded = uuid as DocumentId;
 			documents[branded] = { ...entry, uuid: branded };
+		}
+		targets[targetId] = { documents };
+	}
+	return { version: 1, targets };
+}
+
+/** The serialized entry = PageBinding minus `uuid` (uuid is the documents key). */
+type SerializedEntry = Omit<PageBinding, "uuid">;
+
+/** Project a PageBinding to its serialized form in a canonical field order. */
+function toSerializedEntry(b: PageBinding): SerializedEntry {
+	return {
+		sourcePath: b.sourcePath,
+		pageId: b.pageId,
+		parentPageId: b.parentPageId,
+		pageVersion: b.pageVersion,
+		sourceCommit: b.sourceCommit,
+		sourceContentHash: b.sourceContentHash,
+		renderedBodyHash: b.renderedBodyHash,
+		remoteBodyHash: b.remoteBodyHash,
+		attachmentHashes: b.attachmentHashes,
+		operationId: b.operationId,
+		synchronizedAt: b.synchronizedAt,
+		toolVersion: b.toolVersion,
+	};
+}
+
+/**
+ * Serialize a LockFile as line-oriented YAML with documents in sorted UUID order
+ * (PD-1 / DEC-1) so two branches adding different-UUID docs land in distinct,
+ * non-overlapping line regions and merge cleanly. The uuid is the key (not a
+ * duplicated field); `lineWidth: 0` keeps each field on its own line.
+ */
+export function serializeLock(lock: LockFile): string {
+	const targets: Record<
+		string,
+		{ documents: Record<string, SerializedEntry> }
+	> = {};
+	for (const targetId of Object.keys(lock.targets).sort()) {
+		const target = lock.targets[targetId];
+		if (!target) continue;
+		const documents: Record<string, SerializedEntry> = {};
+		for (const uuid of Object.keys(target.documents).sort()) {
+			const binding = target.documents[uuid as DocumentId];
+			if (!binding) continue;
+			documents[uuid] = toSerializedEntry(binding);
+		}
+		targets[targetId] = { documents };
+	}
+	return stringifyYaml({ version: lock.version, targets }, { lineWidth: 0 });
+}
+
+/**
+ * Atomically write `lock` to `<cwd>/marksync.lock.yml` (F-1 / F-3). Serializes
+ * via {@link serializeLock} then hands off to the atomic store; the destination
+ * is never partially written.
+ */
+export function saveLock(cwd: string, lock: LockFile): Result<void, LockError> {
+	return writeAtomic(join(cwd, LOCK_FILENAME), serializeLock(lock));
+}
+
+/**
+ * Merge two lock files into a union (PD-4 / DEC-4). Targets and documents are
+ * unioned by key; on a UUID present in both, `b` wins (last-write-wins). Pure
+ * and deterministic — the primitive E3-S6 wires into serialized apply; conflict
+ * policy beyond last-write-wins belongs to E3-S7 / `repair-state`.
+ */
+export function mergeBindings(a: LockFile, b: LockFile): LockFile {
+	const targets: LockFile["targets"] = {};
+	const targetIds = new Set([
+		...Object.keys(a.targets),
+		...Object.keys(b.targets),
+	]);
+	for (const targetId of targetIds) {
+		const aDocs = a.targets[targetId]?.documents ?? {};
+		const bDocs = b.targets[targetId]?.documents ?? {};
+		const documents: Record<DocumentId, PageBinding> = { ...aDocs };
+		for (const [uuid, binding] of Object.entries(bDocs)) {
+			documents[uuid as DocumentId] = binding;
 		}
 		targets[targetId] = { documents };
 	}
