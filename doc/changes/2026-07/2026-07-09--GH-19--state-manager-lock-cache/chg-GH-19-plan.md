@@ -397,7 +397,7 @@ the `MARKSYNC_CACHE_DIR` override, and prove the cache holds no base/correctness
 
 **Tasks**:
 
-- [ ] **4.1** Create `src/app/cache.ts` (new):
+- [x] **4.1** Create `src/app/cache.ts` (new):
       - `CACHE_SUBDIRS = ["cache", "journal", "conflicts"] as const` (the layout).
       - `resolveCacheDir(cwd: string): string` — `process.env.MARKSYNC_CACHE_DIR ?? join(cwd, ".marksync")`.
       - `ensureCacheLayout(dir: string): Result<void, MarkSyncError>` — lazily `mkdir -p`
@@ -406,18 +406,18 @@ the `MARKSYNC_CACHE_DIR` override, and prove the cache holds no base/correctness
         GH-14 exists; add it if missing) and that the cache is NEVER the base (the
         committed lock is).
       - Imports: `node:fs`/`node:path`, `#domain/errors`, `#domain/result`. No cli.
-      - ≤ 3-line header citing ADR-0006 C-3 once.
-- [ ] **4.2** Create `tests/app/cache.test.ts` (new) — **Unit**:
+      - ≤ 3-line header citing ADR-0006 C-3 once. *(done — .gitignore already has `.marksync/` (GH-14); verified in TC-CACHE-004. mkdir failures throw as an environment invariant — no fitting MarkSyncError arm exists for a cache-dir host failure; documented at the call site)*
+- [x] **4.2** Create `tests/app/cache.test.ts` (new) — **Unit**:
       - **TC-CACHE-001:** `resolveCacheDir` default + `MARKSYNC_CACHE_DIR` override.
       - **TC-CACHE-004:** assert the lock path (`marksync.lock.yml`) is OUTSIDE the cache
-        dir; assert `.gitignore` ignores `.marksync/`.
-- [ ] **4.3** Create `tests/integration/cache/cache-disposable.test.ts` (new) —
+        dir; assert `.gitignore` ignores `.marksync/`. *(done — default + override + `??` semantics pinned; lock-outside-cache + .gitignore assertion PASS)*
+- [x] **4.3** Create `tests/integration/cache/cache-disposable.test.ts` (new) —
       **Integration**; temp cwd:
       - **TC-CACHE-002:** `ensureCacheLayout` creates the three subtrees; idempotent on
         re-run.
       - **TC-CACHE-003:** with a committed lock + populated cache, snapshot `loadLock`;
         `rm -rf .marksync/`; re-`loadLock`; assert the base is unchanged (the cache held
-        no correctness data — C-3 at the layout level).
+        no correctness data — C-3 at the layout level). *(done — both PASS; TC-CACHE-003 deletes a populated .marksync/ and asserts the lock base is byte-identical after)*
 
 **Acceptance Criteria**:
 
