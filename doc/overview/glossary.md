@@ -12,7 +12,7 @@ area: domain
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0005, ADR-0006, ADR-0010, ADR-0011, PDR-0001]
-  related_changes: [GH-15, GH-17]
+  related_changes: [GH-15, GH-17, GH-18]
   summary: "Reader-friendly glossary of terms and acronyms used across the MarkSync repository."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -52,6 +52,7 @@ Documentation Handbook §9 for the glossary-vs-UL distinction._
 | **Determinism** | The property that the same input always produces the same output. Required for the Storage renderer (ADR-0002 C-1) and Mermaid rendering. | Quality | — |
 | **Disposable cache** | The `.marksync/` directory, which is gitignored and never needed for correctness. Contains rendered bodies, journal, and conflict workspaces. | State | — |
 | **Doctor** | A health-check command that discovers capabilities, permissions, and visibility before any create/adopt. Minimal in `MS-0002`; full in `MS-0003`. | CLI | — |
+| **DocumentId** | The branded value object (`string & { __brand: "DocumentId" }`, `src/domain/identity/document-id.ts`) that carries a managed document's UUID v7 — the canonical identity value. A plain `string` cannot be used where a `DocumentId` is required; constructed via `generateUuidV7()` or `parseDocumentId(s)`. | Domain | Document Identity |
 | **Drift** | A state where the remote (Confluence) page has changed since the last shared base, so a naive publish would overwrite unsaved work. | Process | Sync State |
 | **Dry-run** | A plan-only mode that reports what would happen without performing any write. First-class; no mutation without a reviewable plan. | CLI | Plan |
 | **Exit Code** | A stable, machine-parseable code returned per error class. `0` = clean; non-zero = error class. | Operability | Exit Code |
@@ -68,7 +69,7 @@ Documentation Handbook §9 for the glossary-vs-UL distinction._
 | **Lifecycle invariant** | A release-blocking property enforced via Gherkin/BDD: INV-SAFE-1 (no silent overwrite), INV-SAFE-2 (no silent re-create of REMOTE_MISSING), INV-SAFE-3 (duplicate-UUID fatal), INV-SEC-1 (no secrets in output). | Safety | — |
 | **Lock file** | A committed, versioned file recording per-document bindings: UUID → page ID, parent, version, hashes, shared base. Like `package-lock.json` for npm. | State | Shared Base |
 | **Managed page** | A Confluence page tracked by MarkSync (has a UUID + lock entry + content property). | Domain | Managed Document |
-| **marksync init** | CLI command that writes a valid starter `marksync.yml` (round-trips through `loadConfig`). `MS-0002` scaffolds config only and refuses to overwrite an existing file; discovery and UUID assignment are later milestones. | CLI | — |
+| **marksync init** | CLI command that writes a valid starter `marksync.yml` (round-trips through `loadConfig`, refuses to overwrite an existing file), then assigns a UUID v7 to each discovered managed document's front-matter (`marksync.uuid`). UUID injection is idempotent — a document that already carries an identity is left unchanged. | CLI | — |
 | **marksync.yml** | The repository-owned YAML configuration file consumed by every MarkSync use-case. Shape defined by the v1 JSON Schema (`src/domain/config/schema.json`); holds no secrets. | State | — |
 | **MDAST** | Markdown Abstract Syntax Tree — the parsed tree format produced by `remark`. | Domain | — |
 | **Mermaid** | A diagram-as-code language (flowcharts, sequence diagrams, etc.). MarkSync renders it via the official library in-process (ADR-0002). | Domain | — |
@@ -78,6 +79,7 @@ Documentation Handbook §9 for the glossary-vs-UL distinction._
 | **Operation ID** | A per-run identifier used for decentralized concurrency dedup: if two runners submit the same operation ID, the stale one is rejected. | Safety | Operation ID |
 | **Operator** | Any entity that runs MarkSync: human, AI agent, or CI pipeline. All share identical core behaviour; only auth differs. | Product | — |
 | **Optimistic concurrency** | A concurrency model where writes are allowed but checked for staleness at commit time (Confluence 409 on stale `version.number`). No pessimistic locking. | Safety | — |
+| **PageBinding** | The durable mapping record between a `DocumentId` and a target-system page (`src/domain/binding/page-binding.ts`): page ID, parent, version, content hashes, and shared-base snapshot. Type + identity-binding semantics are landed; lock persistence is E3-S2. | Domain | Page Binding |
 | **Plan** | A deterministic, reviewable description of what MarkSync will do before any write. Always available via dry-run. | Process | — |
 | **Port** | An interface defined in domain/application that adapters implement. Primary seams: `TargetSystem`, `Repository`, `Renderer`. | Architecture | — |
 | **Premortem** | A prospective analysis imagining the project has failed, then working backward to identify causes. See `doc/inception/analysis/failure-premortem.md`. | Process | — |

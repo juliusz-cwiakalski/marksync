@@ -9,7 +9,7 @@ last_updated: 2026-07-09
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: [GH-15, GH-17]
+  related_changes: [GH-15, GH-17, GH-18]
   decisions: [ADR-0011, TDR-0002]
   contracts: []
 ---
@@ -43,7 +43,7 @@ JSON/NDJSON output.
 
 | Command | Purpose |
 |---|---|
-| `init` | Initialize MarkSync in a repo: create config, discover pages, assign UUIDs. (MS-0002: config scaffolding only — writes a starter `marksync.yml` and refuses to overwrite an existing one; discovery and UUID assignment are later milestones.) |
+| `init` | Initialize MarkSync in a repo: write a starter `marksync.yml` (refuses to overwrite an existing one), then assign a UUID v7 to each discovered managed document's front-matter (`marksync.uuid`). UUID injection is idempotent — a document that already has an identity is left unchanged. |
 | `plan` | Compute sync plan (dry-run): what will be created/updated/moved/no-op |
 | `sync` | Execute plan: apply changes to Confluence |
 | `doctor` | Health check: auth, permissions, API connectivity, config validity |

@@ -41,3 +41,4 @@ coverage/
 .ai/local/
 doc/**/tmp/
 tmp/
+identifier.sqlite

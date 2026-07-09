@@ -35,10 +35,10 @@ import { syncCommand } from "#cli/commands/sync";
 
 /**
  * The version displayed in `--version` / help. Kept in lock-step with
- * `package.json` until a runtime version source is wired (GH-15/GH-16
- * precedent; the bump to `0.3.0` is GH-17 / `version_impact: minor`).
+ * `package.json` until a runtime version source is wired (GH-15/GH-16/GH-17
+ * precedent; the bump to `0.4.0` is GH-18 / `version_impact: minor`).
  */
-export const CLI_VERSION = "0.3.0";
+export const CLI_VERSION = "0.4.0";
 
 /** The global flags as Cliffy surfaces them to an action (post-camelCase). */
 export interface GlobalCommandFlags {
@@ -180,8 +180,8 @@ export function buildCommand(): CommandRouter {
 		.globalOption("--no-color", "Force color output off (plain text).")
 		.globalOption("--quiet", "Suppress non-error human output.")
 		.command("init", "Write a starter marksync.yml into the current directory.")
-		.action((flags) => {
-			capture("init", flags as GlobalCommandFlags, initCommand());
+		.action(async (flags) => {
+			capture("init", flags as GlobalCommandFlags, await initCommand());
 		})
 		.command("plan", "Compute a sync plan from the local corpus.")
 		.action((flags) => {

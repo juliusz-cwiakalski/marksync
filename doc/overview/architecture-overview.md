@@ -6,13 +6,13 @@ ados_distribution: redistributable
 id: ARCHITECTURE-OVERVIEW
 status: Draft
 created: 2026-07-04
-last_updated: 2026-07-04
+last_updated: 2026-07-09
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005, ADR-0006]
-  related_changes: []
+  related_changes: [GH-18]
   summary: "Architecture overview — ports-and-adapters CLI; Markdown→Storage pipeline; Confluence Cloud adapter; UUID+lock state model; no hosted backend."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -88,6 +88,8 @@ section below govern residence and dependency direction._
 | Application / use-case orchestration | MarkSync binary | application | Orchestrates plan→apply→verify; run IDs |
 | Config loader | MarkSync binary | application | Load/merge/default/validate YAML config + lock (ajv/zod) |
 | Credential provider | MarkSync binary | application | env/keyring/profile resolution; never logs secrets |
+| Identity module | MarkSync binary | domain | UUID v7 generation (`generateUuidV7`), `DocumentId` branded value object, front-matter binding (`injectUuid`/`readUuid`), duplicate-UUID detection (`detectDuplicateUuids`) — `src/domain/identity/` |
+| Page binding | MarkSync binary | domain | `PageBinding` record mapping a `DocumentId` to a target page (type + identity-binding semantics; lock persistence is E3-S2) — `src/domain/binding/` |
 | Hierarchy planner | MarkSync binary | domain | Page graph, titles, parents, document-node resolution |
 | Link resolver | MarkSync binary | domain | Resolve local Markdown cross-document links to target-system page IDs/URLs so Confluence internal links work after sync |
 | State classifier | MarkSync binary | domain | Compare local/remote/base → NO_CHANGE/LOCAL_AHEAD/REMOTE_AHEAD/DIVERGED/REMOTE_MISSING/etc. |
@@ -238,7 +240,7 @@ renderer and reverse converter. The `Renderer` interface mirrors spec §9.11.
 |---|---|
 | Safe publish (create/update/no-op) | app, hierarchy planner, Confluence Storage renderer, push executor |
 | Drift detection + conflict block | state classifier, push executor |
-| Document identity (UUID + lock) | config loader, lock/journal store, Confluence content property manager |
+| Document identity (UUID + lock) | identity module, page binding, lock/journal store, Confluence content property manager |
 | Mermaid render + attach | Mermaid renderer, Mermaid artifact manager, Confluence attachment manager |
 | Cross-page link resolution | link resolver, hierarchy planner, Confluence client (page ID lookup) |
 | Concurrency control (CI) | push executor, lock store |

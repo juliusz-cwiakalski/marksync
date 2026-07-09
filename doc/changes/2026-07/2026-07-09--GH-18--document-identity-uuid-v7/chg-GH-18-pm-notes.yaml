@@ -1,0 +1,115 @@
+change_id: GH-18
+title: "[MS2-E3-S1] Document identity (UUID v7) + front-matter binding"
+branch: feat/GH-18/document-identity-uuid-v7
+slug: document-identity-uuid-v7
+
+phases:
+  clarify_scope: { started: 2026-07-09, completed: 2026-07-09 }
+  # CEO reconciliation (2026-07-09 03:05Z): prior PM session checkpointed only
+  # Phase 1 at 01:51, then continued and wrote the Phase 2/3/4 artifacts
+  # (spec 01:57 / test-plan 01:59 / plan 02:00, each 61-69KB complete docs)
+  # before the session was interrupted WITHOUT updating these markers. Marking
+  # 2-4 completed to match disk reality; dor_check remains the resume point and
+  # will adversarially validate these artifacts before Phase 6.
+  specification: { started: 2026-07-09, completed: 2026-07-09 }
+  test_planning: { started: 2026-07-09, completed: 2026-07-09 }
+  delivery_planning: { started: 2026-07-09, completed: 2026-07-09 }
+  dor_check: { started: 2026-07-09, completed: 2026-07-09 }
+  delivery: { started: 2026-07-09, completed: 2026-07-09 }
+  system_spec_update: { started: 2026-07-09, completed: 2026-07-09 }
+  review_fix: { started: 2026-07-09, completed: 2026-07-09 }
+  quality_gates: { started: 2026-07-09, completed: 2026-07-09 }
+  dod_check: { started: 2026-07-09, completed: 2026-07-09 }
+  pr_creation: { started: 2026-07-09, completed: 2026-07-09, url: https://github.com/juliusz-cwiakalski/marksync/pull/50 }
+
+decisions:
+  - id: PM-RECON-1
+    text: >
+      DoR iter-1 NOT_READY — 4 blocking findings (parallel authoring divergence).
+      PM-set authoritative reconciliation decisions (apply across all artifacts):
+      (A) parseDocumentId returns Result<DocumentId, DocumentIdError> with a
+      NARROW domain-local DocumentIdError (NOT a new MarkSyncError arm — none
+      exists for invalid doc-id and error rules forbid adding one). assertUuidV7
+      throws on invariant violation; parseDocumentId returns Result for untrusted
+      input. (B) Duplicate-UUID collision reporting = FIRST-COLLISION-ONLY
+      (return on first UUID with >1 path, listing all its paths in paths[]);
+      fits existing {kind:"DuplicateUuid"; uuid; paths[]} shape; report-all
+      deferred. (C) Authoritative test layout: tests/domain/identity/{uuid,
+      document-id, frontmatter, duplicate-detector}.test.ts + tests/domain/
+      binding/page-binding.test.ts (unit) + tests/integration/identity/
+      identity-assign.test.ts (integration, real file I/O via temp dirs) +
+      tests/bdd/features scenario draft (step defs E5-S1/GH-29). TC-DUP-007
+      (halt-signal) folds into duplicate-detector.test.ts. (D) Scale: relax
+      AC-F4-3 ≤5ms p95 to an NFR; assert O(n) + coarse smoke "completes on 500
+      docs" (TC-SCALE-001), no strict ms (CI-flaky). (E) Decision IDs: spec=
+      DEC-#, plan= PD-# (no collision). (F) Reconcile test-plan provisional
+      F-IDENTITY-*/DM-IDENTITY-* to spec F-#/AC-#/DEC-#. (G) TC-DUP-006 must
+      stay the error-arm regression; scale test = TC-SCALE-001.
+    date: 2026-07-09
+
+open_questions:
+  - id: OQ-DOR1
+    text: >
+      DoR iter-1 NOT_READY verdict. Findings: (1) parseDocumentId error type
+      contradicts (spec MarkSyncError vs plan DocumentIdError); (2) collision
+      reporting scope contradicts (spec first-only vs test-plan all); (3) test
+      layout/tier divergence (TC-DUP-007 missing from plan; init unit vs
+      integration; frontmatter path naming; golden vs integration); (4) scale
+      AC untraced + TC-DUP-006 ID collision. All resolved by PM-RECON-1;
+      reopening specification/test_planning/delivery_planning for iter-2.
+
+blockers: []
+
+notes:
+  - text: >
+      clarify_scope complete. Loaded authoritative scope from story file
+      doc/planning/milestones/MS-2/MS2-E3--safe-publish-core/MS2-E3-S1--document-identity.md,
+      feature spec feature-safe-publish.md, ADR-0006, epic MS2-E3, coding rules
+      (typescript.md, testing-strategy.md). Cross-checked against current source.
+    type: info
+    workItemRef: GH-18
+    date: 2026-07-09
+  - text: >
+      Dependencies resolved: blocked_by MS2-E2-S1 (GH-14 merged 4055622) and
+      MS2-E2-S2 (GH-15 merged ed1bcf2). Also benefits from GH-16 (CLI framework)
+      and GH-17 (auth provider, merged 4281c95) already on main.
+    type: info
+    workItemRef: GH-18
+    date: 2026-07-09
+  - text: >
+      Existing source state: DuplicateUuid error kind already in errors.ts
+      ({kind:"DuplicateUuid"; uuid; paths[]}); Result<T,E> with ok/err
+      constructors in result.ts; src/domain/identity/ and src/domain/binding/
+      are empty .gitkeep skeletons ready for this story. `yaml` package
+      installed (^2.9.0) for front-matter.
+    type: info
+    workItemRef: GH-18
+    date: 2026-07-09
+  - text: >
+      First consuming story for the `uuid` package — coder must `bun add uuid`
+      (v9+ for v7()) as part of delivery. typescript.md lists uuid as planned
+      for MS-0002 E3. UUID v7 chosen over v4/KSUID per ADR-0006 (time-sortable,
+      solid library, zero schema-change cost vs v4).
+    type: info
+    workItemRef: GH-18
+    date: 2026-07-09
+  - text: >
+      Invariant label discrepancy: GH-18 issue body AC references "INV-SAFE-2"
+      but the duplicate-UUID-fatal invariant is INV-SAFE-3 per the canonical
+      id-prefix-catalog.md, the story file, the feature spec, and ADR-0006
+      (INV-SAFE-2 = no silent re-create of REMOTE_MISSING). Story file is
+      authoritative (pm-instructions: "Git files are authoritative for story
+      scope"). Treated as a label typo in the issue body — NOT blocking; the
+      correct invariant INV-SAFE-3 governs this change.
+    type: info
+    workItemRef: GH-18
+    date: 2026-07-09
+  - text: >
+      Doc impacts identified for phase 7 (doc-syncer): feature-safe-publish.md
+      identity capability (already described, may need current-truth update once
+      implemented); ubiquitous-language.md (DocumentId, PageBinding are UL terms
+      that must bind to code); id-prefix-catalog.md (INV-SAFE-3); ADR-0006
+      (implementation plan items 1 + partial). No blockers.
+    type: info
+    workItemRef: GH-18
+    date: 2026-07-09

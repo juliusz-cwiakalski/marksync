@@ -12,7 +12,7 @@ area: domain
 document_classification: current-truth
 links:
   related_decisions: [ADR-0005, ADR-0006, ADR-0010, ADR-0011, PDR-0001]
-  related_changes: [GH-15, GH-17]
+  related_changes: [GH-15, GH-17, GH-18]
   summary: "Ubiquitous language — the precise, bounded-context vocabulary binding domain concepts to code for MarkSync's Markdown-to-TargetSystem synchronization domain."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -44,7 +44,7 @@ events) and their relationships. Distinct from the reader-friendly
 
 | Term | Meaning | Type | Relationships |
 |---|---|---|---|
-| **Document Identity** | The immutable, source-side identity of a managed document: a UUID v7 in front-matter. Survives clones, branches, CI, and title/path changes. Duplicate identities are fatal before any write (INV-SAFE-3). | Aggregate root | 1:1 → Source Document; 1:1 → Page Binding |
+| **Document Identity** | The immutable, source-side identity of a managed document: a UUID v7 in front-matter. Survives clones, branches, CI, and title/path changes. Duplicate identities are fatal before any write (INV-SAFE-3). Aggregate logic lives in `src/domain/identity/` — `generateUuidV7`, `DocumentId`/`parseDocumentId`, `injectUuid`/`readUuid` (front-matter binding), `detectDuplicateUuids`. | Aggregate root | 1:1 → Source Document; 1:1 → Page Binding |
 | **Managed Document** | A source Markdown file that MarkSync tracks and synchronizes. Has a Document Identity, a source path, content (Markdown AST), and a position in the hierarchy. | Aggregate | 1:1 → Document Identity; 1:1 → Source Document; 0..1 → Page Binding |
 
 ### Entities
@@ -52,7 +52,7 @@ events) and their relationships. Distinct from the reader-friendly
 | Term | Meaning | Type | Relationships |
 |---|---|---|---|
 | **Source Document** | The Markdown file as read from a committed Git revision. Has: front-matter (including UUID), MDAST content, resolved assets, and a relative path within the configured root. | Entity (within Managed Document) | belongs to → Managed Document |
-| **Page Binding** | The durable mapping between a Document Identity and a target-system page. Records: page ID, parent page ID, last-known remote version, content hashes, and the shared-base snapshot. Persisted in the lock file. | Entity (within Document Identity) | 1:1 → Target Page; 1:1 → Shared Base |
+| **Page Binding** | The durable mapping between a Document Identity and a target-system page. Records: page ID, parent page ID, last-known remote version, content hashes, and the shared-base snapshot. Code construct: the `PageBinding` interface (`src/domain/binding/page-binding.ts`) — landed as a type with identity-binding semantics; persisted in the lock file by E3-S2. | Entity (within Document Identity) | 1:1 → Target Page; 1:1 → Shared Base |
 | **Target Page** | The remote page as seen from the target system. Has: page ID, version number, body representation (Storage/ADF), content properties, and attachments. | Entity (behind TargetSystem port) | belongs to → Page Binding; has → Content Properties |
 | **Shared Base** | The agreed "last published" snapshot for a document: body hash, attachment hashes, version number, and provenance commit. Stored in the lock file; enables drift detection by comparison with current Source Document and Target Page. | Entity (within Page Binding) | belongs to → Page Binding |
 
@@ -63,6 +63,7 @@ events) and their relationships. Distinct from the reader-friendly
 | **Sync State** | The classification of a document relative to local/base/remote. Values: `NO_CHANGE`, `LOCAL_AHEAD`, `REMOTE_AHEAD`, `DIVERGED`, `REMOTE_MISSING`, `LOCAL_MISSING`. Determined by the state classifier from three-way comparison. | Value object (enum) | produced by → State Classifier |
 | **Body Representation** | The concrete format of a page body: Confluence Storage Format (XHTML + `ac:`/`ri:`) or ADF. MarkSync writes Storage (ADR-0005); reverse conversion reads either. | Value object | emitted by → Target System |
 | **Content Hash** | A deterministic hash of a document or asset body. Used for idempotency detection: if local hash equals shared-base hash, the document is unchanged. Computed from canonical + normalized content. | Value object (string) | computed from → Source Document / Target Page |
+| **DocumentId** | The branded value object (`string & { __brand: "DocumentId" }`, `src/domain/identity/document-id.ts`) carrying a UUID v7 — the canonical identity value of a Document Identity. Constructed only via `generateUuidV7()` (which brands) or `parseDocumentId(s)` (which validates v7 first, returning `Result<DocumentId, DocumentIdError>`). A plain `string` cannot stand where a `DocumentId` is required. | Value object (branded string) | member of → Document Identity; stored at → `marksync.uuid` |
 | **Provenance** | The source-path + Git-revision + last-sync metadata. Appears both as machine content-property (`marksync.metadata`) and human-visible panel/footer. Written into `version.message` on each Confluence page version (ADR-0010). | Value object | attached to → Target Page |
 | **Operation ID** | A unique per-run identifier used for decentralized concurrency dedup. If two runners submit the same operation, the stale one is rejected via Confluence 409 + dedup. | Value object (string) | scoped to → Run |
 | **Run** | A single execution of a MarkSync sync command. Has a unique run ID, a journal (`<run-id>.jsonl`), and an operation ID. Partial-apply recovery uses the journal. | Value object | has → Operation ID; has → Journal |
@@ -77,7 +78,7 @@ events) and their relationships. Distinct from the reader-friendly
 |---|---|---|---|
 | **Page Published** | A target-system page was created or updated by MarkSync. Carries: page ID, new version, provenance, operation ID. | Domain event | triggers → Lock Update |
 | **Drift Detected** | A managed page's remote state diverged from the shared base; publish was blocked to prevent silent overwrite. Carries: page ID, sync state, base/remote hashes. | Domain event | produces → Conflict |
-| **Duplicate UUID Detected** | Two source documents share the same Document Identity UUID. Fatal before any write (INV-SAFE-3). | Domain event | triggers → Halt |
+| **Duplicate UUID Detected** | Two source documents share the same Document Identity UUID. Fatal before any write (INV-SAFE-3). Realized as `err({ kind: "DuplicateUuid"; uuid; paths })` returned by `detectDuplicateUuids` (`src/domain/identity/duplicate-detector.ts`) — a `Result` value, not an emitted event; the push flow treats it as fatal and halts. | Domain event | triggers → Halt |
 | **Remote Missing Detected** | A managed page's remote returned not-found. The invariant (INV-SAFE-2) prevents silent re-creation; the user must explicitly acknowledge. | Domain event | produces → Conflict |
 | **Lock Updated** | The lock file's shared-base entry for a document was atomically updated after a successful publish. | Domain event | — |
 | **Journal Written** | A mutation was journaled immediately after execution, enabling partial-apply recovery. | Domain event | — |
@@ -118,7 +119,7 @@ their code constructs (typescript.md UL-binding rule)._
 | **Document Config Resolver** | Application service (`resolveDocumentConfig`/`parseFrontMatter`, `src/app/document-config.ts`) that merges per-document `marksync.*` front-matter overrides (`title`/`parent`/`uuid`/`exclude`) over the derived base. Tolerates absent/malformed front-matter (never throws). | Application service | produces → DocumentConfig |
 | **Intended Hierarchy** | The intended Confluence page-tree shape computed from selected files under `root` (structure only — no page-id resolution). `mirror` derives each page's parent from its directory; `flat` attaches all pages to the configured parent anchor. | Value object | produced by → Intended Hierarchy Builder |
 | **Intended Hierarchy Builder** | Domain service (`intendedParent`/`buildIntendedHierarchy`, `src/domain/config/hierarchy.ts`) computing the intended parent path per selected file. Pure path logic over canonicalized forward-slash paths. | Domain service | produces → Intended Hierarchy |
-| **marksync init** | CLI command that writes a valid starter `marksync.yml` (round-trips through `loadConfig`). MS-0002 scaffolds config only and refuses to overwrite an existing file; discovery and UUID assignment are later milestones. | CLI command | validates via → Config Loader |
+| **marksync init** | CLI command that writes a valid starter `marksync.yml` (round-trips through `loadConfig`, refuses to overwrite an existing file), then assigns a UUID v7 to each discovered managed document's front-matter by delegating to `assignUuidsFromDisk` (`src/app/identity-assign.ts`). UUID injection is idempotent — a document that already carries a `marksync.uuid` is left unchanged. | CLI command | validates via → Config Loader; delegates UUID assignment to → `assignUuidsFromDisk` |
 
 ### Credentials / Auth
 
