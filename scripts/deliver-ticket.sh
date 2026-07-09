@@ -84,6 +84,12 @@ CURRENT_OPENCODE_PID=""
 CURRENT_REF=""
 CURRENT_LAST_MESSAGE=""
 
+# GH-47 (Defect-B): the opencode session id of the running iteration. The
+# captured $! (setsid/opencode-run parent) can die while the real opencode
+# runtime survives in its own session, orphaned → DB contention stalls later
+# iterations. Tracking the session id lets the kill path reap it by pattern.
+CURRENT_SESSION_ID=""
+
 # F-1: the wrapper's TRUE start epoch, captured ONCE at OWN time in
 # run_delivery and reused by every write_pid_file inside run_single_iteration.
 # This keeps the recorded `start` stable across restart iterations so the F-4
@@ -132,6 +138,10 @@ _cleanup_child() {
     kill_process_tree "${CURRENT_OPENCODE_PID}" 2>/dev/null || true
     CURRENT_OPENCODE_PID=""
   fi
+  # GH-47 Defect-B: also reap any opencode runtime that escaped into its own
+  # session, so a wrapper exit (normal/signal) never leaves a DB-contention orphan.
+  _reap_opencode_orphan "${CURRENT_SESSION_ID:-}" "${CURRENT_REF:-}" 2>/dev/null || true
+  CURRENT_SESSION_ID=""
   if [[ -n "${CURRENT_REF:-}" ]]; then
     clear_pid_file "${CURRENT_REF}" 2>/dev/null || true
   fi
@@ -762,6 +772,35 @@ kill_process_tree() {
   fi
 }
 
+# GH-47 (Defect-B fix): reap an opencode runtime that setsid/fork moved into its
+# own session. The captured $! (setsid / `opencode run` parent) can die while the
+# real opencode worker survives orphaned in a new session, causing DB contention
+# that stalls later iterations. Match ONLY this delivery's session id / ticket
+# title so the CEO loop and other tickets are never touched. Idempotent, no-op if
+# nothing matches (pkill returns 1). Args: [session_id] [ticket_ref]
+_reap_opencode_orphan() {
+  local session_id="${1:-}"
+  local ticket_ref="${2:-}"
+  local saw_match=0
+
+  if [[ -n "${session_id}" ]]; then
+    pkill -TERM -f "opencode run --session ${session_id}" 2>/dev/null && saw_match=1 || true
+  fi
+  if [[ -n "${ticket_ref}" ]]; then
+    pkill -TERM -f "opencode run --agent pm --title ticket-${ticket_ref}" 2>/dev/null && saw_match=1 || true
+  fi
+
+  if [[ "${saw_match}" -eq 1 ]]; then
+    sleep "${KILL_GRACE_SECONDS}"
+    if [[ -n "${session_id}" ]]; then
+      pkill -KILL -f "opencode run --session ${session_id}" 2>/dev/null || true
+    fi
+    if [[ -n "${ticket_ref}" ]]; then
+      pkill -KILL -f "opencode run --agent pm --title ticket-${ticket_ref}" 2>/dev/null || true
+    fi
+  fi
+}
+
 # ============================================================================
 # RESULT CLASSIFICATION
 # ============================================================================
@@ -815,12 +854,21 @@ classify_result() {
     fi
   fi
 
-  # Check for merged PR
-  local merged_json
-  merged_json="$(_gh pr list --search "${ticket_ref}" --state closed --json mergedAt 2>/dev/null)" || merged_json='[]'
-  if printf '%s' "${merged_json}" | _jq -e '.[0].mergedAt' >/dev/null 2>&1; then
-    printf 'merged'
-    return 0
+  # Check for merged PR — BRANCH-SCOPED (GH-47 Defect-A fix).
+  # An unscoped `gh pr list --search "<ref>" --state closed` matches ANY closed
+  # PR whose title/body mentions the ref (e.g. planning PR #33 lists GH-11..GH-32
+  # in its body), yielding a false "merged" that prematurely exits the wrapper —
+  # even on a watchdog-KILLED (stuck) session, via decide_after_iteration's
+  # stop:0:merged branch. That stranded GH-17/GH-18 (4th+5th recurrence). Only a
+  # PR whose HEAD is THIS delivery branch counts as a real merge; the issue-CLOSED
+  # check above (line ~787) already handles the canonical merged-and-closed case.
+  if [[ -n "${branch}" ]]; then
+    local merged_json
+    merged_json="$(_gh pr list --head "${branch}" --state closed --json mergedAt 2>/dev/null)" || merged_json='[]'
+    if printf '%s' "${merged_json}" | _jq -e '.[0].mergedAt' >/dev/null 2>&1; then
+      printf 'merged'
+      return 0
+    fi
   fi
 
   printf 'failed'
@@ -957,11 +1005,15 @@ run_single_iteration() {
     if [[ -n "${captured_id}" ]]; then
       log_info "Captured session ID: ${captured_id}"
       captured_session_id="${captured_id}"
+      CURRENT_SESSION_ID="${captured_id}"
       save_session_mapping "${ticket_ref}" "${captured_id}" "${resolved_branch}" "in_progress"
       # F-1: preserve the wrapper start epoch (see comment above).
       [[ -n "${CURRENT_REF:-}" ]] && write_pid_file "${CURRENT_REF}" "$$" "${WRAPPER_START_EPOCH:-$(date +%s)}" "${opencode_pid}" "${captured_id}"
     fi
   fi
+  # GH-47 Defect-B: publish the (new or resumed) session id to the global so the
+  # EXIT trap and the stall-kill path can reap a runtime orphan by pattern.
+  CURRENT_SESSION_ID="${captured_session_id}"
 
   # Monitor liveness.
   # INV-DM-5: primary signal is session-message traffic (pm-liveness.sh); the
@@ -1007,6 +1059,10 @@ run_single_iteration() {
     if is_session_stuck "${last_progress_wall_epoch}" "${now_epoch}" "${stuck_seconds}"; then
       log_warn "No progress for $((now_epoch - last_progress_wall_epoch))s; killing and restarting"
       kill_process_tree "${opencode_pid}"
+      # GH-47 Defect-B: reap any opencode runtime that escaped the captured $!
+      # (setsid/opencode-run parent) into its own session — otherwise it survives
+      # as a DB-contention orphan that stalls later iterations.
+      _reap_opencode_orphan "${captured_session_id:-}" "${ticket_ref}" 2>/dev/null || true
       wait "${opencode_pid}" 2>/dev/null || true
       result="stuck"
       break
