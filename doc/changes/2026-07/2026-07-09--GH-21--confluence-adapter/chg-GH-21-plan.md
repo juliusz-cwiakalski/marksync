@@ -958,7 +958,7 @@ are asserted over captured real HTTP traffic.
 
 **Tasks**:
 
-- [ ] **7.1** Create `tests/integration/confluence/confluence-target.test.ts`
+- [x] **7.1** Create `tests/integration/confluence/confluence-target.test.ts`
       (new) — **Integration** with `Bun.serve` mocking v2 (`/wiki/api/v2/*`) +
       v1 (`/wiki/rest/api/*`) + recording every incoming request (URL, method,
       headers, body):
@@ -1020,9 +1020,10 @@ reconciliation handoff (the final release phase per the plan template).
 
 **Tasks**:
 
-- [ ] **8.1** Run `bun run check` (lint + format:check + typecheck + test +
+- [x] **8.1** Run `bun run check` (lint + format:check + typecheck + test +
       check:boundaries); fix any issue. Confirm all `AC-*` are green (TC-GATE-001).
-- [ ] **8.2** Confirm the boundary direction explicitly (AC-F1-1 / NFR-1):
+      — `bun run check` exits 0 (772 pass / 0 fail; 74 modules, 101 deps cruised).
+- [x] **8.2** Confirm the boundary direction explicitly (AC-F1-1 / NFR-1):
       `depcruise src` passes with no `domain-may-not-import-infra` /
       `presentation-may-not-import-infra` violation — i.e. no `src/domain/**` or
       `src/cli/**` imports `#infra/confluence/*`; the one-way
@@ -1031,7 +1032,8 @@ reconciliation handoff (the final release phase per the plan template).
       load-bearing forbidden directions at severity `error`; the broader matrix
       has gaps (no `infra → app`/`infra → cli` rule) — hardening is a future
       item, out of scope here.
-- [ ] **8.3** Hand off the doc risks to lifecycle phase 7 (`@doc-syncer`): tag
+      — confirmed: `grep "#infra/confluence" src/domain/ src/cli/` = 0; depcruise 0 violations.
+- [x] **8.3** Hand off the doc risks to lifecycle phase 7 (`@doc-syncer`): tag
       the adapter component delivered in `feature-confluence-adapter.md` §4.2 +
       `architecture-overview.md` (client/attachment/property/provenance/search/
       restrictions components; `related_changes += GH-21`); record the
@@ -1142,5 +1144,5 @@ reconciliation handoff (the final release phase per the plan template).
 | 4 — PageService + 409 + 403 | ✅ | 2026-07-10 | 2026-07-10 | 608e75f | PASS (727/0) | F-3 / F-7 / AC-F3-1 / AC-F7-1; added title to UpdatePageRequest (v2 PUT requires it) |
 | 5 — Property + Attachment | ✅ | 2026-07-10 | 2026-07-10 | ae971ad | PASS (739/0) | F-4 / F-5 / AC-F4-1 / AC-F5-1; v2 properties + v1 attachments |
 | 6 — Search/Restrictions + provenance + adapter | ✅ | 2026-07-10 | 2026-07-10 | a28e32d | PASS (760/0) | F-6 / F-8; added target wiring tests for per-file coverage |
-| 7 — integration (Bun.serve mock) | ☐ | | | _pending_ | _pending_ | all ACs |
-| 8 — final gate + boundary + doc handoff | ☐ | | | _pending_ | _pending_ | AC-Q-1 |
+| 7 — integration (Bun.serve mock) | ✅ | 2026-07-10 | 2026-07-10 | 5c5ddcd | PASS (772/0) | all ACs; 200/409/403/400/429/5xx + no-leak + no-telemetry + boundary |
+| 8 — final gate + boundary + doc handoff | ✅ | 2026-07-10 | 2026-07-10 | _this phase_ | PASS (772/0) | AC-Q-1; boundary clean; doc handoff to phase 7 |
