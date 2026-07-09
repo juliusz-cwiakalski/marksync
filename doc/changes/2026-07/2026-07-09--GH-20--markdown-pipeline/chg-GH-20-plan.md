@@ -816,10 +816,11 @@ behavior.
 
 **Tasks**:
 
-- [ ] **8.1** Run `bun run check` (lint + format:check + typecheck + test +
+- [x] **8.1** Run `bun run check` (lint + format:check + typecheck + test +
       check:boundaries); fix any issue. Confirm all `AC-*` are green (TC-GATE-001).
-- [ ] **8.2** Confirm the boundary direction explicitly (AC-Q-1 / NFR-10):
-      `depcruise src` (via `bun run check:boundaries`) passes with **no**
+      *(692 pass / 0 fail; all ACs green — see AC map below.)*
+- [x] **8.2** Confirm the boundary direction explicitly (AC-Q-1 / NFR-10):
+      `depcruise src` (via `bun run check:boundaries`) passes with **no
       `domain-may-not-import-infra` violation — i.e. no `src/domain/**` module imports
       `src/infra/**`, which is the reverse of the `src/infra/confluence/render/storage.ts
       → src/domain/**` edge this story adds. **Scope note (Finding 6):** dep-cruiser
@@ -828,14 +829,18 @@ behavior.
       `infra→app`/`infra→cli` rule; `infra→domain` is allowed since infra implements
       ports) — broader matrix hardening is a future item, out of scope here. The domain
       modules import no infra/app/cli.
-- [ ] **8.3** Hand off the doc risks recorded in `chg-GH-20-pm-notes.yaml` `doc_risks` to
+      *(Verified: no `src/domain/**` import of `#infra/*` or `src/infra/*`; `storage.ts`
+      imports 5 `#domain/*` modules — the one-way infra→domain edge. dep-cruiser clean
+      at 59 modules / 78 deps.)*
+- [x] **8.3** Hand off the doc risks recorded in `chg-GH-20-pm-notes.yaml` `doc_risks` to
       lifecycle phase 7 (`@doc-syncer`): tag the Markdown-pipeline component in
       `feature-safe-publish.md` §4.2 + `architecture-overview.md` (Markdown parser +
       Confluence Storage renderer; `related_changes += GH-20`); bind Body Representation +
       Content Hash VOs in `ubiquitous-language.md`; move remark/rehype from "Planned" to
       "Installed" in `.ai/rules/typescript.md` (keep mermaid/jsdom planned — E4-S1);
-      populate ADR-0005 "Lessons Learned (Retrospective)". *(No code change here — this is
-      a checklist hand-off, not in the coder's delivery scope.)*
+      populate ADR-0005 "Lessons Learned (Retrospective)". *(No code change here — handed
+      off to lifecycle phase 7 / `@doc-syncer`, out of the coder's delivery scope per
+      plan §"Out of scope".)*
 
 **Acceptance Criteria**:
 
@@ -918,4 +923,23 @@ behavior.
 | 5 — renderStorage + 25 golden | ✅ | 2026-07-09 | 2026-07-09 | feat(render): HAST→Storage visitor + 25 golden fixtures (GH-20) | 571 pass / 0 fail | F-4 / F-6 / AC-F4-1 / AC-F4-2; 25 byte-match + 25 snapshots; sub/sup defensive; boy-scout .gitkeep removal |
 | 6 — injection safety + DEC-4/DEC-5 | ✅ | 2026-07-09 | 2026-07-09 | test(render): injection-safety + raw-HTML escape + task-list warning (GH-20) | 580 pass / 0 fail | F-7 / AC-F4-4; 9 property tests PASS |
 | 7 — round-trip + XML WF + determinism | ✅ | 2026-07-09 | 2026-07-09 | test(markdown): pipeline round-trip + XML well-formedness + determinism (GH-20) | 692 pass / 0 fail | AC-F4-3 / AC-F4-5; 11 negative + 101 integration PASS |
-| 8 — final gate + boundaries | ⏳ | | | | | AC-Q-1 |
+| 8 — final gate + boundaries | ✅ | 2026-07-09 | 2026-07-09 | chore(markdown): final gate + boundary confirmation for E3-S3 (GH-20) | 692 pass / 0 fail | AC-Q-1; all ACs green; dep-cruiser clean (59 modules) |
+
+### Acceptance-criteria validation (Phase 8)
+
+| AC | Status | Evidence |
+|----|--------|----------|
+| AC-F4-1 (NFR-REL-4) | PASSED | 25/25 remark-gfm-reachable fixtures byte-match their golden `.storage.xhtml` (+ 25 Bun snapshots); set count locked at 25 (PM-DEC-1). TC-GOLDEN suite. |
+| AC-F4-2 | PASSED | Every fenced-code fixture emits `<ac:structured-macro ac:name="code">` + `<ac:plain-text-body><![CDATA[…]]></…>`; `ac:schema-version`/`ac:macro-id` appear 0× across all 25 bodies. TC-CODE-MACRO-001. |
+| AC-F4-3 | PASSED | Every rendered body is well-formed XML per the PD-4 checker (TC-XML-WF-001, 25 fixtures); the checker's negative suite (11 tests) proves it rejects all known-malformed shapes. |
+| AC-F5-1 | PASSED | Unsupported nodes (dl/math/section + raw HTML block) → `UnsupportedConstruct`, never silent; canonical subset never flagged. TC-UNSUP-001..004. |
+| AC-F4-4 (NFR-SEC-5) | PASSED | Malicious source → 0 source-derived `<ac:structured-macro>`/`<ac:parameter>`/`<ac:plain-text-body>`/`<script>` elements; raw inline HTML escaped; code-fence macro-XML wrapped in converter CDATA (exactly one element outside CDATA). TC-INJECT-001..003, TC-RAWHTML-001. |
+| AC-F4-5 | PASSED | 3 renders of every fixture are byte-identical. TC-DETERM-001. |
+| AC-F3-1 | PASSED | Same canonical HAST → identical sha256; two renders report identical hash; digest is 64-char lowercase-hex with no prefix. TC-HASH-001..004, TC-DETERM-002. |
+| AC-Q-1 (NFR-10/13) | PASSED | `bun run check` exits 0 (692 pass / 0 fail); dep-cruiser clean (59 modules, 78 deps); no `domain→infra` import; the one-way `infra→domain` edge (`storage.ts` → 5 `#domain/*` modules) is the only direction added. |
+
+### Deviations from the plan
+
+- **PD-6 kitchensink "byte-for-byte" interpretation.** The plan's "the kitchensink pair derives byte-for-byte from `storage-kitchensink.xml`" is operationally impossible from markdown rendering: remark-rehype yields compact output, remark-gfm emits `<del>` (not `<s>`), and `<sub>`/`<sup>` are unreachable (PM-DEC-1). Per PM-DEC-1, the golden `.storage.xhtml` set is the renderer's **committed deterministic output** (the standard golden workflow) — the spike kitchensink is the **structural reference shape**, not a literal byte-target. AC-F4-1 ("byte-matches its golden snapshot") is satisfied against our own committed snapshots, which are reviewed correct Storage XML. Recorded here for traceability.
+- **Result shape includes `warnings` from Phase 5.** The plan staged the `warnings` accumulator as a Phase-6.1 non-breaking addition; it was included in the Phase-5 `RenderedBody` shape from the start (`warnings: string[]`) to avoid churn. Functionally identical to the plan; the mixing detection landed in Phase 5's renderer and is asserted in Phase 6.
+- **25 fixtures = 24 per-construct + kitchensink.** The "25" fidelity bar is met with 24 individual remark-gfm-reachable constructs + the consolidated kitchensink (#25), enumerated by expanding the spike H6 families minus `<sub>`/`<sup>` (PM-DEC-1). The plan explicitly allowed "final enumeration confirmed by walking the spike table at delivery."
