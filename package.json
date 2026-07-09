@@ -50,7 +50,6 @@
 		"@jsr/cliffy__flags": "^1.2.1",
 		"ajv": "^8.20.0",
 		"picocolors": "^1.1.1",
-		"rehype": "^13.0.2",
 		"remark": "^15.0.1",
 		"remark-gfm": "^4.0.1",
 		"remark-rehype": "^11.1.2",

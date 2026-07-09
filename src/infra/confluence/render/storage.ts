@@ -1,12 +1,13 @@
 // HAST → Confluence Storage XHTML string-builder visitor (ADR-0005 C-1/C-3; spike H6).
-//
-// Implements the spike-H6 construct mapping: well-formed XML (entities escaped
-// outside CDATA — rule #2), code bodies in CDATA with `ac:schema-version`/
-// `ac:macro-id` omitted (rule #1), `<ac:task-list>` as its own block (rule #3).
+// Spike-H6 mapping: well-formed XML (escape outside CDATA), code bodies in CDATA
+// without `ac:schema-version`/`ac:macro-id`, and `<ac:task-list>` as its own block.
 
 import type { MarkSyncError } from "#domain/errors";
-import type { CanonicalHast } from "#domain/render/canonicalize";
-import { canonicalize, contentHash } from "#domain/render/canonicalize";
+import {
+	type CanonicalHast,
+	canonicalize,
+	contentHash,
+} from "#domain/render/canonicalize";
 import { findUnsupported } from "#domain/markdown/unsupported";
 import { Result } from "#domain/result";
 import type { Element, ElementContent, Root, Text } from "hast";

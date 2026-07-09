@@ -663,7 +663,7 @@ export interface ResultError { code: string; message: string; retryable: boolean
 | `ajv` | JSON Schema validation (config/lock) |
 | `picocolors` | Terminal coloring (ADR-0011 C-2) |
 | `yaml` | YAML parsing (`marksync.yml` + front-matter) |
-| `remark`, `remark-gfm`, `rehype`, `remark-rehype` | Markdown pipeline — bytes → MDAST → HAST → Storage (GH-20) |
+| `remark`, `remark-gfm`, `remark-rehype` | Markdown pipeline — bytes → MDAST → HAST → Storage (GH-20; `rehype` is transitive via `remark-rehype`, not a direct dep) |
 | `uuid` | UUID v7 generation (`v7`, `src/domain/identity/uuid.ts`; GH-18) |
 
 > **Type-only devDependencies** (zero runtime surface): `@types/hast`,
