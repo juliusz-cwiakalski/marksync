@@ -484,7 +484,7 @@ unless the branch ∈ `sync.allowBranches` or overridden by `MARKSYNC_ALLOW_BRAN
 
 **Tasks**:
 
-- [ ] **6.1** Create `src/app/branch.ts` (new) (or add to `src/app/lock.ts`):
+- [x] **6.1** Create `src/app/branch.ts` (new) (or add to `src/app/lock.ts`):
       - `assertBranchAllowed(branch: string, config: ProjectConfig): Result<void,
         MarkSyncError>`:
         - `allowed = new Set([...config.sync.allowBranches, ...overrideFromEnv()])` where
@@ -494,12 +494,12 @@ unless the branch ∈ `sync.allowBranches` or overridden by `MARKSYNC_ALLOW_BRAN
           allowed: [...config.sync.allowBranches] })`.
       - Imports: `#domain/config/types` (`ProjectConfig`), `#domain/errors`,
         `#domain/result`. No cli.
-      - ≤ 3-line header citing ADR-0006 Branch restriction once.
-- [ ] **6.2** Create `tests/app/branch.test.ts` (new) — **Unit**:
+      - ≤ 3-line header citing ADR-0006 Branch restriction once. *(done — new module; override augments (never replaces) the configured set; the error reports the configured allow list)*
+- [x] **6.2** Create `tests/app/branch.test.ts` (new) — **Unit**:
       - **TC-BRANCH-001:** `"main"` + `allowBranches:["main"]` → `ok`.
       - **TC-BRANCH-002:** `"feature/x"` (no override) → `err(ForbiddenBranch)`.
       - **TC-BRANCH-003:** `MARKSYNC_ALLOW_BRANCHES="feature/x"` + `"feature/x"` → `ok`
-        (restore env after).
+        (restore env after). *(done — all three PASS + augment/comma-sep/empty-override coverage; env saved+restored in afterEach)*
 
 **Acceptance Criteria**:
 
