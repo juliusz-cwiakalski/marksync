@@ -312,7 +312,7 @@ owns the `LockJournal` integration point (the journal write/replay is E3-S6).
 
 **Tasks**:
 
-- [ ] **2.1** Create `src/infra/lock/store.ts` (new):
+- [x] **2.1** Create `src/infra/lock/store.ts` (new):
       - `writeAtomic(dest: string, data: string): Result<void, LockError>` — write to
         `${dest}.${tmpSuffix}` then `fs.rename(tmp, dest)` (POSIX atomic; Bun handles
         replace-over-existing on Windows).
@@ -321,14 +321,14 @@ owns the `LockJournal` integration point (the journal write/replay is E3-S6).
       - `tmpSuffix`: a stable, unique suffix (e.g. `.marksync-tmp`); the temp file is
         abandoned on crash (never the dest).
       - Imports: `node:fs`/`node:path`, `#domain/errors`, `#domain/result`. No app/cli.
-      - ≤ 3-line header citing ADR-0006 (atomic write) once.
-- [ ] **2.2** Create `tests/integration/lock/store.test.ts` (new) — **Integration**;
+      - ≤ 3-line header citing ADR-0006 (atomic write) once. *(done — writeAtomic + `armCrashAfterTempWrite` setter (ESM live-binding-safe); `.marksync-tmp` suffix; crash throws (a real process death does not return); fs failures → err(ConcurrentWrite))*
+- [x] **2.2** Create `tests/integration/lock/store.test.ts` (new) — **Integration**;
       real temp-dir I/O (`fs.mkdtemp`):
       - **TC-ATOMIC-001:** arm the crash hook; call `writeAtomic`; assert it throws/errs;
         assert `dest` is byte-identical to the pre-existing content; assert the temp file
         exists but is NOT the lock (abandoned).
       - **TC-ATOMIC-002:** without the hook, overwrite an existing file via `writeAtomic`
-        (replace-over-existing); assert the new content is present.
+        (replace-over-existing); assert the new content is present. *(done — TC-ATOMIC-001 dest-unchanged+temp-abandoned, TC-ATOMIC-002 replace-over-existing + fresh-dest, + a real fs-fault test covering the err(ConcurrentWrite) path; all PASS)*
 
 **Acceptance Criteria**:
 
