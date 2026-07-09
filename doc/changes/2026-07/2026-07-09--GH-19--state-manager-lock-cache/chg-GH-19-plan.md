@@ -443,7 +443,7 @@ fetch is E3-S4).
 
 **Tasks**:
 
-- [ ] **5.1** Create `src/domain/state/reconcile.ts` (new):
+- [x] **5.1** Create `src/domain/state/reconcile.ts` (new):
       - `MetadataProperty` type mirroring system spec §9.3 (`schemaVersion, projectId,
         targetId, documentId, sourcePath, sourceCommit, sourceContentHash,
         renderedBodyHash, toolVersion, synchronizedAt`).
@@ -456,12 +456,12 @@ fetch is E3-S4).
         Result<PageBinding, MarkSyncError>` — reconstruct a field-equal `PageBinding`.
       - Imports: `#domain/binding/page-binding`, `#domain/errors`, `#domain/result`. No
         app/cli/infra (domain-pure).
-      - ≤ 3-line header citing ADR-0006 Cross-check once.
-- [ ] **5.2** Create `tests/domain/state/reconcile.test.ts` (new) — **Unit**; real
+      - ≤ 3-line header citing ADR-0006 Cross-check once. *(done — pure; MetadataProperty carries `operationId` (ADR-0006 operation-ID dedup) so rebuild can restore it. NOTE: the sketch's `{property, pageVersion, hashes}` cannot yield a field-equal binding (missing pageId/parentPageId/attachmentHashes); `RebuildInput` adds those three so AC-F5-2 field-equal is satisfiable — recorded in execution log)*
+- [x] **5.2** Create `tests/domain/state/reconcile.test.ts` (new) — **Unit**; real
       records (no mocks):
       - **TC-RECONCILE-001:** matching property → `ok`.
       - **TC-RECONCILE-002:** `sourceCommit` mismatch → `err(LockDirty)`.
-      - **TC-REBUILD-001:** `rebuildLockFromConfluence` → field-equal `PageBinding`.
+      - **TC-REBUILD-001:** `rebuildLockFromConfluence` → field-equal `PageBinding`. *(done — all three PASS + extra: only-sourceCommit-decisive + rebuild⇄reconcile consistency)*
 
 **Acceptance Criteria**:
 
