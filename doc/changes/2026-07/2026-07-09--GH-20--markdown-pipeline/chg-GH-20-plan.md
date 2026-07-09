@@ -441,24 +441,27 @@ hashes (F-3) and the Storage visitor walks (F-4).
 
 **Tasks**:
 
-- [ ] **2.1** Create `src/domain/markdown/mdast-to-hast.ts` (new):
+- [x] **2.1** Create `src/domain/markdown/mdast-to-hast.ts` (new):
       - `mdastToHast(mdast: MdastRoot): HastRoot` — run the MDAST through
         `unified().use(remark2rehype)` (with a configuration that does NOT strip
         unrecognized nodes — keep `passThrough`/default handling so the classifier can
         see them; raw inline HTML is handled at render per DEC-4).
+        *(Built `unified().use(remark2rehype, { allowDangerousHtml: true })` so raw HTML
+        survives as `raw` HAST nodes the renderer escapes — without it remark-rehype
+        silently drops the bytes. Module-singleton processor.)*
       - Return the HAST root directly (no `Result` — the bridge is total over a valid
         MDAST; the classifier handles the unsupported cases downstream).
-      - Imports: type-only `mdast`/`hast`/`remark-rehype` types. **No** infra/app/cli.
+      - Imports: type-only `mdast`/`hast`/`remark-rehype` types + value `remark-rehype`/
+        `unified`. **No** infra/app/cli.
       - ≤ 3-line header; cite spike H6 / ADR-0005 once.
-- [ ] **2.2** Create `tests/unit/domain/markdown/mdast-to-hast.test.ts` (new) — **Unit**:
+- [x] **2.2** Create `tests/unit/domain/markdown/mdast-to-hast.test.ts` (new) — **Unit**
+      (6 tests PASS, real remark + remark-rehype, no mock):
       - **TC-BRIDGE-001:** parse a headings + paragraph + code-block source; bridge;
-        assert the HAST contains `h1`, `p`, `pre>code`.
+        assert the HAST contains `h1`, `p`, `pre>code` (and MDAST-only kinds gone).
       - **TC-BRIDGE-002:** GFM table + task-list source → HAST `table` (thead/tbody) +
-        `div`/`ul` with task-list-li (depends on remark-rehype + remark-gfm task-list
-        representation; assert the nodes are present and classifiable).
+        `ul.contains-task-list` with checkbox inputs (classifiable downstream).
       - **TC-BRIDGE-003:** a source with raw inline HTML (`<b>x</b>`) → the bridge
-        surfaces it in a form the renderer will escape (DEC-4); assert no node is lost
-        (no silent drop at the bridge).
+        surfaces `raw` nodes + surrounding text (no silent drop at the bridge).
 
 **Acceptance Criteria**:
 
@@ -935,7 +938,7 @@ behavior.
 |-------|--------|---------|-----------|--------|------------------|-------|
 | 0 — Dep install | ✅ | 2026-07-09 | 2026-07-09 | _pending_ | 510 pass / 0 fail | remark/rehype ecosystem + mdast/hast types |
 | 1 — parseMarkdown | ✅ | 2026-07-09 | 2026-07-09 | _pending_ | 9 tests PASS | F-1 |
-| 2 — MDAST→HAST bridge | ⏳ | | | | | F-2 |
+| 2 — MDAST→HAST bridge | ✅ | 2026-07-09 | 2026-07-09 | feat(markdown): MDAST→HAST bridge via remark-rehype (GH-20) | 525 pass / 0 fail | F-2; allowDangerousHtml preserves raw HTML for DEC-4 escape; 6 tests PASS |
 | 3 — canonicalize + contentHash | ⏳ | | | | | F-3 / AC-F3-1 |
 | 4 — unsupported classifier | ⏳ | | | | | F-5 / AC-F5-1 |
 | 5 — renderStorage + 25 golden | ⏳ | | | | | F-4 / F-6 / AC-F4-1 / AC-F4-2 |
