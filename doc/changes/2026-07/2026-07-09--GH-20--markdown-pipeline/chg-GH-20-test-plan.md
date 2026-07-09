@@ -2,14 +2,14 @@
 # Copyright (c) 2025-2026 Juliusz Ćwiąkalski (https://www.cwiakalski.com | https://www.linkedin.com/in/juliusz-cwiakalski/ | https://www.x.com/cwiakalski)
 # MIT License - see LICENSE file for full terms
 id: chg-GH-20-test-plan
-status: Proposed
+status: Updated
 created: 2026-07-09T00:00:00Z
-last_updated: 2026-07-09T00:00:00Z
+last_updated: 2026-07-09T12:00:00Z
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 labels: [MS-0002, MS2-E3, safe-publish, critical, security, fidelity]
 version_impact: minor
-summary: "Test plan for the Markdown pipeline story (MS2-E3-S3 / GH-20): the deterministic Markdown → Confluence Storage Format converter — the body-representation half of ADR-0005. Covers parseMarkdown (remark + remark-gfm), the MDAST→HAST bridge, canonicalize + contentHash (sha256, the Content Hash VO), renderStorage (the spike-H6-proven 27-construct HAST→Storage XHTML visitor with CDATA code bodies and omitted ac:schema-version/ac:macro-id), the unsupported-node classifier emitting the pre-existing UnsupportedConstruct arm (never a silent drop), 27 byte-stable golden fixture pairs, and the NFR-SEC-5 injection-safety property tests. Exercised at Unit + Golden-fixture + Integration tiers; no Mermaid-DOM, no E2E (no Confluence network in this story — the API write is E3-S4/E3-S6). The converter is tested with REAL fixtures and a REAL XML well-formedness check — no mocked parser/renderer (over-mocking guardrail)."
+summary: "Test plan for the Markdown pipeline story (MS2-E3-S3 / GH-20): the deterministic Markdown → Confluence Storage Format converter — the body-representation half of ADR-0005. Covers parseMarkdown (remark + remark-gfm), the MDAST→HAST bridge, canonicalize + contentHash (sha256, the Content Hash VO), renderStorage (the HAST→Storage XHTML visitor mapping the 25 remark-gfm-reachable canonical GFM constructs — plus defensive <sub>/<sup> emission per PM-DEC-1 — with CDATA code bodies and omitted ac:schema-version/ac:macro-id), the unsupported-node classifier emitting the pre-existing UnsupportedConstruct arm (never a silent drop), 25 byte-stable golden fixture pairs (the remark-gfm-reachable subset), and the NFR-SEC-5 injection-safety property tests. Exercised at Unit + Golden-fixture + Integration tiers; no Mermaid-DOM, no E2E (no Confluence network in this story — the API write is E3-S4/E3-S6). The converter is tested with REAL fixtures and a REAL XML well-formedness check — no mocked parser/renderer (over-mocking guardrail)."
 links:
   change_spec: "./chg-GH-20-spec.md"
   implementation_plan: "./chg-GH-20-plan.md"
@@ -32,8 +32,9 @@ GH-20: the parser (`parseMarkdown`, `src/domain/markdown/parse.ts`), the
 MDAST→HAST bridge (`src/domain/markdown/mdast-to-hast.ts`), the canonicalizer +
 content-hash function (`src/domain/render/canonicalize.ts`), the HAST→Storage
 XHTML renderer (`renderStorage`, `src/infra/confluence/render/storage.ts`), the
-unsupported-node classifier (`src/domain/markdown/unsupported.ts`), the 27
-golden fixture pairs (`tests/golden/fixtures/`), and the injection-safety
+unsupported-node classifier (`src/domain/markdown/unsupported.ts`), the 25
+golden fixture pairs (`tests/golden/fixtures/` — the remark-gfm-reachable
+subset; `<sub>`/`<sup>` excluded per PM-DEC-1), and the injection-safety
 property tests (NFR-SEC-5). Confluence API writes (E3-S4/E3-S6), the mermaid
 render-to-image (E4-S1), and attachment binary upload (E4-S2) are **out of
 scope** — this story renders bytes; it performs no HTTP.
@@ -72,16 +73,18 @@ plus INV-SEC-1 (no secrets in rendered output — synthetic fixtures only).
 - **Canonicalizer + content hash** — `canonicalize(hast)` normalizes attribute
   order + whitespace; `contentHash` returns the lowercase-hex `sha256` digest;
   same canonical HAST → identical hash (F-3, AC-F3-1).
-- **HAST→Storage renderer (`renderStorage`)** — the spike-H6 27-construct
-  visitor: CDATA code bodies; omitted `ac:schema-version`/`ac:macro-id`;
-  well-formed XML; `<ac:image>`/`<ac:task-list>` macros; entity preservation
-  (`&amp;` in links) (F-4, AC-F4-2, AC-F4-3).
+- **HAST→Storage renderer (`renderStorage`)** — the spike-H6 visitor mapping the
+  25 remark-gfm-reachable canonical constructs (plus defensive `<sub>`/`<sup>`
+  emission — PM-DEC-1, TC-RENDER-006): CDATA code bodies; omitted
+  `ac:schema-version`/`ac:macro-id`; well-formed XML; `<ac:image>`/`<ac:task-list>`
+  macros; entity preservation (`&amp;` in links) (F-4, AC-F4-2, AC-F4-3).
 - **Unsupported-node classifier** — footnote, raw-HTML **block**, math,
   definition list → `err({ kind: "UnsupportedConstruct"; construct; sourcePath })`
   (the **pre-existing** arm, first-produced here); **never** a silent drop
   (F-5, AC-F5-1).
-- **27 golden fixture pairs** — `tests/golden/fixtures/*.md` + `*.storage.xhtml`;
-  27/27 byte-match (F-6, AC-F4-1, NFR-REL-4).
+- **25 golden fixture pairs** — `tests/golden/fixtures/*.md` + `*.storage.xhtml`;
+  25/25 byte-match (the remark-gfm-reachable subset; `<sub>`/`<sup>` excluded —
+  PM-DEC-1) (F-6, AC-F4-1, NFR-REL-4).
 - **Injection-safety property tests** — malicious source text (`<ac:structured-macro>`,
   `<script>`, `<ac:parameter>`, `<ac:plain-text-body>`, raw `<div>` inline HTML)
   → inert escaped output; 0 server-side macros derived from source; 0 executable
@@ -133,7 +136,7 @@ plus INV-SEC-1 (no secrets in rendered output — synthetic fixtures only).
 | Testing strategy | [`.ai/rules/testing-strategy.md`](../../../.ai/rules/testing-strategy.md) (tiers, golden-fixture rules, over-mocking guardrail) |
 | TypeScript conventions | [`.ai/rules/typescript.md`](../../../.ai/rules/typescript.md) (tier matrix, `bun:test`, import aliases, snapshot conventions) |
 | Decision (load-bearing) | [ADR-0005](../../../decisions/ADR-0005-page-body-representation-storage-not-adf.md) (Storage not ADF; C-1 lossless; C-3 well-formed XML; raw-HTML sanitised) |
-| Spike H6 mapping table (the blueprint) | `doc/inception/tmp/confluence-api-validation-spike/findings/atlassian-api-spike-findings.md` (lines 17-41 — 27-construct table + 3 converter rules) |
+| Spike H6 mapping table (the blueprint) | `doc/inception/tmp/confluence-api-validation-spike/findings/atlassian-api-spike-findings.md` (lines 17-41 — construct→Storage mapping table + 3 converter rules; the spike proved a *Storage* round-trip of hand-authored XML, not Markdown→Storage — see §6.1) |
 | Golden reference shape | `doc/inception/tmp/confluence-api-validation-spike/examples/pages/storage-kitchensink.xml` |
 | Feature spec | [`doc/spec/features/feature-safe-publish.md`](../../../spec/features/feature-safe-publish.md) |
 | Non-functional spec | [`doc/spec/nonfunctional.md`](../../../spec/nonfunctional.md) (NFR-REL-4, NFR-SEC-5, NFR-PERF-5) |
@@ -150,9 +153,9 @@ plus INV-SEC-1 (no secrets in rendered output — synthetic fixtures only).
 
 | Spec AC | Description | F-# / NFR-# / DM-# | TC ID(s) | Status |
 |---------|-------------|--------------------|----------|--------|
-| AC-F4-1 (NFR-REL-4) | 27/27 canonical GFM fixtures byte-match their golden `.storage.xhtml` snapshot. | F-1, F-2, F-4, F-6, NFR-1 | TC-GOLDEN-001, TC-GOLDEN-002 | Covered |
+| AC-F4-1 (NFR-REL-4) | 25/25 remark-gfm-reachable canonical GFM fixtures byte-match their golden `.storage.xhtml` snapshot (`<sub>`/`<sup>` excluded per PM-DEC-1; covered defensively by TC-RENDER-006). | F-1, F-2, F-4, F-6, NFR-1 | TC-GOLDEN-001, TC-GOLDEN-002, TC-RENDER-006 | Covered |
 | AC-F4-2 | Fenced code → CDATA body inside `<ac:structured-macro ac:name="code">`; 0 occurrences of `ac:schema-version`/`ac:macro-id` in output. | F-4, NFR-2 | TC-RENDER-001, TC-RENDER-002 | Covered |
-| AC-F4-3 | Every rendered Storage body parses as well-formed XML (0 unbalanced tags; entities escaped outside CDATA). | F-4, NFR-3 | TC-XML-001, TC-XML-002 | Covered (mechanism: see OQ-TP-1) |
+| AC-F4-3 | Every rendered Storage body parses as well-formed XML (0 unbalanced tags; entities escaped outside CDATA). | F-4, NFR-3 | TC-XML-001, TC-XML-002 | Covered (mechanism: PD-4 checker + negative-test suite; OQ-TP-1 resolved) |
 | AC-F5-1 | An unsupported node (footnote, raw-HTML block, math, definition list) → `err(UnsupportedConstruct)` — never silent. | F-5, NFR-4 | TC-UNSUPPORTED-001..006 | Covered |
 | AC-F4-4 (NFR-SEC-5) | Malicious fixture → 0 `<ac:structured-macro>` derived from source; 0 executable content (escaped/inert). | F-4, F-7, NFR-5 | TC-INJECT-001..006 | Covered |
 | AC-F4-5 | Same input rendered N times → byte-identical (0 bytes diff). | F-3, F-4, NFR-6 | TC-DETERM-001 | Covered |
@@ -166,9 +169,9 @@ plus INV-SEC-1 (no secrets in rendered output — synthetic fixtures only).
 | F-1 | Markdown parser (`parseMarkdown`) | TC-PARSE-001, TC-PARSE-002, TC-ROUND-001 |
 | F-2 | MDAST→HAST bridge | TC-BRIDGE-001, TC-BRIDGE-002, TC-ROUND-001 |
 | F-3 | Canonicalizer + content-hash function | TC-HASH-001..005, TC-DETERM-001 |
-| F-4 | HAST→Storage renderer (`renderStorage`) | TC-RENDER-001..005, TC-GOLDEN-001..002, TC-XML-001..002, TC-ROUND-001 |
+| F-4 | HAST→Storage renderer (`renderStorage`) | TC-RENDER-001..006, TC-GOLDEN-001..002, TC-XML-001..002, TC-ROUND-001 |
 | F-5 | Unsupported-node classifier | TC-UNSUPPORTED-001..007 |
-| F-6 | Golden fixtures (27 constructs) | TC-GOLDEN-001, TC-GOLDEN-002 |
+| F-6 | Golden fixtures (25 remark-gfm-reachable constructs) | TC-GOLDEN-001, TC-GOLDEN-002 |
 | F-7 | Injection-safety property tests | TC-INJECT-001..006 |
 
 ### 3.2 Interface Coverage (API-#, EVT-#, DM-#)
@@ -200,9 +203,9 @@ the consumers are blocked on this story):
 
 | NFR-# / INV-# | Requirement | Threshold | TC ID(s) | Status |
 |---------------|-------------|-----------|----------|--------|
-| NFR-1 / NFR-REL-4 | Fidelity | 27/27 fixtures byte-match golden snapshot | TC-GOLDEN-001 | Covered |
+| NFR-1 / NFR-REL-4 | Fidelity | 25/25 remark-gfm-reachable fixtures byte-match golden snapshot | TC-GOLDEN-001 | Covered |
 | NFR-2 | Code-macro shape | 100% CDATA bodies; 0 `ac:schema-version`/`ac:macro-id` | TC-RENDER-001, TC-RENDER-002 | Covered |
-| NFR-3 | XML well-formedness | 100% of rendered bodies parse as valid XML | TC-XML-001, TC-XML-002 | Covered (mechanism: OQ-TP-1) |
+| NFR-3 | XML well-formedness | 100% of rendered bodies parse as valid XML | TC-XML-001, TC-XML-002 | Covered (mechanism: PD-4 checker; OQ-TP-1 resolved) |
 | NFR-4 | No silent drop | unsupported node → `UnsupportedConstruct`, never omitted | TC-UNSUPPORTED-001..006 | Covered |
 | NFR-5 / NFR-SEC-5 | Injection safety | 0 source-derived macros; 0 executable content | TC-INJECT-001..006 | Covered |
 | NFR-6 | Determinism | same input N times → byte-identical | TC-DETERM-001 | Covered |
@@ -226,7 +229,7 @@ mermaid render — E4-S1), no BDD (lifecycle invariants owned by E5-S1), no E2E
 | Layer | Applies | Runner | Root directory | Pattern |
 |-------|---------|--------|----------------|---------|
 | **Unit** | Yes — per-construct renderer behaviors, classifier, hash determinism, parser, bridge, Result shape | `bun:test` | `tests/unit/` mirroring `src/` | `*.test.ts` |
-| **Golden-fixture** | Yes (primary for fidelity) — 27 `*.md` + `*.storage.xhtml` byte-stable pairs + consolidated kitchensink | `bun:test` `toMatchSnapshot` + committed fixture files | `tests/golden/` + `tests/golden/fixtures/` | `*.storage.xhtml` snapshots |
+| **Golden-fixture** | Yes (primary for fidelity) — 25 `*.md` + `*.storage.xhtml` byte-stable pairs (remark-gfm-reachable) + consolidated kitchensink | `bun:test` `toMatchSnapshot` + committed fixture files | `tests/golden/` + `tests/golden/fixtures/` | `*.storage.xhtml` snapshots |
 | **Integration** | Yes — parse→bridge→canonicalize/hash→render round-trip; XML well-formedness over all rendered bodies | `bun:test` | `tests/integration/` | `*.test.ts` |
 | Mermaid-DOM | No | — | — | mermaid render is E4-S1 |
 | BDD (Gherkin) | No | — | — | invariants owned by E5-S1 |
@@ -242,7 +245,7 @@ src/domain/markdown/unsupported.ts      → tests/unit/domain/markdown/unsupport
 src/domain/render/canonicalize.ts       → tests/unit/domain/render/canonicalize.test.ts      (Unit — TC-HASH-*, TC-DETERM-001)
 src/infra/confluence/render/storage.ts  → tests/unit/infra/confluence/render/storage.test.ts (Unit — TC-RENDER-*)
                                         tests/golden/storage-renderer.test.ts               (Golden — TC-GOLDEN-001, TC-XML-001)
-                                        tests/golden/fixtures/<construct>.md + .storage.xhtml (27 committed pairs)
+                                        tests/golden/fixtures/<construct>.md + .storage.xhtml (25 committed pairs)
                                         tests/golden/fixtures/kitchensink.md + .storage.xhtml (consolidated — TC-GOLDEN-002)
                                         tests/integration/markdown/pipeline-roundtrip.test.ts (Integration — TC-ROUND-001, TC-DETERM-001)
                                         tests/integration/markdown/injection-safety.test.ts  (Integration — TC-INJECT-*)
@@ -263,14 +266,16 @@ Because MarkSync is AI-agent-operable, this is a hard guardrail: the converter
 is tested with **REAL fixtures and a REAL XML well-formedness check** — no mocked
 parser/renderer, no mocked XML parser. Concretely:
 
-- The 27 golden fixtures are **real `*.md` files** rendered through the **real**
+- The 25 golden fixtures are **real `*.md` files** rendered through the **real**
   `parseMarkdown` → `mdastToHast` → `renderStorage` pipeline, byte-compared
   against committed `*.storage.xhtml` snapshots (TC-GOLDEN-001). No construct is
   verified by mocking the renderer.
-- The XML well-formedness assertion (AC-F4-3) uses a **real** XML parser / a
-  real well-formedness check — never a mocked validator (TC-XML-001). The
-  mechanism is an open question (OQ-TP-1) but the guardrail mandates it must not
-  be a mock of the converter itself.
+- The XML well-formedness assertion (AC-F4-3) uses a **real** check — the
+  hand-written test-tier checker (`tests/_helpers/assert-well-formed-xml.ts`, per
+  plan PD-4), gated by its own negative-test suite — never a mocked validator
+  (TC-XML-001). The mechanism is **decided** (PD-4; OQ-TP-1 resolved); the
+  guardrail mandates it be independent of the converter's emission logic, and the
+  golden byte-match (AC-F4-1) remains the primary well-formedness witness.
 - The injection-safety property tests render **real malicious payloads** through
   the real pipeline and assert on the real output (TC-INJECT-*).
 - The only permitted "mock-shaped" thing is fault-class construction (e.g.
@@ -298,7 +303,8 @@ parser/renderer, no mocked XML parser. Concretely:
 | TC-RENDER-003 | `renderStorage` success → `{ body; hash }` Result shape (DM-3) | Happy Path | Critical | High | F-4, DM-3 |
 | TC-RENDER-004 | `mermaid`-fenced block detected → emits the code macro like any fence (NG-2) | Corner Case | Important | Medium | F-4, NG-2 |
 | TC-RENDER-005 | Raw inline HTML → ESCAPED (supported-but-escaped, DEC-4); 0 bytes passthrough | Corner Case | Critical | High | NFR-8, DEC-4 |
-| TC-GOLDEN-001 | 27/27 canonical GFM fixtures byte-match their golden `.storage.xhtml` (AC-F4-1 / NFR-REL-4) | Happy Path | Critical | High | AC-F4-1, NFR-1 |
+| TC-RENDER-006 | Defensive `<sub>`/`<sup>` HAST nodes → visitor emits `<sub>`/`<sup>` (PM-DEC-1; not a golden fixture) | Corner Case | Minor | Medium | F-4, DM-2 |
+| TC-GOLDEN-001 | 25/25 remark-gfm-reachable canonical GFM fixtures byte-match their golden `.storage.xhtml` (AC-F4-1 / NFR-REL-4) | Happy Path | Critical | High | AC-F4-1, NFR-1 |
 | TC-GOLDEN-002 | Consolidated `kitchensink.md` renders to a committed `kitchensink.storage.xhtml` matching the spike reference shape | Happy Path | Critical | High | AC-F4-1, F-6 |
 | TC-UNSUPPORTED-001 | Footnote → `err(UnsupportedConstruct)` (AC-F5-1) | Negative | Critical | High | AC-F5-1, NFR-4 |
 | TC-UNSUPPORTED-002 | Raw-HTML **block** → `err(UnsupportedConstruct)` (AC-F5-1) | Negative | Critical | High | AC-F5-1, NFR-4 |
@@ -568,11 +574,11 @@ parser/renderer, no mocked XML parser. Concretely:
 **Related IDs**: F-4, AC-F4-2, NFR-2
 **Test Type(s)**: Unit (property over all fixtures)
 **Automation Level**: Automated
-**Target Layer / Location**: `tests/unit/infra/confluence/render/storage.test.ts` (parameterized over the 27 fixtures)
+**Target Layer / Location**: `tests/unit/infra/confluence/render/storage.test.ts` (parameterized over the 25 fixtures)
 **Tags**: @backend
 
 **Steps**:
-1. For each of the 27 rendered bodies (and the kitchensink), assert the output
+1. For each of the 25 rendered bodies (and the kitchensink), assert the output
    contains **zero** occurrences of the substrings `ac:schema-version` and
    `ac:macro-id`.
 
@@ -652,39 +658,76 @@ parser/renderer, no mocked XML parser. Concretely:
 
 ---
 
-#### TC-GOLDEN-001 - 27/27 canonical GFM fixtures byte-match their golden `.storage.xhtml` (AC-F4-1 / NFR-REL-4)
+#### TC-RENDER-006 - Defensive `<sub>`/`<sup>` HAST nodes → visitor emits `<sub>`/`<sup>` (PM-DEC-1; not a golden fixture)
+
+**Scenario Type**: Corner Case
+**Impact Level**: Minor
+**Priority**: Medium
+**Related IDs**: F-4, DM-2 (PM-DEC-1; OQ-TP-2 resolution)
+**Test Type(s)**: Unit
+**Automation Level**: Automated
+**Target Layer / Location**: `tests/unit/infra/confluence/render/storage.test.ts`
+**Tags**: @backend
+
+**Preconditions**:
+- A synthetic HAST tree containing `element` nodes with `tagName: "sub"` and
+  `tagName: "sup"` — hand-built, NOT produced by `remark-gfm` (GFM has no
+  subscript/superscript syntax). This proves the visitor's defensive mapping
+  without needing a Markdown fixture (PM-DEC-1).
+
+**Steps**:
+1. Construct the synthetic `<sub>`/`<sup>` HAST and call `renderStorage`.
+2. Assert `result.ok === true` and the body contains `<sub>…</sub>` and
+   `<sup>…</sup>` (the visitor emits them; it does **not** classify them as
+   `UnsupportedConstruct`).
+
+**Expected Outcome**:
+- The visitor handles `<sub>`/`<sup>` defensively — even though no
+  `remark-gfm`-reachable Markdown produces them — so a future adapter/plugin
+  that does emit them is not silently broken. This is the defensive half of
+  PM-DEC-1; the golden set (TC-GOLDEN-001) covers only the remark-gfm-reachable
+  25.
+
+---
+
+#### TC-GOLDEN-001 - 25/25 remark-gfm-reachable canonical GFM fixtures byte-match their golden `.storage.xhtml` (AC-F4-1 / NFR-REL-4)
 
 **Scenario Type**: Happy Path
 **Impact Level**: Critical
 **Priority**: High
 **Related IDs**: F-1, F-2, F-4, F-6, DM-6, AC-F4-1, NFR-1, NFR-REL-4
-**Test Type(s)**: Golden fixture
+**Test Type(s)**: Golden-fixture
 **Automation Level**: Automated
 **Target Layer / Location**: `tests/golden/storage-renderer.test.ts` (parameterized over `tests/golden/fixtures/`)
 **Tags**: @backend
 
 **Preconditions**:
-- 27 committed fixture pairs in `tests/golden/fixtures/`: one `<name>.md` +
-  one `<name>.storage.xhtml` per canonical GFM construct (see §6 fixture table).
+- 25 committed fixture pairs in `tests/golden/fixtures/`: one `<name>.md` +
+  one `<name>.storage.xhtml` per **remark-gfm-reachable** canonical GFM construct
+  (see §6 fixture table). `<sub>`/`<sup>` are excluded (PM-DEC-1 — unreachable
+  from `remark-gfm`); their defensive visitor mapping is proven separately by
+  TC-RENDER-006.
 
 **Steps**:
-1. For each of the 27 fixture pairs: read `<name>.md`, run
+1. For each of the 25 fixture pairs: read `<name>.md`, run
    `parseMarkdown → mdastToHast → renderStorage`.
 2. Assert `result.value.body === read("<name>.storage.xhtml")` **byte-exact**.
 3. Additionally assert `toMatchSnapshot` as a second regression layer.
 
 **Expected Outcome**:
-- 27/27 canonical GFM constructs survive parse→bridge→render with byte-stable
-  Storage output — the NFR-REL-4 fidelity bar (release-blocking). A single
+- 25/25 remark-gfm-reachable canonical GFM constructs survive parse→bridge→render
+  with byte-stable Storage output — the NFR-REL-4 fidelity bar (release-blocking),
+  re-baselined to the honest `remark-gfm`-reachable subset per PM-DEC-1. A single
   construct mismatch fails the build.
 
 **Notes / Clarifications**:
-- The 27 fixture names and the construct each covers are enumerated in §6
-  (Test Data and Fixtures). The exact decomposition into 27 is the coder's
-  discretion provided (a) exactly 27 pairs exist, (b) every spike-H6 construct
-  row is covered, and (c) the consolidated kitchensink (TC-GOLDEN-002) exercises
-  all of them together. Updates are explicit (`bun test --update-snapshots`),
-  never automatic in CI (testing-strategy §"Snapshot rules").
+- The 25 fixture names and the construct each covers are enumerated in §6
+  (Test Data and Fixtures). The exact decomposition into 25 is the coder's
+  discretion provided (a) exactly 25 pairs exist, (b) every remark-gfm-reachable
+  spike-H6 construct row is covered, and (c) the consolidated kitchensink
+  (TC-GOLDEN-002) exercises all of them together. Updates are explicit
+  (`bun test --update-snapshots`), never automatic in CI (testing-strategy
+  §"Snapshot rules").
 
 ---
 
@@ -700,9 +743,10 @@ parser/renderer, no mocked XML parser. Concretely:
 **Tags**: @backend
 
 **Preconditions**:
-- A committed `tests/golden/fixtures/kitchensink.md` exercising all 27 constructs
-  in one document; a committed `kitchensink.storage.xhtml` (the rendered output,
-  reviewed against `doc/inception/tmp/confluence-api-validation-spike/examples/pages/storage-kitchensink.xml`).
+- A committed `tests/golden/fixtures/kitchensink.md` exercising all 25
+  remark-gfm-reachable constructs in one document; a committed
+  `kitchensink.storage.xhtml` (the rendered output, reviewed against
+  `doc/inception/tmp/confluence-api-validation-spike/examples/pages/storage-kitchensink.xml`).
 
 **Steps**:
 1. Render `kitchensink.md` through the full pipeline.
@@ -1046,16 +1090,19 @@ parser/renderer, no mocked XML parser. Concretely:
 **Related IDs**: F-4, AC-F4-3, NFR-3, RSK-7
 **Test Type(s)**: Integration
 **Automation Level**: Automated
-**Target Layer / Location**: `tests/golden/storage-renderer.test.ts` (parameterized over the 27 + kitchensink)
+**Target Layer / Location**: `tests/golden/storage-renderer.test.ts` (parameterized over the 25 + kitchensink)
 **Tags**: @backend
 
 **Preconditions**:
-- An XML well-formedness check is available (see OQ-TP-1 for the mechanism
-  decision; the guardrail requires a **real** check, not a mock of the converter).
+- The PD-4 well-formedness checker (`tests/_helpers/assert-well-formed-xml.ts`)
+  is available, and its dedicated negative-test suite
+  (`tests/unit/_helpers/assert-well-formed-xml.test.ts`) has already proven it
+  rejects every known malformed shape **before** it validates any converter
+  output (independence from the converter's emission path — OQ-TP-1 resolved).
 
 **Steps**:
-1. For each of the 27 rendered bodies and the kitchensink, parse the body with
-   the XML check.
+1. For each of the 25 rendered bodies and the kitchensink, parse the body with
+   the PD-4 well-formedness checker.
 2. Assert **all** parse without error (0 unbalanced tags).
 
 **Expected Outcome**:
@@ -1122,7 +1169,7 @@ parser/renderer, no mocked XML parser. Concretely:
 **Tags**: @backend
 
 **Preconditions**:
-- The kitchensink Markdown fixture (all 27 constructs).
+- The kitchensink Markdown fixture (all 25 remark-gfm-reachable constructs).
 
 **Steps**:
 1. `parseMarkdown → mdastToHast → canonicalize → contentHash → renderStorage`.
@@ -1205,17 +1252,23 @@ parser/renderer, no mocked XML parser. Concretely:
 
 ## 6. Environments and Test Data
 
-### 6.1 The 27 canonical GFM golden fixtures
+### 6.1 The 25 canonical GFM golden fixtures (remark-gfm-reachable)
 
-`tests/golden/fixtures/` holds **27** committed `<name>.md` +
-`<name>.storage.xhtml` pairs — one per canonical GFM construct derived from the
-spike H6 table (`atlassian-api-spike-findings.md` lines 17-41) and the
-`storage-kitchensink.xml` reference. The spike proved 27 constructs survive the
-Storage round-trip; this fixture set is the Markdown→Storage half of that proof.
+`tests/golden/fixtures/` holds **25** committed `<name>.md` +
+`<name>.storage.xhtml` pairs — one per canonical GFM construct **reachable from
+plain `remark-gfm` Markdown**. Per **PM-DEC-1**, `<sub>`/`<sup>` are **excluded**
+from this set: GFM defines no subscript/superscript syntax (`~sub~`/`^sup^` is
+non-GFM), and the spike H6 table's sub/sup rows were proven against
+**hand-authored Storage XML** (the spike posted Storage and read it back), not
+against Markdown → the spike proved a *Storage* round-trip, not that Markdown
+produces those nodes. The visitor still handles `<sub>`/`<sup>` HAST nodes
+**defensively** — covered by **TC-RENDER-006** (a synthetic-HAST unit test), not a
+golden fixture. The fidelity bar (NFR-REL-4 / AC-F4-1) is re-baselined to the
+honest remark-gfm-reachable count: **25/25**.
 
-The exact decomposition into 27 is the coder's discretion provided (a) exactly
-27 pairs exist, (b) every spike-H6 row is covered, and (c) the kitchensink
-(TC-GOLDEN-002) composes them. The reference decomposition:
+The exact decomposition into 25 is the coder's discretion provided (a) exactly
+25 pairs exist, (b) every remark-gfm-reachable spike-H6 row is covered, and (c)
+the kitchensink (TC-GOLDEN-002) composes them. The reference decomposition:
 
 | # | Fixture base name | Markdown construct | Storage target (spike H6) |
 |---|-------------------|--------------------|---------------------------|
@@ -1230,28 +1283,32 @@ The exact decomposition into 27 is the coder's discretion provided (a) exactly
 | 9 | `inline-strong-em` | `**bold *and italic***` | `<strong>…<em>…</em>…</strong>` (nested) |
 | 10 | `inline-strikethrough` | `~~strike~~` | `<s>` (or `<del>` — coder picks ONE deterministically; snapshot pins it) |
 | 11 | `inline-code` | `` `code` `` | `<code>` |
-| 12 | `inline-subscript` | `~sub~` | `<sub>` (see OQ-TP-2 — parser support) |
-| 13 | `inline-superscript` | `^sup^` | `<sup>` (see OQ-TP-2 — parser support) |
-| 14 | `link-plain` | `[t](url)` | `<a href="url">t</a>` |
-| 15 | `link-query-ampersand` | `[t](url?q=1&r=2)` | `<a href="url?q=1&amp;r=2">t</a>` (entity preserved) |
-| 16 | `link-autolink-literal` | bare URL `https://example.com` | `<a href="…">…</a>` (remark-gfm autolink-literal) |
-| 17 | `image-remote` | `![alt](https://…/x.png)` | `<ac:image ac:alt="alt"><ri:url ri:value="…"/></ac:image>` |
-| 18 | `image-attachment` | `![alt](./diagram.png)` | `<ac:image><ri:attachment ri:filename="diagram.png"/></ac:image>` |
-| 19 | `list-unordered` | `- a\n- b` | `<ul><li>…` |
-| 20 | `list-ordered-nested` | `1. one\n   1. nested` | `<ol>` with nested `<ul>`/`<ol>` |
-| 21 | `task-list-incomplete` | `- [ ] todo` | `<ac:task-list>…<ac:task-status>incomplete</ac:task-status>…` |
-| 22 | `task-list-complete` | `- [x] done` | `<ac:task-list>…<ac:task-status>complete</ac:task-status>…` |
-| 23 | `blockquote` | `> quote` | `<blockquote><p>…</p></blockquote>` |
-| 24 | `fenced-code-python` | ` ```python\\ndef f():\\n  pass\\n``` ` | `<ac:structured-macro ac:name="code">` + `<ac:parameter language>` + `<![CDATA[…]]>` |
-| 25 | `horizontal-rule` | `---` | `<hr/>` |
-| 26 | `gfm-table` | pipe table | `<table><thead>…<tbody>…` |
-| 27 | `paragraph` | plain text block | `<p>…</p>` |
+| 12 | `link-plain` | `[t](url)` | `<a href="url">t</a>` |
+| 13 | `link-query-ampersand` | `[t](url?q=1&r=2)` | `<a href="url?q=1&amp;r=2">t</a>` (entity preserved) |
+| 14 | `link-autolink-literal` | bare URL `https://example.com` | `<a href="…">…</a>` (remark-gfm autolink-literal) |
+| 15 | `image-remote` | `![alt](https://…/x.png)` | `<ac:image ac:alt="alt"><ri:url ri:value="…"/></ac:image>` |
+| 16 | `image-attachment` | `![alt](./diagram.png)` | `<ac:image><ri:attachment ri:filename="diagram.png"/></ac:image>` |
+| 17 | `list-unordered` | `- a\n- b` | `<ul><li>…` |
+| 18 | `list-ordered-nested` | `1. one\n   1. nested` | `<ol>` with nested `<ul>`/`<ol>` |
+| 19 | `task-list-incomplete` | `- [ ] todo` | `<ac:task-list>…<ac:task-status>incomplete</ac:task-status>…` |
+| 20 | `task-list-complete` | `- [x] done` | `<ac:task-list>…<ac:task-status>complete</ac:task-status>…` |
+| 21 | `blockquote` | `> quote` | `<blockquote><p>…</p></blockquote>` |
+| 22 | `fenced-code-python` | ` ```python\\ndef f():\\n  pass\\n``` ` | `<ac:structured-macro ac:name="code">` + `<ac:parameter language>` + `<![CDATA[…]]>` |
+| 23 | `horizontal-rule` | `---` | `<hr/>` |
+| 24 | `gfm-table` | pipe table | `<table><thead>…<tbody>…` |
+| 25 | `paragraph` | plain text block | `<p>…</p>` |
+
+> **Excluded from the golden set (PM-DEC-1):** `<sub>`/`<sup>`. GFM has no
+> subscript/superscript syntax; `remark-gfm` never emits these HAST nodes. The
+> visitor maps them defensively (emits `<sub>`/`<sup>`, does **not** classify as
+> `UnsupportedConstruct`), proven by **TC-RENDER-006**. The 2 spike-H6 sub/sup
+> rows remain valid as *Storage* shapes but are not Markdown-reachable.
 
 Plus the consolidated pair:
 
 | Fixture | Purpose |
 |---------|---------|
-| `kitchensink.md` + `kitchensink.storage.xhtml` | All 27 constructs in one document; reviewed against the spike `storage-kitchensink.xml` (TC-GOLDEN-002). |
+| `kitchensink.md` + `kitchensink.storage.xhtml` | All 25 remark-gfm-reachable constructs in one document; reviewed against the spike `storage-kitchensink.xml` (TC-GOLDEN-002). |
 
 ### 6.2 Injection / malicious-input corpus
 
@@ -1282,8 +1339,8 @@ The `tests/integration/markdown/injection-safety.test.ts` corpus (NFR-SEC-5):
 | TC-PARSE-001..002 | `tests/unit/domain/markdown/parse.test.ts` | To Implement | Real `remark`/`remark-gfm`; `#domain/markdown/parse` alias |
 | TC-BRIDGE-001..002 | `tests/unit/domain/markdown/mdast-to-hast.test.ts` | To Implement | Real `remark-rehype` |
 | TC-HASH-001..005 | `tests/unit/domain/render/canonicalize.test.ts` | To Implement | Native `crypto` (`sha256`); no crypto lib |
-| TC-RENDER-001..005 | `tests/unit/infra/confluence/render/storage.test.ts` | To Implement | Real renderer over real HAST; inline snapshots for short bodies |
-| TC-GOLDEN-001, TC-XML-001..002 | `tests/golden/storage-renderer.test.ts` | To Implement | Parameterized over `tests/golden/fixtures/`; reads committed `.md` + `.storage.xhtml`; byte-exact + `toMatchSnapshot` + XML check |
+| TC-RENDER-001..006 | `tests/unit/infra/confluence/render/storage.test.ts` | To Implement | Real renderer over real HAST; inline snapshots for short bodies; TC-RENDER-006 uses synthetic `<sub>`/`<sup>` HAST (defensive, PM-DEC-1) |
+| TC-GOLDEN-001, TC-XML-001..002 | `tests/golden/storage-renderer.test.ts` | To Implement | Parameterized over `tests/golden/fixtures/` (25 pairs); reads committed `.md` + `.storage.xhtml`; byte-exact + `toMatchSnapshot` + PD-4 well-formedness check |
 | TC-GOLDEN-002 | `tests/golden/storage-renderer.test.ts` (kitchensink block) | To Implement | Reviewed against spike `storage-kitchensink.xml` |
 | TC-UNSUPPORTED-001..007 | `tests/unit/domain/markdown/unsupported.test.ts` | To Implement | Emits the **pre-existing** `UnsupportedConstruct` arm |
 | TC-INJECT-001..006 | `tests/integration/markdown/injection-safety.test.ts` | To Implement | Real malicious payloads through the real pipeline |
@@ -1298,8 +1355,8 @@ fast-loop set per testing-strategy §"CI wiring"). Snapshot updates via
 
 **Mocking requirements:** none beyond fault-class construction for the
 classifier unit tests (hand-built unsupported-node MDAST); every test exercises
-the real parser/bridge/renderer/hash. The XML well-formedness check is a real
-check (OQ-TP-1), not a mock.
+the real parser/bridge/renderer/hash. The XML well-formedness check is the real
+PD-4 hand-written checker (OQ-TP-1 resolved), not a mock.
 
 ## 8. Risks, Assumptions, and Open Questions
 
@@ -1307,16 +1364,18 @@ check (OQ-TP-1), not a mock.
 
 | Risk | Mitigation |
 |------|------------|
-| The converter is tested by the same agent that wrote it → a hand-written XML check could share the converter's blind spot (over-mocking guardrail). | The well-formedness check MUST be independent of the converter's emission path; prefer a real parser (OQ-TP-1). The golden byte-match is an independent oracle (the committed `.storage.xhtml`). |
+| The converter is tested by the same agent that wrote it → a hand-written XML check could share the converter's blind spot (over-mocking guardrail). | **Mitigated per plan PD-4:** the checker (`tests/_helpers/assert-well-formed-xml.ts`) is gated by a dedicated negative-test suite that proves it rejects every known malformed shape **before** validating converter output. The **golden byte-match (AC-F4-1)** is the primary well-formedness witness (the committed `.storage.xhtml` oracle); the checker is defense-in-depth. MINOR recommendation: if Bun exposes a native XML parser, prefer it as a stronger independent oracle; `linkedom` (zero-dep) is a fallback (scope-check vs NFR-11). |
 | `remark`/`rehype` major-version drift changes MDAST/HAST shape → golden churn across releases. | Pin major versions; exact lock committed; re-baseline snapshots as an explicit reviewed action (testing-strategy §"Snapshot rules"; RSK-4). |
-| Sub/sup (`<sub>`/`<sup>`) may not be reachable from canonical `remark-gfm` Markdown (see OQ-TP-2). | Flagged as OQ-TP-2; the coder resolves before/ during implementation (plugin, alternate source, or deferral). The 27-count assumes resolution in scope per spec F-4. |
+| ~~Sub/sup (`<sub>`/`<sup>`) may not be reachable from `remark-gfm` Markdown (OQ-TP-2).~~ **RESOLVED (PM-DEC-1).** | Sub/sup are **not** reachable from `remark-gfm` (GFM has no subscript/superscript syntax); they are excluded from the golden fixture set (count re-baselined 27 → 25). The visitor handles them defensively (emits `<sub>`/`<sup>`), proven by TC-RENDER-006 (synthetic HAST). The fidelity bar reflects the honest remark-gfm-reachable subset. |
 | The kitchensink parity (TC-GOLDEN-002) compares against a spike-authored reference that Confluence normalises (self-closing whitespace, auto-filled macro attrs). | The MarkSync `kitchensink.storage.xhtml` snapshot is the rendered output reviewed against the spike reference **modulo** the omitted `ac:schema-version`/`ac:macro-id` (this story omits them — spike rule #1). |
 | A genuinely malformed Markdown input is hard to construct (remark is permissive). | The parser's negative path is light by design (most input parses); the load-bearing negatives are the classifier (TC-UNSUPPORTED-*) and injection (TC-INJECT-*), not parse failure. |
 
 ### 8.2 Assumptions
 
 - ADR-0005 (Storage, not ADF) is settled and being implemented; spike H6 is
-  authoritative for the 27-construct mapping + the 3 converter rules.
+  authoritative for the construct→Storage mapping + the 3 converter rules (the
+  remark-gfm-reachable decomposition is this story's §6.1 set of 25; `<sub>`/`<sup>`
+  are defensive-only per PM-DEC-1).
 - `Result<T,E>` and the pre-existing `UnsupportedConstruct` arm are stable and
   reused unchanged (DEC-2 — no new error kind).
 - `remark`, `remark-gfm`, `rehype`, `remark-rehype` install cleanly under Bun;
@@ -1331,8 +1390,8 @@ check (OQ-TP-1), not a mock.
 
 | ID | Question | Blocking? | Owner | Notes |
 |----|----------|-----------|-------|-------|
-| OQ-TP-1 | Which mechanism asserts XML well-formedness (AC-F4-3)? Bun has no built-in XML parser; `xmldom`/`jsdom` are out of scope (NG-8 / E4-S1). | Yes (blocks TC-XML-001 sign-off) | `@plan-writer` / `@coder` | The TEST PLAN commits to the **assertion** ("every rendered body parses as well-formed XML; 0 unbalanced tags; entities escaped outside CDATA") and to the guardrail (a **real** check, not a mock of the converter). Concrete options for the coder: (a) a small, separately-tested well-formedness helper (tag-balance + entity/CDATA-boundary + `ac:`/`ri:` namespace-aware element matching) validated against known-good and known-bad XML; (b) a zero-dependency pure-JS DOMParser such as `linkedom` (neither `xmldom` nor `jsdom` — scope-check against NFR-11; justify the dep if chosen). The over-mocking guardrail mandates the check be independent of the converter's emission logic. |
-| OQ-TP-2 | How are `<sub>`/`<sup>` produced from Markdown? Spike H6 maps `~sub~`/`^sup^` → `<sub>`/`<sup>`, but `remark-gfm` does not parse subscript/superscript syntax. | Yes (blocks fixtures #12/#13) | `@coder` | Options: (a) add a `remark-sub-super`-style plugin (scope-check against NFR-11's "remark/remark-gfm/rehype/remark-rehype installed" — a 5th dep needs justification); (b) author the sub/sup fixtures from a construct the chosen parser actually emits; (c) defer sub/sup and re-baseline the 27-count. Spec F-4 lists `<sub>`/`<sup>` in the mapping, so (a)/(b) are preferred; resolve before implementation. |
+| OQ-TP-1 | ~~Which mechanism asserts XML well-formedness (AC-F4-3)?~~ **RESOLVED — aligned with plan PD-4.** | ~~Yes~~ **No (resolved)** | `@coder` (executes PD-4) | **Mechanism DECIDED (plan PD-4, option a):** a small hand-written test-tier checker (`tests/_helpers/assert-well-formed-xml.ts`, ~80 lines — tag-stack + `ac:`/`ri:` namespaced + self-closing tags + `<![CDATA[…]]>`-interior skip + raw `<`/`&` rejection outside CDATA), gated by a dedicated **negative-test suite** (`tests/unit/_helpers/assert-well-formed-xml.test.ts`) that proves the checker rejects every known malformed shape **before** it validates any converter output. It is real, assertion-only test code (excluded from the shipped binary), satisfying the over-mocking guardrail (independent of the converter's emission logic). The **golden byte-match (AC-F4-1)** remains the primary well-formedness witness — the checker is defense-in-depth. MINOR recommendation: if Bun 1.2.x exposes a native XML parser, prefer it as a stronger independent oracle; `linkedom` (zero-dep) is a fallback — scope-check against NFR-11 if added. Not blocking. |
+| OQ-TP-2 | ~~How are `<sub>`/`<sup>` produced from Markdown?~~ **RESOLVED (PM-DEC-1).** | ~~Yes~~ **No (resolved)** | PM (PM-DEC-1) | **Resolution:** GFM defines no subscript/superscript syntax; `remark-gfm` cannot emit `<sub>`/`<sup>` (the spike H6 `~sub~`/`^sup^` rows were proven against **hand-authored Storage XML**, not Markdown). Decision: `<sub>`/`<sup>` are **excluded from the golden Markdown fixture set** (count re-baselined 27 → **25**); the visitor still handles `<sub>`/`<sup>` HAST nodes defensively (emits them, does not classify as `UnsupportedConstruct`), proven by **TC-RENDER-006** (synthetic-HAST unit test). The fidelity bar (NFR-REL-4 / AC-F4-1) is re-baselined to the remark-gfm-reachable 25/25. Option (a) (a 5th/6th remark plugin) is rejected to keep the 4-dep scope (NFR-11). |
 | OQ-TP-3 | Does the strikethrough fixture pin `<s>` or `<del>`? Spike H6 says "both work"; the converter must pick ONE deterministically. | No | `@coder` | The golden snapshot pins whichever the converter emits; the choice is documented at the load-bearing point in the visitor. Not blocking — determinism is the requirement, not a specific tag. |
 
 ## 9. Plan Revision Log
@@ -1340,6 +1399,7 @@ check (OQ-TP-1), not a mock.
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-09 | test-plan-writer (ADOS) | Initial test plan — Unit + Golden-fixture + Integration tiers; 27 fixtures; AC-F4-1..AC-Q-1 mapped; OQ-TP-1 (XML mechanism) + OQ-TP-2 (sub/sup parser) flagged. |
+| 1.1 | 2026-07-09 | test-plan-writer (ADOS) | DoR iter-1 fixes. **PM-DEC-1 (sub/sup):** removed `<sub>`/`<sup>` from the golden Markdown fixture set (unreachable from `remark-gfm`); re-baselined the fidelity count 27 → **25**; added **TC-RENDER-006** (defensive synthetic-HAST unit test proving the visitor still emits `<sub>`/`<sup>`); closed OQ-TP-2. **Finding 3 (OQ-TP-1):** aligned with plan PD-4 — the XML-well-formedness mechanism is DECIDED (hand-written test-tier checker + dedicated negative-test suite); removed BLOCKING status; golden byte-match (AC-F4-1) remains the primary witness; `linkedom`/Bun-native parser noted as a MINOR recommendation. AC coverage (AC-F4-1..AC-Q-1), the injection corpus (NFR-SEC-5), and the over-mocking guardrail all preserved. |
 
 ## 10. Test Execution Log
 
