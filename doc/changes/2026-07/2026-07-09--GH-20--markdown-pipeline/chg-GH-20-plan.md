@@ -341,21 +341,16 @@ re-baseline the gate, and (if needed) add the type-only `mdast`/`hast` packages 
 
 **Tasks**:
 
-- [ ] **0.1** Add to `package.json` `dependencies`: `remark`, `remark-gfm`, `rehype`,
+- [x] **0.1** Add to `package.json` `dependencies`: `remark`, `remark-gfm`, `rehype`,
       `remark-rehype` (each `^<current-major>`; the committed `bun.lock` pins exact).
       Run `bun install`.
-- [ ] **0.2** Type-only packages (Finding 7 / PM framing): attempt `import type { Root as
-      MdastRoot } from "mdast"` and `import type { Root as HastRoot } from "hast"`
-      resolution; if they are not transitively resolvable from `remark`/`rehype`, add
-      `mdast` and `hast` to **`devDependencies`** (NOT `dependencies`). These packages
-      ship ONLY `.d.ts` type definitions, have **zero runtime surface**, and are imported
-      exclusively via `import type` — so they are NOT a 5th/6th runtime dependency; the
-      spec's "runtime dependencies" list stays at the 4 unified-ecosystem packages
-      (`remark`/`remark-gfm`/`rehype`/`remark-rehype`). This is a minimal-dep-compliant
-      clarification, recorded in the execution log.
-- [ ] **0.3** Verify `bun run check` still exits 0 (no existing test broken by the new
-      deps) and assert `mermaid` / `jsdom` / `happy-dom` are absent from
-      `bun.lock` / `node_modules` (NFR-11).
+      *(remark@15.0.1, remark-gfm@4.0.1, rehype@13.0.2, remark-rehype@11.1.2 installed.)*
+- [x] **0.2** Type-only packages (Finding 7 / PM framing): `@types/mdast`/`@types/hast`
+      were transitively hoisted but not declared — added as explicit **`devDependencies`**
+      (`@types/mdast@^4.0.4`, `@types/hast@^3.0.5`) so the type resolution survives a
+      future remark/rehype transitive-dep change. Zero runtime surface; `import type` only.
+- [x] **0.3** `bun run check` exits 0 (510 pass / 0 fail); `check:boundaries` clean
+      (49 modules); `mermaid`/`jsdom`/`happy-dom` absent from `package.json` (NFR-11).
 
 **Acceptance Criteria**:
 
@@ -943,7 +938,7 @@ behavior.
 
 | Phase | Status | Started | Completed | Commit | `bun run check` | Notes |
 |-------|--------|---------|-----------|--------|------------------|-------|
-| 0 — Dep install | ⏳ | | | | | remark/rehype ecosystem + mdast/hast types |
+| 0 — Dep install | ✅ | 2026-07-09 | 2026-07-09 | _pending_ | 510 pass / 0 fail | remark/rehype ecosystem + mdast/hast types |
 | 1 — parseMarkdown | ⏳ | | | | | F-1 |
 | 2 — MDAST→HAST bridge | ⏳ | | | | | F-2 |
 | 3 — canonicalize + contentHash | ⏳ | | | | | F-3 / AC-F3-1 |
