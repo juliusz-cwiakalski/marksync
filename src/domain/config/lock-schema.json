@@ -1,0 +1,117 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$id": "https://marksync.dev/schemas/marksync.lock.v1.json",
+	"title": "marksync.lock.yml v1",
+	"description": "The committed shared base: per-target DocumentId -> PageBinding (ADR-0006 C-2 / GH-19 F-2). Validated by ajv at load time; the TS mirror is lock-types.ts. The uuid is the documents key (not a duplicated field).",
+	"type": "object",
+	"additionalProperties": false,
+	"required": ["version", "targets"],
+	"properties": {
+		"version": {
+			"type": "integer",
+			"description": "Lock schema version. v1 is the initial MS-0002 contract.",
+			"const": 1
+		},
+		"targets": {
+			"type": "object",
+			"description": "Per-target bindings. Each target id maps to a documents map keyed by DocumentId (UUID v7).",
+			"additionalProperties": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": ["documents"],
+				"properties": {
+					"documents": {
+						"type": "object",
+						"description": "DocumentId (UUID v7) -> PageBinding. The uuid lives in the key, not the entry.",
+						"additionalProperties": {
+							"$ref": "#/$defs/pageBinding"
+						}
+					}
+				}
+			}
+		}
+	},
+	"$defs": {
+		"pageBinding": {
+			"type": "object",
+			"description": "Mirrors the GH-18 PageBinding field set minus uuid (uuid is the documents key).",
+			"additionalProperties": false,
+			"required": [
+				"sourcePath",
+				"pageId",
+				"parentPageId",
+				"pageVersion",
+				"sourceCommit",
+				"sourceContentHash",
+				"renderedBodyHash",
+				"remoteBodyHash",
+				"attachmentHashes",
+				"operationId",
+				"synchronizedAt",
+				"toolVersion"
+			],
+			"properties": {
+				"sourcePath": {
+					"type": "string",
+					"minLength": 1,
+					"description": "Repo-relative source file path."
+				},
+				"pageId": {
+					"type": "string",
+					"minLength": 1,
+					"description": "Confluence page id (remote identity — mutable, recorded in the lock)."
+				},
+				"parentPageId": {
+					"type": "string",
+					"minLength": 1,
+					"description": "Confluence parent page id at last sync."
+				},
+				"pageVersion": {
+					"type": "number",
+					"description": "Confluence page version number at last sync.",
+					"minimum": 0
+				},
+				"sourceCommit": {
+					"type": "string",
+					"minLength": 1,
+					"description": "Git commit sha the page was last synced from."
+				},
+				"sourceContentHash": {
+					"type": "string",
+					"minLength": 1,
+					"description": "SHA-256 over the canonical source bytes."
+				},
+				"renderedBodyHash": {
+					"type": "string",
+					"minLength": 1,
+					"description": "SHA-256 over the rendered page body."
+				},
+				"remoteBodyHash": {
+					"type": "string",
+					"minLength": 1,
+					"description": "SHA-256 over the remote page body as last observed."
+				},
+				"attachmentHashes": {
+					"type": "object",
+					"description": "Asset path -> SHA-256 (may be empty).",
+					"additionalProperties": { "type": "string" }
+				},
+				"operationId": {
+					"type": "string",
+					"minLength": 1,
+					"description": "The apply operation id that last touched this binding."
+				},
+				"synchronizedAt": {
+					"type": "string",
+					"minLength": 1,
+					"description": "ISO-8601 timestamp of last sync."
+				},
+				"toolVersion": {
+					"type": "string",
+					"minLength": 1,
+					"description": "MarkSync tool version that wrote this binding."
+				}
+			}
+		}
+	}
+}

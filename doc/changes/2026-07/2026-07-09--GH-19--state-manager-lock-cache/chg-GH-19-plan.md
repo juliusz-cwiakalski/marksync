@@ -250,7 +250,7 @@ config-loader pattern: schema is the source of truth, ajv validates, `loadLock` 
 
 **Tasks**:
 
-- [ ] **1.1** Create `src/domain/config/lock-schema.json` (JSON Schema draft-07, same
+- [x] **1.1** Create `src/domain/config/lock-schema.json` (JSON Schema draft-07, same
       draft as `schema.json`):
       - `type: object`, `required: ["version", "targets"]`, `additionalProperties: false`.
       - `version`: const `1`.
@@ -259,12 +259,12 @@ config-loader pattern: schema is the source of truth, ajv validates, `loadLock` 
         `sourcePath, pageId, parentPageId, pageVersion, sourceCommit, sourceContentHash,
         renderedBodyHash, remoteBodyHash, attachmentHashes, operationId, synchronizedAt,
         toolVersion`). `pageVersion` is `type: number`; `attachmentHashes` is
-        `object`; the rest are `type: string`.
-- [ ] **1.2** Create the `LockFile` + lock types in `src/domain/config/lock-types.ts`
+        `object`; the rest are `type: string`. *(done — uuid is the documents key, not a duplicated field; entry = PageBinding minus uuid via `$defs/pageBinding`)*
+- [x] **1.2** Create the `LockFile` + lock types in `src/domain/config/lock-types.ts`
       (new) — `LockFile`, `LockTarget`, aligned with the schema and the existing
       `PageBinding` (reuse `#domain/binding/page-binding`). Export `LockError` re-export
-      from `#domain/errors` (or import the type). Keep types dependency-free (domain).
-- [ ] **1.3** Create `src/app/lock.ts` (new) with `loadLock`:
+      from `#domain/errors` (or import the type). Keep types dependency-free (domain). *(done — LockFile/LockTarget; re-exports LockError)*
+- [x] **1.3** Create `src/app/lock.ts` (new) with `loadLock`:
       - Import `ajv`, `yaml`, `node:fs`, `#domain/config/lock-types`, `#domain/errors`,
         `#domain/result`, the schema via a relative path (JSON cannot go through the
         `#domain/*` alias — same justified deviation as `config.ts`).
@@ -278,15 +278,15 @@ config-loader pattern: schema is the source of truth, ajv validates, `loadLock` 
       - Reuse/extend the `mapAjvErrors` + `formatConfigErrors` helpers from
         `#app/config-errors` (or add `#app/lock-errors` mirroring them). Keep
         `humanMessage` AI-readable (field path + expected vs actual + suggested fix).
-      - ≤ 3-line header citing ADR-0006 C-2 once.
-- [ ] **1.4** Create `tests/app/lock.test.ts` (new) — **Unit**; real fixtures (no mocks):
+      - ≤ 3-line header citing ADR-0006 C-2 once. *(done — generalized config-errors to `formatAjvErrors(errors, label)` + thin `formatConfigErrors` wrapper (DRY, config tests unaffected); loadLock injects uuid from key; missing→ok(empty), invalid→err(CorruptLock))*
+- [x] **1.4** Create `tests/app/lock.test.ts` (new) — **Unit**; real fixtures (no mocks):
       - **TC-LOCK-001:** valid lock → `ok(LockFile)` with expected structure.
       - **TC-LOCK-002:** missing file → `ok({ version:1, targets:{} })` (PD-5).
       - **TC-LOCK-003:** `version: 2` → `err(CorruptLock)` with field-path `humanMessage`.
       - **TC-LOCK-004:** missing required field → `err(CorruptLock)` with JSON pointer.
       - **TC-LOCK-005:** unparseable YAML → `err(CorruptLock)`.
       - **TC-CORRUPT-001 (producer):** the `CorruptLock` from TC-LOCK-003 flows through the
-        mapper → `CORRUPT_LOCK` code/exit (first producer of the Phase-0 arm).
+        mapper → `CORRUPT_LOCK` code/exit (first producer of the Phase-0 arm). *(done — all 5 + producer PASS)*
 
 **Acceptance Criteria**:
 

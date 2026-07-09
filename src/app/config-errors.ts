@@ -102,17 +102,30 @@ function formatOneError(e: ErrorObject): string {
 }
 
 /**
- * Build the AI-readable `humanMessage` for a `ConfigError`. Aggregates every
- * violation (ajv runs with `allErrors: true`), each line carrying field path +
- * expected vs actual + a suggested fix (NFR-2). The message is self-contained —
- * an agent can act on it without extra context.
+ * Build the AI-readable `humanMessage` for a schema-validation failure against
+ * `fileLabel` (the on-disk artifact name, e.g. `marksync.yml` /
+ * `marksync.lock.yml`). Aggregates every violation (ajv runs with
+ * `allErrors: true`), each line carrying field path + expected vs actual + a
+ * suggested fix (NFR-2). The message is self-contained — an agent can act on it
+ * without extra context. Shared by the config and lock loaders.
  */
-export function formatConfigErrors(errors: readonly ErrorObject[]): string {
-	if (errors.length === 0) return "invalid marksync.yml.";
+export function formatAjvErrors(
+	errors: readonly ErrorObject[],
+	fileLabel: string,
+): string {
+	if (errors.length === 0) return `invalid ${fileLabel}.`;
 	const noun = errors.length === 1 ? "error" : "errors";
 	const lines = errors.map((e) => `  - ${formatOneError(e)}`);
 	return [
-		`${errors.length} validation ${noun} in marksync.yml:`,
+		`${errors.length} validation ${noun} in ${fileLabel}:`,
 		...lines,
 	].join("\n");
+}
+
+/**
+ * Build the AI-readable `humanMessage` for a `ConfigError` (GH-15). Thin wrapper
+ * over {@link formatAjvErrors} pinned to the config file label.
+ */
+export function formatConfigErrors(errors: readonly ErrorObject[]): string {
+	return formatAjvErrors(errors, "marksync.yml");
 }
