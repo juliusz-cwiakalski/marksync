@@ -376,7 +376,7 @@ dependency-only commit so Phase 1 has a compile target.
 
 **Tasks**:
 
-- [ ] **0.1** Run `bun add uuid` (resolves `^9.0.0`+, which provides `v7()`
+- [x] **0.1** Run `bun add uuid` (resolves `^9.0.0`+, which provides `v7()`
       per RFC 9562). Confirm `package.json` `dependencies` gains `"uuid"` and the
       lockfile updates. **Do NOT add `@types/uuid`** — `uuid` v9+ ships its own
       bundled types (`./dist/index.d.ts`, verified — PD-5). **NFR-13 note
@@ -384,11 +384,16 @@ dependency-only commit so Phase 1 has a compile target.
       ≤20-transitive-dependency budget (NFR-13) is satisfied trivially; no
       separate verification step is needed. The license/transitive-dependency
       audit runs via the repo quality gate (`bun run check` / CI).
-- [ ] **0.2** Boundary/typecheck sanity: confirm `bun run typecheck` exits 0 (the
+      — DONE: resolved `uuid@14.0.1` (`^14.0.1`, v9+ family — provides `v7()`);
+      `package.json` deps + `bun.lock` updated; no `@types/uuid` added; types at
+      `./dist/index.d.ts`.
+- [x] **0.2** Boundary/typecheck sanity: confirm `bun run typecheck` exits 0 (the
       new dep introduces no type error under `verbatimModuleSyntax` /
       `isolatedModules`); `bun run check:boundaries` exits 0 (no tier violation);
       `rg '"uuid"' src/` → empty (nothing imports it yet — the import lands in
       Phase 1). Record the resolved `uuid` version in the execution log.
+      — DONE: `bun run typecheck` exit 0; `bun run check:boundaries` exit 0
+      (34 modules, 40 deps cruised, no violations); `rg '"uuid"' src/` empty.
 
 **Acceptance Criteria**:
 
@@ -1024,7 +1029,7 @@ only trivial inline touch-ups.
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| 0 | pending | — | — | — | install `uuid` v9+ dependency (zero-dep → NFR-13 trivial) + typecheck/boundary sanity |
+| 0 | ✅ DONE | 2026-07-09 | 2026-07-09 | _pending_ | `bun add uuid` → resolved `uuid@14.0.1` (v9+, bundled types, no `@types/uuid`); `typecheck` exit 0; `check:boundaries` exit 0 (34 modules, 40 deps); `rg '"uuid"' src/` empty. NFR-13 trivially satisfied (zero transitive deps). |
 | 1 | pending | — | — | — | uuid.ts (generation + assert) + document-id.ts (branded VO + parse) + unit tests |
 | 2 | pending | — | — | — | frontmatter.ts (byte-stable read/inject, idempotent) + unit tests (byte-stability inline TC-FM-007; NO integration/golden file) |
 | 3 | pending | — | — | — | duplicate-detector.ts (INV-SAFE-3 fatal, first-collision-only) + unit tests (TC-DUP-001 fatal, TC-DUP-007 halt-signal, TC-SCALE-001 scale smoke) |
