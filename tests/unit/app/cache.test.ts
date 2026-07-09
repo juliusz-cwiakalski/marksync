@@ -5,7 +5,8 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { resolveCacheDir } from "#app/cache";
 
-const REPO_ROOT = join(import.meta.dir, "..", "..");
+// tests/unit/app/ → repo root is 3 levels up (../.. → tests/, ../../.. → repo root).
+const REPO_ROOT = join(import.meta.dir, "..", "..", "..");
 
 describe("resolveCacheDir — TC-CACHE-001: default + MARKSYNC_CACHE_DIR override", () => {
 	const original = process.env.MARKSYNC_CACHE_DIR;
