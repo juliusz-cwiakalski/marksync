@@ -18,11 +18,48 @@ phases:
   dod_check: { started: null, completed: null }
   pr_creation: { started: null, completed: null, url: null }
 
-decisions: []
+decisions:
+  - text: >
+      PM-DEC-1 (sub/sup scope, DoR iter-1): remark-gfm cannot produce <sub>/<sup>
+      (non-GFM syntax ~text~/^text^); the spike kitchensink that listed them was
+      HAND-AUTHORED Storage XML, not markdown-generated. Decision: the visitor
+      handles <sub>/<sup> HAST nodes DEFENSIVELY (renders correctly if a future
+      extension/raw-HTML produces them) but they are EXCLUDED from the golden
+      Markdown fixture set (unreachable from plain remark-gfm). Fidelity bar
+      re-baselined to the actual remark-gfm-reachable constructs (~25). Spike
+      proved sub/sup survive Storage round-trip when present in XML — preserved
+      by the defensive visitor. PM-decided (technical-scope clarification, not
+      product direction; reversible; documented as spec DEC).
+    date: 2026-07-09
+  - text: >
+      PM-DEC-2 (ParseError, DoR iter-1): architecture-overview.md:219 documents
+      the parse port as '-> MdastRoot | ParseError' but ParseError does not exist
+      in MarkSyncError and NG-7 forbids adding kinds. remark-gfm is effectively
+      total (very tolerant; produces best-effort MDAST). Decision: keep the
+      Result<MdastRoot, MarkSyncError> signature for port-contract alignment but
+      treat parseMarkdown as total in MS-0002 — a genuine parse failure is an
+      invariant violation -> throw (per typescript.md error handling). Do NOT
+      overload UnsupportedConstruct. Flag architecture-overview:219 for phase-7
+      doc-sync. PM-decided.
+    date: 2026-07-09
+
 open_questions: []
 blockers: []
 
 notes:
+  - text: >
+      DoR iter-1 returned NOT_READY (adversarial gate worked as intended).
+      BLOCKER: <sub>/<sup> unreachable from remark-gfm (spike kitchensink was
+      hand-authored XML, not markdown) — 27/27 internally inconsistent. MAJOR:
+      ParseError documented at architecture-overview:219 but absent from
+      MarkSyncError; plan's proposal to map a unified throw onto
+      UnsupportedConstruct overloads that arm. MINORs: OQ-TP-1 vs PD-4 status
+      mismatch; 27-provenance overstated; stale renderer path in
+      testing-strategy.md:44; dep-cruiser claim overstated (only enforces 4 of
+      the directions). Re-opening specification + test_planning; delivery_planning
+      nits ride along. PM decisions PM-DEC-1/PM-DEC-2 resolve the two blockers.
+    type: retro
+    date: 2026-07-09
   - text: >
       Intake: clarify_scope complete. Story file MS2-E3-S3 is authoritative
       scope. Requirements complete and consistent with system spec — no STOP
@@ -52,13 +89,16 @@ doc_risks:
     risk: "Markdown pipeline component (§4.2) needs a '(delivered — GH-20)' tag like GH-19 did for state manager."
     owner: doc-syncer
   - path: doc/overview/architecture-overview.md
-    risk: "'Markdown parser' + 'Confluence Storage renderer' components (§Components) need delivered tags; related_changes needs GH-20."
+    risk: "'Markdown parser' + 'Confluence Storage renderer' components (§Components) need delivered tags; related_changes needs GH-20. ALSO: line 219 documents parse port as '-> MdastRoot | ParseError' but ParseError does not exist in MarkSyncError (PM-DEC-2: parseMarkdown treated as total; throw on invariant violation). Reconcile the port contract."
     owner: doc-syncer
   - path: doc/overview/ubiquitous-language.md
     risk: "Body Representation + Content Hash VOs need code-construct binding (src/domain/render/canonicalize.ts); related_changes needs GH-20."
     owner: doc-syncer
   - path: .ai/rules/typescript.md
     risk: "'Planned (not yet installed)' table lists remark/rehype as MS-0002 E3 — THIS story installs them. Move to Installed table. (mermaid stays planned — E4-S1.)"
+    owner: doc-syncer
+  - path: .ai/rules/testing-strategy.md
+    risk: "Line 44 references stale path 'src/infra/render/storage-renderer.ts'; actual path is 'src/infra/confluence/render/storage.ts' (DoR iter-1 finding 5). Fix during phase-7 doc-sync."
     owner: doc-syncer
   - path: doc/decisions/ADR-0005-page-body-representation-storage-not-adf.md
     risk: "'Lessons Learned (Retrospective)' is TODO — populate after implementation per ADR template."
