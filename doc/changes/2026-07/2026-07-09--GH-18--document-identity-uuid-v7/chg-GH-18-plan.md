@@ -427,7 +427,7 @@ import only `uuid` (third-party) + domain siblings — `check:boundaries`-enforc
 
 **Tasks**:
 
-- [ ] **1.1** Create `src/domain/identity/uuid.ts` (new):
+- [x] **1.1** Create `src/domain/identity/uuid.ts` (new):
       - `export const UUID_V7_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i`
         (RFC 9562: the 13th hex digit is `7` for version; the 17th hex digit is
         `8`/`9`/`a`/`b` for the variant). Case-insensitive.
@@ -443,7 +443,7 @@ import only `uuid` (third-party) + domain siblings — `check:boundaries`-enforc
       - Imports: `uuid` (`v7`) + `#domain/identity/document-id` (for the
         `DocumentId` brand). No tiered import.
       - ≤ 3-line header citing ADR-0006 (UUID v7 identity) once.
-- [ ] **1.2** Create `src/domain/identity/document-id.ts` (new):
+- [x] **1.2** Create `src/domain/identity/document-id.ts` (new):
       - `export type DocumentId = string & { readonly __brand: "DocumentId" }`
         (the branded VO — ADR-0006 / story Technical approach). A bare `string`
         cannot be assigned to it.
@@ -459,7 +459,7 @@ import only `uuid` (third-party) + domain siblings — `check:boundaries`-enforc
         `uuid.ts` import only the type via `import type { DocumentId }`. Confirm no
         runtime circular import (`bun run typecheck` + a smoke import in the test).
       - ≤ 3-line header; cite ADR-0006 C-1 once.
-- [ ] **1.3** Create `tests/domain/identity/uuid.test.ts` (new) — **Unit**; uses
+- [x] **1.3** Create `tests/domain/identity/uuid.test.ts` (new) — **Unit**; uses
       import aliases (`#domain/identity/uuid`); no mocks (real `v7()`).
       - **TC-UUID-001 (AC-2):** `generateUuidV7()` matches `UUID_V7_REGEX`; the
         13th hex digit is `7`; the 17th is in `[89ab]`.
@@ -475,7 +475,7 @@ import only `uuid` (third-party) + domain siblings — `check:boundaries`-enforc
         on a valid v7; throws on a malformed value.
       - **TC-UUID-005 (uniqueness smoke):** 1000 `generateUuidV7()` calls produce
         1000 distinct strings (sanity — not a collision-proof guarantee).
-- [ ] **1.4** Create `tests/domain/identity/document-id.test.ts` (new) — **Unit**.
+- [x] **1.4** Create `tests/domain/identity/document-id.test.ts` (new) — **Unit**.
       - **TC-DOCID-001 (branding):** a `DocumentId` is assignable to `string` but a
         bare `string` is NOT assignable to `DocumentId` (compile-time assertion via
         a `// @ts-expect-error` line — the brand is nominal).
@@ -1029,7 +1029,8 @@ only trivial inline touch-ups.
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| 0 | ✅ DONE | 2026-07-09 | 2026-07-09 | _pending_ | `bun add uuid` → resolved `uuid@14.0.1` (v9+, bundled types, no `@types/uuid`); `typecheck` exit 0; `check:boundaries` exit 0 (34 modules, 40 deps); `rg '"uuid"' src/` empty. NFR-13 trivially satisfied (zero transitive deps). |
+| 0 | ✅ DONE | 2026-07-09 | 2026-07-09 | `0c9dcfa` | `bun add uuid` → resolved `uuid@14.0.1` (v9+, bundled types, no `@types/uuid`); `typecheck` exit 0; `check:boundaries` exit 0 (34 modules, 40 deps); `rg '"uuid"' src/` empty. NFR-13 trivially satisfied (zero transitive deps). |
+| 1 | ✅ DONE | 2026-07-09 | 2026-07-09 | _pending_ | `uuid.ts` (UUID_V7_REGEX + generateUuidV7/isUuidV7/assertUuidV7) + `document-id.ts` (branded DocumentId + DocumentIdError + parseDocumentId). Cycle broken: uuid.ts imports `type DocumentId` only (elided at runtime). Unit tests: 9 pass / 0 fail, 516 expects. `typecheck` exit 0; `check:boundaries` exit 0 (37 modules, 43 deps). |
 | 1 | pending | — | — | — | uuid.ts (generation + assert) + document-id.ts (branded VO + parse) + unit tests |
 | 2 | pending | — | — | — | frontmatter.ts (byte-stable read/inject, idempotent) + unit tests (byte-stability inline TC-FM-007; NO integration/golden file) |
 | 3 | pending | — | — | — | duplicate-detector.ts (INV-SAFE-3 fatal, first-collision-only) + unit tests (TC-DUP-001 fatal, TC-DUP-007 halt-signal, TC-SCALE-001 scale smoke) |
