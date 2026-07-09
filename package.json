@@ -1,6 +1,6 @@
 {
 	"name": "marksync-for-confluence",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"description": "CLI tool that synchronizes a Git-tracked Markdown corpus to Atlassian Confluence Cloud — deterministically, safely, and with a clear audit trail.",
 	"type": "module",
 	"license": "MIT",

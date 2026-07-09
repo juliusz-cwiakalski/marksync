@@ -7,7 +7,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { STARTER_CONFIG, writeStarterConfig } from "#app/config-template";
+import { writeStarterConfig } from "#app/config-template";
 import { assignUuidsFromDisk } from "#app/identity-assign";
 import type { DocumentId } from "#domain/identity/document-id";
 import { parseDocumentId } from "#domain/identity/document-id";
@@ -133,5 +133,55 @@ describe("assignUuidsFromDisk", () => {
 
 		const after = await readFile(join(dir, "docs", "a.md"), "utf-8");
 		expect(Buffer.from(after).equals(Buffer.from(before))).toBe(true);
+	});
+});
+
+describe("initCommand success paths (coverage)", () => {
+	let dir: string;
+
+	beforeEach(async () => {
+		dir = await mkdtemp(join(tmpdir(), "marksync-init-"));
+	});
+
+	afterEach(async () => {
+		await rm(dir, { recursive: true, force: true });
+	});
+
+	test("assigns UUIDs and returns IDENTITY_ASSIGNED warning on fresh corpus with docs", async () => {
+		// Create a fresh corpus with NO pre-existing marksync.yml and at least one doc
+		await mkdir(join(dir, "docs"), { recursive: true });
+		await writeFile(join(dir, "docs", "a.md"), "# A\nbody\n", "utf-8");
+
+		const result = await initCommand({ cwd: dir });
+
+		// Assert success
+		expect(result.exitCode).toBe(0);
+		expect(result.error).toBeUndefined();
+
+		// Assert IDENTITY_ASSIGNED warning
+		expect(result.warnings).toBeDefined();
+		expect(result.warnings).toHaveLength(1);
+		expect(result.warnings?.[0].code).toBe("IDENTITY_ASSIGNED");
+		expect(result.warnings?.[0].message).toContain("1 document(s) assigned");
+
+		// Assert doc on disk now contains uuid
+		const onDisk = await readFile(join(dir, "docs", "a.md"), "utf-8");
+		expect(onDisk).toMatch(
+			/uuid:\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+		);
+	});
+
+	test("returns ok with no warnings on empty corpus (no docs)", async () => {
+		// Create a fresh corpus with NO pre-existing marksync.yml and NO managed docs
+		await mkdir(join(dir, "docs"), { recursive: true });
+
+		const result = await initCommand({ cwd: dir });
+
+		// Assert success
+		expect(result.exitCode).toBe(0);
+		expect(result.error).toBeUndefined();
+
+		// Assert no IDENTITY_ASSIGNED warning (docs.length was 0 → early ok(undefined) return)
+		expect(result.warnings).toBeUndefined();
 	});
 });

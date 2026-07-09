@@ -1,7 +1,6 @@
 // Front-matter identity binding — byte-stable read/inject of `marksync.uuid`
-// (ADR-0006 C-1). injectUuid is a PURE string transform: surgical text
-// insertion, never a yaml.stringify round-trip (byte-stability — no whitespace
-// normalization, key reorder, or body mutation).
+// (ADR-0006 C-1). injectUuid is a PURE string transform using surgical text
+// insertion (never a yaml.stringify round-trip; no whitespace normalization).
 
 import { parse as parseYaml } from "yaml";
 import { parseDocumentId, type DocumentId } from "#domain/identity/document-id";
