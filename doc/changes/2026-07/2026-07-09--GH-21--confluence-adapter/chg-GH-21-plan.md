@@ -784,11 +784,11 @@ rerun (NFR-PERF-4).
 
 **Tasks**:
 
-- [ ] **5.1** Create `src/infra/confluence/schemas/property.ts` +
+- [x] **5.1** Create `src/infra/confluence/schemas/property.ts` +
       `src/infra/confluence/schemas/attachment.ts` (new) — zod schemas for the
       v2 content-property response + the v1 attachment list/creation response.
       Adapter-internal.
-- [ ] **5.2** Create `src/infra/confluence/properties.ts` (new) —
+- [x] **5.2** Create `src/infra/confluence/properties.ts` (new) —
       `PropertyService` over the client:
       - `get(pageId, key) → Result<string | undefined, MarkSyncError>` —
         `GET v2("/pages/{id}/property/{key}")`; 404 (key absent) → `ok(undefined)`
@@ -802,7 +802,7 @@ rerun (NFR-PERF-4).
         serialization of lock fields into the string is E3-S6's concern.
       - Imports: client, schemas, `#domain/target/port`, domain errors/result,
         value `zod`. ≤ 3-line header; cite spike H2 once.
-- [ ] **5.3** Create `src/infra/confluence/attachments.ts` (new) —
+- [x] **5.3** Create `src/infra/confluence/attachments.ts` (new) —
       `AttachmentService` (v1-only) over the client:
       - `upload(pageId, artifact) → Result<AttachmentRef, MarkSyncError>` —
         `POST v1("/content/{id}/child/attachment")` multipart with
@@ -818,13 +818,13 @@ rerun (NFR-PERF-4).
       - `list(pageId) → Result<AttachmentRef[], MarkSyncError>` — enumerate.
       - Imports: client, schemas, `#domain/target/port`, domain errors/result,
         value `zod`. ≤ 3-line header; cite spike H4 once at the 400-dup mapping.
-- [ ] **5.4** Create `tests/unit/infra/confluence/properties.test.ts` (new) —
+- [x] **5.4** Create `tests/unit/infra/confluence/properties.test.ts` (new) —
       **Unit**:
       - **TC-PROP-RT-001 (AC-F4-1 / NFR-5):** `put` a string value; `get` reads
         it back **byte-equal**; an **~8 KB** value round-trips (spike H2 ~8.4 KB).
       - **TC-PROP-MISS-001:** a missing key → `ok(undefined)` (not an error).
       - **TC-PROP-CONFLICT-001:** a 409 key-conflict → handled.
-- [ ] **5.5** Create `tests/unit/infra/confluence/attachments.test.ts` (new) —
+- [x] **5.5** Create `tests/unit/infra/confluence/attachments.test.ts` (new) —
       **Unit**:
       - **TC-DUP-001 (AC-F5-1 / NFR-4):** upload a duplicate filename → the
         create endpoint's 400 "same file name" → an **"already exists"** result
@@ -1140,7 +1140,7 @@ reconciliation handoff (the final release phase per the plan template).
 | 2 — port + value types + boundary test | ✅ | 2026-07-10 | 2026-07-10 | 978222e | PASS (705/0) | F-1 / AC-F1-1; subprocess `bunx depcruise` chosen over programmatic API |
 | 3 — ConfluenceClient | ✅ | 2026-07-10 | 2026-07-10 | 7e7bd54 | PASS (716/0) | F-2 / AC-F2-1/2/3; injected fetch+delay seams; infra-tier redactor mirror |
 | 4 — PageService + 409 + 403 | ✅ | 2026-07-10 | 2026-07-10 | 608e75f | PASS (727/0) | F-3 / F-7 / AC-F3-1 / AC-F7-1; added title to UpdatePageRequest (v2 PUT requires it) |
-| 5 — Property + Attachment | ☐ | | | _pending_ | _pending_ | F-4 / F-5 / AC-F4-1 / AC-F5-1 |
+| 5 — Property + Attachment | ✅ | 2026-07-10 | 2026-07-10 | ae971ad | PASS (739/0) | F-4 / F-5 / AC-F4-1 / AC-F5-1; v2 properties + v1 attachments |
 | 6 — Search/Restrictions + provenance + adapter | ☐ | | | _pending_ | _pending_ | F-6 / F-8 |
 | 7 — integration (Bun.serve mock) | ☐ | | | _pending_ | _pending_ | all ACs |
 | 8 — final gate + boundary + doc handoff | ☐ | | | _pending_ | _pending_ | AC-Q-1 |
