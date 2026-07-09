@@ -552,32 +552,37 @@ invoked by `renderStorage` (and optionally a pre-classify pass).
 
 **Tasks**:
 
-- [ ] **4.1** Create `src/domain/markdown/unsupported.ts` (new):
+- [x] **4.1** Create `src/domain/markdown/unsupported.ts` (new):
       - `classifyUnsupported(node: MdastNode | HastNode, sourcePath: string):
         MarkSyncError | null` — returns `err` payload `{ kind: "UnsupportedConstruct";
         construct: <node-type-or-tagName>; sourcePath }` for nodes outside the canonical
         subset (an explicit allow-list keyed by node type / tag name), else `null`.
+        *(Single-node element check over an explicit `ALLOWED_TAGS` set.)*
       - `findUnsupported(root, sourcePath): MarkSyncError | null` — a walker that returns
         the first unsupported node's error (or `null` if the tree is clean). Used as the
         no-silent-drop guard before/inside render.
+        *(DFS with parent context: a `raw` node that is a direct child of root is a raw
+        HTML *block* → `construct: "raw-html-block"`; a `raw` nested inside an element is
+        inline → not flagged (escaped at render — DEC-4).)*
       - The canonical allow-list = the HAST node types the renderer handles = the spike
         H6 construct set: the 25 remark-gfm-reachable constructs (golden) PLUS `<sub>`/
         `<sup>` (defensively mapped per PM-DEC-1 / PD-6 — so they are ALLOWED, not
         classified as unsupported, even though no markdown golden fixture produces them).
         Footnotes/definition-lists/math/raw-HTML-block/app content = unsupported. Raw
         **inline** HTML is NOT classified here — it is escaped at render (DEC-4 / PD-7).
-      - Imports: type-only `mdast`/`hast` types + `#domain/errors`. **No** infra/app/cli.
+      - Imports: type-only `hast` types + `#domain/errors`. **No** infra/app/cli.
       - ≤ 3-line header; cite ADR-0005 "do not silently degrade" once.
-- [ ] **4.2** Create `tests/unit/domain/markdown/unsupported.test.ts` (new) — **Unit**:
-      - **TC-UNSUP-001 (AC-F5-1):** a footnote node → `findUnsupported` returns
-        `UnsupportedConstruct { construct: "footnoteDefinition"|"footnoteReference"; … }`.
-      - **TC-UNSUP-002 (AC-F5-1):** a math / definition-list node → `UnsupportedConstruct`.
-      - **TC-UNSUP-003 (AC-F5-1):** a clean canonical-subset tree (the remark-gfm-
-        reachable kitchensink) → `findUnsupported` returns `null` (no false positives —
-        the canonical subset is never flagged). A hand-constructed `<sub>`/`<sup>` node is
-        also NOT flagged (defensively handled — allowed, per PM-DEC-1).
-      - **TC-UNSUP-004:** raw **inline** HTML is NOT classified (returns `null`) — it is
-        handled by escape at render (DEC-4); raw HTML **block** IS classified.
+- [x] **4.2** Create `tests/unit/domain/markdown/unsupported.test.ts` (new) — **Unit**
+      (8 tests PASS):
+      - **TC-UNSUP-001 (AC-F5-1):** unsupported element (dl/section/math) →
+        `UnsupportedConstruct` carrying `construct` + `sourcePath`.
+      - **TC-UNSUP-002 (AC-F5-1):** a nested math element deep in a paragraph is still found.
+      - **TC-UNSUP-003 (AC-F5-1):** a clean canonical-subset tree (10 remark-gfm kitchensink
+        fragments) → `findUnsupported` returns `null` (no false positives); hand-constructed
+        `<sub>`/`<sup>` nodes are NOT flagged (defensively allowed — PM-DEC-1).
+      - **TC-UNSUP-004:** raw **inline** HTML is NOT classified (returns `null` — escaped at
+        render, DEC-4); raw HTML **block** (top-level raw) IS classified as
+        `raw-html-block`.
 
 **Acceptance Criteria**:
 
@@ -945,7 +950,7 @@ behavior.
 | 1 — parseMarkdown | ✅ | 2026-07-09 | 2026-07-09 | _pending_ | 9 tests PASS | F-1 |
 | 2 — MDAST→HAST bridge | ✅ | 2026-07-09 | 2026-07-09 | feat(markdown): MDAST→HAST bridge via remark-rehype (GH-20) | 525 pass / 0 fail | F-2; allowDangerousHtml preserves raw HTML for DEC-4 escape; 6 tests PASS |
 | 3 — canonicalize + contentHash | ✅ | 2026-07-09 | 2026-07-09 | feat(render): canonicalize HAST + contentHash sha256 (GH-20) | 532 pass / 0 fail | F-3 / AC-F3-1; raw→text, structural-ws drop, sorted props; 7 tests PASS |
-| 4 — unsupported classifier | ⏳ | | | | | F-5 / AC-F5-1 |
+| 4 — unsupported classifier | ✅ | 2026-07-09 | 2026-07-09 | feat(markdown): unsupported-node classifier emitting UnsupportedConstruct (GH-20) | 540 pass / 0 fail | F-5 / AC-F5-1; block-raw vs inline-raw split; 8 tests PASS |
 | 5 — renderStorage + 25 golden | ⏳ | | | | | F-4 / F-6 / AC-F4-1 / AC-F4-2 |
 | 6 — injection safety + DEC-4/DEC-5 | ⏳ | | | | | F-7 / AC-F4-4 |
 | 7 — round-trip + XML WF + determinism | ⏳ | | | | | AC-F4-3 / AC-F4-5 |
