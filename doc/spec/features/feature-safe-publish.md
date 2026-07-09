@@ -9,7 +9,7 @@ last_updated: 2026-07-09
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: [GH-18, GH-19]
+  related_changes: [GH-18, GH-19, GH-20]
   decisions: [ADR-0005, ADR-0006, ADR-0010, ADR-0011]
   contracts: []
 ---
@@ -109,7 +109,7 @@ a `TargetSystem` port. The Confluence adapter is the sole implementation.
 
 | Component | Responsibility |
 |---|---|
-| Markdown pipeline | remark/HAST → Storage Format conversion (canonical GFM subset) |
+| Markdown pipeline | `parseMarkdown` (`src/domain/markdown/parse.ts`, remark + remark-gfm) → MDAST→HAST bridge `mdastToHast` (`src/domain/markdown/mdast-to-hast.ts`) → unsupported-node classifier emitting the pre-existing `UnsupportedConstruct` arm (`src/domain/markdown/unsupported.ts`) → canonicalizer + `contentHash` sha256 (`src/domain/render/canonicalize.ts`) → HAST→Storage XHTML visitor `renderStorage` (`src/infra/confluence/render/storage.ts`, returns `{ body, hash, warnings }`); 25 golden `.md`/`.storage.xhtml` fixture pairs (`tests/golden/fixtures/markdown/`) *(delivered — GH-20)* |
 | Identity service | UUID v7 assignment, front-matter management |
 | State manager | Committed `marksync.lock.yml` load/save/merge (`loadLock`/`saveLock`/`mergeBindings`, `src/app/lock.ts`), disposable `.marksync/` cache layout (`src/app/cache.ts`), pure content-property cross-check (`src/domain/state/reconcile.ts`), branch gate (`assertBranchAllowed`, `src/app/branch.ts`) *(delivered — GH-19)* |
 | Drift classifier | Canonical hash comparison → `NO_CHANGE` / `LOCAL_AHEAD` / etc. |

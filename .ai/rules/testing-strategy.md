@@ -5,13 +5,13 @@ ados_distribution: redistributable
 id: TESTING-STRATEGY
 status: Draft
 created: 2026-07-05
-last_updated: 2026-07-05
+last_updated: 2026-07-09
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
   related_decisions: [TDR-0004, ADR-0002, ADR-0005, ADR-0006]
-  related_changes: []
+  related_changes: [GH-20]
   summary: "Testing strategy — test tiers, coverage rules, AI-agent over-mocking guardrail, CI wiring, and lifecycle-invariant BDD for MarkSync."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -41,8 +41,8 @@ load and follow this file._
 ```
 src/domain/state-classifier.ts          → tests/domain/state-classifier.test.ts
 src/infra/confluence/client.ts          → tests/integration/confluence/client.test.ts
-src/infra/render/storage-renderer.ts    → tests/golden/storage-renderer.test.ts
-                                         tests/golden/fixtures/*.storage.xhtml
+src/infra/confluence/render/storage.ts  → tests/golden/markdown/storage-renderer.test.ts
+                                         tests/golden/fixtures/markdown/*.storage.xhtml
 tests/e2e/sandbox-publish.test.ts        (E2E — separate gate)
 tests/bdd/features/no-silent-overwrite.feature
 tests/bdd/steps/no-silent-overwrite.steps.ts

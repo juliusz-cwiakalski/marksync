@@ -12,7 +12,7 @@ area: domain
 document_classification: current-truth
 links:
   related_decisions: [ADR-0005, ADR-0006, ADR-0010, ADR-0011, PDR-0001]
-  related_changes: [GH-15, GH-17, GH-18, GH-19]
+  related_changes: [GH-15, GH-17, GH-18, GH-19, GH-20]
   summary: "Ubiquitous language — the precise, bounded-context vocabulary binding domain concepts to code for MarkSync's Markdown-to-TargetSystem synchronization domain."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -61,8 +61,8 @@ events) and their relationships. Distinct from the reader-friendly
 | Term | Meaning | Type | Relationships |
 |---|---|---|---|
 | **Sync State** | The classification of a document relative to local/base/remote. Values: `NO_CHANGE`, `LOCAL_AHEAD`, `REMOTE_AHEAD`, `DIVERGED`, `REMOTE_MISSING`, `LOCAL_MISSING`. Determined by the state classifier from three-way comparison. | Value object (enum) | produced by → State Classifier |
-| **Body Representation** | The concrete format of a page body: Confluence Storage Format (XHTML + `ac:`/`ri:`) or ADF. MarkSync writes Storage (ADR-0005); reverse conversion reads either. | Value object | emitted by → Target System |
-| **Content Hash** | A deterministic hash of a document or asset body. Used for idempotency detection: if local hash equals shared-base hash, the document is unchanged. Computed from canonical + normalized content. | Value object (string) | computed from → Source Document / Target Page |
+| **Body Representation** | The concrete format of a page body: Confluence Storage Format (XHTML + `ac:`/`ri:`) or ADF. MarkSync writes Storage (ADR-0005); reverse conversion reads either. For page bodies the Storage XHTML is produced by the `renderStorage` HAST→Storage visitor (`src/infra/confluence/render/storage.ts`) as the `body` field of its `RenderedBody` payload (`{ body, hash, warnings }`) *(delivered — GH-20)*. | Value object | emitted by → Target System |
+| **Content Hash** | A deterministic hash of a document or asset body. Used for idempotency detection: if local hash equals shared-base hash, the document is unchanged. Computed from canonical + normalized content. For page bodies, realized by `contentHash(canonicalHast): string` in `src/domain/render/canonicalize.ts` — a raw lowercase-hex `sha256` digest over `canonicalize(hast)` (a position-free, property-sorted canonical HAST, so attribute order and source positions never perturb the digest). First-produced by GH-20; consumed by drift detection (E3-S5 `renderedBodyHash`) and Mermaid/attachment dedup (E4-S1/E4-S2). The function returns the raw digest only; any wire-format prefix (e.g. `sha256:`) is the binding consumer's concern (E3-S5), not the hash function's. | Value object (string) | computed from → Source Document / Target Page |
 | **DocumentId** | The branded value object (`string & { __brand: "DocumentId" }`, `src/domain/identity/document-id.ts`) carrying a UUID v7 — the canonical identity value of a Document Identity. Constructed only via `generateUuidV7()` (which brands) or `parseDocumentId(s)` (which validates v7 first, returning `Result<DocumentId, DocumentIdError>`). A plain `string` cannot stand where a `DocumentId` is required. | Value object (branded string) | member of → Document Identity; stored at → `marksync.uuid` |
 | **Provenance** | The source-path + Git-revision + last-sync metadata. Appears both as machine content-property (`marksync.metadata`) and human-visible panel/footer. Written into `version.message` on each Confluence page version (ADR-0010). | Value object | attached to → Target Page |
 | **Operation ID** | A unique per-run identifier used for decentralized concurrency dedup. If two runners submit the same operation, the stale one is rejected via Confluence 409 + dedup. | Value object (string) | scoped to → Run |

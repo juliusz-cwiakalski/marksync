@@ -5,13 +5,13 @@ ados_distribution: redistributable
 id: CONVENTIONS-TYPESCRIPT
 status: Draft
 created: 2026-07-05
-last_updated: 2026-07-08
+last_updated: 2026-07-09
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0006, ADR-0011, TDR-0002, TDR-0003, TDR-0004, TDR-0005, TDR-0006, TDR-0008]
-  related_changes: [GH-14, GH-15, GH-16]
+  related_changes: [GH-14, GH-15, GH-16, GH-18, GH-20]
   summary: "TypeScript + Bun conventions — module structure, naming, error handling, IO boundaries, linting, formatting for MarkSync."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -663,15 +663,18 @@ export interface ResultError { code: string; message: string; retryable: boolean
 | `ajv` | JSON Schema validation (config/lock) |
 | `picocolors` | Terminal coloring (ADR-0011 C-2) |
 | `yaml` | YAML parsing (`marksync.yml` + front-matter) |
+| `remark`, `remark-gfm`, `rehype`, `remark-rehype` | Markdown pipeline — bytes → MDAST → HAST → Storage (GH-20) |
+| `uuid` | UUID v7 generation (`v7`, `src/domain/identity/uuid.ts`; GH-18) |
+
+> **Type-only devDependencies** (zero runtime surface): `@types/hast`,
+> `@types/mdast` (HAST/MDAST type models for the markdown pipeline; GH-20).
 
 **Planned (not yet installed — install when the first consuming story lands):**
 
 | Dependency | Role | Milestone |
 |---|---|---|
-| `remark`, `remark-gfm`, `rehype`, `remark-rehype` | Markdown pipeline | MS-0002 E3 |
-| `mermaid` | Diagram rendering (ADR-0002) | MS-0002 E3 |
-| `jsdom` / `happy-dom` | Headless DOM for Mermaid tests | MS-0002 E3 |
-| `uuid` | UUID v7 | MS-0002 E3 |
+| `mermaid` | Diagram rendering (ADR-0002) | MS-0002 E4-S1 |
+| `jsdom` / `happy-dom` | Headless DOM for Mermaid tests | MS-0002 E4-S1 |
 | `zod` | Runtime validation at IO boundaries | MS-0002 E3 |
 | `pino` | Structured logging | MS-0002 |
 | `keytar` | OS keyring (fallback: env) | Spike-gated |
