@@ -520,11 +520,11 @@ unless the branch ∈ `sync.allowBranches` or overridden by `MARKSYNC_ALLOW_BRAN
 
 **Tasks**:
 
-- [ ] **7.1** Update `.env.example` — add (commented) `MARKSYNC_CACHE_DIR` and
-      `MARKSYNC_ALLOW_BRANCHES` with one-line purposes (canonical env-var list, no values).
-- [ ] **7.2** Run `bun run check` (lint + format:check + typecheck + test +
+- [x] **7.1** Update `.env.example` — add (commented) `MARKSYNC_CACHE_DIR` and
+      `MARKSYNC_ALLOW_BRANCHES` with one-line purposes (canonical env-var list, no values). *(done — both vars already present from earlier scaffolding; corrected the `MARKSYNC_ALLOW_BRANCHES` comment from the inaccurate "overrides" to "augments" to match the implemented behavior, spec F-6 / RSK-6, and TC-BRANCH-003)*
+- [x] **7.2** Run `bun run check` (lint + format:check + typecheck + test +
       check:boundaries); fix any issue. Confirm all `AC-*` are green (TC-GATE-001,
-      TC-BND-001).
+      TC-BND-001). *(done — `bun run check` exits 0: 508 pass / 0 fail, 2149 expect() calls, 49 modules / 69 deps cruised, 0 boundary violations; all AC-* green — see Execution Log)*
 
 **Acceptance Criteria**:
 
