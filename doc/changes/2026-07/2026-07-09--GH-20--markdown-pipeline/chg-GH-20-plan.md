@@ -2,9 +2,9 @@
 # Copyright (c) 2025-2026 Juliusz Ćwiąkalski (https://www.cwiakalski.com | https://www.linkedin.com/in/juliusz-cwiakalski/ | https://www.x.com/cwiakalski)
 # MIT License - see LICENSE file for full terms
 id: chg-GH-20-markdown-pipeline
-status: Proposed
+status: Updated
 created: 2026-07-09T00:00:00Z
-last_updated: 2026-07-09T00:00:00Z
+last_updated: 2026-07-09T00:06:00Z
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 labels: [MS-0002, MS2-E3, safe-publish, critical, security, fidelity]
@@ -28,17 +28,22 @@ summary: >
   `parseMarkdown` (remark + remark-gfm) → MDAST→HAST bridge (remark-rehype) →
   `canonicalize` + `contentHash` (native sha256 over canonical HAST) →
   `renderStorage` (HAST→Storage XHTML string-builder visitor implementing the
-  spike-H6-proven 27-construct mapping), plus an unsupported-node classifier
-  emitting the pre-existing `UnsupportedConstruct` arm, 27 byte-stable golden
-  `*.md`/`*.storage.xhtml` fixtures, and NFR-SEC-5 injection-safety property
-  tests. Four runtime deps installed (remark, remark-gfm, rehype,
-  remark-rehype); mermaid/jsdom/happy-dom explicitly NOT installed (E4-S1).
-  Reuses `Result<T,E>` + `MarkSyncError` unchanged — adds NO error kind. Domain
-  modules import nothing; only `src/infra/confluence/render/storage.ts` lives in
-  the adapter (one-way import of domain markdown/render types). Downstream:
-  E3-S5 (drift, consumes the hash), E3-S6 (sync engine, wires parse→render),
-  E4-S1/E4-S2 (mermaid/attachments, consume the hash), E5-S3 (adversarial
-  corpus, reuses fixtures).
+  spike-H6 construct mapping), plus an unsupported-node classifier emitting the
+  pre-existing `UnsupportedConstruct` arm, golden `*.md`/`*.storage.xhtml`
+  fixtures over the remark-gfm-reachable constructs (25: spike 27 minus
+  `<sub>`/`<sup>`, which plain remark-gfm cannot produce — PM-DEC-1), and
+  NFR-SEC-5 injection-safety property tests. Four runtime deps installed
+  (remark, remark-gfm, rehype, remark-rehype); `mdast`/`hast` added as
+  type-only devDependencies (zero runtime surface); mermaid/jsdom/happy-dom
+  explicitly NOT installed (E4-S1). Reuses `Result<T,E>` + `MarkSyncError`
+  unchanged — adds NO error kind; `parseMarkdown` is treated as total in
+  MS-0002 (a genuine parse failure throws — invariant violation, per PD-8 /
+  PM-DEC-2). Domain modules import nothing; only
+  `src/infra/confluence/render/storage.ts` lives in the adapter (one-way import
+  of domain markdown/render types). Downstream: E3-S5 (drift, consumes the
+  hash), E3-S6 (sync engine, wires parse→render), E4-S1/E4-S2
+  (mermaid/attachments, consume the hash), E5-S3 (adversarial corpus, reuses
+  fixtures).
 version_impact: minor
 ---
 
@@ -60,23 +65,29 @@ its fidelity / no-silent-drop / injection-safety promises. Concretely it establi
   `contentHash(canonical): string` (native `sha256`, lowercase hex), realizing the
   **Content Hash** VO E3-S5 drift + E4 dedup key on (F-3);
 - the **HAST→Storage XHTML renderer** — `renderStorage(hast, opts): Result<{ body; hash },
-  MarkSyncError>`: a small string-builder visitor implementing the spike-H6-proven
-  27-construct mapping (CDATA code bodies; omitted `ac:schema-version`/`ac:macro-id`;
+  MarkSyncError>`: a small string-builder visitor implementing the spike-H6
+  construct mapping (CDATA code bodies; omitted `ac:schema-version`/`ac:macro-id`;
   well-formed XML) (F-4);
 - the **unsupported-node classifier** — nodes outside the canonical subset → the
   pre-existing `UnsupportedConstruct { construct; sourcePath }` arm; never silently
   dropped (F-5);
-- the **27 golden fixtures** — byte-stable `*.md` + `*.storage.xhtml` pairs with the
-  spike `storage-kitchensink.xml` as the consolidated reference (F-6);
+- the **golden fixtures** — byte-stable `*.md` + `*.storage.xhtml` pairs (25: the
+  remark-gfm-reachable subset of the spike's 27 — `<sub>`/`<sup>` excluded; see
+  PM-DEC-1 / PD-6) with the spike `storage-kitchensink.xml` as the consolidated
+  reference (F-6);
 - the **injection-safety property tests** (NFR-SEC-5) — malicious Markdown → inert
   escaped output (F-7).
 
 The plan is derived entirely from the authoritative spec `chg-GH-20-spec.md` (7
 capabilities F-1..F-7, 6 decisions DEC-1..DEC-6, 8 acceptance criteria, NFR-REL-4 /
 NFR-SEC-5), the story file `MS2-E3-S3--markdown-pipeline.md`, ADR-0005 (C-1 lossless,
-C-3 well-formed XML), and spike H6 (the 27-construct table + 3 converter rules at
-`atlassian-api-spike-findings.md` lines 17-41). It invents no requirements. The change
-spec is the contract authority; this plan operationalizes it.
+C-3 well-formed XML), and spike H6 (the construct-mapping table + 3 converter rules at
+`atlassian-api-spike-findings.md` lines 17-41). PM-DEC-1 re-baselines the golden fixture
+set to the 25 remark-gfm-reachable constructs (`<sub>`/`<sup>` are unreachable from plain
+remark-gfm — the spike kitchensink that listed them was hand-authored Storage XML, not
+markdown); PM-DEC-2 settles the parse-failure path (`parseMarkdown` is total in MS-0002;
+see PD-8). It invents no requirements. The change spec is the contract authority; this
+plan operationalizes it.
 
 The phase ordering follows spec §18 "Ordering within the story" — each step is
 independently testable and lands its own commit, mirroring the GH-19 plan's
@@ -89,7 +100,7 @@ phase-per-commit house style.
 > choices the spec leaves open.
 
 - **PD-1 — Phase ordering = spec §18 ordering.** Phase 0 dep install → 1 parser → 2
-  bridge → 3 canonicalize/hash → 4 classifier → 5 renderer-by-construct-group + 27
+  bridge → 3 canonicalize/hash → 4 classifier → 5 renderer-by-construct-group + 25
   golden fixtures → 6 injection-safety → 7 integration round-trip + XML
   well-formedness + determinism → 8 final gate. Each phase = one logical commit; each
   independently `bun test`-able.
@@ -104,8 +115,8 @@ phase-per-commit house style.
 - **PD-3 — Reuse `Result.ok`/`Result.err` + the pre-existing `UnsupportedConstruct` arm;
   add NO error kind (spec NG-7 / DEC-2).** `renderStorage` narrows its Result error to
   the existing arm; the classifier returns `err({ kind: "UnsupportedConstruct";
-  construct; sourcePath })`. See **Open questions** for the parse-failure path (a rare
-  `unified` throw), which is defensively caught and mapped onto the same arm.
+  construct; sourcePath })`. `UnsupportedConstruct` is **NOT** overloaded for parse
+  failures — see PD-8 (PM-DEC-2).
 - **PD-4 — XML-well-formedness assertion (AC-F4-3) uses a small hand-written
   test-tier checker, NOT a runtime XML-parser dependency.** *(Decision flagged per
   task brief.)* Bun ships no native XML parser and `xmldom`/`jsdom`/`happy-dom` are
@@ -125,37 +136,62 @@ phase-per-commit house style.
 - **PD-5 — HAST→Storage emission is a small, tested string-builder visitor over plain
   HAST objects (spec DEC-6).** No DOM-serialization runtime library. Well-formedness is
   enforced by golden snapshots + the AC-F4-3 checker (NFR-3), not by a serializer.
-- **PD-6 — Golden fixtures = committed `*.md` + `*.storage.xhtml` file pairs (27),
+- **PD-6 — Golden fixtures = committed `*.md` + `*.storage.xhtml` file pairs (25),
   namespaced under `tests/golden/fixtures/markdown/`, with a consolidated
-  `kitchensink` parity pair.** File snapshots (`toMatchSnapshot`) per testing-strategy
-  §"Snapshot rules"; updates explicit (`bun test --update-snapshots`), never automatic
-  in CI. The 27 per-construct pairs derive from the spike H6 table; the kitchensink pair
-  derives byte-for-byte from `storage-kitchensink.xml`.
+  `kitchensink` parity pair.** **Re-baselined from the spec's 27 per PM-DEC-1: `<sub>`/
+  `<sup>` are EXCLUDED from the golden Markdown fixture set** — plain remark-gfm cannot
+  produce `~text~`/`^text^` (non-GFM syntax), and the spike kitchensink that listed them
+  was hand-authored Storage XML, not markdown-generated. The fidelity bar is the
+  remark-gfm-reachable subset (25 = spike 27 − `<sub>` − `<sup>`). The visitor still maps
+  `<sub>`/`<sup>` HAST nodes **defensively** (a visitor arm emits `<sub>`/`<sup>` if such
+  a node ever appears), verified by a hand-constructed-node unit test (Phase 5.4), NOT a
+  golden fixture. File snapshots (`toMatchSnapshot`) per testing-strategy §"Snapshot
+  rules"; updates explicit (`bun test --update-snapshots`), never automatic in CI. The 25
+  per-construct pairs derive from the spike H6 table minus `<sub>`/`<sup>`; the kitchensink
+  pair derives byte-for-byte from `storage-kitchensink.xml` (the sub/sup bytes there are
+  preserved by the defensive visitor when present).
 - **PD-7 — Raw inline HTML is ESCAPED; task-list + regular-list mixing emits a warning
   (spec DEC-4 / DEC-5).** Both behaviours are asserted in Phase 6. Escaping preserves
   text without passthrough (the spike proved Confluence strips raw HTML anyway); the
   mixing warning surfaces an unrepresentable construct rather than emitting wrong output.
+- **PD-8 — `parseMarkdown` is treated as TOTAL in MS-0002; a genuine parse failure
+  `throw`s (invariant violation), NOT a `Result.err` and NOT an `UnsupportedConstruct`.**
+  (PM-DEC-2.) `remark`/`unified` parsing is lenient — nearly all Markdown text produces a
+  valid MDAST (a paragraph), so a genuine parse throw is rare and an invariant-level
+  fault. The `Result<MdastRoot, MarkSyncError>` signature is **kept** for port-contract
+  alignment (architecture-overview `renderBody`/parse port), but in practice
+  `parseMarkdown` returns `Result.ok`. Per typescript.md "Error handling", `throw` is
+  reserved for invariant violations — a parse throw qualifies; mapping it onto
+  `UnsupportedConstruct` would overload that arm (a different recovery action — PD-3) and
+  is forbidden. **Doc-sync (phase 7):** `architecture-overview.md:219` documents the parse
+  port as `→ MdastRoot | ParseError`, but `ParseError` does **not** exist in
+  `MarkSyncError` (confirmed: `src/domain/errors.ts`) and NG-7 forbids adding kinds. This
+  documented-contract drift is a phase-7 doc-sync item (already in pm-notes `doc_risks`);
+  it is NOT fixed in code here.
 
 ### Open questions
 
-- **`parseMarkdown` parse-failure error arm.** `remark`/`unified` parsing is lenient —
-  nearly all Markdown text produces a valid MDAST (a paragraph), so a genuine parse
-  throw is rare and largely theoretical for MS-0002 inputs. The architecture-overview
-  "Internal interface contracts" table names a `ParseError` for the parse port, but that
-  arm **does not exist** in the current `MarkSyncError` union, and spec NG-7 / DEC-2
-  forbids adding a kind. **Proposed resolution (working):** defensively `catch` a
-  `unified` throw and return `err({ kind: "UnsupportedConstruct"; construct:
-  "<markdown-parse>"; sourcePath })` — the recovery action (surface + skip) is identical
-  to a genuine unsupported construct, so per typescript.md "add a kind only when the
-  recovery action differs" no new kind is warranted. **Decision needed: confirm at DoR
-  (`@readiness-reviewer`).** If a distinct recovery is ever required (e.g. a
-  user-facing "fix your Markdown" path), escalate to `@decision-advisor` for a
-  `ParseError` arm + the full "add a kind" procedure.
-- **27-construct enumeration.** The spike H6 table groups constructs into ~14 families
-  (headings, strong/em, del/s, code, sub/sup, links, remote/local images, lists+nesting,
-  task-lists, blockquote, code macro, hr, table) that expand to the 27 individual
-  constructs the spike round-tripped. The exact 27 fixture filenames are enumerated at
-  delivery by walking the spike table; this plan does not invent names.
+> DoR iter-1 closed both open questions via PM-DEC-1 / PM-DEC-2 (recorded as PD-6 /
+> PD-8). Retained below as **resolved**, for traceability.
+
+- **`parseMarkdown` parse-failure error arm — RESOLVED (PM-DEC-2 → PD-8).** The
+  architecture-overview "Internal interface contracts" table names a `ParseError` for the
+  parse port, but that arm **does not exist** in `MarkSyncError` (confirmed:
+  `src/domain/errors.ts`) and spec NG-7 / DEC-2 forbids adding a kind. PM-DEC-2:
+  `remark-gfm` is effectively total (very tolerant), so treat `parseMarkdown` as total in
+  MS-0002 — a genuine `unified` throw is an invariant violation → `throw` (per
+  typescript.md error handling), NOT a `Result.err` and NOT an `UnsupportedConstruct`. Do
+  NOT overload `UnsupportedConstruct` (different recovery action — PD-3). The
+  `Result<MdastRoot, MarkSyncError>` signature stays for port-contract alignment. The
+  `architecture-overview.md:219` `ParseError` reference is documented-contract drift for
+  phase-7 doc-sync (already in pm-notes `doc_risks`).
+- **Construct enumeration & fidelity bar — RESOLVED (PM-DEC-1 → PD-6).** The spike H6
+  table lists 27 constructs, but `<sub>`/`<sup>` are unreachable from plain remark-gfm
+  (`~text~`/`^text^` are non-GFM; the spike kitchensink that listed them was hand-authored
+  Storage XML, not markdown). The golden fixture set is re-baselined to the
+  remark-gfm-reachable 25 (spike 27 − `<sub>` − `<sup>`); the visitor maps `<sub>`/`<sup>`
+  HAST nodes defensively (PD-6 / Phase 5.4). The exact 25 fixture filenames are enumerated
+  at delivery by walking the spike table minus `<sub>`/`<sup>`.
 
 ### Out of scope
 
@@ -177,8 +213,14 @@ phase-per-commit house style.
   Markdown-pipeline component in `feature-safe-publish.md` §4.2 +
   `architecture-overview.md`; bind Body Representation + Content Hash VOs in
   `ubiquitous-language.md`; move remark/rehype from "Planned" to "Installed" in
-  `.ai/rules/typescript.md`; populate ADR-0005 "Lessons Learned". Doc risks are recorded
-  in `chg-GH-20-pm-notes.yaml` `doc_risks`.
+  `.ai/rules/typescript.md`; populate ADR-0005 "Lessons Learned". **DoR iter-1 doc-drift
+  items (already in `chg-GH-20-pm-notes.yaml` `doc_risks`, NOT fixed here):** (a)
+  `architecture-overview.md:219` parse-port `ParseError` reference — does not exist in
+  `MarkSyncError` (PM-DEC-2 / PD-8); reconcile the port contract; (b)
+  `testing-strategy.md:44` references the STALE path
+  `src/infra/render/storage-renderer.ts` — actual path is
+  `src/infra/confluence/render/storage.ts` (Finding 5). Doc risks are recorded in
+  `chg-GH-20-pm-notes.yaml` `doc_risks`.
 - **Version bump** — repo bumps at release boundaries, not per change (GH-19 precedent;
   `version_impact: minor` is advisory).
 
@@ -193,21 +235,37 @@ phase-per-commit house style.
   - `src/infra/confluence/render/storage.ts` — **infrastructure**; import `#domain/*`
     (markdown/render types) + `hast` types. **May** import domain; the reverse is
     forbidden (NFR-10 / AC-Q-1). Never app/cli.
-  - dep-cruiser's existing `forbidden` rules (`domain-may-not-import-infra/app`,
-    `presentation-may-not-import-*`) cover this; the infra→domain direction is already
-    permitted by the matrix (infra implements ports).
+  - dep-cruiser enforcement is **partial** (Finding 6): `.dependency-cruiser.cjs`
+    defines exactly four `forbidden` rules — `domain-may-not-import-infra`,
+    `domain-may-not-import-app`, `presentation-may-not-import-domain` (cli→domain),
+    `presentation-may-not-import-infra` (cli→infra). **The load-bearing direction for
+    AC-Q-1 IS enforced**: `domain-may-not-import-infra` forbids `src/domain/** →
+    src/infra/**` at severity `error`, which is the reverse of the
+    `src/infra/confluence/render/storage.ts → src/domain/**` edge this story adds — so a
+    domain→infra leak fails the build. **Gaps (out of scope here):** there is no
+    `infra→app`/`infra→cli` rule and no rule forbidding `infra→domain` (that direction is
+    *allowed*, since infra implements ports); the broader ports-and-adapters matrix is not
+    fully encoded. Hardening dep-cruiser is a future item, not this story.
 - **Strict TS** (`verbatimModuleSyntax`, `isolatedModules`, `noUncheckedIndexedAccess`,
   `exactOptionalPropertyTypes`): one import statement per module with inline `type`
-  modifier; MDAST/HAST/remark types are `import type`. Type-only packages `mdast` and
-  `hast` (zero-runtime type definitions) are added in Phase 0 if not transitively
-  resolvable — a justified, minimal-dep-compliant extension to the spec's 4-dep list.
+  modifier; MDAST/HAST/remark types are `import type`. **Type-only packages `mdast` and
+  `hast` are added in Phase 0 as `devDependencies` (NOT runtime deps)** — they ship only
+  `.d.ts` type definitions, have **zero runtime surface**, and are imported exclusively
+  via `import type` (Finding 7). Per the spec's now-clarified "runtime dependencies"
+  framing, the runtime list stays at the 4 unified-ecosystem packages; `mdast`/`hast` are
+  type-only dev deps (a minimal-dep-compliant clarification, not a 5th/6th runtime dep).
+  Added only if not already transitively resolvable from `remark`/`rehype`.
 - **ESM-only**; path aliases via `package.json` `"imports"` (`#domain/*`, `#infra/*`).
   Tests use `#`-aliases, not deep relative paths (typescript.md "Tests use import
   aliases"). `bunfig.toml` `root = "tests"` + the mermaid preload (a no-op stub until
   E4-S1) are harmless for these tests.
 - **Error discipline**: domain/infra functions return `Result<T, MarkSyncError>` (never
   `throw` for expected failures). `throw` is reserved for invariant violations only.
-  `parseMarkdown` / `renderStorage` surface expected failures on the `Result` channel.
+  `renderStorage` surfaces expected failures (`UnsupportedConstruct`) on the `Result`
+  channel. `parseMarkdown` keeps the `Result<MdastRoot, MarkSyncError>` signature for
+  port-contract alignment but is **treated as total in MS-0002** (PD-8 / PM-DEC-2):
+  `remark-gfm` is very tolerant, so a genuine parse failure is an invariant violation →
+  `throw`, NOT a `Result.err` and NOT an `UnsupportedConstruct`.
 - **Comment discipline**: ≤ 3-line file headers; self-documenting code; cite ADR-0005
   (C-1/C-3) and spike H6 once at the load-bearing point (the `renderStorage` visitor);
   no bare `(DEC-x)`/`(NFR-x)` tags, no spec restatements.
@@ -239,8 +297,9 @@ phase-per-commit house style.
 
 ### Success Metrics
 
-- **27/27** canonical GFM fixtures byte-match their golden `.storage.xhtml` (AC-F4-1 /
-  NFR-REL-4).
+- **25/25** remark-gfm-reachable GFM fixtures byte-match their golden `.storage.xhtml`
+  (AC-F4-1 / NFR-REL-4 — re-baselined per PM-DEC-1; `<sub>`/`<sup>` excluded as
+  remark-gfm-unreachable, covered by a defensive unit test instead).
 - **100%** of fenced code blocks emit `<ac:structured-macro ac:name="code">` +
   `<![CDATA[…]]>`; **0** occurrences of `ac:schema-version` / `ac:macro-id` (AC-F4-2).
 - **100%** of rendered bodies are well-formed XML (AC-F4-3).
@@ -253,7 +312,9 @@ phase-per-commit house style.
 - `remark`/`remark-gfm`/`rehype`/`remark-rehype` installed; `mermaid`/`jsdom`/`happy-dom`
   **not** installed (NFR-11).
 - `src/infra/confluence/render/` may import domain markdown/render types but **not vice
-  versa**; `bun run check` exits 0 (AC-Q-1).
+  versa** (enforced by dep-cruiser's `domain-may-not-import-infra` rule — the load-bearing
+  direction for this story; see Constraints / Finding 6); `bun run check` exits 0
+  (AC-Q-1).
 
 ---
 
@@ -263,10 +324,11 @@ Nine phases, one logical commit each. Phase 0 installs the unified ecosystem and
 re-baselines the gate; Phases 1-4 build the adapter-agnostic domain core (parser →
 bridge → canonicalize/hash → classifier), each independently testable; Phase 5 lands the
 HAST→Storage visitor incrementally by construct group, each group against its golden
-snapshot, totalling 27 fixtures; Phase 6 hardens injection safety; Phase 7 wires the
-end-to-end round-trip + the XML-well-formedness assertion + determinism; Phase 8 runs the
-full gate and confirms the boundary direction. `bun run check:boundaries` runs in every
-phase. Suggested commit scopes: `feat(markdown)`, `feat(render)`, `test(golden)`.
+snapshot, totalling 25 fixtures (remark-gfm-reachable subset; `<sub>`/`<sup>` defensive
+only — PM-DEC-1); Phase 6 hardens injection safety; Phase 7 wires the end-to-end
+round-trip + the XML-well-formedness assertion + determinism; Phase 8 runs the full gate
+and confirms the boundary direction. `bun run check:boundaries` runs in every phase.
+Suggested commit scopes: `feat(markdown)`, `feat(render)`, `test(golden)`.
 
 ---
 
@@ -282,11 +344,15 @@ re-baseline the gate, and (if needed) add the type-only `mdast`/`hast` packages 
 - [ ] **0.1** Add to `package.json` `dependencies`: `remark`, `remark-gfm`, `rehype`,
       `remark-rehype` (each `^<current-major>`; the committed `bun.lock` pins exact).
       Run `bun install`.
-- [ ] **0.2** Type-only packages: attempt `import type { Root as MdastRoot } from "mdast"`
-      and `import type { Root as HastRoot } from "hast"` resolution; if they are not
-      transitively resolvable, add `mdast` and `hast` to `dependencies` (zero-runtime
-      type-definition-only packages — minimal-dep compliant). Record as a justified
-      deviation from the spec's 4-dep list in the execution log.
+- [ ] **0.2** Type-only packages (Finding 7 / PM framing): attempt `import type { Root as
+      MdastRoot } from "mdast"` and `import type { Root as HastRoot } from "hast"`
+      resolution; if they are not transitively resolvable from `remark`/`rehype`, add
+      `mdast` and `hast` to **`devDependencies`** (NOT `dependencies`). These packages
+      ship ONLY `.d.ts` type definitions, have **zero runtime surface**, and are imported
+      exclusively via `import type` — so they are NOT a 5th/6th runtime dependency; the
+      spec's "runtime dependencies" list stays at the 4 unified-ecosystem packages
+      (`remark`/`remark-gfm`/`rehype`/`remark-rehype`). This is a minimal-dep-compliant
+      clarification, recorded in the execution log.
 - [ ] **0.3** Verify `bun run check` still exits 0 (no existing test broken by the new
       deps) and assert `mermaid` / `jsdom` / `happy-dom` are absent from
       `bun.lock` / `node_modules` (NFR-11).
@@ -329,9 +395,13 @@ subset is exactly what `remark-gfm` recognizes.
         `Uint8Array` → string via `TextDecoder`.
       - Build a module-singleton processor: `const processor = unified().use(remarkParse)
         .use(gfm);` run `processor.parse(text)`.
-      - Defensive `catch` around `parse` (a `unified` throw is rare — see Open Questions);
-      - map to `err({ kind: "UnsupportedConstruct"; construct: "<markdown-parse>";
-        sourcePath: opts?.sourcePath ?? "<unknown>" })` (PD-3); success → `Result.ok(root)`.
+      - **Total in MS-0002 (PD-8 / PM-DEC-2):** `remark-gfm` is very tolerant — nearly
+        any text parses to a valid MDAST (a paragraph). A genuine `unified` throw is an
+        invariant violation → **let it propagate (`throw`)**; do NOT catch-and-map to
+        `UnsupportedConstruct` (overloading that arm is forbidden — PD-3). The
+        `Result<MdastRoot, MarkSyncError>` signature is KEPT for port-contract alignment
+        (architecture-overview parse port); in practice `parseMarkdown` returns
+        `Result.ok(root)`.
       - Imports: type-only `mdast`/`unified`/`remark` types + `#domain/result`,
         `#domain/errors`. **No** infra/app/cli.
       - ≤ 3-line header; cite ADR-0005 + this change once.
@@ -344,15 +414,18 @@ subset is exactly what `remark-gfm` recognizes.
       - **TC-PARSE-003:** `opts.sourcePath` is threaded so a downstream
         `UnsupportedConstruct` can read it (set it; assert the returned root's call path
         is consistent — provenance is asserted at the classifier site in Phase 4).
-      - **TC-PARSE-004:** genuinely malformed input that makes `unified` throw →
-        `err(UnsupportedConstruct { construct: "<markdown-parse>" })` (defensive catch;
-        rare in practice).
+      - **TC-PARSE-004 (PD-8):** a `unified` throw (provoked only by an invariant-level
+        fault in practice — remark-gfm does not throw on normal text) is NOT caught and
+        NOT mapped to `UnsupportedConstruct`; it propagates as a `throw` (invariant
+        violation). Test asserts the throw path (e.g. inject a processor misconfiguration
+        that throws) and that no `UnsupportedConstruct` is produced for a parse failure.
 
 **Acceptance Criteria**:
 
 - Must: valid GFM source → `ok(MdastRoot)` with recognized GFM nodes (F-1).
-- Must: a `unified` throw is caught and surfaced on the `Result` channel, not thrown
-  (error discipline).
+- Must: a `unified` throw propagates (invariant violation), is NOT mapped to
+  `UnsupportedConstruct` (PD-8 / PM-DEC-2); `parseMarkdown` is effectively total over
+  MS-0002 inputs.
 - Must: `bun run check` exits 0; `check:boundaries` clean (`parse.ts` imports domain +
   type-only packages only).
 
@@ -489,19 +562,22 @@ invoked by `renderStorage` (and optionally a pre-classify pass).
       - `findUnsupported(root, sourcePath): MarkSyncError | null` — a walker that returns
         the first unsupported node's error (or `null` if the tree is clean). Used as the
         no-silent-drop guard before/inside render.
-      - The canonical allow-list is derived from the spike H6 27-construct table
-        (everything mapped = allowed; footnotes/definition-lists/math/raw-HTML-block/app
-        content = unsupported). Raw **inline** HTML is NOT classified here — it is escaped
-        at render (DEC-4 / PD-7).
+      - The canonical allow-list = the HAST node types the renderer handles = the spike
+        H6 construct set: the 25 remark-gfm-reachable constructs (golden) PLUS `<sub>`/
+        `<sup>` (defensively mapped per PM-DEC-1 / PD-6 — so they are ALLOWED, not
+        classified as unsupported, even though no markdown golden fixture produces them).
+        Footnotes/definition-lists/math/raw-HTML-block/app content = unsupported. Raw
+        **inline** HTML is NOT classified here — it is escaped at render (DEC-4 / PD-7).
       - Imports: type-only `mdast`/`hast` types + `#domain/errors`. **No** infra/app/cli.
       - ≤ 3-line header; cite ADR-0005 "do not silently degrade" once.
 - [ ] **4.2** Create `tests/unit/domain/markdown/unsupported.test.ts` (new) — **Unit**:
       - **TC-UNSUP-001 (AC-F5-1):** a footnote node → `findUnsupported` returns
         `UnsupportedConstruct { construct: "footnoteDefinition"|"footnoteReference"; … }`.
       - **TC-UNSUP-002 (AC-F5-1):** a math / definition-list node → `UnsupportedConstruct`.
-      - **TC-UNSUP-003 (AC-F5-1):** a clean canonical-subset tree (the 27-construct
-        kitchensink) → `findUnsupported` returns `null` (no false positives — the
-        canonical subset is never flagged).
+      - **TC-UNSUP-003 (AC-F5-1):** a clean canonical-subset tree (the remark-gfm-
+        reachable kitchensink) → `findUnsupported` returns `null` (no false positives —
+        the canonical subset is never flagged). A hand-constructed `<sub>`/`<sup>` node is
+        also NOT flagged (defensively handled — allowed, per PM-DEC-1).
       - **TC-UNSUP-004:** raw **inline** HTML is NOT classified (returns `null`) — it is
         handled by escape at render (DEC-4); raw HTML **block** IS classified.
 
@@ -526,16 +602,21 @@ invoked by `renderStorage` (and optionally a pre-classify pass).
 
 ---
 
-### Phase 5: HAST→Storage renderer + 27 golden fixtures (F-4, F-6, AC-F4-1, AC-F4-2)
+### Phase 5: HAST→Storage renderer + 25 golden fixtures (F-4, F-6, AC-F4-1, AC-F4-2)
 
 **Goal**: Deliver F-4 + F-6 — the HAST→Storage XHTML visitor (`renderStorage`) built
 incrementally by construct group, each group landing its golden `.md`/`.storage.xhtml`
-snapshot against the spike-H6 mapping, totalling 27 per-construct pairs + a consolidated
-`kitchensink` parity pair. The visitor is a small string-builder over plain HAST objects
-(DEC-6 / PD-5) emitting well-formed XML (balanced tags, escaped entities outside CDATA —
-spike rule #2), CDATA code bodies with omitted `ac:schema-version`/`ac:macro-id` (spike
-rule #1), and `<ac:task-list>` as its own block (spike rule #3). On an unsupported node
-it delegates to F-5 (never emits nothing).
+snapshot against the spike-H6 mapping, totalling **25 per-construct pairs** (the
+remark-gfm-reachable subset of the spike's 27 — `<sub>`/`<sup>` are EXCLUDED from the
+golden set because plain remark-gfm cannot produce them; see PM-DEC-1 / PD-6) + a
+consolidated `kitchensink` parity pair. The visitor is a small string-builder over plain
+HAST objects (DEC-6 / PD-5) emitting well-formed XML (balanced tags, escaped entities
+outside CDATA — spike rule #2), CDATA code bodies with omitted
+`ac:schema-version`/`ac:macro-id` (spike rule #1), and `<ac:task-list>` as its own block
+(spike rule #3). It maps `<sub>`/`<sup>` HAST nodes **defensively** (a visitor arm that
+emits `<sub>`/`<sup>` if such a node ever appears — verified by a hand-constructed-node
+unit test, NOT a golden fixture). On an unsupported node it delegates to F-5 (never emits
+nothing).
 
 **Tasks**:
 
@@ -556,10 +637,13 @@ it delegates to F-5 (never emits nothing).
         forbidden. Never app/cli.
       - ≤ 3-line header; cite ADR-0005 C-1/C-3 + spike H6 once (the load-bearing point).
 - [ ] **5.2** Implement the construct visitors by group, landing each group's golden
-      fixture pair (the 27 derive from the spike H6 table; `tests/golden/fixtures/markdown/`):
+      fixture pair (the 25 derive from the spike H6 table MINUS `<sub>`/`<sup>`;
+      `tests/golden/fixtures/markdown/`):
       - **Group A — headings** (`<h1>`..`<h6>`): fixture `headings.md` + `headings.storage.xhtml`.
       - **Group B — inline formatting** (`<strong>`, `<em>`, nested strong/em, `<s>` /
-        `<del>`, inline `<code>`, `<sub>`, `<sup>`): fixture `inline-formatting.md` + `.xhtml`.
+        `<del>`, inline `<code>`): fixture `inline-formatting.md` + `.xhtml`. (`<sub>`/
+        `<sup>` are NOT in this golden fixture — plain remark-gfm cannot produce them;
+        the visitor still maps them defensively — see the unit test in 5.4.)
       - **Group C — links** (`<a href>` with `&amp;` preserved via escape): `links.md` + `.xhtml`.
       - **Group D — images** (remote `<ac:image ac:alt="…"><ri:url ri:value="…"/></ac:image>`;
         local `<ac:image><ri:attachment ri:filename="…"/></ac:image>` — upload is E4-S2):
@@ -581,27 +665,44 @@ it delegates to F-5 (never emits nothing).
       - **Group K — consolidated kitchensink parity**: `kitchensink.md` +
         `kitchensink.storage.xhtml`, the latter derived byte-for-byte from the spike
         reference `storage-kitchensink.xml`.
-      *(The 27 individual per-construct pairs are enumerated at delivery by expanding
-      the spike H6 families above; names like `h1`..`h6`, `strong`, `em`, `strike-s`,
-      `strike-del`, `code-inline`, `sub`, `sup`, `link-plain`, `link-query-amp`, etc.)*
+      *(The 25 individual per-construct pairs are enumerated at delivery by expanding the
+      spike H6 families above MINUS `<sub>`/`<sup>` (unreachable from remark-gfm —
+      PM-DEC-1); names like `h1`..`h6`, `strong`, `em`, `strike-s`, `strike-del`,
+      `code-inline`, `link-plain`, `link-query-amp`, etc. Final enumeration confirmed by
+      walking the spike table at delivery.)*
 - [ ] **5.3** Create `tests/golden/markdown/storage-renderer.test.ts` (new) — **Golden**
       (testing-strategy §"golden-fixture tier"):
-      - **TC-GOLDEN-<construct> (AC-F4-1):** for each of the 27 fixtures + kitchensink —
+      - **TC-GOLDEN-<construct> (AC-F4-1):** for each of the 25 fixtures + kitchensink —
         `parseMarkdown(fixture.md)` → `mdastToHast` → `renderStorage` → assert
         `result.body === readFileSync(fixture.storage.xhtml)` (**byte-exact** file match,
         per testing-strategy) AND `toMatchSnapshot` (regression layer, explicit update).
       - **TC-CODE-MACRO-001 (AC-F4-2):** every fenced-code fixture's body contains
         `<ac:structured-macro ac:name="code">` + `<ac:plain-text-body><![CDATA[…]]></…>`;
-        AND across **all** 27 rendered bodies, `ac:schema-version` and `ac:macro-id`
+        AND across **all** 25 rendered bodies, `ac:schema-version` and `ac:macro-id`
         appear **0** times (assert via a scan over the rendered corpus).
+- [ ] **5.4** Create `tests/unit/infra/confluence/render/storage-defensive.test.ts` (new)
+      — **Unit** (PM-DEC-1: `<sub>`/`<sup>` are unreachable from plain remark-gfm, so they
+      get a defensive unit test, NOT a golden fixture):
+      - **TC-SUBSUP-DEF-001:** hand-construct a HAST tree containing `<sub>` and `<sup>`
+        element nodes (not via markdown) → `renderStorage` emits `<sub>…</sub>` and
+        `<sup>…</sup>` verbatim (the defensive visitor arm works if a future extension or
+        raw-HTML path ever produces these nodes).
+      - Asserts the visitor arm exists and is correct WITHOUT claiming a
+        markdown→golden round-trip that remark-gfm cannot produce (the spike proved
+        sub/sup survive a Storage round-trip when present in XML — preserved here).
 
 **Acceptance Criteria**:
 
-- Must: 27/27 canonical GFM fixtures byte-match their golden `.storage.xhtml` (AC-F4-1 /
-  NFR-REL-4) + kitchensink parity.
+- Must: 25/25 remark-gfm-reachable GFM fixtures byte-match their golden `.storage.xhtml`
+  (AC-F4-1 / NFR-REL-4 — re-baselined per PM-DEC-1 from the spec's 27; `<sub>`/`<sup>`
+  excluded as remark-gfm-unreachable) + kitchensink parity.
+- Must: the defensive `<sub>`/`<sup>` visitor arm emits correct Storage for hand-constructed
+  HAST nodes (PM-DEC-1 / PD-6) — no golden markdown fixture claimed for them.
 - Must: code blocks use CDATA; `ac:schema-version` / `ac:macro-id` absent (AC-F4-2 / NFR-2).
 - Must: snapshot updates explicit (`--update-snapshots`), never auto in CI.
-- Must: `bun run check` exits 0; `check:boundaries` clean (infra → domain one-way only).
+- Must: `bun run check` exits 0; `check:boundaries` clean (the load-bearing
+  `domain-may-not-import-infra` rule forbids the reverse `domain → infra` edge — see
+  Constraints / Finding 6).
 
 **Files and modules**:
 
@@ -613,8 +714,9 @@ it delegates to F-5 (never emits nothing).
 **Tests**:
 
 - `bun test tests/golden/markdown/storage-renderer.test.ts`
+- `bun test tests/unit/infra/confluence/render/storage-defensive.test.ts`
 
-**Completion signal**: `feat(render): HAST→Storage visitor + 27 golden fixtures (GH-20)`
+**Completion signal**: `feat(render): HAST→Storage visitor + 25 golden fixtures (GH-20)`
 
 ---
 
@@ -707,7 +809,7 @@ AC-F3-1). This is the ADR-0005 C-3 discharge.
         `renderStorage` over every fixture; assert `result.ok === true`, `body` non-empty,
         `hash` lowercase-hex-64.
       - **TC-XML-WF-001 (AC-F4-3):** run `assertWellFormedXml(result.body)` on every
-        rendered body (27 fixtures + kitchensink) — 0 unbalanced tags, entities escaped
+        rendered body (25 fixtures + kitchensink) — 0 unbalanced tags, entities escaped
         outside CDATA (NFR-3 / RSK-7).
       - **TC-DETERM-001 (AC-F4-5):** render the same fixture N (≥3) times → every run is
         **byte-identical** (0 bytes diff) — golden-snapshot stability.
@@ -750,8 +852,15 @@ behavior.
 - [ ] **8.1** Run `bun run check` (lint + format:check + typecheck + test +
       check:boundaries); fix any issue. Confirm all `AC-*` are green (TC-GATE-001).
 - [ ] **8.2** Confirm the boundary direction explicitly (AC-Q-1 / NFR-10):
-      `depcruise src` reports the `src/infra/confluence/render/ → src/domain/markdown|render`
-      edges and **no** reverse edge; the domain modules import no infra/app/cli.
+      `depcruise src` (via `bun run check:boundaries`) passes with **no**
+      `domain-may-not-import-infra` violation — i.e. no `src/domain/**` module imports
+      `src/infra/**`, which is the reverse of the `src/infra/confluence/render/storage.ts
+      → src/domain/**` edge this story adds. **Scope note (Finding 6):** dep-cruiser
+      enforces the load-bearing `domain→infra` forbidden direction for this story at
+      severity `error`; it does NOT encode every ports-and-adapters direction (no
+      `infra→app`/`infra→cli` rule; `infra→domain` is allowed since infra implements
+      ports) — broader matrix hardening is a future item, out of scope here. The domain
+      modules import no infra/app/cli.
 - [ ] **8.3** Hand off the doc risks recorded in `chg-GH-20-pm-notes.yaml` `doc_risks` to
       lifecycle phase 7 (`@doc-syncer`): tag the Markdown-pipeline component in
       `feature-safe-publish.md` §4.2 + `architecture-overview.md` (Markdown parser +
@@ -764,8 +873,9 @@ behavior.
 **Acceptance Criteria**:
 
 - Must: `bun run check` exits 0 (AC-Q-1 / NFR-13).
-- Must: dep-cruiser confirms the one-way infra → domain boundary for the renderer
-  (AC-Q-1 / NFR-10).
+- Must: dep-cruiser's `domain-may-not-import-infra` rule stays green (no `domain→infra`
+  violation), enforcing the one-way `infra→domain` direction for the renderer at severity
+  `error` (AC-Q-1 / NFR-10). The broader matrix has gaps (Finding 6) — out of scope here.
 
 **Files and modules**:
 
@@ -788,7 +898,8 @@ behavior.
 | TC-BRIDGE-001..003 | MDAST→HAST preserves canonical subset + raw HTML | 2 | F-2 |
 | TC-HASH-001..004 | canonicalize + contentHash determinism; lowercase hex | 3 | AC-F3-1 |
 | TC-UNSUP-001..004 | unsupported → `UnsupportedConstruct`; canonical never flagged | 4 | AC-F5-1 |
-| TC-GOLDEN-\<construct\> (×27) + kitchensink | byte-exact `.storage.xhtml` match | 5 | AC-F4-1 |
+| TC-GOLDEN-\<construct\> (×25) + kitchensink | byte-exact `.storage.xhtml` match (remark-gfm-reachable) | 5 | AC-F4-1 |
+| TC-SUBSUP-DEF-001 | defensive `<sub>`/`<sup>` visitor arm (hand-constructed HAST) | 5 | F-4 / PM-DEC-1 |
 | TC-CODE-MACRO-001 | CDATA bodies; 0× `ac:schema-version`/`ac:macro-id` | 5 | AC-F4-2 |
 | TC-INJECT-001..003 | malicious → 0 injected macros / 0 executable content | 6 | AC-F4-4 |
 | TC-RAWHTML-001 | raw inline HTML escaped (0 bytes passthrough) | 6 | DEC-4 / NFR-8 |
@@ -811,7 +922,7 @@ behavior.
 | Unsupported classifier | `src/domain/markdown/unsupported.ts` | Code (new) |
 | Canonicalizer + hash | `src/domain/render/canonicalize.ts` | Code (new) |
 | HAST→Storage renderer | `src/infra/confluence/render/storage.ts` | Code (new) |
-| Golden fixtures (27 + kitchensink) | `tests/golden/fixtures/markdown/*.md` + `*.storage.xhtml` | Fixture (new) |
+| Golden fixtures (25 + kitchensink) | `tests/golden/fixtures/markdown/*.md` + `*.storage.xhtml` | Fixture (new) |
 | XML well-formedness checker | `tests/_helpers/assert-well-formed-xml.ts` | Test util (new, test-tier) |
 | ADR-0005 | `doc/decisions/ADR-0005-page-body-representation-storage-not-adf.md` | Decision |
 | Spike H6 mapping | `doc/inception/tmp/confluence-api-validation-spike/findings/atlassian-api-spike-findings.md` (lines 17-41) | Evidence |
@@ -823,6 +934,7 @@ behavior.
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-09 | plan-writer | Initial plan |
+| 1.1 | 2026-07-09 | plan-writer | DoR iter-1 fixes: re-baseline golden set 27→25 per PM-DEC-1 (`<sub>`/`<sup>` defensive-only — PD-6 / Phase 5.4); settle parse-failure path per PM-DEC-2 (`parseMarkdown` total in MS-0002, throws on invariant violation — PD-8); soften dep-cruiser claim (Finding 6 — load-bearing `domain→infra` enforced, matrix gaps out of scope); confirm `mdast`/`hast` are type-only devDeps (Finding 7); flag `testing-strategy.md:44` stale path + `architecture-overview.md:219` `ParseError` drift as phase-7 doc-sync items. |
 
 ## Execution Log
 
@@ -836,7 +948,7 @@ behavior.
 | 2 — MDAST→HAST bridge | ⏳ | | | | | F-2 |
 | 3 — canonicalize + contentHash | ⏳ | | | | | F-3 / AC-F3-1 |
 | 4 — unsupported classifier | ⏳ | | | | | F-5 / AC-F5-1 |
-| 5 — renderStorage + 27 golden | ⏳ | | | | | F-4 / F-6 / AC-F4-1 / AC-F4-2 |
+| 5 — renderStorage + 25 golden | ⏳ | | | | | F-4 / F-6 / AC-F4-1 / AC-F4-2 |
 | 6 — injection safety + DEC-4/DEC-5 | ⏳ | | | | | F-7 / AC-F4-4 |
 | 7 — round-trip + XML WF + determinism | ⏳ | | | | | AC-F4-3 / AC-F4-5 |
 | 8 — final gate + boundaries | ⏳ | | | | | AC-Q-1 |
