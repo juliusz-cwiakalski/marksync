@@ -1,10 +1,4 @@
-// tests/app/cache.test.ts
-//
-// Unit tests for the disposable cache layout (GH-19 F-4, TC-CACHE-001/004).
-//   - TC-CACHE-001: resolveCacheDir defaults to <cwd>/.marksync and honors
-//     MARKSYNC_CACHE_DIR.
-//   - TC-CACHE-004: the committed lock lives OUTSIDE the cache dir, and
-//     .gitignore ignores .marksync/ (base != cache — ADR-0006 C-3 prerequisite).
+// Cache layout tests (GH-19 F-4; TC-CACHE-001/004; ADR-0006 C-3).
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -34,12 +28,19 @@ describe("resolveCacheDir — TC-CACHE-001: default + MARKSYNC_CACHE_DIR overrid
 		expect(resolveCacheDir("/repo")).toBe("/tmp/x");
 	});
 
-	test("an empty MARKSYNC_CACHE_DIR falls back to the default", () => {
-		// `process.env.X = ""` is set-but-empty; `??` treats it as present, so an
-		// explicit empty string wins (documented behavior: set the var to a real
-		// path). This pins the `??` semantics so a future change is intentional.
+	test("a non-empty MARKSYNC_CACHE_DIR always wins (nested path override)", () => {
 		process.env.MARKSYNC_CACHE_DIR = "/custom/cache";
 		expect(resolveCacheDir("/repo")).toBe("/custom/cache");
+	});
+
+	test("an empty MARKSYNC_CACHE_DIR falls back to the default", () => {
+		process.env.MARKSYNC_CACHE_DIR = "";
+		expect(resolveCacheDir("/repo")).toBe("/repo/.marksync");
+	});
+
+	test("a whitespace-only MARKSYNC_CACHE_DIR falls back to the default", () => {
+		process.env.MARKSYNC_CACHE_DIR = "   ";
+		expect(resolveCacheDir("/repo")).toBe("/repo/.marksync");
 	});
 });
 

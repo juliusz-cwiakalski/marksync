@@ -1,7 +1,4 @@
-// writeAtomic — POSIX-atomic lock write (ADR-0006: "interrupted lock write
-// preserves old file"). Writes a temp file then fs.rename over the destination;
-// a module-level crash hook lets tests prove no partial lock survives a
-// mid-write fault.
+// POSIX-atomic lock write (ADR-0006: interrupted write preserves old file).
 
 import { renameSync, writeFileSync } from "node:fs";
 import type { LockError } from "#domain/errors";

@@ -1,6 +1,4 @@
-// Disposable cache layout (ADR-0006 C-3). `.marksync/` is gitignored and NEVER
-// the base — the committed lock is. `resolveCacheDir` honors MARKSYNC_CACHE_DIR;
-// deleting the whole tree changes no plan (proven by TC-CACHE-003).
+// Disposable cache layout (ADR-0006 C-3).
 
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -15,11 +13,13 @@ import { Result } from "#domain/result";
 export const CACHE_SUBDIRS = ["cache", "journal", "conflicts"] as const;
 
 /**
- * The cache root: `MARKSYNC_CACHE_DIR` overrides, else `<cwd>/.marksync`. Used
- * for CI/test isolation as well as splitting CI-cacheable vs run-specific state.
+ * The cache root. `MARKSYNC_CACHE_DIR` overrides; an empty/whitespace-only value
+ * is treated as unset (friendlier than resolving to "") and falls back to
+ * `<cwd>/.marksync` (ADR-0006 C-3).
  */
 export function resolveCacheDir(cwd: string): string {
-	return process.env.MARKSYNC_CACHE_DIR ?? join(cwd, ".marksync");
+	const override = process.env.MARKSYNC_CACHE_DIR?.trim();
+	return override || join(cwd, ".marksync");
 }
 
 /**

@@ -1,8 +1,4 @@
-// Lock loader + saver (ADR-0006 C-2). loadLock mirrors the GH-15 config-loader
-// pattern (read -> yaml -> ajv -> Result); saveLock serializes line-oriented,
-// UUID-ordered YAML and writes it atomically. mergeBindings is the deterministic
-// union primitive. A missing lock is ok(empty) (DEC-5); only a present-but-
-// invalid lock is err(CorruptLock).
+// Lock load/save — committed shared base (ADR-0006 C-2).
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";

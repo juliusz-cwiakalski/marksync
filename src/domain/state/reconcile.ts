@@ -1,7 +1,4 @@
-// Pure content-property cross-check (ADR-0006 Cross-check). reconcileWithProperty
-// flags a tampered/stale property as LockDirty; rebuildLockFromConfluence
-// reconstructs a PageBinding from the remote property + page + hashes. No I/O —
-// the property fetch is E3-S4 (DEC-3).
+// Content-property cross-check + remote rebuild (ADR-0006 Cross-check).
 
 import type { PageBinding } from "#domain/binding/page-binding";
 import type { DocumentId } from "#domain/identity/document-id";
