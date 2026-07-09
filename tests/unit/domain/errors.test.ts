@@ -16,6 +16,7 @@ import { assertNeverMarkSyncError } from "#domain/errors";
 import type {
 	ConfigAjvError,
 	ConfigError,
+	LockError,
 	MarkSyncError,
 } from "#domain/errors";
 
@@ -81,5 +82,78 @@ describe("ConfigError (InvalidConfig kind)", () => {
 			}
 		};
 		expect(classify(configError)).toBe("config");
+	});
+});
+
+describe("CorruptLock (lock-failure kind — GH-19 DEC-2)", () => {
+	const corruptWithAjv: MarkSyncError = {
+		kind: "CorruptLock",
+		path: "marksync.lock.yml",
+		ajvErrors: [
+			{
+				instancePath: "/version",
+				schemaPath: "#/properties/version/const",
+				keyword: "const",
+				message: "must be equal to constant",
+				params: { allowedValue: 1 },
+			},
+		],
+		humanMessage: "version: must be 1, got 2",
+	};
+
+	const corruptParseOnly: MarkSyncError = {
+		kind: "CorruptLock",
+		path: "marksync.lock.yml",
+		humanMessage: "invalid YAML: bad indentation",
+	};
+
+	test("a CorruptLock is a valid MarkSyncError member", () => {
+		const asUnion: MarkSyncError = corruptWithAjv;
+		expect(asUnion.kind).toBe("CorruptLock");
+	});
+
+	test("ajvErrors is optional — absent for a YAML parse failure (exactOptionalPropertyTypes)", () => {
+		expect(corruptParseOnly.kind).toBe("CorruptLock");
+		// `ajvErrors` is genuinely absent (not undefined) on the parse-only arm.
+		expect("ajvErrors" in corruptParseOnly).toBe(false);
+	});
+
+	test("discriminating on kind narrows to the CorruptLock fields at runtime", () => {
+		const err: MarkSyncError = corruptWithAjv;
+		if (err.kind === "CorruptLock") {
+			expect(err.path).toBe("marksync.lock.yml");
+			expect(err.humanMessage).toBeTypeOf("string");
+			expect(err.ajvErrors).toHaveLength(1);
+		} else {
+			expect.unreachable("expected CorruptLock arm");
+		}
+	});
+
+	test("LockError narrows to the three lock arms (CorruptLock|LockDirty|ConcurrentWrite)", () => {
+		const lockErrs: LockError[] = [
+			corruptWithAjv as LockError,
+			{ kind: "LockDirty", path: "x.md" },
+			{ kind: "ConcurrentWrite", lockPath: "marksync.lock.yml" },
+		];
+		for (const e of lockErrs) {
+			// LockError is a subset of MarkSyncError; every member is assignable up.
+			const up: MarkSyncError = e;
+			expect(["CorruptLock", "LockDirty", "ConcurrentWrite"]).toContain(
+				up.kind,
+			);
+		}
+	});
+
+	test("CorruptLock flows through an exhaustive MarkSyncError handler (TC-CORRUPT-001 side-check)", () => {
+		const classify = (error: MarkSyncError): "corrupt" | "other" => {
+			switch (error.kind) {
+				case "CorruptLock":
+					return "corrupt";
+				default:
+					return assertNeverMarkSyncError(error) as never;
+			}
+		};
+		expect(classify(corruptWithAjv)).toBe("corrupt");
+		expect(classify(corruptParseOnly)).toBe("corrupt");
 	});
 });

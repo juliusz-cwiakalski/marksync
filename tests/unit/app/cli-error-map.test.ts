@@ -138,6 +138,19 @@ describe("mapMarkSyncErrorToCommandError — DEC-2 table (exhaustive, NFR-3)", (
 			retryable: false,
 		},
 		{
+			// GH-19 DEC-2 — CorruptLock (union 14→15). Mirrors InvalidConfig
+			// (DEC-5: structural count only, never path/humanMessage).
+			name: "CorruptLock",
+			err: {
+				kind: "CorruptLock",
+				path: "marksync.lock.yml",
+				ajvErrors: [ajvError("must be equal to constant")],
+				humanMessage: "version: must be 1, got 2",
+			},
+			code: "CORRUPT_LOCK",
+			retryable: false,
+		},
+		{
 			// GH-17 — the Auth arm is ONE top-level kind (union 13→14). Its four
 			// sub-cases are enumerated in the dedicated "Auth arm" suite below;
 			// one representative keeps this table's per-kind coverage complete.
@@ -162,10 +175,10 @@ describe("mapMarkSyncErrorToCommandError — DEC-2 table (exhaustive, NFR-3)", (
 		});
 	}
 
-	test("covers exactly the 14 kinds — exhaustiveness (TS-10)", () => {
-		expect(cases).toHaveLength(14);
+	test("covers exactly the 15 kinds — exhaustiveness (TS-10)", () => {
+		expect(cases).toHaveLength(15);
 		const kinds = new Set(cases.map((c) => c.name));
-		expect(kinds.size).toBe(14);
+		expect(kinds.size).toBe(15);
 	});
 });
 
@@ -200,6 +213,35 @@ describe("mapMarkSyncErrorToCommandError — AC-6 load-bearing mapping", () => {
 		// structural count + pluralization only (never the humanMessage body)
 		expect(out.message).toMatch(/3 validation errors/);
 		expect(out.message).not.toContain("details elided by the mapper");
+	});
+
+	test("CorruptLock (with ajvErrors) → CORRUPT_LOCK (GH-19 DEC-2, TC-CORRUPT-001)", () => {
+		const out = mapMarkSyncErrorToCommandError({
+			kind: "CorruptLock",
+			path: "marksync.lock.yml",
+			ajvErrors: [ajvError(), ajvError()],
+			humanMessage: "elided lock diagnostics",
+		});
+		expect(out.code).toBe("CORRUPT_LOCK");
+		expect(out.retryable).toBe(false);
+		// structural count + pluralization only (never the humanMessage body).
+		// The fixed filename in the message is allowed (mirrors InvalidConfig);
+		// the dynamic `path` field is what DEC-5 forbids — covered by the
+		// adversarial redaction suite below.
+		expect(out.message).toMatch(/2 validation errors/);
+		expect(out.message).not.toContain("elided lock diagnostics");
+	});
+
+	test("CorruptLock (YAML parse failure, no ajvErrors) → CORRUPT_LOCK parse message", () => {
+		const out = mapMarkSyncErrorToCommandError({
+			kind: "CorruptLock",
+			path: "marksync.lock.yml",
+			humanMessage: "elided parse diagnostics",
+		});
+		expect(out.code).toBe("CORRUPT_LOCK");
+		expect(out.retryable).toBe(false);
+		expect(out.message).toMatch(/could not be parsed/);
+		expect(out.message).not.toContain("elided parse diagnostics");
 	});
 
 	test("RemoteMissing → REMOTE_MISSING (built from the page id)", () => {
@@ -244,6 +286,13 @@ describe("mapMarkSyncErrorToCommandError — DEC-3 redaction at the source", () 
 		{
 			kind: "InvalidConfig",
 			path: "marksync.yml",
+			humanMessage: TOKENS.join(" | "),
+			ajvErrors: [ajvError(TOKENS.join(" | "))],
+		},
+		// GH-19 — CorruptLock carries path/humanMessage/ajvErrors (all omitted).
+		{
+			kind: "CorruptLock",
+			path: `Bearer ${"x".repeat(30)}`,
 			humanMessage: TOKENS.join(" | "),
 			ajvErrors: [ajvError(TOKENS.join(" | "))],
 		},

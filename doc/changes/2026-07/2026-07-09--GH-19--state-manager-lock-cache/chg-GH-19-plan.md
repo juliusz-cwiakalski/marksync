@@ -201,28 +201,28 @@ phase adds only `CorruptLock` and its mapping.
 
 **Tasks**:
 
-- [ ] **0.1** Edit `src/domain/errors.ts`:
+- [x] **0.1** Edit `src/domain/errors.ts`:
       - Add the union arm `{ kind: "CorruptLock"; path: string; ajvErrors?: ConfigAjvError[]; humanMessage: string }` (reuse the existing `ConfigAjvError` interface — same plain-data shape `InvalidConfig` uses).
       - Add `case "CorruptLock":` to `assertNeverMarkSyncError` (the never-check forces
         this; `tsc` fails otherwise).
       - Add `export type LockError = Extract<MarkSyncError, { kind: "CorruptLock" | "LockDirty" | "ConcurrentWrite" }>;` (the narrowed channel `loadLock`/`saveLock` declare — mirrors `ConfigError`/`AuthError`).
       - ≤ 3-line header unchanged; cite ADR-0006 + this change once where the arm is
-        declared.
-- [ ] **0.2** Edit `src/app/cli-error-map.ts`: add the `CorruptLock` case → a stable
+        declared. *(done — arm + LockError added; assertNeverMarkSyncError case added; typecheck green)*
+- [x] **0.2** Edit `src/app/cli-error-map.ts`: add the `CorruptLock` case → a stable
       `code` (`CORRUPT_LOCK`), an AI-readable `message` (from `humanMessage`), and
-      `retryable: false`. Follow the existing `InvalidConfig` mapping exactly.
-- [ ] **0.3** Edit `src/cli/output/exit-codes.ts`: add `CORRUPT_LOCK` to `CODE_TO_EXIT`
+      `retryable: false`. Follow the existing `InvalidConfig` mapping exactly. *(done — mirrors InvalidConfig: structural ajvError count + a parse-failure branch; DEC-5-safe — never surfaces path/humanMessage body)*
+- [x] **0.3** Edit `src/cli/output/exit-codes.ts`: add `CORRUPT_LOCK` to `CODE_TO_EXIT`
       (a non-zero exit consistent with the other data/config classes) and to the
-      `ERROR_CODES` const object (no magic strings — typescript.md "No magic strings").
-- [ ] **0.4** Update the DEC-2 exit-code table doc (the `error.code → exit` reference,
-      wherever `CODE_TO_EXIT` is documented) to include `CORRUPT_LOCK`.
-- [ ] **0.5** Add/extend tests:
+      `ERROR_CODES` const object (no magic strings — typescript.md "No magic strings"). *(done — `CORRUPT_LOCK: EXIT_CONFIG` (10, config class). NOTE: no `ERROR_CODES` const exists in the codebase today; followed the established `CODE_TO_EXIT` keyed-string pattern used by all 17 prior codes — deviation recorded in execution log)*
+- [x] **0.4** Update the DEC-2 exit-code table doc (the `error.code → exit` reference,
+      wherever `CODE_TO_EXIT` is documented) to include `CORRUPT_LOCK`. *(done — both DEC-2 comment tables updated: cli-error-map.ts + exit-codes.ts)*
+- [x] **0.5** Add/extend tests:
       - `tests/unit/domain/errors.test.ts` — assert `CorruptLock` is a valid
         `MarkSyncError` member and `assertNeverMarkSyncError` does not flag it.
       - `tests/unit/app/cli-error-map.test.ts` — assert `CorruptLock` maps to
         `{ code: "CORRUPT_LOCK", retryable: false }`.
       - `tests/unit/cli/output/exit-codes.test.ts` — assert `CORRUPT_LOCK` resolves to a
-        non-zero exit (TC-CORRUPT-001 side-checks).
+        non-zero exit (TC-CORRUPT-001 side-checks). *(done — all three extended; + adversarial redaction entry for CorruptLock)*
 
 **Acceptance Criteria**:
 

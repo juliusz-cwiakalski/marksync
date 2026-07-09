@@ -74,7 +74,19 @@ export type MarkSyncError =
 	  }
 	| { kind: "Auth"; authKind: "InvalidBaseUrl"; baseUrl: string }
 	| { kind: "Auth"; authKind: "InvalidCredentials"; status: number }
-	| { kind: "Auth"; authKind: "AuthUnreachable"; cause: string };
+	| { kind: "Auth"; authKind: "AuthUnreachable"; cause: string }
+	// GH-19 DEC-2 / ADR-0006 C-2 — the corrupt-lock arm. A present-but-invalid
+	// lock (bad `version`, missing required field, unparseable YAML) has a
+	// distinct recovery action (regenerate / `rebuildLockFromConfluence`) from
+	// `LockDirty` (property-tamper → reconcile), so it is a distinct kind.
+	// `ajvErrors` is optional: absent for a YAML parse failure, present for an
+	// ajv validation failure. `path` is the lock file path.
+	| {
+			kind: "CorruptLock";
+			path: string;
+			ajvErrors?: ConfigAjvError[];
+			humanMessage: string;
+	  };
 
 /**
  * The config-failure arm of {@link MarkSyncError}. `loadConfig` declares
@@ -83,6 +95,16 @@ export type MarkSyncError =
  * available downstream.
  */
 export type ConfigError = Extract<MarkSyncError, { kind: "InvalidConfig" }>;
+
+/**
+ * The lock-failure arms of {@link MarkSyncError}. `loadLock`/`saveLock` declare
+ * `Result<_, LockError>` (GH-19 DM-7) — the narrowed channel keeps the
+ * loader/saver failure type precise, mirroring `ConfigError`/`AuthError`.
+ */
+export type LockError = Extract<
+	MarkSyncError,
+	{ kind: "CorruptLock" | "LockDirty" | "ConcurrentWrite" }
+>;
 
 /**
  * The auth-failure arm of {@link MarkSyncError}. The credential provider
@@ -121,6 +143,7 @@ export function assertNeverMarkSyncError(error: MarkSyncError): never {
 		case "UnresolvedLink":
 		case "InvalidConfig":
 		case "Auth":
+		case "CorruptLock":
 			// Every kind is named above. If a new kind is added, the `default`
 			// arm's `error` stops being `never` and this file won't compile.
 			throw new Error(`unhandled MarkSyncError kind: ${error.kind}`);
