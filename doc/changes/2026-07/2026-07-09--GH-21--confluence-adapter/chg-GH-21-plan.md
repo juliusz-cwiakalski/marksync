@@ -468,7 +468,7 @@ error model the adapter produces into.
 
 **Tasks**:
 
-- [ ] **1.1** Edit `src/domain/errors.ts`:
+- [x] **1.1** Edit `src/domain/errors.ts`:
       - Add two union arms:
         `| { kind: "RateLimited"; retryAfterMs?: number }` (OQ-2 — last observed
         `Retry-After` if present; no secret material) and
@@ -481,7 +481,7 @@ error model the adapter produces into.
         cases) so the `default` arm's `_exhaustive: never` stays sound.
       - ≤ 3-line header preserved; cite ADR-0006 once if a header touch is needed
         (boy-scout rule only).
-- [ ] **1.2** Edit `src/app/cli-error-map.ts` (`mapMarkSyncErrorToCommandError`):
+- [x] **1.2** Edit `src/app/cli-error-map.ts` (`mapMarkSyncErrorToCommandError`):
       add two cases (the `default` calls `assertNeverMarkSyncError`, so omitting
       them is a compile error — PD-3). Codes are STABLE (DEC-6):
       `RateLimited → { code: "RATE_LIMITED"; retryable: true; message: "…rate-limited by Confluence after retry budget exhausted; retry later" }`
@@ -489,13 +489,13 @@ error model the adapter produces into.
       DEC-9: messages use only structural identifiers — **never** interpolate
       `cause` (raw transport text) or `retryAfterMs` value; the `cause` stays in
       the typed error for (redacted) logging only. Update the DEC-2 comment table.
-- [ ] **1.3** Edit `src/cli/output/exit-codes.ts` (`CODE_TO_EXIT`): add
+- [x] **1.3** Edit `src/cli/output/exit-codes.ts` (`CODE_TO_EXIT`): add
       `RATE_LIMITED: EXIT_INTERNAL` and `REMOTE_UNREACHABLE: EXIT_INTERNAL`
       (best-fit `*` catch-alls, like `UNSUPPORTED_CONSTRUCT`/`TOO_LARGE`, pending
       the maintainer assigning a dedicated exit class — the `codeToExitCode`
       fallback to `EXIT_INTERNAL` is the documented contract). Update the DEC-2
       comment table.
-- [ ] **1.4** Create `tests/unit/domain/errors/error-arms.test.ts` (new) —
+- [x] **1.4** Create `tests/unit/domain/errors/error-arms.test.ts` (new) —
       **Unit**: assert the two new kinds round-trip through
       `mapMarkSyncErrorToCommandError` to the expected stable codes (RATE_LIMITED
       retryable; REMOTE_UNREACHABLE retryable); assert `assertNeverMarkSyncError`
@@ -1136,7 +1136,7 @@ reconciliation handoff (the final release phase per the plan template).
 | Phase | Status | Started | Completed | Commit | `bun run check` | Notes |
 |-------|--------|---------|-----------|--------|------------------|-------|
 | 0 — `zod` install + gate | ✅ | 2026-07-10 | 2026-07-10 | a7a97b1 | PASS (692/0) | PD-2; first consuming story; zod@4.4.3, 0 runtime deps |
-| 1 — error arms (×2) + 3 sites | ☐ | | | _pending_ | _pending_ | F-9 / AC-Q-1 / RSK-6; typecheck safety net |
+| 1 — error arms (×2) + 3 sites | ✅ | 2026-07-10 | 2026-07-10 | 072c33b | PASS (703/0) | F-9 / AC-Q-1 / RSK-6; typecheck safety net; exit-codes.test EXPECTED updated |
 | 2 — port + value types + boundary test | ☐ | | | _pending_ | _pending_ | F-1 / AC-F1-1 |
 | 3 — ConfluenceClient | ☐ | | | _pending_ | _pending_ | F-2 / AC-F2-1/2/3 |
 | 4 — PageService + 409 + 403 | ☐ | | | _pending_ | _pending_ | F-3 / F-7 / AC-F3-1 / AC-F7-1 |
