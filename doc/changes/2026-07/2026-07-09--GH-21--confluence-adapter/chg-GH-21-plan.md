@@ -538,7 +538,7 @@ E4-S1/E4-S2 call and the seam a future non-Confluence adapter plugs into
 
 **Tasks**:
 
-- [ ] **2.1** Create `src/domain/target/port.ts` (new):
+- [x] **2.1** Create `src/domain/target/port.ts` (new):
       - `interface TargetSystem` declaring the operation set from
         architecture-overview §"Internal interface contracts" + the story
         deliverable: `renderBody(hast, opts) → Result<{ body; hash; warnings },
@@ -561,7 +561,7 @@ E4-S1/E4-S2 call and the seam a future non-Confluence adapter plugs into
         `renderBody`'s HAST input). **No** `#infra/*`, `#app/*`, `#cli/*`.
       - ≤ 3-line header; cite architecture-overview §"Internal interface
         contracts" once.
-- [ ] **2.2** Boundary negative-test mechanism (PD-4) — **no committed fixture
+- [x] **2.2** Boundary negative-test mechanism (PD-4) — **no committed fixture
       file**; the test creates an **ephemeral** probe at runtime under
       `src/domain/` (e.g. `src/domain/__boundary_probe__.ts`) that imports a
       `#infra/confluence/*` symbol, so the production rule's
@@ -571,7 +571,7 @@ E4-S1/E4-S2 call and the seam a future non-Confluence adapter plugs into
       `depcruise src`, excluding `tests/`). **Cleanup is load-bearing**: the
       probe is deleted in `afterEach`/`finally` (a leaked probe would
       permanently break `depcruise src`); the probe is never committed.
-- [ ] **2.3** Create `tests/unit/domain/target/boundary-negative.test.ts` (new)
+- [x] **2.3** Create `tests/unit/domain/target/boundary-negative.test.ts` (new)
       — **Unit/contract** (AC-F1-1 / RSK-5): create the ephemeral
       `src/domain/__boundary_probe__.ts` at runtime, run dependency-cruiser
       (programmatic `cruise(...)` API or a `bunx depcruise src` subprocess —
@@ -1137,7 +1137,7 @@ reconciliation handoff (the final release phase per the plan template).
 |-------|--------|---------|-----------|--------|------------------|-------|
 | 0 — `zod` install + gate | ✅ | 2026-07-10 | 2026-07-10 | a7a97b1 | PASS (692/0) | PD-2; first consuming story; zod@4.4.3, 0 runtime deps |
 | 1 — error arms (×2) + 3 sites | ✅ | 2026-07-10 | 2026-07-10 | 072c33b | PASS (703/0) | F-9 / AC-Q-1 / RSK-6; typecheck safety net; exit-codes.test EXPECTED updated |
-| 2 — port + value types + boundary test | ☐ | | | _pending_ | _pending_ | F-1 / AC-F1-1 |
+| 2 — port + value types + boundary test | ✅ | 2026-07-10 | 2026-07-10 | 978222e | PASS (705/0) | F-1 / AC-F1-1; subprocess `bunx depcruise` chosen over programmatic API |
 | 3 — ConfluenceClient | ☐ | | | _pending_ | _pending_ | F-2 / AC-F2-1/2/3 |
 | 4 — PageService + 409 + 403 | ☐ | | | _pending_ | _pending_ | F-3 / F-7 / AC-F3-1 / AC-F7-1 |
 | 5 — Property + Attachment | ☐ | | | _pending_ | _pending_ | F-4 / F-5 / AC-F4-1 / AC-F5-1 |
