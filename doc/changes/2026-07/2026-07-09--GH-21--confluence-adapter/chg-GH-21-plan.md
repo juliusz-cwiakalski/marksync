@@ -703,12 +703,12 @@ envelope at the boundary.
 
 **Tasks**:
 
-- [ ] **4.1** Create `src/infra/confluence/schemas/page.ts` (new) — zod schemas
+- [x] **4.1** Create `src/infra/confluence/schemas/page.ts` (new) — zod schemas
       for the v2 page response + the v2 409 conflict envelope:
       `PageV2Response`, `Conflict409Envelope` (`{ errors: [{ code; title }] }`).
       Use `z.infer<typeof …>` for the adapter-internal types (typescript.md
       zod-first). These are adapter-internal — they never cross the port.
-- [ ] **4.2** Create `src/infra/confluence/pages.ts` (new) — `PageService` over
+- [x] **4.2** Create `src/infra/confluence/pages.ts` (new) — `PageService` over
       the `ConfluenceClient`:
       - `create(req) → Result<Page, MarkSyncError>` — `POST v2("/pages")` with
         `representation:"storage"` (spike H3); validate the response with
@@ -732,7 +732,7 @@ envelope at the boundary.
         `#domain/result`, value `zod`.
       - ≤ 3-line header; cite spike H5 (409 shape) once at the parse; cite
         ADR-0006 C-5/C-6 + INV-SAFE-1 once at the 403 mapping.
-- [ ] **4.3** Create `tests/unit/infra/confluence/pages.test.ts` (new) — **Unit**
+- [x] **4.3** Create `tests/unit/infra/confluence/pages.test.ts` (new) — **Unit**
       with the client backed by an injected stub `fetch`:
       - **TC-409-001 (AC-F3-1):** a mocked 409 with
         `errors[0].code:"CONFLICT"` + title
@@ -1139,7 +1139,7 @@ reconciliation handoff (the final release phase per the plan template).
 | 1 — error arms (×2) + 3 sites | ✅ | 2026-07-10 | 2026-07-10 | 072c33b | PASS (703/0) | F-9 / AC-Q-1 / RSK-6; typecheck safety net; exit-codes.test EXPECTED updated |
 | 2 — port + value types + boundary test | ✅ | 2026-07-10 | 2026-07-10 | 978222e | PASS (705/0) | F-1 / AC-F1-1; subprocess `bunx depcruise` chosen over programmatic API |
 | 3 — ConfluenceClient | ✅ | 2026-07-10 | 2026-07-10 | 7e7bd54 | PASS (716/0) | F-2 / AC-F2-1/2/3; injected fetch+delay seams; infra-tier redactor mirror |
-| 4 — PageService + 409 + 403 | ☐ | | | _pending_ | _pending_ | F-3 / F-7 / AC-F3-1 / AC-F7-1 |
+| 4 — PageService + 409 + 403 | ✅ | 2026-07-10 | 2026-07-10 | 608e75f | PASS (727/0) | F-3 / F-7 / AC-F3-1 / AC-F7-1; added title to UpdatePageRequest (v2 PUT requires it) |
 | 5 — Property + Attachment | ☐ | | | _pending_ | _pending_ | F-4 / F-5 / AC-F4-1 / AC-F5-1 |
 | 6 — Search/Restrictions + provenance + adapter | ☐ | | | _pending_ | _pending_ | F-6 / F-8 |
 | 7 — integration (Bun.serve mock) | ☐ | | | _pending_ | _pending_ | all ACs |
