@@ -33,6 +33,7 @@
 //   | TooLarge                  | TOO_LARGE             | 99 * | other/uncategorized|
 //   | UnresolvedLink            | UNRESOLVED_LINK       | 99 * | other/uncategorized|
 //   | InvalidConfig             | INVALID_CONFIG        | 10   | config             |
+//   | CorruptLock               | CORRUPT_LOCK          | 10   | config             |
 //   | Auth/MissingCredentials   | AUTH_MISSING_CREDENTIALS  | 20   | auth           |
 //   | Auth/InvalidBaseUrl       | AUTH_INVALID_BASE_URL     | 20   | auth           |
 //   | Auth/InvalidCredentials   | AUTH_INVALID_CREDENTIALS | 20   | auth           |
@@ -89,6 +90,9 @@ export const CODE_TO_EXIT: Record<string, number> = {
 	RENDER_UNAVAILABLE: EXIT_RENDER_UNAVAILABLE,
 	// config.
 	INVALID_CONFIG: EXIT_CONFIG,
+	// corrupt lock file (GH-19 DEC-2) — distinct recovery from a dirty lock, so
+	// a distinct code; shares the config exit class (data-shape failure).
+	CORRUPT_LOCK: EXIT_CONFIG,
 	// auth (credential resolution + validation — GH-17 DEC-2). All four share
 	// the auth exit class; only AUTH_UNREACHABLE is retryable.
 	AUTH_MISSING_CREDENTIALS: EXIT_AUTH,

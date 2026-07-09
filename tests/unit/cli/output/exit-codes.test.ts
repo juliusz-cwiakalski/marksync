@@ -40,6 +40,8 @@ const EXPECTED: Record<string, number> = {
 	TOO_LARGE: 99,
 	UNRESOLVED_LINK: 99,
 	INVALID_CONFIG: 10,
+	// GH-19 DEC-2 — corrupt lock shares the config exit class (data-shape fail).
+	CORRUPT_LOCK: 10,
 	// GH-17 — four AUTH_ codes share the auth exit class (spec DM-4).
 	AUTH_MISSING_CREDENTIALS: 20,
 	AUTH_INVALID_BASE_URL: 20,

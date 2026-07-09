@@ -40,6 +40,7 @@
 //   | TooLarge                  | TOO_LARGE             | false     |
 //   | UnresolvedLink            | UNRESOLVED_LINK       | false     |
 //   | InvalidConfig             | INVALID_CONFIG        | false     |
+//   | CorruptLock               | CORRUPT_LOCK          | false     |
 //   | Auth/MissingCredentials   | AUTH_MISSING_CREDENTIALS  | false   |
 //   | Auth/InvalidBaseUrl       | AUTH_INVALID_BASE_URL     | false   |
 //   | Auth/InvalidCredentials   | AUTH_INVALID_CREDENTIALS | false   |
@@ -193,6 +194,26 @@ export function mapMarkSyncErrorToCommandError(
 				code: "INVALID_CONFIG",
 				retryable: false,
 				message: `invalid marksync.yml: ${count} validation ${noun} detected; review the configuration against the schema`,
+			};
+		}
+		case "CorruptLock": {
+			// GH-19 DEC-2 — mirrors InvalidConfig (DEC-5: never surface path or
+			// humanMessage, which may echo lock content). `ajvErrors` is optional
+			// (absent for a YAML parse failure), so the count is 0 in that case.
+			const count = err.ajvErrors?.length ?? 0;
+			if (count > 0) {
+				const noun = count === 1 ? "error" : "errors";
+				return {
+					code: "CORRUPT_LOCK",
+					retryable: false,
+					message: `invalid marksync.lock.yml: ${count} validation ${noun} detected; regenerate the lock or run 'marksync repair-state'`,
+				};
+			}
+			return {
+				code: "CORRUPT_LOCK",
+				retryable: false,
+				message:
+					"marksync.lock.yml could not be parsed; regenerate the lock or run 'marksync repair-state'",
 			};
 		}
 		case "Auth": {
