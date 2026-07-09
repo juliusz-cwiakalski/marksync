@@ -1,0 +1,65 @@
+change_id: GH-20
+title: "[MS2-E3-S3] Markdown pipeline (remark/HAST -> Confluence Storage Format)"
+branch: feat/GH-20/markdown-pipeline
+change_folder: doc/changes/2026-07/2026-07-09--GH-20--markdown-pipeline
+story_file: doc/planning/milestones/MS-2/MS2-E3--safe-publish-core/MS2-E3-S3--markdown-pipeline.md
+business_id: MS2-E3-S3
+
+phases:
+  clarify_scope: { started: "2026-07-09T00:00:00Z", completed: "2026-07-09T00:00:00Z" }
+  specification: { started: "2026-07-09T00:01:00Z", completed: "2026-07-09T00:01:00Z" }
+  test_planning: { started: "2026-07-09T00:02:00Z", completed: "2026-07-09T00:03:00Z" }
+  delivery_planning: { started: "2026-07-09T00:03:00Z", completed: "2026-07-09T00:04:00Z" }
+  dor_check: { started: "2026-07-09T00:05:00Z", completed: null }
+  delivery: { started: null, completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+
+decisions: []
+open_questions: []
+blockers: []
+
+notes:
+  - text: >
+      Intake: clarify_scope complete. Story file MS2-E3-S3 is authoritative
+      scope. Requirements complete and consistent with system spec — no STOP
+      needed. Dependency MS2-E2-S1 (GH-14 scaffolding) merged. Loads of
+      pre-existing contracts ready: Result<T,E> (src/domain/result.ts),
+      MarkSyncError.UnsupportedConstruct arm (src/domain/errors.ts line 45),
+      empty skeletons at domain/markdown/, domain/render/, infra/confluence/.
+      Spike H6 (doc/inception/tmp/confluence-api-validation-spike/findings/
+      atlassian-api-spike-findings.md lines 17-41) gives the exact 27-construct
+      mapping table + 3 converter rules (CDATA code bodies; omit ac:schema-
+      version/ac:macro-id; task-list is its own block). Kitchensink fixture at
+      doc/inception/tmp/confluence-api-validation-spike/examples/pages/
+      storage-kitchensink.xml is the golden reference.
+    type: info
+    date: 2026-07-09
+  - text: >
+      Housekeeping at intake: GH-19 (PR #52) was already MERGED
+      (2026-07-09T16:47:15Z, merge commit d21320a) and issue CLOSED, but
+      pm-context.yaml still listed it as active_change awaiting review. Moved
+      GH-19 to recently_delivered. Recurring stale-context issue (3rd time —
+      GH-17, GH-18, now GH-19 were all discovered merged at next intake).
+    type: retro
+    date: 2026-07-09
+
+doc_risks:
+  - path: doc/spec/features/feature-safe-publish.md
+    risk: "Markdown pipeline component (§4.2) needs a '(delivered — GH-20)' tag like GH-19 did for state manager."
+    owner: doc-syncer
+  - path: doc/overview/architecture-overview.md
+    risk: "'Markdown parser' + 'Confluence Storage renderer' components (§Components) need delivered tags; related_changes needs GH-20."
+    owner: doc-syncer
+  - path: doc/overview/ubiquitous-language.md
+    risk: "Body Representation + Content Hash VOs need code-construct binding (src/domain/render/canonicalize.ts); related_changes needs GH-20."
+    owner: doc-syncer
+  - path: .ai/rules/typescript.md
+    risk: "'Planned (not yet installed)' table lists remark/rehype as MS-0002 E3 — THIS story installs them. Move to Installed table. (mermaid stays planned — E4-S1.)"
+    owner: doc-syncer
+  - path: doc/decisions/ADR-0005-page-body-representation-storage-not-adf.md
+    risk: "'Lessons Learned (Retrospective)' is TODO — populate after implementation per ADR template."
+    owner: doc-syncer
