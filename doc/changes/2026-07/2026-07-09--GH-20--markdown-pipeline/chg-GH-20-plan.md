@@ -761,32 +761,27 @@ AC-F3-1). This is the ADR-0005 C-3 discharge.
 
 **Tasks**:
 
-- [ ] **7.1** Create `tests/_helpers/assert-well-formed-xml.ts` (new) — the PD-4
+- [x] **7.1** Create `tests/_helpers/assert-well-formed-xml.ts` (new) — the PD-4
       test-tier checker (assertion-only, NOT production code):
       - `assertWellFormedXml(body: string): void` — throws on malformedness. Tracks a
         tag stack; recognizes `ac:`/`ri:` namespaced + self-closing tags; skips
         `<![CDATA[…]]>` interiors; rejects raw `<`/`&` outside valid entities/CDATA;
-        rejects unterminated CDATA; asserts every opened tag is closed. ~80 lines.
+        rejects unterminated CDATA/comment; asserts every opened tag is closed
+        (quote-aware attribute scan so `>` inside an attribute value can't fool it).
       - Lives under `tests/` (excluded from `tsc --rootDir src` and `depcruise src`); no
         production import.
-- [ ] **7.2** Create `tests/unit/_helpers/assert-well-formed-xml.test.ts` (new) — the
-      **negative-test suite** proving the checker's independence (PD-4 mitigation):
-      - rejects an unbalanced tag; rejects a raw `<` outside CDATA; rejects a raw `&`
-        not part of a valid entity; rejects unterminated `<![CDATA[`; rejects an unclosed
-        `ac:`/`ri:` self-closing tag; **accepts** the spike kitchensink XML and every
-        Phase-5 rendered golden body (the checker must not false-positive on real output).
-- [ ] **7.3** Create `tests/integration/markdown/pipeline-roundtrip.test.ts` (new) —
-      **Integration**:
+- [x] **7.2** Create `tests/unit/_helpers/assert-well-formed-xml.test.ts` (new) — the
+      **negative-test suite** proving the checker's independence (11 tests PASS — PD-4):
+      rejects unbalanced/mismatched tags, raw `<`/`&` outside CDATA, unterminated entity,
+      unterminated CDATA, unterminated comment, malformed start tag; **accepts** well-formed
+      namespaced/self-closing XML AND every committed Phase-5 golden body (no false positives).
+- [x] **7.3** Create `tests/integration/markdown/pipeline-roundtrip.test.ts` (new) —
+      **Integration** (101 tests PASS — 25 fixtures × 4 + count):
       - **TC-ROUNDTRIP-001:** parse → `mdastToHast` → `canonicalize`/`contentHash` →
-        `renderStorage` over every fixture; assert `result.ok === true`, `body` non-empty,
-        `hash` lowercase-hex-64.
-      - **TC-XML-WF-001 (AC-F4-3):** run `assertWellFormedXml(result.body)` on every
-        rendered body (25 fixtures + kitchensink) — 0 unbalanced tags, entities escaped
-        outside CDATA (NFR-3 / RSK-7).
-      - **TC-DETERM-001 (AC-F4-5):** render the same fixture N (≥3) times → every run is
-        **byte-identical** (0 bytes diff) — golden-snapshot stability.
-      - **TC-DETERM-002 (AC-F3-1):** two renders of the same input report the identical
-        `hash`.
+        `renderStorage` over every fixture; assert ok, body non-empty, hash lowercase-hex-64.
+      - **TC-XML-WF-001 (AC-F4-3):** `assertWellFormedXml(result.body)` on every rendered body.
+      - **TC-DETERM-001 (AC-F4-5):** render the same fixture 3× → byte-identical.
+      - **TC-DETERM-002 (AC-F3-1):** two renders report the identical hash.
 
 **Acceptance Criteria**:
 
@@ -922,5 +917,5 @@ behavior.
 | 4 — unsupported classifier | ✅ | 2026-07-09 | 2026-07-09 | feat(markdown): unsupported-node classifier emitting UnsupportedConstruct (GH-20) | 540 pass / 0 fail | F-5 / AC-F5-1; block-raw vs inline-raw split; 8 tests PASS |
 | 5 — renderStorage + 25 golden | ✅ | 2026-07-09 | 2026-07-09 | feat(render): HAST→Storage visitor + 25 golden fixtures (GH-20) | 571 pass / 0 fail | F-4 / F-6 / AC-F4-1 / AC-F4-2; 25 byte-match + 25 snapshots; sub/sup defensive; boy-scout .gitkeep removal |
 | 6 — injection safety + DEC-4/DEC-5 | ✅ | 2026-07-09 | 2026-07-09 | test(render): injection-safety + raw-HTML escape + task-list warning (GH-20) | 580 pass / 0 fail | F-7 / AC-F4-4; 9 property tests PASS |
-| 7 — round-trip + XML WF + determinism | ⏳ | | | | | AC-F4-3 / AC-F4-5 |
+| 7 — round-trip + XML WF + determinism | ✅ | 2026-07-09 | 2026-07-09 | test(markdown): pipeline round-trip + XML well-formedness + determinism (GH-20) | 692 pass / 0 fail | AC-F4-3 / AC-F4-5; 11 negative + 101 integration PASS |
 | 8 — final gate + boundaries | ⏳ | | | | | AC-Q-1 |
