@@ -40,6 +40,8 @@ export interface CreatePageRequest {
 /** Request to update a page. A 409 returns `Conflict` (not a throw). */
 export interface UpdatePageRequest {
 	pageId: string;
+	/** The current title (carried unchanged — the v2 update requires it). */
+	title: string;
 	body: string;
 	/** The version the caller believes is current; the target rejects a stale value. */
 	baseVersion: number;

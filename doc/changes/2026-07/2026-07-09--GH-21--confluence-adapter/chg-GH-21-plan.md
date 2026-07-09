@@ -619,7 +619,7 @@ routed through the GH-16 `redactString` redaction layer; 429 exponential backoff
 
 **Tasks**:
 
-- [ ] **3.1** Create `src/infra/confluence/client.ts` (new):
+- [x] **3.1** Create `src/infra/confluence/client.ts` (new):
       - `class ConfluenceClient` constructed from `ConfluenceCredentials` (the
         GH-17 opaque `authHeader` — never the raw token) + an injected `fetch`
         seam (default `globalThis.fetch`) so the client is unit-testable with a
@@ -643,7 +643,7 @@ routed through the GH-16 `redactString` redaction layer; 429 exponential backoff
         domain; never app/cli.
       - ≤ 3-line header; cite spike H1 (auth path) once at the auth-injection
         point.
-- [ ] **3.2** Create `tests/unit/infra/confluence/client.test.ts` (new) —
+- [x] **3.2** Create `tests/unit/infra/confluence/client.test.ts` (new) —
       **Unit** with an injected stub `fetch` (testing-strategy "fault injection"
       allowance) + fake timers (testing-strategy §"fault injection" — keep the
       suite fast):
@@ -1138,7 +1138,7 @@ reconciliation handoff (the final release phase per the plan template).
 | 0 — `zod` install + gate | ✅ | 2026-07-10 | 2026-07-10 | a7a97b1 | PASS (692/0) | PD-2; first consuming story; zod@4.4.3, 0 runtime deps |
 | 1 — error arms (×2) + 3 sites | ✅ | 2026-07-10 | 2026-07-10 | 072c33b | PASS (703/0) | F-9 / AC-Q-1 / RSK-6; typecheck safety net; exit-codes.test EXPECTED updated |
 | 2 — port + value types + boundary test | ✅ | 2026-07-10 | 2026-07-10 | 978222e | PASS (705/0) | F-1 / AC-F1-1; subprocess `bunx depcruise` chosen over programmatic API |
-| 3 — ConfluenceClient | ☐ | | | _pending_ | _pending_ | F-2 / AC-F2-1/2/3 |
+| 3 — ConfluenceClient | ✅ | 2026-07-10 | 2026-07-10 | 7e7bd54 | PASS (716/0) | F-2 / AC-F2-1/2/3; injected fetch+delay seams; infra-tier redactor mirror |
 | 4 — PageService + 409 + 403 | ☐ | | | _pending_ | _pending_ | F-3 / F-7 / AC-F3-1 / AC-F7-1 |
 | 5 — Property + Attachment | ☐ | | | _pending_ | _pending_ | F-4 / F-5 / AC-F4-1 / AC-F5-1 |
 | 6 — Search/Restrictions + provenance + adapter | ☐ | | | _pending_ | _pending_ | F-6 / F-8 |
