@@ -180,8 +180,8 @@ export function buildCommand(): CommandRouter {
 		.globalOption("--no-color", "Force color output off (plain text).")
 		.globalOption("--quiet", "Suppress non-error human output.")
 		.command("init", "Write a starter marksync.yml into the current directory.")
-		.action((flags) => {
-			capture("init", flags as GlobalCommandFlags, initCommand());
+		.action(async (flags) => {
+			capture("init", flags as GlobalCommandFlags, await initCommand());
 		})
 		.command("plan", "Compute a sync plan from the local corpus.")
 		.action((flags) => {

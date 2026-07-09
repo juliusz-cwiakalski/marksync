@@ -34,8 +34,8 @@ describe("initCommand (rewired) — CommandResult contract", () => {
 		rmSync(dir, { recursive: true, force: true });
 	});
 
-	test("returns a CommandResult (not the old {exitCode, message} shape)", () => {
-		const result = initCommand({ cwd: dir });
+	test("returns a CommandResult (not the old {exitCode, message} shape)", async () => {
+		const result = await initCommand({ cwd: dir });
 		expect(result).toBeDefined();
 		expect(result.schemaVersion).toBe(1);
 		expect(typeof result.runId).toBe("string");
@@ -44,28 +44,28 @@ describe("initCommand (rewired) — CommandResult contract", () => {
 		expect(result).not.toHaveProperty("message");
 	});
 
-	test("success → exitCode 0, no error, data undefined (void)", () => {
-		const result: CommandResult<void> = initCommand({ cwd: dir });
+	test("success → exitCode 0, no error, data undefined (void)", async () => {
+		const result: CommandResult<void> = await initCommand({ cwd: dir });
 		expect(result.exitCode).toBe(0);
 		expect(result.error).toBeUndefined();
 		expect(result.data).toBeUndefined();
 	});
 
-	test("overwrite-refusal (OQ-TP-1) → error.code INVALID_CONFIG, exit 10", () => {
+	test("overwrite-refusal (OQ-TP-1) → error.code INVALID_CONFIG, exit 10", async () => {
 		// Pre-create marksync.yml so writeStarterConfig refuses (OQ-TP-1).
 		writeFileSync(join(dir, "marksync.yml"), "existing: true\n", "utf-8");
 
-		const result = initCommand({ cwd: dir });
+		const result = await initCommand({ cwd: dir });
 		expect(result.exitCode).toBe(10);
 		expect(result.error?.code).toBe("INVALID_CONFIG");
 		expect(result.error?.retryable).toBe(false);
 		expect(result.data).toBeUndefined();
 	});
 
-	test("DEC-5: the error message is redacted (no file PATH, no raw humanMessage)", () => {
+	test("DEC-5: the error message is redacted (no file PATH, no raw humanMessage)", async () => {
 		writeFileSync(join(dir, "marksync.yml"), "existing: true\n", "utf-8");
 
-		const result = initCommand({ cwd: dir });
+		const result = await initCommand({ cwd: dir });
 		// DEC-5: the message must NOT echo the config file's DIRECTORY PATH or
 		// the raw `humanMessage` (which could carry secrets). The generic noun
 		// "marksync.yml" (a constant config-file name in the structural message)
@@ -76,13 +76,13 @@ describe("initCommand (rewired) — CommandResult contract", () => {
 		expect(result.error?.message.length).toBeGreaterThan(0);
 	});
 
-	test("defaults cwd to process.cwd() when not provided", () => {
+	test("defaults cwd to process.cwd() when not provided", async () => {
 		// Override process.cwd() to a temp dir so the test does NOT write a
 		// real marksync.yml into the repo root (side-effect pollution).
 		const realCwd = process.cwd;
 		try {
 			process.cwd = () => dir;
-			const result = initCommand();
+			const result = await initCommand();
 			expect(result.schemaVersion).toBe(1);
 			expect(typeof result.exitCode).toBe("number");
 		} finally {
