@@ -546,14 +546,80 @@ unless the branch ∈ `sync.allowBranches` or overridden by `MARKSYNC_ALLOW_BRAN
 
 | Phase | Status | Commit | `bun run check` |
 |-------|--------|--------|------------------|
-| 0 — CorruptLock error kind | pending | — | — |
-| 1 — Schema + loadLock | pending | — | — |
-| 2 — Atomic store | pending | — | — |
-| 3 — saveLock + mergeBindings | pending | — | — |
-| 4 — Cache layout | pending | — | — |
-| 5 — Cross-check | pending | — | — |
-| 6 — Branch gate | pending | — | — |
-| 7 — .env.example + gate | pending | — | — |
+| 0 — CorruptLock error kind | ✅ | `455227a` | 473 pass / 0 fail · 42 modules |
+| 1 — Schema + loadLock | ✅ | `b063189` | 479 pass / 0 fail · 45 modules |
+| 2 — Atomic store | ✅ | `76f1fd8` | 483 pass / 0 fail · 46 modules |
+| 3 — saveLock + mergeBindings | ✅ | `a69dd5d` | 488 pass / 0 fail · 46 modules |
+| 4 — Cache layout | ✅ | `6916a12` | 496 pass / 0 fail · 47 modules |
+| 5 — Cross-check | ✅ | `416f74c` | 501 pass / 0 fail · 48 modules |
+| 6 — Branch gate | ✅ | `cade99e` | 508 pass / 0 fail · 49 modules |
+| 7 — .env.example + gate | ✅ | `6405ec5` | 508 pass / 0 fail · 49 modules / 69 deps |
+
+> Final gate (commit `6405ec5`): `bun run check` exits 0 — lint + format:check +
+> typecheck + test (**508 pass / 0 fail**, 2 snapshots, 2149 expect() calls across
+> 43 files) + `check:boundaries` (**49 modules, 69 deps, 0 violations**).
+> Baseline was 463 pass / 42 modules; GH-19 adds **+45 tests** and **+7 src modules**
+> (`src/domain/config/lock-schema.json`, `lock-types.ts`; `src/app/lock.ts`,
+> `cache.ts`, `branch.ts`; `src/infra/lock/store.ts`; `src/domain/state/reconcile.ts`).
+
+### Deviations from the plan (all minor, recorded for the reviewer/PM)
+
+- **Phase 0 — `ERROR_CODES` const does not exist.** Task 0.3 referenced an
+  `ERROR_CODES` const object ("no magic strings"); no such const exists in the
+  codebase today (all 17 prior codes are bare strings keyed in `CODE_TO_EXIT` +
+  returned by the mapper). Followed the established `CODE_TO_EXIT` keyed-string
+  pattern for `CORRUPT_LOCK` instead of introducing a new const (out of scope for
+  this change). No functional impact.
+- **Phase 0 — `CorruptLock` mapper message.** Task 0.2 said "message from
+  `humanMessage`"; the mapper instead mirrors `InvalidConfig` (structural
+  `ajvErrors` count + a parse-failure branch) per the load-bearing DEC-5
+  redaction rule, which forbids surfacing `humanMessage`/`path` in the
+  presentation message. The full diagnostic still travels in the typed
+  `CorruptLock` (redaction-layer-governed). Verified by TC-CORRUPT-001.
+- **Phase 1 — formatter reuse path.** Generalized `config-errors.ts` to a shared
+  `formatAjvErrors(errors, fileLabel)` + thin `formatConfigErrors` wrapper (DRY,
+  the plan's "extend" option), instead of a separate `#app/lock-errors` mirror.
+  Config tests unaffected (`formatConfigErrors([])` still matches
+  `/invalid marksync\.yml/i`).
+- **Phase 2 — crash hook export.** The plan named a module-level
+  `let __marksync_test_crash_after_temp_write`; ESM live bindings forbid
+  assigning an imported `let` from a test, so the hook is exposed via a paired
+  `armCrashAfterTempWrite(bool)` setter (the flag is read live inside
+  `writeAtomic`). The injected crash throws (a real process death does not
+  return). fs failures return `err(ConcurrentWrite)` (no dedicated IOError arm
+  exists).
+- **Phase 3 — `saveLock(cwd, lock)`.** The plan's `saveLock(lock)` was
+  underspecified (a write needs a path); `saveLock` takes `cwd` as its first arg.
+- **Phase 4 — `ensureCacheLayout` error arm.** Typed `Result<void, MarkSyncError>`
+  per the plan; mkdir failures propagate as throws (an environment invariant — no
+  fitting `MarkSyncError` arm exists for a cache-dir host failure). Documented at
+  the call site.
+- **Phase 5 — `rebuildLockFromConfluence` input.** The sketch's
+  `{ property, pageVersion, hashes }` cannot yield a field-equal `PageBinding`
+  (missing `pageId`/`parentPageId`/`attachmentHashes`/`operationId`). Added
+  `operationId` to `MetadataProperty` (ADR-0006 operation-ID dedup — the property
+  records the last-applied op id) and `pageId`/`parentPageId`/`attachmentHashes`
+  to `RebuildInput`, so AC-F5-2 (field-equal) is satisfiable. Functions remain
+  pure over caller-supplied records (DEC-3).
+- **Phase 4 & 6 commit subjects shortened.** The completion-signal subjects for
+  Phase 4 (75 chars) and Phase 6 (80 chars) exceeded commitlint's 72-char
+  `header-max-length`; shortened to
+  `feat(cache): disposable .marksync layout + MARKSYNC_CACHE_DIR (GH-19)` and
+  `feat(state): assertBranchAllowed gate + MARKSYNC_ALLOW_BRANCHES (GH-19)`,
+  preserving intent. All other phase commits use the verbatim completion signal.
+
+### Acceptance-criteria evidence (spec §17)
+
+| AC | Status | Evidence |
+|----|--------|----------|
+| AC-F1-1 (lock load/validate) | ✅ | TC-LOCK-001..005 (valid/missing/3 invalid) + TC-LOCK-006 round-trip |
+| AC-F3-1 (atomic save) | ✅ | TC-ATOMIC-001 (crash → dest unchanged, temp abandoned) + TC-ATOMIC-002 (replace-over-existing) |
+| AC-F4-1 / C-3 (cache disposable) | ✅ | TC-CACHE-001..004 (lock outside cache; .gitignore; delete .marksync/ → base unchanged) |
+| AC-F5-1 (reconcile) | ✅ | TC-RECONCILE-001 (match→ok) / TC-RECONCILE-002 (mismatch→LockDirty) |
+| AC-F5-2 (rebuild) | ✅ | TC-REBUILD-001 (field-equal PageBinding) |
+| AC-F6-1 (branch gate) | ✅ | TC-BRANCH-001 (main→ok) / 002 (feature/x→ForbiddenBranch) / 003 (override→ok) |
+| AC-MERGE-1 (mergeable) | ✅ | TC-MERGE-001 (mergeBindings union + real `git merge-file` status 0, no markers) |
+| AC-Q-1 (quality gate) | ✅ | `bun run check` exits 0 (TC-GATE-001 + TC-BND-001) |
 
 ## Revision Log
 
