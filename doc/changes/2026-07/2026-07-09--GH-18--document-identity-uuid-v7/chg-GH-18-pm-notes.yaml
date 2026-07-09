@@ -19,8 +19,8 @@ phases:
   system_spec_update: { started: 2026-07-09, completed: 2026-07-09 }
   review_fix: { started: 2026-07-09, completed: 2026-07-09 }
   quality_gates: { started: 2026-07-09, completed: 2026-07-09 }
-  dod_check: { started: 2026-07-09, completed: null }
-  pr_creation: { started: null, completed: null, url: null }
+  dod_check: { started: 2026-07-09, completed: 2026-07-09 }
+  pr_creation: { started: 2026-07-09, completed: 2026-07-09, url: https://github.com/juliusz-cwiakalski/marksync/pull/50 }
 
 decisions:
   - id: PM-RECON-1
