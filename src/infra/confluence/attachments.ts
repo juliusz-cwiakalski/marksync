@@ -119,15 +119,16 @@ export class AttachmentService {
 		if (!list.ok) return list;
 		const match = list.value.find((a) => a.hash === artifact.hash);
 		if (match) return Result.ok(match);
-		// Edge case: the duplicate exists but isn't in the list view — return a
-		// ref derived from the request (the write was a no-op either way).
-		return Result.ok({
-			id: "unknown",
-			pageId,
-			filename: attachmentFilename(artifact),
-			hash: artifact.hash,
-			version: 0,
-		});
+		// Unreachable by design: hash-naming means a 400 "same file name" names a
+		// file that MUST appear in the attachment list view. A 400 with no listable
+		// match is a Confluence state inconsistency — an invariant violation, not a
+		// recoverable failure — so we throw rather than fabricate an id/version the
+		// caller could never act on (GH-21 review iter-2).
+		throw new Error(
+			`duplicate-filename 400 for '${attachmentFilename(
+				artifact,
+			)}' on page ${pageId} but no listable attachment matched hash '${artifact.hash}'`,
+		);
 	}
 }
 

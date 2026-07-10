@@ -6,9 +6,15 @@
 import type { ConfluenceCredentials } from "#domain/credentials";
 import type { MarkSyncError } from "#domain/errors";
 import { Result } from "#domain/result";
+import { redactString } from "#shared/redact";
 import pkg from "../../../package.json" with { type: "json" };
 
-/** Bounded retry budget (PD-8): 429 and 5xx each retry at most this many times. */
+/**
+ * Bounded retry budget (PD-8): a single request retries at most this many times
+ * TOTAL — the budget is SHARED across 429 and 5xx (a 429 then a 500 consumes
+ * two attempts, not `MAX_RETRIES` each). 401/403/404/409/400/2xx are never
+ * retried — they surface to the caller immediately.
+ */
 export const MAX_RETRIES = 3;
 const BACKOFF_BASE_MS = 1000;
 const RETRY_AFTER_CAP_MS = 30_000;
@@ -138,7 +144,9 @@ export class ConfluenceClient {
 			response = await this.doFetch(url, init);
 		} catch (e) {
 			const cause = e instanceof Error ? e.message : String(e);
-			this.log(redactLog(`fetch ${method} ${safeUrl(url)} failed: ${cause}`));
+			this.log(
+				redactString(`fetch ${method} ${safeUrl(url)} failed: ${cause}`),
+			);
 			return Result.err({ kind: "RemoteUnreachable", cause });
 		}
 
@@ -151,7 +159,7 @@ export class ConfluenceClient {
 			...(json !== undefined ? { json } : {}),
 		};
 		this.log(
-			redactLog(
+			redactString(
 				`${method} ${safeUrl(url)} → ${response.status} ${truncate(text)}`,
 			),
 		);
@@ -246,23 +254,4 @@ function safeUrl(url: string): string {
 	} catch {
 		return url;
 	}
-}
-
-// Minimal credential scrubbing for log lines — the infra tier may not import the
-// presentation redactor (ADR-0011 tier matrix), so the load-bearing patterns are
-// mirrored here. The opaque authHeader design means the raw token never reaches
-// a request body; this redacts any Authorization/Basic/token/email in log text.
-function redactLog(input: string): string {
-	return input
-		.replace(
-			/Authorization:\s*[A-Za-z]+\s+[A-Za-z0-9._+/=-]+/g,
-			"[REDACTED:auth]",
-		)
-		.replace(/\b(?:Bearer|Basic)\s+[A-Za-z0-9._+/=-]+/g, "[REDACTED:auth]")
-		.replace(/\bAT(?:ATT|STS)[A-Za-z0-9_-]{8,}/g, "[REDACTED:token]")
-		.replace(/\bgh[opsur]_[A-Za-z0-9]{16,}/g, "[REDACTED:token]")
-		.replace(
-			/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g,
-			"[REDACTED:email]",
-		);
 }

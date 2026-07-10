@@ -108,6 +108,33 @@ describe("TC-DUP-001 — duplicate filename 400 → 'already exists', 0 writes (
 	});
 });
 
+describe("TC-DUP-002 — duplicate 400 with no listable match → invariant violation (GH-21 iter-2)", () => {
+	test("400 'same file name' but the hash isn't in the list → throws (no fabricated id)", async () => {
+		const artifact = svgArtifact("hash1");
+		const { service } = script((method, path) => {
+			if (method === "POST" && path === `/content/${PAGE}/child/attachment`) {
+				return new Response(DUP_400_BODY, { status: 400 });
+			}
+			// List returns a DIFFERENT hash → no listable match for the dup.
+			if (method === "GET") {
+				return jsonRes(200, {
+					results: [
+						{
+							id: "attX",
+							title: "marksync-mermaid-other.svg",
+							version: { number: 1 },
+						},
+					],
+				});
+			}
+			return jsonRes(500, {});
+		});
+		await expect(service.upload(PAGE, artifact)).rejects.toThrow(
+			/duplicate-filename 400/,
+		);
+	});
+});
+
 describe("TC-EXISTS-001 — exists resolves by hash; 403 → Forbidden", () => {
 	test("exists true when a hash-matching attachment is present", async () => {
 		const filename = attachmentFilename(svgArtifact("hexists"));
