@@ -1,9 +1,15 @@
 // AttachmentService — the v1-only attachment surface (spike H4). Hash-named
 // multipart uploads dedup on the filename; a 400 "same file name" is the
-// idempotency signal (NOT an error), and `/data` bumps the version on changed
-// bytes. `X-Atlassian-Token: no-check` is required for multipart writes.
+// idempotency signal (NOT an error). `X-Atlassian-Token: no-check` is required
+// for multipart writes. In-place `/data` update is intentionally NOT exposed:
+// all attachments are hash-named (`marksync-mermaid-<hash>.svg` / `marksync-asset-`),
+// so changed bytes always produce a new hash → a new filename → a fresh create,
+// never a same-name dup — the `/data` version-bump path is unreachable by design.
 
-import type { ConfluenceClient } from "#infra/confluence/client";
+import {
+	type ConfluenceClient,
+	unreachableCause,
+} from "#infra/confluence/client";
 import {
 	AttachmentCreateResponse,
 	AttachmentListResponse,
@@ -54,38 +60,7 @@ export class AttachmentService {
 		return Result.err({
 			kind: "RemoteUnreachable",
 			status: response.value.status,
-			cause: `unexpected attachment upload status ${response.value.status}`,
-		});
-	}
-
-	async update(
-		pageId: string,
-		attachmentId: string,
-		artifact: Artifact,
-	): Promise<Result<AttachmentRef, MarkSyncError>> {
-		const filename = attachmentFilename(artifact);
-		const response = await this.client.request(
-			"POST",
-			this.client.v1(
-				`/content/${pageId}/child/attachment/${attachmentId}/data`,
-			),
-			{ multipart: this.buildForm(filename, artifact) },
-		);
-		if (!response.ok) return response;
-		if (response.value.status >= 200 && response.value.status < 300) {
-			return mapCreate(pageId, response.value.json);
-		}
-		if (response.value.status === 403) {
-			return Result.err({
-				kind: "Forbidden",
-				pageId,
-				operation: "updateAttachment",
-			});
-		}
-		return Result.err({
-			kind: "RemoteUnreachable",
-			status: response.value.status,
-			cause: `unexpected attachment data-update status ${response.value.status}`,
+			cause: unreachableCause(response.value.status, "attachment upload"),
 		});
 	}
 
@@ -115,7 +90,7 @@ export class AttachmentService {
 			return Result.err({
 				kind: "RemoteUnreachable",
 				status: response.value.status,
-				cause: `unexpected attachment list status ${response.value.status}`,
+				cause: unreachableCause(response.value.status, "attachment list"),
 			});
 		}
 		const parsed = AttachmentListResponse.safeParse(response.value.json);

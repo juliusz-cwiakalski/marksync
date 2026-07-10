@@ -2,7 +2,10 @@
 // ConfluenceClient, including the 409-conflict parse (ADR-0006 C-5/C-6 / spike
 // H5) and the 403→Forbidden warn+skip (INV-SAFE-1: never delete+recreate).
 
-import type { ConfluenceClient } from "#infra/confluence/client";
+import {
+	type ConfluenceClient,
+	unreachableCause,
+} from "#infra/confluence/client";
 import {
 	Conflict409Envelope,
 	PageV2Response,
@@ -138,7 +141,7 @@ function mapPage(status: number, body: unknown): Result<Page, MarkSyncError> {
 		return Result.err({
 			kind: "RemoteUnreachable",
 			status,
-			cause: `unexpected page response status ${status}`,
+			cause: unreachableCause(status, "page response"),
 		});
 	}
 	const parsed = PageV2Response.safeParse(body);

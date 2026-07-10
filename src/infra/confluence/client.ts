@@ -6,12 +6,13 @@
 import type { ConfluenceCredentials } from "#domain/credentials";
 import type { MarkSyncError } from "#domain/errors";
 import { Result } from "#domain/result";
+import pkg from "../../../package.json" with { type: "json" };
 
 /** Bounded retry budget (PD-8): 429 and 5xx each retry at most this many times. */
 export const MAX_RETRIES = 3;
 const BACKOFF_BASE_MS = 1000;
 const RETRY_AFTER_CAP_MS = 30_000;
-const USER_AGENT = "marksync/0.4.0";
+const USER_AGENT = `marksync/${pkg.version}`;
 const JSON_CONTENT_TYPE = "application/json";
 
 /** A request body parameter — JSON-serializable value or multipart form. */
@@ -189,6 +190,18 @@ function defaultDelay(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * The `cause` for a `RemoteUnreachable` when a service has no status-specific
+ * mapping. A 401 gets a distinctive auth-shaped message (expired token?) so an
+ * authentication rejection isn't reported as a generic server/network failure;
+ * every other status stays operation-specific.
+ */
+export function unreachableCause(status: number, operation: string): string {
+	return status === 401
+		? "HTTP 401 Unauthorized (token expired?)"
+		: `unexpected ${operation} status ${status}`;
+}
+
 /** Exponential backoff `1000 * 2**attempt` + jitter; `Retry-After` honored + capped. */
 function retryDelayMs(
 	attempt: number,
@@ -203,6 +216,8 @@ function retryDelayMs(
 }
 
 function parseRetryAfterMs(value: string | null): number | undefined {
+	// Confluence sends integer seconds; HTTP-date format falls back to
+	// exponential backoff (returns undefined here, retried via retryDelayMs).
 	if (value === null) return undefined;
 	const seconds = Number.parseInt(value, 10);
 	return Number.isFinite(seconds) && seconds >= 0 ? seconds * 1000 : undefined;

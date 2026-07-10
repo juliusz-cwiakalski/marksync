@@ -6,14 +6,23 @@ import type { MarkSyncError } from "#domain/errors";
 import type { Result } from "#domain/result";
 import type { Root } from "hast";
 
-/** A rendered target body: the bytes, the deterministic content hash, and any non-fatal warnings. */
+/**
+ * A rendered target body: the bytes, the deterministic content hash, and any
+ * non-fatal warnings. Structurally identical to `RenderedBody` in
+ * `infra/confluence/render/storage.ts` — duplicated (not re-exported) so this
+ * domain port stays infra-free; `target.test.ts` asserts the two stay in sync.
+ */
 export interface RenderedBody {
 	body: string;
 	hash: string;
 	warnings: string[];
 }
 
-/** Options threaded onto any {@link TargetSystem.renderBody} failure (e.g. provenance). */
+/**
+ * Options threaded onto any {@link TargetSystem.renderBody} failure (e.g.
+ * provenance). Structurally identical to `RenderStorageOptions` in
+ * `infra/confluence/render/storage.ts` (see {@link RenderedBody} note).
+ */
 export interface RenderBodyOptions {
 	sourcePath: string;
 }

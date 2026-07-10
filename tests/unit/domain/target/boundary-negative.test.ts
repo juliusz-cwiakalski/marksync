@@ -6,7 +6,14 @@
 // `afterEach`; cleanup is load-bearing (a leaked probe permanently breaks
 // `depcruise src`).
 
-import { afterEach, describe, expect, test } from "bun:test";
+import {
+	afterAll,
+	afterEach,
+	beforeAll,
+	describe,
+	expect,
+	test,
+} from "bun:test";
 import { existsSync, rmSync, writeFileSync } from "node:fs";
 
 const PROBE_PATH = "src/domain/__boundary_probe__.ts";
@@ -38,9 +45,13 @@ function removeProbe(): void {
 	if (existsSync(PROBE_PATH)) rmSync(PROBE_PATH, { force: true });
 }
 
-afterEach(() => {
-	removeProbe();
-});
+// Belt-and-suspenders against a killed prior run: a stale probe on disk would
+// permanently poison `depcruise src` for everyone. Cleared on entry (beforeAll),
+// on every test boundary (afterEach), and on exit (afterAll). The probe path is
+// also gitignored so it can never be committed.
+beforeAll(removeProbe);
+afterEach(removeProbe);
+afterAll(removeProbe);
 
 describe("TC-BND-001 — dep-cruiser catches a src/domain → src/infra breach (AC-F1-1)", () => {
 	test("a src/domain probe importing #infra/* fires domain-may-not-import-infra", () => {

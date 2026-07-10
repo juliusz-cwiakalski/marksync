@@ -5,7 +5,15 @@
 import { describe, expect, test } from "bun:test";
 import type { Root } from "hast";
 import type { ConfluenceCredentials } from "#domain/credentials";
-import type { TargetSystem } from "#domain/target/port";
+import type {
+	RenderBodyOptions as PortRenderBodyOptions,
+	RenderedBody as PortRenderedBody,
+	TargetSystem,
+} from "#domain/target/port";
+import type {
+	RenderedBody as StorageRenderedBody,
+	RenderStorageOptions,
+} from "#infra/confluence/render/storage";
 import { ConfluenceTarget } from "#infra/confluence/target";
 import { ConfluenceClient } from "#infra/confluence/client";
 
@@ -65,6 +73,24 @@ describe("TC-TARGET-001 — ConfluenceTarget implements TargetSystem", () => {
 		expect(result.value.body).toBe("<p>hi</p>");
 		expect(result.value.hash).toMatch(/^[0-9a-f]+$/);
 		expect(Array.isArray(result.value.warnings)).toBe(true);
+	});
+});
+
+describe("TC-RENDER-TYPES-001 — port RenderedBody/RenderBodyOptions stay in sync with render/storage (finding 5)", () => {
+	test("the duplicated types are mutually assignable (structural compatibility)", () => {
+		// The port types are intentionally duplicated across the domain↔infra
+		// boundary (the port may not import infra). These assignments fail to
+		// compile if the two drift apart; the runtime values are witnesses.
+		const storageBody: StorageRenderedBody = {
+			body: "<p>hi</p>",
+			hash: "deadbeef",
+			warnings: [],
+		};
+		const portBody: PortRenderedBody = storageBody;
+		const portOpts: PortRenderBodyOptions = { sourcePath: "doc.md" };
+		const storageOpts: RenderStorageOptions = portOpts;
+		expect(portBody.body).toBe("<p>hi</p>");
+		expect(storageOpts.sourcePath).toBe("doc.md");
 	});
 });
 

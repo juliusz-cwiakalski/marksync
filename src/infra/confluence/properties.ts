@@ -2,7 +2,10 @@
 // string cross-check). v2 accepts string values (~8 KB, spike H2); v1 is
 // deprecated. A missing key is `ok(undefined)`, not an error.
 
-import type { ConfluenceClient } from "#infra/confluence/client";
+import {
+	type ConfluenceClient,
+	unreachableCause,
+} from "#infra/confluence/client";
 import { PropertyV2Response } from "#infra/confluence/schemas/property";
 import type { MarkSyncError } from "#domain/errors";
 import { Result } from "#domain/result";
@@ -31,7 +34,7 @@ export class PropertyService {
 			return Result.err({
 				kind: "RemoteUnreachable",
 				status: response.value.status,
-				cause: `unexpected property get status ${response.value.status}`,
+				cause: unreachableCause(response.value.status, "property get"),
 			});
 		}
 		const parsed = PropertyV2Response.safeParse(response.value.json);
@@ -86,7 +89,7 @@ export class PropertyService {
 		return Result.err({
 			kind: "RemoteUnreachable",
 			status: create.value.status,
-			cause: `unexpected property create status ${create.value.status}`,
+			cause: unreachableCause(create.value.status, "property create"),
 		});
 	}
 
@@ -114,7 +117,7 @@ export class PropertyService {
 		return Result.err({
 			kind: "RemoteUnreachable",
 			status: update.value.status,
-			cause: `unexpected property update status ${update.value.status}`,
+			cause: unreachableCause(update.value.status, "property update"),
 		});
 	}
 }

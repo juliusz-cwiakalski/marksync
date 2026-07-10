@@ -1,7 +1,10 @@
 // RestrictionsService — minimal v1 restrictions read (supports the 403 /
 // permission-awareness story). A page with any restriction entry is "restricted".
 
-import type { ConfluenceClient } from "#infra/confluence/client";
+import {
+	type ConfluenceClient,
+	unreachableCause,
+} from "#infra/confluence/client";
 import { RestrictionsResponse } from "#infra/confluence/schemas/restrictions";
 import type { PageRestrictions } from "#domain/target/port";
 import type { MarkSyncError } from "#domain/errors";
@@ -27,7 +30,7 @@ export class RestrictionsService {
 			return Result.err({
 				kind: "RemoteUnreachable",
 				status: response.value.status,
-				cause: `unexpected restrictions status ${response.value.status}`,
+				cause: unreachableCause(response.value.status, "restrictions"),
 			});
 		}
 		const parsed = RestrictionsResponse.safeParse(response.value.json);

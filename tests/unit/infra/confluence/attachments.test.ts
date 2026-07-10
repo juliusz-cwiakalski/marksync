@@ -1,6 +1,7 @@
 // Unit tests for AttachmentService (F-5 / AC-F5-1): the v1 attachment surface —
-// 400-duplicate-filename idempotency signal (NOT an error), /data update bumps
-// version on changed bytes, exists-by-hash, and list enumeration.
+// 400-duplicate-filename idempotency signal (NOT an error), exists-by-hash, and
+// list enumeration. In-place `/data` update is not exposed (hash-naming makes a
+// changed-bytes path a fresh create, not a same-name dup — see attachments.ts).
 
 import { describe, expect, test } from "bun:test";
 import type { ConfluenceCredentials } from "#domain/credentials";
@@ -104,27 +105,6 @@ describe("TC-DUP-001 — duplicate filename 400 → 'already exists', 0 writes (
 		// Exactly one POST create attempt (rejected) + one GET list to resolve.
 		const posts = calls.filter((c) => c.method === "POST");
 		expect(posts).toHaveLength(1);
-	});
-});
-
-describe("TC-UPD-001 — /data update bumps version on changed bytes", () => {
-	test("POST .../data 200 → ok(ref) with bumped version", async () => {
-		const artifact = svgArtifact("hash2");
-		const { service, calls } = script((method, path) => {
-			if (method === "POST" && path.includes("/data")) {
-				return jsonRes(200, {
-					id: "att9",
-					title: attachmentFilename(artifact),
-					version: { number: 2 },
-				});
-			}
-			return jsonRes(500, {});
-		});
-		const result = await service.update(PAGE, "att9", artifact);
-		expect(result.ok).toBe(true);
-		if (!result.ok) return;
-		expect(result.value.version).toBe(2);
-		expect(calls[0]?.path).toBe(`/content/${PAGE}/child/attachment/att9/data`);
 	});
 });
 

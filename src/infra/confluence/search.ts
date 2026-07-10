@@ -1,7 +1,10 @@
 // SearchService — minimal v1 CQL page search (discovery / `doctor`). Kept
 // minimal per NFR-MAINT-2.
 
-import type { ConfluenceClient } from "#infra/confluence/client";
+import {
+	type ConfluenceClient,
+	unreachableCause,
+} from "#infra/confluence/client";
 import { SearchResponse } from "#infra/confluence/schemas/search";
 import type { PageRef } from "#domain/target/port";
 import type { MarkSyncError } from "#domain/errors";
@@ -20,7 +23,7 @@ export class SearchService {
 			return Result.err({
 				kind: "RemoteUnreachable",
 				status: response.value.status,
-				cause: `unexpected search status ${response.value.status}`,
+				cause: unreachableCause(response.value.status, "search"),
 			});
 		}
 		const parsed = SearchResponse.safeParse(response.value.json);

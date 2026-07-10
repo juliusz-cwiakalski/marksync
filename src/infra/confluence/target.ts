@@ -19,9 +19,8 @@ import type {
 import type { MarkSyncError } from "#domain/errors";
 import type { Result } from "#domain/result";
 import {
-	type ConfluenceClient,
+	ConfluenceClient,
 	type ConfluenceClientOptions,
-	ConfluenceClient as Client,
 } from "#infra/confluence/client";
 import { PageService } from "#infra/confluence/pages";
 import { PropertyService } from "#infra/confluence/properties";
@@ -57,7 +56,10 @@ export class ConfluenceTarget implements TargetSystem {
 		spaceId: string,
 		options?: ConfluenceTargetOptions,
 	): ConfluenceTarget {
-		return new ConfluenceTarget(new Client(credentials, options), spaceId);
+		return new ConfluenceTarget(
+			new ConfluenceClient(credentials, options),
+			spaceId,
+		);
 	}
 
 	/** Exposed for tests / callers that need the raw transport. */

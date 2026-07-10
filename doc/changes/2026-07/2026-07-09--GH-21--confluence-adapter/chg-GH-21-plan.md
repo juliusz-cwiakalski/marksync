@@ -1068,6 +1068,63 @@ reconciliation handoff (the final release phase per the plan template).
 
 ---
 
+### Phase 9: Code Review Remediation (Iteration 1)
+
+> Added by `@reviewer` after iteration-1 review
+> (`code-review/findings-iter-1.json` / `review-iter-1.md`). Verdict was FAIL on
+> one MAJOR contract gap; the rest are MINOR/NIT. `@coder` to address.
+
+**Goal**: Close the one MAJOR finding (AC-F5-1 second clause — `/data` attachment
+update unreachable via the port) and the cheap MINOR/NIT items so the port fully
+discharges every spec AC through the documented seam.
+
+**Tasks**:
+
+- [x] **9.1 (MAJOR — finding 1 / AC-F5-1b)** Decide + implement the
+      `/data` attachment-update reachability. **Resolution: option (c)** (directed
+      by user / decision authority; supersedes the tentative (b) in pm-notes).
+      Removed the orphaned `AttachmentService.update()` and the `TC-UPD-001` test;
+      documented in the `attachments.ts` header that hash-derived filenames
+      (`marksync-mermaid-<hash>.svg` / `marksync-asset-`) make in-place `/data`
+      update unnecessary for MS-0002 — changed bytes → new hash → new filename →
+      fresh create, never a same-name dup. (Spec/doc-sync of AC-F5-1's second
+      clause is a `system_spec_update` / `review_fix` follow-up.)
+- [x] **9.2 (MINOR — finding 2)** `USER_AGENT` now derived from `package.json`
+      at module load (`import pkg from "../../../package.json" with { type: "json" }`
+      → `marksync/${pkg.version}`); no more hardcoded version string.
+- [x] **9.3 (MINOR — finding 3)** Added `unreachableCause(status, operation)`
+      helper in `client.ts` returning `"HTTP 401 Unauthorized (token expired?)"`
+      for 401; wired into the generic `RemoteUnreachable` branch across
+      `pages`/`properties`/`attachments`/`search`/`restrictions`.
+- [x] **9.4 (MINOR — finding 4)** Added a comment in `parseRetryAfterMs`
+      documenting that Confluence sends integer seconds; HTTP-date format falls
+      back to exponential backoff.
+- [x] **9.5 (MINOR — finding 5)** Added a structural-typing note on
+      `RenderedBody` / `RenderBodyOptions` in `port.ts` + `TC-RENDER-TYPES-001`
+      (mutually-assignable witness in `target.test.ts`).
+- [x] **9.6 (NIT — finding 6)** Added `beforeAll(removeProbe)` + `afterAll`
+      to `boundary-negative.test.ts` (entry/exit cleanup alongside `afterEach`)
+      and gitignored `src/domain/__boundary_probe__.ts`.
+- [x] **9.7 (NIT — finding 7)** Simplified the `target.ts` import to a single
+      `import { ConfluenceClient, type ConfluenceClientOptions }` (dropped the
+      `as Client` alias; `new ConfluenceClient(...)` used directly).
+- [x] **9.8** `bun run check` = **772 pass / 0 fail**; `depcruise src` clean
+      (no violations). AC-F5-1 now satisfied through the documented hash-naming
+      invariant (no orphaned `/data` path).
+
+**Acceptance Criteria**:
+
+- Must: the `/data` attachment update is either reachable through the
+  `TargetSystem` port OR explicitly re-scoped with a recorded decision (9.1). —
+  **PASSED** (option (c): `/data` update explicitly removed + documented; the
+  hash-naming invariant makes it unreachable by design).
+- Must: `bun run check` exits 0; `check:boundaries` clean (AC-Q-1). — **PASSED**
+  (772/0; depcruise: no violations).
+
+**Completion signal**: `fix(confluence): address review iter-1 findings (GH-21)`
+
+---
+
 ## Test Scenarios
 
 | ID | Scenario | Phases | AC |
@@ -1129,6 +1186,8 @@ reconciliation handoff (the final release phase per the plan template).
 |---------|------|--------|---------|
 | 1.0 | 2026-07-09 | plan-writer | Initial plan. Nine phases per spec §18 ordering: Phase 0 installs `zod` (PD-2 — spec's "already installed" claim is a factual error); Phase 1 lands the two additive error arms (`RateLimited` + `RemoteUnreachable`, OQ-1/OQ-2) across all three sites typescript.md requires (PD-3); Phase 2 the port + boundary negative test (PD-1 HAST input, PD-4 boundary negative test); Phases 3-6 the client + services + provenance + `ConfluenceTarget`; Phase 7 integration tests; Phase 8 gate + doc handoff. Surfaced open questions: provenance length limit (PD-6 / ADR-0010 TO CONFIRM); renderBody HAST-vs-MDAST doc drift (PD-1); spec "zod installed" error (PD-2). |
 | 1.1 | 2026-07-10 | plan-writer | DoR iteration-2 fix (MAJOR): align the boundary negative test (TC-BND-001 / AC-F1-1) with the test plan's iteration-1 fix. The prior static `tests/`-located fixture approach is non-viable (the production `.dependency-cruiser.cjs` rule filters `from: { path: "src/domain/" }` and runs `depcruise src`, so a fixture under `tests/` cannot fire the production rule). Rewrote PD-4, the Phase 2 mechanism open question (now resolved — only API-vs-subprocess remains a delivery detail), Phase 2 tasks 2.2/2.3, the Phase 2 acceptance criteria, TC-BND-001, and the Artifacts table to the ephemeral `src/domain/__boundary_probe__.ts` approach: probe created at runtime under `src/domain/`, cruised with the **production** ruleset (no proxy/adapted copy), then deleted in `afterEach`/`finally` (cleanup is load-bearing — a leaked probe permanently breaks `depcruise src`). No committed fixture file. |
+| 1.2 | 2026-07-10 | reviewer | Review iteration-1 remediation: appended Phase 9 (Code Review Remediation, iter-1). Verdict FAIL on 1 MAJOR (AC-F5-1b — `/data` attachment update implemented on `AttachmentService` + unit-tested but unreachable via the `TargetSystem` port; E4-S1/E4-S2 blocked on it) + 4 MINOR (hardcoded `USER_AGENT` version; HTTP 401 → `RemoteUnreachable` misclassification; `Retry-After` HTTP-date unsupported; duplicated `RenderedBody` types with no compatibility test) + 2 NIT (boundary-probe leak blast radius; awkward `ConfluenceClient` import alias). 8 of 9 ACs PASS; AC-F5-1 PARTIAL. Findings in `code-review/findings-iter-1.json`. |
+| 1.3 | 2026-07-10 | coder | Phase 9 executed — all 7 iter-1 findings fixed. 9.1 resolved as option **(c)** (decision authority / user-directed; supersedes tentative (b) in pm-notes): removed orphaned `AttachmentService.update()` + `TC-UPD-001`, documented the hash-naming invariant in `attachments.ts`. 9.2 `USER_AGENT` ← `package.json`; 9.3 `unreachableCause()` helper (401 → `"HTTP 401 Unauthorized (token expired?)"`) across pages/properties/attachments/search/restrictions; 9.4 `Retry-After` comment; 9.5 port `RenderedBody`/`RenderBodyOptions` note + `TC-RENDER-TYPES-001` compatibility test; 9.6 boundary-probe `beforeAll`/`afterAll` + `.gitignore`; 9.7 `target.ts` import simplified. `bun run check` = 772/0; depcruise clean. |
 
 ## Execution Log
 
@@ -1146,3 +1205,4 @@ reconciliation handoff (the final release phase per the plan template).
 | 6 — Search/Restrictions + provenance + adapter | ✅ | 2026-07-10 | 2026-07-10 | a28e32d | PASS (760/0) | F-6 / F-8; added target wiring tests for per-file coverage |
 | 7 — integration (Bun.serve mock) | ✅ | 2026-07-10 | 2026-07-10 | 5c5ddcd | PASS (772/0) | all ACs; 200/409/403/400/429/5xx + no-leak + no-telemetry + boundary |
 | 8 — final gate + boundary + doc handoff | ✅ | 2026-07-10 | 2026-07-10 | _this phase_ | PASS (772/0) | AC-Q-1; boundary clean; doc handoff to phase 7 |
+| 9 — code review remediation (iter-1) | ✅ | 2026-07-10 | 2026-07-10 | _this phase_ | PASS (772/0) | 7 findings fixed: 9.1 option (c) (removed orphaned AttachmentService.update + TC-UPD-001, documented hash-naming); 9.2 USER_AGENT ← package.json; 9.3 401 diagnostic via unreachableCause across all services; 9.4 Retry-After comment; 9.5 RenderedBody compatibility test TC-RENDER-TYPES-001; 9.6 boundary-probe beforeAll/afterAll + gitignore; 9.7 target.ts import simplified; depcruise clean |
