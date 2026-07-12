@@ -2,9 +2,9 @@
 # Copyright (c) 2025-2026 Juliusz Ćwiąkalski (https://www.cwiakalski.com | https://www.linkedin.com/in/juliusz-cwiakalski/ | https://x.com/cwiakalski)
 # MIT License - see LICENSE file for full terms
 id: chg-GH-23-sync-engine
-status: Proposed
+status: Updated
 created: 2026-07-12T00:00:00Z
-last_updated: 2026-07-12T00:00:00Z
+last_updated: 2026-07-12T12:29:48Z
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 labels: [MS-0002, MS2-E3, safe-publish, critical, application, orchestration, reliability, provenance]
@@ -113,7 +113,7 @@ Concretely this plan establishes six additive modules and updates two stubs:
 The plan is derived entirely from the authoritative spec `chg-GH-23-spec.md` (6
 capabilities F-1..F-6, 7 decisions DEC-1..DEC-7, 14 acceptance criteria AC-F1-1
 ..AC-Q-1, 18 NFRs, 11 risks, OQ-1/OQ-2 both resolved during clarify_scope), the
-test plan `chg-GH-23-test-plan.md` (TC-UNIT-001..007, TC-INTEGRATION-001..009,
+test plan `chg-GH-23-test-plan.md` (TC-UNIT-001..007, TC-INTEGRATION-001..011,
 TC-GATE-001 with the over-mocking guardrail), the story file `MS2-E3-S6--sync-
 engine.md` (scope, AC, DoD, CEO-resolved R1/Q1), ADR-0006 (C-1..C-6, INV-SAFE-1/2/3,
 §5.4, no cross-page transaction fixed constraint), ADR-0010 (squash provenance, C-3
@@ -949,7 +949,7 @@ atomic lock + `marksync.metadata` property update per doc (NFR-11).
 
 ---
 
-### Phase 6: Integration suite — `Bun.serve()` mock target (F-1/F-2/F-3 end-to-end, NFR-1/2/4/5/7/10/11/17; TC-INTEGRATION-001..009)
+### Phase 6: Integration suite — `Bun.serve()` mock target (F-1/F-2/F-3 end-to-end, NFR-1/2/4/5/7/10/11/17; TC-INTEGRATION-001..011)
 
 **Goal**: Deliver the Tier-2 integration suite proving the engine against a
 `Bun.serve()` mock target with REAL `classify`/`actionFor`/`loadLock`/`saveLock`/
@@ -1017,10 +1017,11 @@ at the integration level.
        - **TC-INTEGRATION-009 / AC-F12-1 (NFR-17, TDR-0003 C-4):** temp git repo via
          `createShellGit(tmp)`; a fuzz table of malicious paths (`../`, `;`,
          backticks, `$()`, `\n`, `\0`, absolute) + malicious refs → for each,
-         `readCommitted("HEAD", [malicious])` / `headSha()` / `currentBranch()`
-         throws (the path/ref guard fires BEFORE any spawn); assert 0 files outside
-         the repo are accessed (the spawn never runs). (REAL shell-git adapter —
-         not mocked.)
+         `expect(() => readCommitted("HEAD", [malicious])).toThrow()` /
+         `headSha()` / `currentBranch()` THROWS (invariant violation — the path/ref
+         guard fires BEFORE any spawn; **throw, NOT `Result.err`** — DM-8 forbids new
+         `BadPath`/`BadRef` arms, per PD-3); assert 0 files outside the repo are
+         accessed (the spawn never runs). (REAL shell-git adapter — not mocked.)
 - [ ] **6.8** Add the secrets-safety unit suite if not already covered:
        `tests/unit/app/secrets-safety.test.ts` (new) — **TC-UNIT-005 / TC-UNIT-006 /
        AC-F10-1 / INV-SEC-1**: a full plan+apply run with a fake token injected via
@@ -1029,6 +1030,27 @@ at the integration level.
        passed to the stub target; assert 0 occurrences of the token string across
        ALL output paths. (If Phase 4 already seeded the Plan-side assertion, this
        completes the journal/report/message coverage.)
+- [ ] **6.9** Create `tests/integration/app/duplicate-uuid-fatal.test.ts` (new):
+       - **TC-INTEGRATION-010 / AC-F2-1 / INV-SAFE-3 (NFR-3):** in-memory `Repository`
+         returning two docs sharing the SAME UUID (`{ "doc-a.md": <bytes with uuid X>,
+         "doc-b.md": <bytes with uuid X> }`); stub `TargetSystem` with
+         `createPage`/`updatePage` spies. `computePlan(config, lock, inMemoryRepo,
+         stubTarget)` → `err({ kind: "DuplicateUuid"; uuid: "X"; paths: ["doc-a.md",
+         "doc-b.md"] })`; assert 0 calls to `stubTarget.createPage`/`updatePage`; assert
+         NO `Plan` emitted (the fatal gate fires AFTER discovery, BEFORE any
+         classification/apply). REAL `detectDuplicateUuids` (NOT mocked — over-mocking
+         guardrail); only the `Repository` + `TargetSystem` ports are faked. Complements
+         TC-UNIT-001 at the `computePlan` orchestration boundary.
+- [ ] **6.10** Create `tests/integration/app/secrets-safety-integration.test.ts` (new):
+       - **TC-INTEGRATION-011 / AC-F10-1 / INV-SEC-1 (NFR-8):** plant a fake token
+         (e.g. `"FAKE_TOKEN_xyz123"`) in a discovered document; `Bun.serve()` mock
+         `TargetSystem` capturing every `version.message`; run the full
+         `computePlan` → `applyPlan` flow. Assert 0 occurrences of the token string
+         across ALL output paths: the serialized `Plan` JSON, the journal JSONL
+         (`.marksync/journal/<run-id>.jsonl`), the serialized `ApplyReport` JSON, and
+         every `version.message` captured by the mock target. REAL
+         `classify`/`actionFor`/`formatVersionMessage` (NOT mocked — over-mocking
+         guardrail). Complements TC-UNIT-005/006 across the full apply flow.
 
 **Acceptance Criteria**:
 
@@ -1043,8 +1065,15 @@ at the integration level.
 - Must: TC-INTEGRATION-007 — one Conflict does not abort the run (NFR-10).
 - Must: TC-INTEGRATION-008 — `saveLock` + `putProperty`; `reconcileWithProperty`
   agrees (NFR-11).
-- Must: TC-INTEGRATION-009 — malicious fuzz rejected with 0 shell-execution surfaces
-  (NFR-17 / AC-F12-1).
+- Must: TC-INTEGRATION-009 — malicious fuzz rejected with a **throw** (invariant),
+  0 shell-execution surfaces (NFR-17 / AC-F12-1 / PD-3 — throw, not `Result.err`;
+  DM-8 forbids `BadPath`/`BadRef` arms).
+- Must: TC-INTEGRATION-010 — duplicate-UUID corpus → `computePlan` returns
+  `err(DuplicateUuid)` at the orchestration boundary with 0 writes + no `Plan`
+  (INV-SAFE-3 / AC-F2-1).
+- Must: TC-INTEGRATION-011 — 0 fake-token occurrences across ALL output paths
+  (Plan JSON, journal JSONL, `ApplyReport` JSON, every `version.message`)
+  (INV-SEC-1 / AC-F10-1).
 - Must: TC-UNIT-005/006 — 0 token occurrences across all output paths (INV-SEC-1).
 - Must: all integration tests use REAL `classify`/`actionFor`/`reconcileWithProperty`
   (over-mocking guardrail); `bun run check` exits 0.
@@ -1052,6 +1081,9 @@ at the integration level.
 **Files and modules**:
 
 - Code areas: `tests/_helpers/mock-target.ts` (new, test-only).
+- Test files: `tests/integration/app/{apply-plan-integration,idempotency,crash-replay,
+  per-doc-isolation,lock-property-atomicity,shell-git-safety-fuzz,duplicate-uuid-fatal,
+  secrets-safety-integration}.test.ts` + `tests/unit/app/secrets-safety.test.ts`.
 - System docs: none.
 
 **Tests**:
@@ -1059,7 +1091,7 @@ at the integration level.
 - `bun test tests/integration/app/ tests/unit/app/secrets-safety.test.ts`
 - `bun run typecheck` + `bun run check:boundaries`.
 
-**Completion signal**: `test(app): integration suite — mock target, crash-replay, idempotency, isolation, atomicity, shell-git fuzz (GH-23)`
+**Completion signal**: `test(app): integration suite — mock target, crash-replay, idempotency, isolation, atomicity, shell-git fuzz, duplicate-uuid fatal, secrets safety (GH-23)`
 
 ---
 
@@ -1182,11 +1214,42 @@ per the plan template).
          reference `computePlan`/`applyPlan`/journal/link-resolver/`Repository`
          port; mark *(delivered — GH-23)*.
        - Reconcile `architecture-overview.md` §"Internal interface contracts"
-         (~lines 221-222): drop `worktreeStatus` (DEC-4); refine `readCommitted` to
+         (~line 221): drop `worktreeStatus` (DEC-4); refine `readCommitted` to
          the realized minimal `Repository` port; add `headSha`/`currentBranch`/
-         `listCommitSubjects`; add `computePlan`/`applyPlan`/`resolveLink` rows.
+         `listCommitSubjects`; add `computePlan`/`applyPlan`/`resolveLink` rows
+         (interface-contracts additions — confirmed carried over from v1.0).
+       - **Reconcile the `readCommitted` interface-contract error column** (the row
+         at ~line 221 currently lists `RefNotFound`, `BadPath`). Per PD-3, the
+         delivered `Repository` port makes malicious path/ref inputs **throw**
+         (invariant violation caught at the boundary BEFORE any spawn); the port's
+         `Result` error surface does NOT include `BadPath`/`RefNotFound` arms
+         (DM-8). Replace the `RefNotFound, BadPath` error cell with the realized
+         contract — e.g. `throws on malformed path/ref (invariant); Result<…>
+         carries transport/runtime errors only` — and document the actual throw
+         behavior.
+       - **Reclassify the two tier-misclassified rows in `architecture-overview.md`
+         §"Components / Core components"** (DoR iter-1 finding 4):
+         - "Push executor" (line ~99, currently `infrastructure`) — the delivered
+           `applyPlan` write loop lives in **`src/app/push-flow.ts` = application
+           tier** (use-case orchestration). Reclassify the tier to `application`;
+           fix the Container + responsibility text to match (ordered safe writes
+           via `TargetSystem` port; parent-first; per-doc isolation; journaling).
+          - "Lock/journal store" (line ~101, currently `infrastructure`) — the
+            delivered journal writer/`replayJournal` lives in
+            **`src/app/journal.ts` = application tier** (app-tier state
+            orchestration, not a port implementation). Reclassify the tier to
+            `application`.
+          - **What STAYS `infrastructure`** (do NOT move these): the
+            `Repository`-port-implementing shell-git adapter (`src/infra/git/`,
+            the "Git adapter" row at line ~102) and the lock atomic-write
+            primitive `writeAtomic` (`src/infra/lock/store.ts`). The primitives
+            are infra; the orchestration that calls them is application. Update
+            the tier column + Container + responsibility text accordingly, OR
+            split each row to distinguish the app-tier orchestration from the
+            infra-tier primitive it delegates to. Be precise about what stays
+            infra vs what is app.
        - Tag `architecture-overview.md` §"Data flow / Push flow" diagram *(realized
-         — GH-23)*.
+         — GH-23)* (confirmed carried over from v1.0).
        - Bind `Plan Computed` / `Mutation Applied` / `Journal Entry` in
          `ubiquitous-language.md`; `related_changes += GH-23` in
          `feature-safe-publish.md`.
@@ -1239,7 +1302,9 @@ per the plan template).
 | TC-INTEGRATION-006 | Crash after K of N docs → journal has K entries; `replayJournal` resumes without duplicates | 3, 5, 6 | AC-F4-1 / NFR-5 |
 | TC-INTEGRATION-007 | One Conflict on doc A → doc A blocked, doc B still applies; run does NOT abort | 6 | AC-F8-1 / NFR-10 |
 | TC-INTEGRATION-008 | Successful per-doc apply → lock atomically saved + property put; `reconcileWithProperty` agrees | 6 | AC-F9-1 / NFR-11 |
-| TC-INTEGRATION-009 | Malicious path/ref fuzz → rejected with 0 shell-execution surfaces (TDR-0003 C-4) | 1, 6 | AC-F12-1 / NFR-17 |
+| TC-INTEGRATION-009 | Malicious path/ref fuzz → rejected with a **throw** (invariant), 0 shell-execution surfaces (TDR-0003 C-4 / PD-3 — throw, not `Result.err`; DM-8) | 1, 6 | AC-F12-1 / NFR-17 |
+| TC-INTEGRATION-010 | Duplicate-UUID corpus → `computePlan` returns `err(DuplicateUuid)` at the orchestration boundary before any write (INV-SAFE-3) | 4, 6 | AC-F2-1 / NFR-3 |
+| TC-INTEGRATION-011 | No secrets in output: 0 fake-token occurrences across Plan JSON, journal JSONL, `ApplyReport` JSON, every `version.message` (INV-SEC-1) | 6 | AC-F10-1 / NFR-8 |
 | TC-GATE-001 | `bun run check` exits 0 (lint + format:check + typecheck + test + check:boundaries) | 8 | AC-Q-1 / NFR-18 |
 
 ## Artifacts and Links
@@ -1265,7 +1330,7 @@ per the plan template).
 | Parent-first unit tests (TC-UNIT-003) | `tests/unit/app/parent-first.test.ts` | Test (new) |
 | Secrets-safety unit tests (TC-UNIT-005/006) | `tests/unit/app/secrets-safety.test.ts` | Test (new) |
 | Boundary negative tests (git + hierarchy) | `tests/unit/domain/git/boundary-negative.test.ts`, `tests/unit/domain/hierarchy/boundary-negative.test.ts` | Test (new) |
-| Integration suite (TC-INTEGRATION-001..009) | `tests/integration/app/{apply-plan-integration,idempotency,crash-replay,per-doc-isolation,lock-property-atomicity,shell-git-safety-fuzz}.test.ts` | Test (new) |
+| Integration suite (TC-INTEGRATION-001..011) | `tests/integration/app/{apply-plan-integration,idempotency,crash-replay,per-doc-isolation,lock-property-atomicity,shell-git-safety-fuzz,duplicate-uuid-fatal,secrets-safety-integration}.test.ts` | Test (new) |
 | Mock-target helper | `tests/_helpers/mock-target.ts` | Test (new) |
 | ADR-0006 (state model — INV-SAFE-1/2/3, no cross-page transaction) | `doc/decisions/ADR-0006-document-identity-and-shared-base-state-model.md` | Decision |
 | ADR-0010 (squash provenance, bounded writes C-3) | `doc/decisions/ADR-0010-page-history-provenance.md` | Decision |
@@ -1280,6 +1345,7 @@ per the plan template).
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-12 | plan-writer | Initial plan. Nine phases per the dependency lattice (spec §18 landing order): Phase 0 branch + baseline gate; Phase 1 `Repository` port + shell-git adapter + path guard (TDR-0003 C-4); Phase 2 cross-page link resolver (pure domain); Phase 3 journal writer + `replayJournal`; Phase 4 `computePlan` pure no-writes pipeline; Phase 5 `applyPlan` parent-first isolated journaled write path; Phase 6 integration suite (`Bun.serve()` mock target — INV-SAFE-1/2/3, 409-as-drift, idempotency, crash→replay, isolation, atomicity, shell-git fuzz); Phase 7 CLI wiring (`plan`/`sync` stubs → thin shells); Phase 8 final gate + boundary purity proof + doc handoff. Surfaced PD-1..PD-11: port residence (`src/domain/git/port.ts`); `readCommitted` returns bytes; shell-git injection controls + malicious-path throws (DM-8-compliant); app-tier `Create`/`NEW` (GH-22 untouched); test-only crash hook; parent-first topological sort; `ApplyReport` outcomes + aggregate counts; Conflict-as-drift no retry; REAL `formatVersionMessage` provenance wiring; minimal `--rebind`; Phase 8 dep-cruiser negative probes. Doc reconciliation (DEC-4 `worktreeStatus` drop, UL bindings, feature-spec tag, push-flow diagram) handed to lifecycle phase 7 — coder touches only `src/`, `tests/`, `.gitignore`. |
+| 1.1 | 2026-07-12 | plan-writer | DoR iter-1 remediation (readiness-reviewer NOT_READY, finding 4). Surgical edits only — no phase/decision rewrite. (1) Phase 8.5 doc-handoff list: add the tier-reclassification of the `architecture-overview.md` §"Components / Core components" "Push executor" (line ~99) + "Lock/journal store" (line ~101) rows — the delivered `applyPlan` loop (`src/app/push-flow.ts`) + journal (`src/app/journal.ts`) are **application** tier (orchestration), while the shell-git adapter (`src/infra/git/`) + the lock atomic-write primitive (`src/infra/lock/store.ts`) STAY infrastructure. (2) Phase 8.5: add explicit reconciliation of the `readCommitted` interface-contract error column (`RefNotFound`/`BadPath` → throw per PD-3; no `Result` error arms per DM-8). (3) Confirm the carried-over `computePlan`/`applyPlan`/`resolveLink` interface-contract rows + the push-flow diagram *(realized — GH-23)* tag. (4) Phase 6: add TC-INTEGRATION-010 (`tests/integration/app/duplicate-uuid-fatal.test.ts` — INV-SAFE-3 at the `computePlan` boundary) + TC-INTEGRATION-011 (`tests/integration/app/secrets-safety-integration.test.ts` — INV-SEC-1 across Plan/journal/ApplyReport/`version.message`); strengthen TC-INTEGRATION-009 to assert a **throw** (not `Result.err`) matching PD-3. (5) Sync TC ranges (Context, Phase 6 title, Acceptance Criteria, Test Scenarios table, Artifacts, Execution Log) to TC-INTEGRATION-001..011. |
 
 ## Execution Log
 
@@ -1294,6 +1360,6 @@ per the plan template).
 | 3 — journal writer + replayJournal | ⏳ | | | | | F-3/DM-4; TC-INTEGRATION-006 prep. |
 | 4 — computePlan use case | ⏳ | | | | | F-1/DM-1/DM-2; TC-UNIT-001/007; pure, 0 writes. |
 | 5 — applyPlan use case | ⏳ | | | | | F-2/DM-3; TC-UNIT-002/003; parent-first + isolation + journal + provenance. |
-| 6 — integration suite | ⏳ | | | | | TC-INTEGRATION-001..009; REAL classifier/reconcile; mock target. |
+| 6 — integration suite | ⏳ | | | | | TC-INTEGRATION-001..011; REAL classifier/reconcile; mock target. |
 | 7 — CLI wiring | ⏳ | | | | | F-6; plan/sync stubs → thin shells; presentation-tier import discipline. |
 | 8 — final gate + boundary proof + doc handoff | ⏳ | | | | | AC-Q-1; dep-cruiser negative probes (git + hierarchy); errors.ts unchanged; doc handoff to phase 7. |

@@ -7,7 +7,7 @@ phases:
   specification: { started: 2026-07-12, completed: 2026-07-12 }
   test_planning: { started: 2026-07-12, completed: 2026-07-12 }
   delivery_planning: { started: 2026-07-12, completed: 2026-07-12 }
-  dor_check: { started: 2026-07-12, completed: null }
+  dor_check: { started: 2026-07-12, completed: 2026-07-12, iterations: 2, verdict: READY }
   delivery: { started: null, completed: null }
   system_spec_update: { started: null, completed: null }
   review_fix: { started: null, completed: null }
@@ -49,6 +49,27 @@ open_questions: []
 blockers: []
 
 notes:
+  - text: >
+      DoR iter-1 NOT_READY (4 blocking findings, all small, no human escalation).
+      (1) test-plan TC-INTEGRATION-009 asserts err({kind:"BadPath"|"BadRef"})
+      which don't exist (DM-8 forbids new arms); plan PD-3 has the guard throw —
+      contradiction. (2) spec §5.1 F-1 orders detectDuplicateUuids BEFORE doc
+      discovery — logically impossible; §6/§24 have the correct order. (3) testing-
+      strategy hard guardrail requires INV-SAFE-3 + INV-SEC-1 at integration/E2E,
+      but test-plan has them unit-only. (4) plan phase-7 doc-sync list omits
+      reconciling architecture-overview tier rows (Push executor / Lock-journal
+      store listed as infra but placed in app) + interface-contract RefNotFound/
+      BadPath arms that PD-3 makes throw. Reopening specification (2), test_planning
+      (1,3), delivery_planning (4) in parallel — fixes are independent.
+      Why not caught earlier: the spec/test-plan/plan authors each worked their
+      own artifact; cross-artifact contradictions (test-plan vs plan on error arms;
+      spec internal ordering) and the system-spec tier-reclassification dependency
+      surfaced only under the adversarial DoR stance. Process improvement: have
+      spec-writers run a self-consistency pass on pipeline ordering, and have the
+      plan-writer's doc-sync list explicitly scan architecture-overview tier rows.
+    type: retro
+    workItemRef: GH-23
+    date: 2026-07-12
   - text: >
       Intake: GH-23 OPEN, priority:critical, no existing branch/PR. State =
       new delivery (full 11-phase). All E3-S1..S5 code deps delivered & merged
