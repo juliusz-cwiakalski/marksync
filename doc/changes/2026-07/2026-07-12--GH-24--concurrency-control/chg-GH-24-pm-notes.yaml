@@ -1,0 +1,70 @@
+change_id: GH-24
+title: "[MS2-E3-S7] Concurrency control"
+story_file: doc/planning/milestones/MS-2/MS2-E3--safe-publish-core/MS2-E3-S7--concurrency-control.md
+feature_spec: doc/spec/features/feature-safe-publish.md
+decisions: [ADR-0006]
+invariants: [NFR-REL-5, NFR-REL-10]
+
+phases:
+  clarify_scope: { started: "2026-07-12T22:00:00Z", completed: "2026-07-12T22:30:00Z" }
+  specification: { started: "2026-07-12T22:31:00Z", completed: "2026-07-12T23:42:00Z" }
+  test_planning: { started: "2026-07-12T23:42:00Z", completed: "2026-07-13T00:10:00Z" }
+  delivery_planning: { started: "2026-07-13T00:10:00Z", completed: "2026-07-13T00:35:00Z" }
+  dor_check: { started: "2026-07-13T00:35:00Z", completed: "2026-07-13T00:50:00Z" }
+  delivery: { started: "2026-07-13T00:50:00Z", completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+
+decisions: []
+open_questions: []
+blockers: []
+
+doc_risks:
+  - doc/spec/features/feature-safe-publish.md §3.1 "Concurrency control" is aspirational; mark delivered (GH-24) + add module refs; add GH-24 to related_changes frontmatter; advance last_updated.
+  - doc/decisions/ADR-0006 "Concurrency control" section + Implementation Plan item 4; add GH-24 to related_changes; advance last_updated.
+  - New CI concurrency-group templates under examples/ci/ or docs/guides/ (story deliverable #4).
+
+notes:
+  - text: >
+      DoR verdict: READY (all 10 adversarial probes pass; 5 minor/nit findings
+      recorded as coder guidance, none blocking). Pre-staged infrastructure
+      claims verified TRUE against source by @readiness-reviewer. Invariant
+      naming corrected throughout (NFR-REL-5/10, not INV-SAFE-3). OQ-1 resolved
+      DEC-7 (uuidV7Timestamp from runId, no new Plan field).
+    type: decision
+    date: "2026-07-13"
+  - text: >
+      Coder guidance from DoR minor findings: (1) initial getProperty transport
+      error -> block (not fresh); spec §21 covers intent. (2) Make
+      ApplyOptions.stalePlanMinutes optional with default 15 OR update existing
+      test callers — phase-3 regression will catch either way. (3) TC-CI-001 is
+      semi-automated (ci-yaml-validation.test.ts in plan task 4.3). (4) FakeTarget
+      port drift surfaces as runtime test failures, not compile errors (tests/
+      outside tsconfig.include).
+    type: info
+    date: "2026-07-13"
+  - text: >
+      clarify_scope complete with NO blocking questions. Dependencies resolved
+      (GH-21 Confluence adapter + GH-23 sync engine both merged). Infrastructure
+      pre-staged by prior stories: StalePlan error arm exists in errors.ts (line
+      50, covered by assertNeverMarkSyncError); operationId on Plan/PageBinding/
+      MetadataProperty already wired; stalePlanMinutes config exists (default 15,
+      src/app/config.ts:143). GH-24 wires these into the write path: (1)
+      assertOperationFresh dedup check, (2) assertPlanNotExpired stale check,
+      (3) decideOnConflict pure 409 policy (re-fetch+reclassify ONCE then block),
+      (4) CI concurrency-group templates. The GitHub issue AC body has a typo
+      (INV-SAFE-3 instead of NFR-REL-5 for overlapping plans) — story file is
+      authoritative and correct; spec-writer cites NFR-REL-5/10.
+  - text: >
+      Pre-staged infrastructure means GH-24 is primarily an integration/wiring
+      story: the error arm, the data fields, and the config knob already exist.
+      The new code is: two pure assert* functions + one pure decideOnConflict
+      function (all unit-testable under src/domain/state/), the call-site wiring
+      in applyPlan (src/app/push-flow.ts processEntry), fake-target enhancement
+      to serve stored operationId for the two-runner integration test, and CI
+      template docs. No new MarkSyncError kind needed.
+    type: info
+    date: "2026-07-12"

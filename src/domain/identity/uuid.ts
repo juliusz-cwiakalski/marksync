@@ -17,6 +17,25 @@ export function isUuidV7(s: string): boolean {
 }
 
 /**
+ * Extract the Unix millisecond timestamp from a UUID v7 (RFC 9562).
+ * The first 48 bits (12 hex digits) encode the timestamp.
+ *
+ * @param uuid - A UUID v7 string (with or without `op_` prefix).
+ * @returns The Unix millisecond timestamp, or `undefined` if the UUID is invalid.
+ */
+export function uuidV7Timestamp(uuid: string): number | undefined {
+	// Strip `op_` prefix if present (operation-id format: `op_<uuid-v7>`)
+	const cleanUuid = uuid.startsWith("op_") ? uuid.slice(3) : uuid;
+	if (!UUID_V7_REGEX.test(cleanUuid)) {
+		return undefined;
+	}
+
+	// Extract the first 12 hex characters (48 bits)
+	const hexTs = cleanUuid.slice(0, 12);
+	return Number.parseInt(hexTs, 16);
+}
+
+/**
  * Narrow `s` to {@link DocumentId} or throw — the invariant-violation guard for
  * internal/trusted boundaries. Untrusted input uses
  * {@link parseDocumentId} (the `Result` channel).
