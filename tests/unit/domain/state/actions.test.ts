@@ -116,12 +116,16 @@ describe("DEC-3: no new MarkSyncError kinds", () => {
 		// Test all block-producing states
 		const remoteAheadAction = actionFor(SyncStateValue.REMOTE_AHEAD, ctx);
 		if (remoteAheadAction.kind === "Block") {
-			expect(["Conflict", "RemoteMissing"]).toContain(remoteAheadAction.error.kind);
+			expect(["Conflict", "RemoteMissing"]).toContain(
+				remoteAheadAction.error.kind,
+			);
 		}
 
 		const divergedAction = actionFor(SyncStateValue.DIVERGED, ctx);
 		if (divergedAction.kind === "Block") {
-			expect(["Conflict", "RemoteMissing"]).toContain(divergedAction.error.kind);
+			expect(["Conflict", "RemoteMissing"]).toContain(
+				divergedAction.error.kind,
+			);
 		}
 
 		const remoteMissingAction = actionFor(SyncStateValue.REMOTE_MISSING, {
@@ -129,7 +133,9 @@ describe("DEC-3: no new MarkSyncError kinds", () => {
 			remote: { kind: "missing" },
 		});
 		if (remoteMissingAction.kind === "Block") {
-			expect(["Conflict", "RemoteMissing"]).toContain(remoteMissingAction.error.kind);
+			expect(["Conflict", "RemoteMissing"]).toContain(
+				remoteMissingAction.error.kind,
+			);
 		}
 	});
 });

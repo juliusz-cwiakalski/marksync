@@ -882,24 +882,24 @@ spec-reconciliation handoff (the final release phase per the plan template).
 
 **Tasks**:
 
-- [ ] **5.1** Run `bun run check` (lint + format:check + typecheck + test +
+- [x] **5.1** Run `bun run check` (lint + format:check + typecheck + test +
       check:boundaries); fix any issue (biome format/lint nits, unused imports,
       `exactOptionalPropertyTypes` adjustments). Confirm all ACs green
       (TC-GATE-001). Report the pass count and the delta vs the Phase 0
-      baseline.
-- [ ] **5.2** Confirm the boundary direction explicitly (AC-F1-1 / NFR-1):
+      baseline. ✓ (808 tests passed, +35 from baseline of 773. All checks green.)
+- [x] **5.2** Confirm the boundary direction explicitly (AC-F1-1 / NFR-1):
       `bun run check:boundaries` passes with **0** violations; assert
       `grep -r "#infra/\|#app/\|#cli/" src/domain/state/` returns nothing — the
       four modules import only `#domain/*` (+ `zod`, `hast` types, `node:crypto`).
-      The state modules are pure.
-- [ ] **5.3** Confirm **no error-model change** (DEC-3 / NFR-9): `git diff
+      The state modules are pure. ✓ (Confirmed via grep: NO INFRA IMPORTS FOUND)
+- [x] **5.3** Confirm **no error-model change** (DEC-3 / NFR-9): `git diff
       src/domain/errors.ts` is empty; `assertNeverMarkSyncError` is untouched;
-      `bun run typecheck` green is the proof.
-- [ ] **5.4** Hand off the doc risks to lifecycle phase 7 (`@doc-syncer`) —
+      `bun run typecheck` green is the proof. ✓ (Verified: no diff on errors.ts)
+- [x] **5.4** Hand off the doc risks to lifecycle phase 7 (`@doc-syncer`) —
       **no code/doc change here** (out of the coder's delivery scope):
       - Tag the delivered components in `feature-safe-publish.md` §4.2 "Drift
-        classifier" (currently a stub) → reference `classify` / `ContentHash` /
-        `SyncState` / `Action` / `RemoteState`; mark *(delivered — GH-22)*.
+         classifier" (currently a stub) → reference `classify` / `ContentHash` /
+         `SyncState` / `Action` / `RemoteState`; mark *(delivered — GH-22)*.
       - Reconcile `architecture-overview.md` §"Internal interface contracts"
         (~line 239) from the positional `classify(local, base, remote) →
         SyncState` sketch to the realized `classify(input) → Result<SyncState,
@@ -908,7 +908,7 @@ spec-reconciliation handoff (the final release phase per the plan template).
         `RemoteState` / `SharedBase` in `ubiquitous-language.md`;
         `related_changes += GH-22`.
       - `doc/spec/features/feature-safe-publish.md` `links.related_changes` +=
-        GH-22.
+        GH-22. ✓ (Out of coder scope — handoff to phase 7)
 
 **Acceptance Criteria**:
 
@@ -995,8 +995,8 @@ spec-reconciliation handoff (the final release phase per the plan template).
 | 1 — types + VOs (`sync-state.ts` + `hashes.ts`) | ✅ | 2026-07-12 | 2026-07-12 | 808e13c (feat: sync-state enum + content-hash vo + hash helpers) | ✅ 778 tests (+5) | F-2/F-3/F-4; TC-HASH-001/002; canonicalHash delegates to GH-20 (DEC-2/PD-2). SyncState enum + RemoteState union + SharedBase view + ContentHash VO + hash helpers delivered. |
 | 2 — `classify()` core + fixtures | ✅ | 2026-07-12 | 2026-07-12 | e5d74c4 (feat: classify() three-way drift classifier + fixtures) | ✅ 799 tests (+21) | F-1/F-6; TC-STATE-001..006 + FORBIDDEN + FALSEPOS×5 + REALCHG×5 + METADATA×2 + EDGE + BOUNDARY. classify() three-way classifier + all fixtures delivered. |
 | 3 — `Action` mapping + suite | ✅ | 2026-07-12 | 2026-07-12 | 688d4a9 (feat: sync-state → action mapping) | ✅ 806 tests (+7) | F-5; TC-ACTION-001..006; no new error arms (DEC-3). SyncState → Action mapping + action suite delivered. errors.ts untouched (verified). |
-| 4 — boundary negative test | ✅ | 2026-07-12 | 2026-07-12 | [pending] | ✅ 808 tests (+2) | AC-F1-1; TC-PURITY-001/002; state-scoped probe (PD-4). Boundary negative test proves src/domain/state/ purity. canonicalize.ts and errors.ts untouched (verified). |
-| 5 — final gate + doc handoff | ⏳ | — | — | — | — | AC-Q-1; boundary clean; errors.ts unchanged; doc handoff to phase 7 |
+| 4 — boundary negative test | ✅ | 2026-07-12 | 2026-07-12 | 39d49d0 (test: boundary negative test - src/domain/state purity) | ✅ 808 tests (+2) | AC-F1-1; TC-PURITY-001/002; state-scoped probe (PD-4). Boundary negative test proves src/domain/state/ purity. canonicalize.ts and errors.ts untouched (verified). |
+| 5 — final gate + doc handoff | ✅ | 2026-07-12 | 2026-07-12 | [pending] | ✅ 808 tests (+35) | AC-Q-1; boundary clean (0 infra imports); errors.ts unchanged; doc handoff to phase 7. All acceptance criteria met. |
 | 2 — `classify()` core + fixtures | ⏳ | — | — | — | — | F-1/F-6; TC-STATE-001..006 + FORBIDDEN + FALSEPOS×5 + REALCHG×5 + METADATA×2 + EDGE + BOUNDARY |
 | 3 — `Action` mapping + suite | ⏳ | — | — | — | — | F-5; TC-ACTION-001..006; no new error arms (DEC-3) |
 | 4 — boundary negative test | ⏳ | — | — | — | — | AC-F1-1; TC-PURITY-001/002; state-scoped probe (PD-4) |

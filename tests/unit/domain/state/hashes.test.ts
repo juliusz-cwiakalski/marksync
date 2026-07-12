@@ -4,7 +4,12 @@
 // Pure functions over real inputs — no mocks.
 
 import { describe, expect, test } from "bun:test";
-import { attachmentHash, buildContentHash, canonicalHash, rawHash } from "#domain/state/hashes";
+import {
+	attachmentHash,
+	buildContentHash,
+	canonicalHash,
+	rawHash,
+} from "#domain/state/hashes";
 import type { Root } from "hast";
 
 /** Minimal HAST for testing. */
@@ -26,7 +31,10 @@ function minHast(): Root {
 test("TC-HASH-001: ContentHash composes raw + canonical + attachment facets; canonicalHash !== rawHash", () => {
 	const source = "Hello world";
 	const hast = minHast();
-	const attachmentHashes = { "img.png": "sha256:abc123", "doc.pdf": "sha256:def456" };
+	const attachmentHashes = {
+		"img.png": "sha256:abc123",
+		"doc.pdf": "sha256:def456",
+	};
 	const title = "Test Page";
 	const parentPageId = "12345";
 

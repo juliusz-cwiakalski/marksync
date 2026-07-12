@@ -31,7 +31,13 @@ export const SyncStateValue = {
 
 /** Remote state discriminated union — the adapter-agnostic shape the engine builds. */
 export type RemoteState =
-	| { kind: "present"; bodyHash: string; version: number; title?: string; parentPageId?: string }
+	| {
+			kind: "present";
+			bodyHash: string;
+			version: number;
+			title?: string;
+			parentPageId?: string;
+	  }
 	| { kind: "missing" }
 	| { kind: "forbidden"; pageId: string };
 

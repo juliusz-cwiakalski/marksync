@@ -27,7 +27,9 @@ export function canonicalHash(hast: Root): string {
  * Deterministic digest over the sorted attachment set so attachment add/remove/order
  * never perturb it.
  */
-export function attachmentHash(attachmentHashes: Record<string, string>): string {
+export function attachmentHash(
+	attachmentHashes: Record<string, string>,
+): string {
 	const sortedKeys = Object.keys(attachmentHashes).sort();
 	const lines = sortedKeys.map((key) => `${key}\0${attachmentHashes[key]}`);
 	const combined = lines.join("\n");

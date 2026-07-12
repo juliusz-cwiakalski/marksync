@@ -19,12 +19,18 @@ export interface ClassifyInput {
  * facets (R1, PD-1/PD-3). Returns `Result<SyncState, MarkSyncError>` (DEC-4).
  * Invoked only for bound documents (DEC-5 — `base` present as precondition).
  */
-export function classify(input: ClassifyInput): Result<SyncState, MarkSyncError> {
+export function classify(
+	input: ClassifyInput,
+): Result<SyncState, MarkSyncError> {
 	const { local, base, remote } = input;
 
 	// Q1: forbidden is an access condition, not a state
 	if (remote.kind === "forbidden") {
-		return Result.err({ kind: "Forbidden", pageId: remote.pageId, operation: "read" });
+		return Result.err({
+			kind: "Forbidden",
+			pageId: remote.pageId,
+			operation: "read",
+		});
 	}
 
 	// DEC-1: local optional — absent ⇒ LOCAL_MISSING
@@ -55,7 +61,8 @@ export function classify(input: ClassifyInput): Result<SyncState, MarkSyncError>
 
 	const remoteChanged =
 		remote.bodyHash !== base.renderedBodyHash ||
-		(remote.parentPageId !== undefined && remote.parentPageId !== base.parentPageId);
+		(remote.parentPageId !== undefined &&
+			remote.parentPageId !== base.parentPageId);
 
 	// Truth table for classification
 	let state: SyncState;
