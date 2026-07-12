@@ -1,0 +1,129 @@
+change_id: GH-22
+title: "[MS2-E3-S5] Drift classifier"
+story_file: doc/planning/milestones/MS-2/MS2-E3--safe-publish-core/MS2-E3-S5--drift-classifier.md
+branch: feat/GH-22/drift-classifier
+phases:
+  clarify_scope: { started: "2026-07-12T00:00:00Z", completed: "2026-07-12T00:00:00Z" }
+  specification: { started: "2026-07-12T00:00:00Z", completed: "2026-07-12T00:00:00Z" }
+  test_planning: { started: "2026-07-12T00:00:00Z", completed: "2026-07-12T00:00:00Z" }
+  delivery_planning: { started: "2026-07-12T00:00:00Z", completed: "2026-07-12T00:00:00Z" }
+  dor_check: { started: "2026-07-12T00:00:00Z", completed: "2026-07-12T00:00:00Z" }
+  delivery: { started: "2026-07-12T00:00:00Z", completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+decisions:
+  - text: >
+      Issue body wording "5-state drift classification" / "5 states correctly
+      detected" is stale AND diverges in two further ways: it uses the name
+      REMOTE_BEHIND (a stale alias for LOCAL_AHEAD) and omits LOCAL_MISSING
+      entirely. The authoritative story file (MS2-E3-S5), Ubiquitous Language
+      (ubiquitous-language.md §Sync State), feature spec
+      (feature-safe-publish.md §3.1 + §5), and roadmap all define 6 states:
+      NO_CHANGE, LOCAL_AHEAD, REMOTE_AHEAD, DIVERGED, REMOTE_MISSING,
+      LOCAL_MISSING. Per pm-instructions ("Git files are authoritative for story
+      scope; GitHub Issues are short summaries"), 6 states is canonical and
+      REMOTE_BEHIND is a stale alias for LOCAL_AHEAD. Story Q1 explicitly
+      confirms the enum stays at 6 (forbidden/403 is NOT a state). No human
+      input needed — resolved by documented authority rule.
+    date: "2026-07-12"
+  - text: >
+      Story CEO-resolved decisions adopted verbatim: R1 — the classifier compares
+      title and parentPageId in addition to body hash (metadata drift with same
+      body -> LOCAL_AHEAD); Q1 — forbidden (403) is an access condition, not a
+      sync state (enum stays 6); E3-S6 warns+skips, classifier returns a
+      Forbidden flag.
+    date: "2026-07-12"
+open_questions: []
+blockers: []
+notes:
+  - text: >
+      Intake: pm-context was stale — active_change GH-21 (PR #56) was already
+      MERGED at 2026-07-12T07:34:55Z. Moved GH-21 to recently_delivered; set
+      GH-22 active. Context stale by one merge cycle — 5th recurrence
+      (GH-17, GH-18, GH-19, GH-20, GH-21). Root cause unchanged: pm-context not
+      updated on out-of-band merge.
+    type: retro
+    workItemRef: GH-21
+    date: "2026-07-12"
+  - text: >
+      Dependencies resolved: blocked_by MS2-E3-S1 (GH-18 MERGED c4b6648),
+      MS2-E3-S2 (GH-19 MERGED d21320a), MS2-E3-S4 (GH-21 MERGED d53a8ff). Blocks
+      MS2-E3-S6 (sync engine). All clear to deliver.
+    type: info
+    workItemRef: GH-22
+    date: "2026-07-12"
+  - text: >
+      Existing contracts the classifier must REUSE (no duplication):
+      (1) src/domain/render/canonicalize.ts already owns canonicalize(hast) +
+      contentHash(canonical) — its header says "The wire-format prefix is the
+      consumer's concern (E3-S5)"; the new hashes.ts composes rawHash +
+      canonicalHash (delegates to contentHash(canonicalize())) + attachmentHash.
+      (2) PageBinding (src/domain/binding/page-binding.ts) already carries the
+      base hashes: sourceContentHash (raw), renderedBodyHash (canonical),
+      remoteBodyHash, attachmentHashes, plus pageId/parentPageId/pageVersion.
+      (3) MarkSyncError already has RemoteMissing, Forbidden, Conflict arms —
+      the classifier returns these via Result<SyncState, MarkSyncError>.
+      (4) reconcile.ts is the existing state-module sibling (content-property
+      cross-check) — classifier.ts/hashes.ts/actions.ts join it under
+      src/domain/state/.
+    type: info
+    workItemRef: GH-22
+    date: "2026-07-12"
+  - text: >
+      Design refinement for spec-writer to nail down (non-blocking, resolvable
+      from story): the story's classify() signature shows local: ContentHash
+      (required), but LOCAL_MISSING (AC + 6-state table) requires local to be
+      ABSENT (binding in lock, source doc gone). So `local` must be optional or
+      the input discriminated. Also base-absent case (new doc, no binding) is
+      NOT one of the 6 states — engine handles create directly; classifier is
+      only called for bound documents. The "both local+remote missing" edge
+      needs an explicit classification. Surface these in the spec.
+    type: info
+    workItemRef: GH-22
+    date: "2026-07-12"
+  - text: >
+      False-positive guard (NFR-REL-3 <5%) builds on GH-20's canonicalizer
+      (structural whitespace dropped, properties sorted, raw->text). The
+      classifier compares canonicalHash (not rawHash) so whitespace-only /
+      attribute-order changes do NOT trigger false positives. rawHash is
+      informational only. Spec must state this dependency explicitly.
+    type: info
+    workItemRef: GH-22
+    date: "2026-07-12"
+  - text: >
+      Spec complete (chg-GH-22-spec.md, 436 lines). Key decisions captured by
+      @spec-writer: DEC-1 local made OPTIONAL in classify() to express
+      LOCAL_MISSING (resolves story's self-contradictory required-local
+      signature); DEC-2 ContentHash.canonicalHash DELEGATES to GH-20
+      contentHash(canonicalize()) — no re-implementation; DEC-3 NO new error
+      arms — REMOTE_MISSING->Block(RemoteMissing), REMOTE_AHEAD/DIVERGED->
+      Block(Conflict), forbidden->err(Forbidden) all reuse existing
+      MarkSyncError; DEC-5 base-absent is NOT a state (engine handles create);
+      DEC-6 both-missing edge -> LOCAL_MISSING. All 4 OQs RESOLVED at
+      clarify_scope, no decision-advisor escalation needed.
+    type: decision
+    workItemRef: GH-22
+    date: "2026-07-12"
+  - text: >
+      DoR iter-1 NOT_READY (1 blocker + 2 minor + 1 nit). Blocker: test-plan
+      false-positive suite (TC-FALSEPOS-001/004, sharpen -002) asserted
+      NO_CHANGE for diffs the verified GH-20 canonicalizer does NOT normalize
+      (internal whitespace collapse, code-block trimming) — would have failed at
+      delivery OR pressured coder to modify canonicalize.ts (breaching DEC-2).
+      Why not caught earlier: spec/test-plan described the canonicalizer as
+      "whitespace-invariant" in general terms without verifying the EXACT
+      isStructuralWhitespace rule (drops only whitespace-only+newline nodes).
+      Process improvement: reuse-claim verification against actual source
+      (which @readiness-reviewer did) should happen at spec/test-plan
+      authoring, not deferred to DoR — the spec-writer/test-plan-writer should
+      read the cited module's implementation when a test asserts its behavior.
+      Reopened test_planning + specification. PM applied spec fixes directly
+      (finding 2 dep-cruiser rule-name typo; finding 3 folded plan PD-1 into
+      spec DM-2/F-2 so ContentHash owns title+parentPageId) + pm-notes nit
+      (finding 4); delegating test-plan false-positive rework to @test-plan-writer.
+    type: retro
+    workItemRef: GH-22
+    date: "2026-07-12"
