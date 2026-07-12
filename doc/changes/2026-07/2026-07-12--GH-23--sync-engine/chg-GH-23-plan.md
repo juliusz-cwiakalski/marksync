@@ -1408,6 +1408,88 @@ per the plan template).
 
 ---
 
+### Phase 10: Code Review Remediation (Iteration 2)
+
+> Added by `@reviewer` after review-iter-2 (status FAIL). Phase 9 correctly
+> resolved F-3 (spawnGit throws → INTERNAL), F-5 (crashAfter counts mutations),
+> F-9 (transient-vs-block documented), F-12 (tags), and the fixture/guard items
+> (9.4-9.7). DM-8 intact, gate green. BUT the two iter-1 blockers are not yet
+> satisfactorily resolved: AC-F7-1 (the link resolver is wired but mutates the
+> HAST AFTER `renderBody` produced the body string, so href rewrites never reach
+> the published body; unresolved warnings are also discarded), and AC-F6-1
+> (parentFirstOrder's edge-following loop body is still empty; CEO directive
+> "must actually reorder, not stub" unmet; test asserts no ordering). Tasks
+> 10.1-10.2 are blockers; 10.3-10.9 are low/polish. DM-8 stays intact.
+
+**Dependency lattice**: Phase 10 runs after Phase 9; gates re-review (iteration 3).
+
+#### Blockers (drive the FAIL status)
+
+- [ ] **10.1 — Fix link-resolution render ordering so rewrites reach the published body (iter-2 F-1 / AC-F7-1)**
+  - `src/app/push-flow.ts:193-228` — computePlan currently calls
+    `target.renderBody(hast)` (line 193) and captures `body` (line 196) BEFORE
+    `_resolveLinksInDoc(hast, ...)` (line 228) mutates `el.properties.href`.
+    Because `body` is already a string snapshot, the mutation is invisible to
+    it; `renderedBody`/`action.body` carry the literal `.md` hrefs to Confluence.
+    Reorder so resolution precedes rendering: resolve links (collect warnings)
+    FIRST, then `target.renderBody(hast)` from the rewritten HAST, and build the
+    content hash from the same post-resolution HAST (keeps body↔hash consistent).
+    Add a test that puts a managed `[x](other.md)` in the source, runs
+    computePlan, and asserts the captured create/update request body contains
+    the resolved `viewpage.action?pageId=<id>` — NOT `other.md`.
+- [ ] **10.2 — Surface unresolved-link warnings (iter-2 F-2 / AC-F7-1)**
+  - `src/app/push-flow.ts:228-233,382-383` — the `if (!linksResolved.ok)` block
+    is empty (comments only); the `UnresolvedLink` warning is computed then
+    discarded, and `_resolveLinksInDoc` returns only the first warning. Have
+    `_resolveLinksInDoc` return ALL unresolved links, accumulate them across
+    docs, and attach them to the Plan (e.g. a `warnings: MarkSyncError[]`) /
+    CommandResult `warnings` so no broken `.md` URL completes a run silently
+    (AC-F7-1 "no broken URL emitted silently").
+
+#### Medium
+
+- [ ] **10.3 — Make parent-first real OR cleanly descope (iter-2 F-3 / AC-F6-1 / NFR-9 / PD-6)**
+  - `src/app/push-flow.ts:461-489` — the per-create edge-following loop body
+    (475-480) is EMPTY: it never maps a Create's parentId to another create's
+    uuid and never calls `visit(parent)`, so it cannot reorder and the cycle
+    guard can never fire. CEO directive: "parentFirstOrder must actually
+    reorder, not stub." Either (a) implement real recursive edge-following +
+    keep the cycle throw + assert call order + add a cycle-throws case in
+    `tests/unit/app/parent-first.test.ts`; or (b) replace the misleading
+    empty-body stub with a justified stable passthrough, mark AC-F6-1
+    N/A-for-MS-0002 in the spec, and fix the test to assert the documented
+    passthrough (it currently captures `createCalls` but never checks order).
+    Do not leave the empty loop that looks like logic.
+
+#### Low / polish
+
+- [ ] **10.4 — Replace module-level `readFileSync(cwd/package.json)` (iter-2 F-4)**
+  - `src/app/push-flow.ts:42-45` — the toolVersion read is cwd-coupled and
+    throws at import if `package.json` is absent. Use a build-time constant or
+    Bun JSON import (`import pkg from "../../package.json"`) or read lazily.
+- [ ] **10.5 — Combine duplicate imports (iter-2 F-5)**
+  - `src/app/push-flow.ts:3,5,29,30` — merge the two `#domain/result` and two
+    `#domain/hierarchy/link-resolver` statements via the inline `type` modifier.
+- [ ] **10.6 — Fix stale "via test stubs" describe label (iter-2 F-6)**
+  - `tests/unit/infra/git/shell-git.test.ts:7` — now imports REAL
+    `#domain/git/paths` guards; rename the describe block accordingly.
+- [ ] **10.7 — Typecheck tests against real config types (iter-2 F-7)**
+  - Add `tsconfig.test.json` including `tests/` and wire into the `check` gate
+    so TargetConfig-contract regressions are caught (root cause of iter-1 F-6).
+- [ ] **10.8 — Surface git host-invariant failure detail (iter-2 F-8)**
+  - `src/cli/commands/{plan,sync}.ts` — the `catch (e)` discards the message
+    into a generic "internal error". Include a sanitized summary of the thrown
+    message in the INTERNAL error text for agent/operator diagnosability.
+- [ ] **10.9 — Close out deferred bookkeeping (iter-2 F-9)**
+  - Tick the Phase 9 Execution Log row + Phases 1-8 boxes (9.14); address or
+    explicitly descope 9.8 (boundary-negative probes for domain/git +
+    domain/hierarchy), 9.10 (crash-replay re-apply + reconcileWithProperty
+    agrees), 9.12 (HAST typing + target-id helper), 9.13 (provenance trim).
+
+**Completion signal**: `fix(app): remediate review-iter-2 — render-after-resolve link rewriting + surface unresolved warnings, parent-first real-or-descope, polish (GH-23)`
+
+---
+
 ## Test Scenarios
 
 | ID | Scenario | Phases | AC |
@@ -1472,6 +1554,7 @@ per the plan template).
 | 1.0 | 2026-07-12 | plan-writer | Initial plan. Nine phases per the dependency lattice (spec §18 landing order): Phase 0 branch + baseline gate; Phase 1 `Repository` port + shell-git adapter + path guard (TDR-0003 C-4); Phase 2 cross-page link resolver (pure domain); Phase 3 journal writer + `replayJournal`; Phase 4 `computePlan` pure no-writes pipeline; Phase 5 `applyPlan` parent-first isolated journaled write path; Phase 6 integration suite (`Bun.serve()` mock target — INV-SAFE-1/2/3, 409-as-drift, idempotency, crash→replay, isolation, atomicity, shell-git fuzz); Phase 7 CLI wiring (`plan`/`sync` stubs → thin shells); Phase 8 final gate + boundary purity proof + doc handoff. Surfaced PD-1..PD-11: port residence (`src/domain/git/port.ts`); `readCommitted` returns bytes; shell-git injection controls + malicious-path throws (DM-8-compliant); app-tier `Create`/`NEW` (GH-22 untouched); test-only crash hook; parent-first topological sort; `ApplyReport` outcomes + aggregate counts; Conflict-as-drift no retry; REAL `formatVersionMessage` provenance wiring; minimal `--rebind`; Phase 8 dep-cruiser negative probes. Doc reconciliation (DEC-4 `worktreeStatus` drop, UL bindings, feature-spec tag, push-flow diagram) handed to lifecycle phase 7 — coder touches only `src/`, `tests/`, `.gitignore`. |
 | 1.1 | 2026-07-12 | plan-writer | DoR iter-1 remediation (readiness-reviewer NOT_READY, finding 4). Surgical edits only — no phase/decision rewrite. (1) Phase 8.5 doc-handoff list: add the tier-reclassification of the `architecture-overview.md` §"Components / Core components" "Push executor" (line ~99) + "Lock/journal store" (line ~101) rows — the delivered `applyPlan` loop (`src/app/push-flow.ts`) + journal (`src/app/journal.ts`) are **application** tier (orchestration), while the shell-git adapter (`src/infra/git/`) + the lock atomic-write primitive (`src/infra/lock/store.ts`) STAY infrastructure. (2) Phase 8.5: add explicit reconciliation of the `readCommitted` interface-contract error column (`RefNotFound`/`BadPath` → throw per PD-3; no `Result` error arms per DM-8). (3) Confirm the carried-over `computePlan`/`applyPlan`/`resolveLink` interface-contract rows + the push-flow diagram *(realized — GH-23)* tag. (4) Phase 6: add TC-INTEGRATION-010 (`tests/integration/app/duplicate-uuid-fatal.test.ts` — INV-SAFE-3 at the `computePlan` boundary) + TC-INTEGRATION-011 (`tests/integration/app/secrets-safety-integration.test.ts` — INV-SEC-1 across Plan/journal/ApplyReport/`version.message`); strengthen TC-INTEGRATION-009 to assert a **throw** (not `Result.err`) matching PD-3. (5) Sync TC ranges (Context, Phase 6 title, Acceptance Criteria, Test Scenarios table, Artifacts, Execution Log) to TC-INTEGRATION-001..011. |
 | 1.2 | 2026-07-12 | reviewer | Appended Phase 9 (Code Review Remediation — Iteration 1) after review-iter-1 returned FAIL. Blockers: 9.1 wire-or-descope link resolver (AC-F7-1 — `_resolveLinksInDoc` is a no-op stub, bindings discarded); 9.2 implement-or-descope parent-first ordering (AC-F6-1 — `parentFirstOrder` doesn't follow edges, cycle guard never fires, test asserts no order); 9.3 fix shell-git error discipline (PD-3 — `spawnGit` returns `RemoteUnreachable` instead of throwing on non-zero git exit). Medium: toolVersion "1.0.0" vs package 0.4.0; crashAfter counts all entries not mutations; integration fixtures use wrong TargetConfig shape (tests excluded from typecheck); shell-git unit test uses stub guard copies; boundary-negative probes missing for git/+hierarchy/ (PD-11); transient-vs-block outcome ambiguity. Low/style/bookkeeping: crash-replay re-apply + reconcileWithProperty-agrees assertions; bare alphabet-soup tags; duplicate import; untyped HAST; target-id inconsistency; provenance trim assertion; plan checkbox/log refresh. DM-8 verified intact (errors.ts + all GH-22 state modules unchanged). |
+| 1.3 | 2026-07-12 | reviewer | Appended Phase 10 (Code Review Remediation — Iteration 2) after review-iter-2 returned FAIL. Phase 9 resolved F-3 (spawnGit throws → CLI INTERNAL/exit 99, tests updated), F-5 (crashAfter counts only successful mutations), F-9 (transient-vs-block documented), F-12 (bare tags removed), 9.4-9.7 (toolVersion/TargetConfig/fixtures/real guards). Blockers NOT resolved: 10.1/iter-2 F-1 — the link resolver is wired but mutates the HAST AFTER `renderBody` captured the body string, so href rewrites never reach the published `renderedBody`/`action.body` (AC-F7-1 still unmet; literal `.md` still published); 10.2/iter-2 F-2 — unresolved-link warnings computed then discarded (empty if-block), broken URL emitted silently. Medium: 10.3/iter-2 F-3 — parentFirstOrder edge-following loop body still EMPTY, CEO "must actually reorder" directive unmet, test asserts no ordering (AC-F6-1 not demonstrably met). Low: module-level readFileSync(cwd) toolVersion; duplicate imports (result + link-resolver, F-13 not fixed + regressed); stale "via test stubs" describe; no tsconfig.test.json; generic "internal error" hides git-failure detail. DM-8 intact. |
 
 ## Execution Log
 
@@ -1490,3 +1573,4 @@ per the plan template).
 | 7 — CLI wiring | ⏳ | | | | | F-6; plan/sync stubs → thin shells; presentation-tier import discipline. |
 | 8 — final gate + boundary proof + doc handoff | ⏳ | | | | | AC-Q-1; dep-cruiser negative probes (git + hierarchy); errors.ts unchanged; doc handoff to phase 7. |
 | 9 — code review remediation (iter 1) | ⏳ | | | | | review-iter-1 FAIL; blockers 9.1–9.3 (AC-F7-1, AC-F6-1, PD-3); medium 9.4–9.9; low/style 9.10–9.14. DM-8 intact. |
+| 10 — code review remediation (iter 2) | ⏳ | | | | | review-iter-2 FAIL; blockers 10.1 (render-after-resolve link rewrite) + 10.2 (surface unresolved warnings) — AC-F7-1 still unmet; medium 10.3 (parent-first real-or-descope) — AC-F6-1; low 10.4–10.9. DM-8 intact. |

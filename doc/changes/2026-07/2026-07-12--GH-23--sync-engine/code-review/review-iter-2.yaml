@@ -1,0 +1,242 @@
+version: 1
+iteration: 2
+mode: local
+work_item_ref: GH-23
+branch: feat/GH-23/sync-engine
+head_sha: 599cda5d5d5c7838104e482712f4a66c1f42b8b5
+status: FAIL
+summary: >
+  Phase 9 remediation resolved F-3 (spawnGit now throws → CLI maps to
+  INTERNAL/exit 99, tests updated), F-5 (crashAfter counts only successful
+  mutations), F-9 (transient-vs-block documented), F-12 (bare alphabet-soup tags
+  removed), and the TargetConfig/fixtures/guards items (9.4-9.7). DM-8 stays
+  intact and the gate is green. HOWEVER the two iter-1 blockers are NOT
+  satisfactorily resolved. (1) F-1 / AC-F7-1: the link resolver IS now wired
+  into computePlan, but it mutates the HAST AFTER target.renderBody already
+  produced the `body` string — so href rewrites never reach the published
+  `renderedBody`/`action.body`. Cross-page `.md` links still publish literally;
+  the "so Confluence internal links work after sync" purpose is still unmet.
+  Additionally the unresolved-link warning is computed then discarded (empty
+  if-block), and the literal `.md` href still goes to Confluence — i.e. a broken
+  URL IS emitted silently. (2) F-2 / AC-F6-1: a cycle guard now exists, but the
+  edge-following loop body is EMPTY (no recursive visit(parent)), so it still
+  does not reorder; the CEO directive "parentFirstOrder must actually reorder,
+  not stub" is not satisfied, and the parent-first test still asserts no
+  ordering. Status FAIL pending a real render-after-resolve fix for F-1 (AC-F7-1)
+  plus the parent-first medium.
+severity_breakdown:
+  critical: 0
+  high: 1
+  medium: 2
+  low: 5
+  info: 1
+spec_compliance: FAIL
+plan_compliance: FAIL
+findings:
+  - id: F-1
+    severity: high
+    confidence: high
+    category: correctness
+    location: src/app/push-flow.ts:193-196,228,294,307,387
+    message: >
+      AC-F7-1 is STILL not met: the cross-page link resolver is wired in, but
+      the wiring is in the wrong order. computePlan calls
+      `target.renderBody(hast)` at line 193 and captures `body` at line 196
+      (a string snapshot of the ORIGINAL HAST with literal `.md` hrefs). Only
+      afterwards, at line 228, does `_resolveLinksInDoc(hast, ...)` mutate
+      `el.properties.href` to the resolved page URL. Because `body` is already
+      an immutable string, the mutation has zero effect on it. The entry stores
+      `renderedBody: body` (lines 294/310) and `action.body: body` (line 307),
+      and applyPlan publishes `entry.renderedBody` (line 623) /
+      `action.body` (line 693) — all the pre-resolution literal `.md` hrefs. So
+      resolved links are never rewritten in what Confluence actually receives;
+      the F-5 capability's stated purpose ("so Confluence internal links work
+      after sync") remains unmet, exactly as in iter-1. No test asserts the
+      rewritten href appears in the published body, which is why the gate stays
+      green despite the bug.
+    suggestion: >
+      Reorder so resolution precedes rendering+hashing: call
+      `_resolveLinksInDoc(hast, ...)` (collecting warnings) FIRST, THEN
+      `target.renderBody(hast)` so the body is serialized from the
+      already-rewritten HAST, and build the content hash from the same
+      post-resolution HAST (keeps body↔hash consistent). Add a unit/integration
+      case that puts a managed `[x](other.md)` link in the source, runs
+      computePlan, and asserts the captured `renderedBody`/create-request body
+      contains the resolved `viewpage.action?pageId=<id>` (not `other.md`).
+    suppressed: false
+    published_url: null
+  - id: F-2
+    severity: medium
+    confidence: high
+    category: correctness
+    location: src/app/push-flow.ts:228-233,382-383
+    message: >
+      The unresolved-link half of AC-F7-1 ("emits a warning and
+      UnresolvedLink — no broken URL is emitted silently") is still not met.
+      `_resolveLinksInDoc` collects `UnresolvedLink` errors into a local
+      `warnings[]` and returns the first one as `Result.err(...)`, but computePlan
+      receives it in an EMPTY if-block (lines 229-233 — comments only: "In a real
+      implementation, these would be collected and reported"). The warning is
+      never surfaced onto the Plan/CommandResult, and because the body is still
+      the literal href (see F-1), a broken `.md` URL is published silently —
+      precisely what AC-F7-1 forbids. `_resolveLinksInDoc` also returns only the
+      first warning, silently dropping the rest.
+    suggestion: >
+      Thread the warnings out: have `_resolveLinksInDoc` return ALL unresolved
+      links, accumulate them across docs, and attach them to the Plan (e.g. a
+      `warnings: MarkSyncError[]` field) / CommandResult `warnings` so they are
+      visible to operators and agents. At minimum, when combined with the F-1
+      fix, ensure no plan with unresolved managed-`.md` links completes without a
+      surfaced warning.
+    suppressed: false
+    published_url: null
+  - id: F-3
+    severity: medium
+    confidence: high
+    category: correctness
+    location: src/app/push-flow.ts:461-489
+    message: >
+      AC-F6-1 / NFR-9 / PD-6: parentFirstOrder still does not implement real
+      parent-first topological ordering. A cycle guard was added (throws on
+      `processing.has(uuid)`), but the per-create edge-following loop body at
+      lines 475-480 is EMPTY — it never maps a Create's parentId to another
+      create's uuid and never calls `visit(parent)`, so it cannot reorder and
+      the cycle guard can never fire in practice (no recursive visit → no
+      re-entry). The CEO directive was explicit: "implement real parent-first
+      topological ordering (parentFirstOrder must actually reorder, not stub)."
+      The MS-0002 flat layout means no inter-document parent edges exist today,
+      so the runtime result is vacuously correct, but the code is a misleading
+      half-implementation. The accompanying test
+      (tests/unit/app/parent-first.test.ts) still does NOT assert call ordering
+      (`createCalls` is captured but never checked) and its comment still says
+      "the parent-first ordering doesn't really apply" — so AC-F6-1's "reorders
+      parent-first" is not demonstrably verified either way.
+    suggestion: >
+      Either (a) implement real edge-following: when a Create's parentId matches
+      another Create's eventual pageId, recursively `visit(parentUuid)` before
+      emitting, keep the cycle throw, and make the test assert the parent is
+      called before the child (and add a cycle-throws case); or (b) if MS-0002
+      is genuinely flat-under-configured-parent with no inter-page parent edges,
+      replace the misleading empty-body stub with a clearly-justified stable
+      passthrough, mark AC-F6-1 N/A-for-MS-0002 in the spec with justification,
+      and fix the test to assert the documented passthrough behavior. Do not
+      leave the empty loop that looks like logic.
+    suppressed: false
+    published_url: null
+  - id: F-4
+    severity: low
+    confidence: medium
+    category: reliability
+    location: src/app/push-flow.ts:42-45
+    message: >
+      F-4 is functionally fixed (toolVersion now reads "0.4.0" from package.json
+      instead of the hardcoded "1.0.0"), but the implementation reads
+      `package.json` via `readFileSync(join(process.cwd(), "package.json"))` at
+      MODULE LOAD time. This couples correctness to the process working
+      directory and will throw synchronously at import if the CLI is ever
+      launched from a directory without a package.json, crashing the whole
+      process with an unhelpful ENOENT rather than a typed error. It is a side
+      effect at import time.
+    suggestion: >
+      Prefer a build-time constant or Bun's JSON import
+      (`import pkg from "../../package.json"`) resolved at bundle time, or read
+      it lazily where toolVersion is actually produced. Remove the module-level
+      readFileSync side effect.
+    suppressed: false
+    published_url: null
+  - id: F-5
+    severity: low
+    confidence: high
+    category: style
+    location: src/app/push-flow.ts:3,5,29,30
+    message: >
+      Import hygiene (iter-1 F-13) was NOT fixed and regressed. Lines 3 and 5
+      are still two separate import statements from `#domain/result`
+      (`import type { Result }` + `import { Result as Res }`), and the
+      remediation ADDED a second duplicate pair from `#domain/hierarchy/link-resolver`
+      (lines 29-30: `import type { LinkBindings }` + `import { resolveLink }`).
+      The Phase 9.11 completion note claims "no duplicate imports" which is
+      inaccurate. The repo rule (.ai/rules/typescript.md → import hygiene) calls
+      for one statement per module via the inline `type` modifier.
+    suggestion: >
+      Combine each pair: `import { type Result, Result as Res } from
+      "#domain/result";` and `import { type LinkBindings, resolveLink } from
+      "#domain/hierarchy/link-resolver";`.
+    suppressed: false
+    published_url: null
+  - id: F-6
+    severity: low
+    confidence: high
+    category: testing
+    location: tests/unit/infra/git/shell-git.test.ts:7
+    message: >
+      F-7 was fixed (stub guard copies removed, real `#domain/git/paths` guards
+      imported) but the describe block still reads "shell-git path validation
+      (via test stubs)". The parenthetical is now wrong/misleading — the tests
+      exercise the REAL guards, not stubs.
+    suggestion: >
+      Rename to e.g. "shell-git path validation (real #domain/git/paths guards)"
+      so the file accurately reflects what it tests.
+    suppressed: false
+    published_url: null
+  - id: F-7
+    severity: low
+    confidence: medium
+    category: testing
+    location: tsconfig.json, tests/
+    message: >
+      F-6's fixture correction (all 5 integration files now use the real
+      TargetConfig shape: type/spaceKey/parentPageId) is good, but the root cause
+      — `tsconfig.json` excludes `tests/` from `tsc --noEmit`, so the wrong
+      TargetConfig shape was invisible in the first place — is unchanged. A
+      future config-contract regression will again go uncaught until runtime.
+      Plan task 9.6 offered "AND/OR add a tsconfig.test.json included in CI"; only
+      the fixture half was done.
+    suggestion: >
+      Add a `tsconfig.test.json` that includes `tests/` and wire it into the
+      `check` gate (or `tsc --noEmit -p tsconfig.test.json`), so test fixtures
+      are typechecked against the real domain/config types.
+    suppressed: false
+    published_url: null
+  - id: F-8
+    severity: low
+    confidence: medium
+    category: observability
+    location: src/cli/commands/plan.ts:64-66, src/cli/commands/sync.ts:66-68,79-84
+    message: >
+      The F-3 throw→INTERNAL wiring is correct and properly tested (exit 99,
+      error code INTERNAL), but the catch blocks discard the thrown error
+      entirely (`catch (e)` with `e` unused) and return a generic
+      `err("INTERNAL", "internal error", false)`. An operator or agent that hits
+      a real git host-invariant failure (bad GIT_DIR, missing git, corrupt repo)
+      gets no hint about the cause. The repo review checklist asks for
+      AI-agent-readable error messages (failing input + suggested fix).
+    suggestion: >
+      Surface a sanitized summary of the thrown message in the INTERNAL error
+      text (e.g. `git host-invariant failure: ${e instanceof Error ? e.message :
+      "unknown"}`) without leaking credentials, or at least log `{ kind }` to
+      stderr so the failure is diagnosable.
+    suppressed: false
+    published_url: null
+  - id: F-9
+    severity: info
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-07/2026-07-12--GH-23--sync-engine/chg-GH-23-plan.md
+    message: >
+      Bookkeeping: the deferred Phase 9 low/info tasks remain open and unchecked
+      — 9.8 (boundary-negative probes for domain/git + domain/hierarchy; the
+      test dirs do not exist and .gitignore has no probes), 9.10 (crash-replay
+      re-apply + reconcileWithProperty-agrees assertions), 9.12 (HAST typing of
+      _resolveLinksInDoc internal walk + target-id resolution helper),
+      9.13 (provenance over-limit trim assertion), 9.14 (tick Phases 1-8 boxes +
+      fill the Execution Log — Phase 9 row still shows ⏳ despite being done).
+      Non-blocking, but the plan artifact still diverges from reality.
+    suggestion: >
+      Either address these in a follow-up remediation or explicitly descope
+      them into MS-0003 with a note, and at minimum tick the Phase 9 Execution
+      Log row + completion checkboxes to reflect what shipped.
+    suppressed: false
+    published_url: null
+reviewed_at: 2026-07-12T12:00:00Z
+next_step: EXECUTE_REMEDIATION_PHASE
