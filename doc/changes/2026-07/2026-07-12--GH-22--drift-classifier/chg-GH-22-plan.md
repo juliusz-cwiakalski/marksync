@@ -367,26 +367,26 @@ targets and must not be re-implemented.
 
 **Tasks**:
 
-- [ ] **0.1** From `main`, create and checkout `feat/GH-22/drift-classifier`
+- [x] **0.1** From `main`, create and checkout `feat/GH-22/drift-classifier`
       (`git checkout -b feat/GH-22/drift-classifier main`). Confirm base is
-      `main` at `d53a8ff` (GH-21 merged) or newer.
-- [ ] **0.2** Run `bun run check` (lint + format:check + typecheck + test +
+      `main` at `d53a8ff` (GH-21 merged) or newer. ✓
+- [x] **0.2** Run `bun run check` (lint + format:check + typecheck + test +
       check:boundaries); confirm it exits 0 on the untouched tree (the baseline).
-      Record the baseline pass count for the Phase 5 delta.
-- [ ] **0.3** Re-verify the reused contracts the coder MUST delegate to (read,
-      do not edit):
-      - `src/domain/render/canonicalize.ts` — `canonicalize(hast)` +
-        `contentHash(canonical)` exist; header defers the wire-prefix to E3-S5
-        (⇒ PD-2).
-      - `src/domain/binding/page-binding.ts` — `PageBinding` carries
-        `renderedBodyHash`, `attachmentHashes`, `parentPageId`, `pageId`,
-        `pageVersion`, `uuid` (⇒ the `SharedBase` source; no `title` ⇒ PD-3).
-      - `src/domain/errors.ts` — `RemoteMissing`/`Forbidden`/`Conflict` arms +
-        `assertNeverMarkSyncError` exist (⇒ DEC-3, untouched).
-      - `src/domain/result.ts` — `Result<T,E>` + `Result.ok`/`Result.err`.
-      - `src/domain/state/reconcile.ts` — the sibling purity/import pattern.
-      - `tests/unit/domain/target/boundary-negative.test.ts` — the probe pattern
-        (⇒ Phase 4 / PD-4).
+      Record the baseline pass count for the Phase 5 delta. ✓ (773 tests passed)
+- [x] **0.3** Re-verify the reused contracts the coder MUST delegate to (read,
+       do not edit):
+       - `src/domain/render/canonicalize.ts` — `canonicalize(hast)` +
+         `contentHash(canonical)` exist; header defers the wire-prefix to E3-S5
+         (⇒ PD-2). ✓
+       - `src/domain/binding/page-binding.ts` — `PageBinding` carries
+         `renderedBodyHash`, `attachmentHashes`, `parentPageId`, `pageId`,
+         `pageVersion`, `uuid` (⇒ the `SharedBase` source; no `title` ⇒ PD-3). ✓
+       - `src/domain/errors.ts` — `RemoteMissing`/`Forbidden`/`Conflict` arms +
+         `assertNeverMarkSyncError` exist (⇒ DEC-3, untouched). ✓
+       - `src/domain/result.ts` — `Result<T,E>` + `Result.ok`/`Result.err`. ✓
+       - `src/domain/state/reconcile.ts` — the sibling purity/import pattern. ✓
+       - `tests/unit/domain/target/boundary-negative.test.ts` — the probe pattern
+         (⇒ Phase 4 / PD-4). ✓
 
 **Acceptance Criteria**:
 
@@ -991,7 +991,7 @@ spec-reconciliation handoff (the final release phase per the plan template).
 
 | Phase | Status | Started | Completed | Commit | `bun run check` | Notes |
 |-------|--------|---------|-----------|--------|------------------|-------|
-| 0 — branch + baseline gate | ⏳ | — | — | — | — | create `feat/GH-22/drift-classifier` from `main`; record baseline pass count |
+| 0 — branch + baseline gate | ✅ | 2026-07-12 | 2026-07-12 | 4e46387 (docs: add gh-22 planning artifacts) | ✅ 773 tests | Baseline established. Verified all reused contracts: canonicalize, PageBinding, errors.ts (RemoteMissing/Forbidden/Conflict), Result, reconcile.ts, boundary test pattern. |
 | 1 — types + VOs (`sync-state.ts` + `hashes.ts`) | ⏳ | — | — | — | — | F-2/F-3/F-4; TC-HASH-001/002; canonicalHash delegates to GH-20 (DEC-2/PD-2) |
 | 2 — `classify()` core + fixtures | ⏳ | — | — | — | — | F-1/F-6; TC-STATE-001..006 + FORBIDDEN + FALSEPOS×5 + REALCHG×5 + METADATA×2 + EDGE + BOUNDARY |
 | 3 — `Action` mapping + suite | ⏳ | — | — | — | — | F-5; TC-ACTION-001..006; no new error arms (DEC-3) |
