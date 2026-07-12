@@ -18,11 +18,15 @@ import { detectDuplicateUuids, type DocWithUuid } from "#domain/identity/duplica
 import { readUuid } from "#domain/identity/frontmatter";
 import { parseMarkdown } from "#domain/markdown/parse";
 import { mdastToHast } from "#domain/markdown/mdast-to-hast";
-import { canonicalHash, buildContentHash, rawHash } from "#domain/state/hashes";
+import { buildContentHash, rawHash } from "#domain/state/hashes";
 import type { LinkBindings } from "#domain/hierarchy/link-resolver";
 import { assertBranchAllowed } from "#app/branch";
 import { generateUuidV7 } from "#domain/identity/uuid";
 import type { ProvenanceInput } from "#infra/confluence/provenance";
+import { formatVersionMessage } from "#infra/confluence/provenance";
+import { saveLock } from "#app/lock";
+import { openJournal, type JournalWriter } from "#app/journal";
+import type { MetadataProperty } from "#domain/state/reconcile";
 
 /** Plan entry state (sync state or unbound new). */
 export type PlanEntryState = SyncState | "NEW";
@@ -45,6 +49,8 @@ export interface PlanEntry {
 	state: PlanEntryState;
 	action: PlanAction;
 	hashes: ContentHash;
+	/** Rendered body for apply (target storage format). */
+	renderedBody: string;
 }
 
 /** The computed plan. */
@@ -53,6 +59,40 @@ export interface Plan {
 	operationId: string;
 	entries: PlanEntry[];
 	provenance: ProvenanceInput;
+}
+
+/** Apply outcome per entry (PD-7). */
+export type ApplyOutcome =
+	| "created"
+	| "updated"
+	| "noop"
+	| "skipped"
+	| "blocked";
+
+/** One apply result entry. */
+export interface ApplyResultEntry {
+	uuid: DocumentId;
+	outcome: ApplyOutcome;
+	error?: MarkSyncError;
+}
+
+/** Apply report with per-entry results and aggregate counts. */
+export interface ApplyReport {
+	runId: string;
+	results: ApplyResultEntry[];
+	writes: number; // created + updated
+	skips: number; // noop + skipped
+	blocks: number; // blocked
+}
+
+/** Options for applyPlan (PD-5: crash hook for testing). */
+export interface ApplyOptions {
+	cwd: string;
+	cacheDir: string;
+	/** Target ID to apply to (single-target for MS-0002). */
+	targetId: string;
+	/** Test-only: crash after K successful mutations. */
+	crashAfter?: number;
 }
 
 /**
@@ -222,6 +262,7 @@ export async function computePlan(
 				state: syncState,
 				action,
 				hashes: contentHash,
+				renderedBody: body, // Capture for apply
 			});
 		} else {
 			// Unbound doc: app-tier Create action (no classify - no base)
@@ -237,6 +278,7 @@ export async function computePlan(
 					body,
 				},
 				hashes: contentHash,
+				renderedBody: body, // Capture for apply
 			});
 		}
 	}
@@ -301,4 +343,322 @@ function _resolveLinksInDoc(
 	// Simplified: no-op for MS-0002
 	// A real implementation would walk the HAST to find all links and resolve them
 	// Unresolved links would be collected as warnings
+}
+
+/**
+ * Serialize a PageBinding to MetadataProperty for putProperty.
+ */
+function bindingToProperty(
+	binding: PageBinding,
+	targetId: string,
+): MetadataProperty {
+	return {
+		schemaVersion: 1,
+		projectId: "default", // MS-0002 single-project
+		targetId,
+		documentId: binding.uuid,
+		sourcePath: binding.sourcePath,
+		sourceCommit: binding.sourceCommit,
+		sourceContentHash: binding.sourceContentHash,
+		renderedBodyHash: binding.renderedBodyHash,
+		toolVersion: binding.toolVersion,
+		synchronizedAt: binding.synchronizedAt,
+		operationId: binding.operationId,
+	};
+}
+
+/**
+ * Reorder entries parent-first (creates/moves only, PD-6).
+ * Returns a new array with parents before children.
+ */
+function parentFirstOrder(
+	entries: readonly PlanEntry[],
+): PlanEntry[] {
+	// Build adjacency map: uuid -> parent uuid/parentId
+	const parentMap = new Map<DocumentId, string | undefined>();
+	const uuidToEntry = new Map<DocumentId, PlanEntry>();
+
+	for (const entry of entries) {
+		uuidToEntry.set(entry.uuid, entry);
+		if (entry.action.kind === "Create") {
+			parentMap.set(entry.uuid, entry.action.parentId);
+		} else {
+			// For bound docs, parent is in the binding's parentPageId (not in entry)
+			// For MS-0002 flat layout, all bound docs share the same parent
+			// No reordering needed for non-create entries
+		}
+	}
+
+	// Find all Create entries
+	const creates = entries.filter((e) => e.action.kind === "Create");
+	const others = entries.filter((e) => e.action.kind !== "Create");
+
+	// Topological sort: process in order, emit when all deps resolved
+	const sorted: PlanEntry[] = [];
+	const emitted = new Set<DocumentId>();
+	const processing = new Set<DocumentId>();
+
+	function visit(uuid: DocumentId): void {
+		if (emitted.has(uuid)) return;
+		if (processing.has(uuid)) {
+			// Cycle detected (PD-6: throw)
+			throw new Error(`Parent cycle detected for document ${uuid}`);
+		}
+
+		processing.add(uuid);
+		const parentId = parentMap.get(uuid);
+		if (parentId) {
+			// Parent is another create entry (by parentId = pageId in MS-0002)
+			// For now, skip parent resolution (flat layout MS-0002)
+			// In full implementation, map parentId to UUID and visit
+		}
+		emitted.add(uuid);
+		processing.delete(uuid);
+		const entry = uuidToEntry.get(uuid);
+		if (entry) {
+			sorted.push(entry);
+		}
+	}
+
+	// Visit all creates in original order
+	for (const entry of creates) {
+		visit(entry.uuid);
+	}
+
+	// Append non-create entries in original order (stable sort)
+	sorted.push(...others);
+
+	return sorted;
+}
+
+/**
+ * Apply a plan parent-first with per-document isolation (F-2, PD-6/7/8).
+ *
+ * - Reorders creates/moves parent-first
+ * - Processes entries serialized (concurrency = 1, DEC-5)
+ * - Per-document isolation: one failure does not abort the run (DEC-1)
+ * - Journals before lock update (crash safety, ADR-0006 C-3)
+ * - Wires provenance via formatVersionMessage (PD-9, DEC-3)
+ * - Conflict-as-drift, no retry (PD-8, DEC-6)
+ */
+export async function applyPlan(
+	plan: Plan,
+	target: TargetSystem,
+	lock: LockFile,
+	opts: ApplyOptions,
+): Promise<Result<ApplyReport, MarkSyncError>> {
+	const { cwd, cacheDir, targetId, crashAfter } = opts;
+	const journal = openJournal(cacheDir, plan.runId);
+
+	// Reorder parent-first
+	const ordered = parentFirstOrder(plan.entries);
+
+	const results: ApplyResultEntry[] = [];
+	let writes = 0;
+	let skips = 0;
+	let blocks = 0;
+	let processed = 0;
+
+	// Format provenance message once (PD-9)
+	const message = formatVersionMessage(plan.provenance);
+	const headSha = plan.provenance.headCommit;
+	const operationId = plan.operationId;
+
+	// Process serialized (concurrency = 1, DEC-5)
+	for (const entry of ordered) {
+	const outcome = await processEntry(
+		entry,
+		target,
+		lock,
+		targetId,
+		journal,
+		message,
+		cwd,
+		operationId,
+		headSha,
+	);
+
+		results.push(outcome);
+		if (outcome.outcome === "created" || outcome.outcome === "updated") {
+			writes++;
+		} else if (outcome.outcome === "noop" || outcome.outcome === "skipped") {
+			skips++;
+		} else if (outcome.outcome === "blocked") {
+			blocks++;
+		}
+
+		processed++;
+		if (crashAfter !== undefined && processed >= crashAfter) {
+			// Test-only crash hook (PD-5)
+			throw new Error(`CRASH_AFTER_${crashAfter}`);
+		}
+	}
+
+	return Res.ok({
+		runId: plan.runId,
+		results,
+		writes,
+		skips,
+		blocks,
+	});
+}
+
+/**
+ * Process a single plan entry with per-document isolation.
+ */
+async function processEntry(
+	entry: PlanEntry,
+	target: TargetSystem,
+	lock: LockFile,
+	targetId: string,
+	journal: JournalWriter,
+	message: string,
+	cwd: string,
+	operationId: string,
+	headSha: string,
+): Promise<ApplyResultEntry> {
+	const { uuid, action } = entry;
+
+	// NoOp → skip
+	if (action.kind === "NoOp") {
+		return { uuid, outcome: "noop" };
+	}
+
+	// Skip → skip + warn
+	if (action.kind === "Skip") {
+		return { uuid, outcome: "skipped" };
+	}
+
+	// Block → record block (PD-8: 0 writes)
+	if (action.kind === "Block") {
+		return { uuid, outcome: "blocked", error: action.error };
+	}
+
+	// Update → updatePage, on Conflict → blocked (DEC-6)
+	if (action.kind === "Update") {
+		const binding = lock.targets[targetId]?.documents[uuid];
+		if (!binding) {
+			return { uuid, outcome: "blocked", error: { kind: "CorruptLock", path: entry.sourcePath, humanMessage: `Binding missing for ${uuid}` } };
+		}
+
+		const result = await target.updatePage({
+			pageId: binding.pageId,
+			title: entry.hashes.title,
+			body: entry.renderedBody,
+			baseVersion: binding.pageVersion,
+			message,
+		});
+
+		if (!result.ok) {
+			// Conflict → blocked (DEC-6, PD-8)
+			if (result.error.kind === "Conflict") {
+				return { uuid, outcome: "blocked", error: result.error };
+			}
+			// Other errors → failed (but continue, per-document isolation)
+			return { uuid, outcome: "blocked", error: result.error };
+		}
+
+		const page = result.value;
+
+		// Journal append BEFORE lock update (crash safety)
+		journal.append({
+			op: "update",
+			pageId: page.id,
+			uuid,
+			outcome: "success",
+		});
+
+		// Update binding in memory
+		const updatedBinding: PageBinding = {
+			...binding,
+			pageVersion: page.version,
+			sourceCommit: headSha,
+			synchronizedAt: new Date().toISOString(),
+			operationId,
+		};
+
+		const lockTarget = lock.targets[targetId] ?? { documents: {} };
+		lockTarget.documents[uuid] = updatedBinding;
+		lock.targets[targetId] = lockTarget;
+
+		// Save lock atomically
+		const saveResult = saveLock(cwd, lock);
+		if (!saveResult.ok) {
+			return { uuid, outcome: "blocked", error: saveResult.error };
+		}
+
+		// Put property
+		const property = bindingToProperty(updatedBinding, targetId);
+		const putResult = await target.putProperty(page.id, "marksync.metadata", JSON.stringify(property));
+		if (!putResult.ok) {
+			return { uuid, outcome: "blocked", error: putResult.error };
+		}
+
+		return { uuid, outcome: "updated" };
+	}
+
+	// Create → createPage
+	if (action.kind === "Create") {
+		const result = await target.createPage({
+			parentId: action.parentId,
+			title: action.title,
+			body: action.body,
+			message,
+		});
+
+		if (!result.ok) {
+			return { uuid, outcome: "blocked", error: result.error };
+		}
+
+		const page = result.value;
+
+		// Journal append
+		journal.append({
+			op: "create",
+			pageId: page.id,
+			uuid,
+			outcome: "success",
+		});
+
+		// Create binding
+		const newBinding: PageBinding = {
+			uuid,
+			sourcePath: entry.sourcePath,
+			pageId: page.id,
+			parentPageId: action.parentId,
+			pageVersion: page.version,
+			sourceCommit: headSha,
+			sourceContentHash: entry.hashes.rawHash,
+			renderedBodyHash: entry.hashes.canonicalHash,
+			remoteBodyHash: entry.hashes.canonicalHash, // Assume fresh
+			attachmentHashes: {},
+			operationId,
+			synchronizedAt: new Date().toISOString(),
+			toolVersion: "1.0.0", // TODO: from package
+		};
+
+		// Add to lock in memory
+		const lockTarget = lock.targets[targetId] ?? { documents: {} };
+		lockTarget.documents[uuid] = newBinding;
+		lock.targets[targetId] = lockTarget;
+
+		// Save lock
+		const saveResult = saveLock(cwd, lock);
+		if (!saveResult.ok) {
+			return { uuid, outcome: "blocked", error: saveResult.error };
+		}
+
+		// Put property
+		const property = bindingToProperty(newBinding, targetId);
+		const putResult = await target.putProperty(page.id, "marksync.metadata", JSON.stringify(property));
+		if (!putResult.ok) {
+			return { uuid, outcome: "blocked", error: putResult.error };
+		}
+
+		return { uuid, outcome: "created" };
+	}
+
+	// Exhaustive check (PlanAction is a union)
+	const _exhaustive: never = action;
+	return _exhaustive;
 }
