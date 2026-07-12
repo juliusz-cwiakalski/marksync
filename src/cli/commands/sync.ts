@@ -9,10 +9,11 @@ import { cwd } from "node:process";
 import { loadConfig } from "#app/config";
 import { loadLock } from "#app/lock";
 import { resolveCacheDir } from "#app/cache";
-import { createRepository, createTarget } from "#app/ports";
+import { createShellGit } from "#infra/git/shell-git";
+import { ConfluenceTarget } from "#infra/confluence/target";
+import { ConfluenceCredentials } from "#domain/credentials";
 import { mapConfigError, mapLockError } from "#cli/error-map";
 import { computePlan, applyPlan, type ApplyReport } from "#app/push-flow";
-import type { ConfluenceCredentials } from "#domain/credentials";
 
 /**
  * Run `marksync sync`. Calls computePlan then applyPlan and returns CommandResult<ApplyReport>.
@@ -49,21 +50,21 @@ export async function syncCommand(): Promise<CommandResult<ApplyReport>> {
 	}
 	const cacheDir = cacheDirResult.value;
 
-	// 4. Create Repository (via app-tier factory)
-	const git = createRepository(currentCwd);
+	// 4. Create Repository (shell-git)
+	const git = createShellGit(currentCwd);
 
-	// 5. Create TargetSystem (via app-tier factory)
+	// 5. Create TargetSystem (ConfluenceTarget)
 	// NOTE: In a real CLI, credentials would come from environment/secret manager
 	// For this implementation, we use a minimal credential provider
 	const credentials: ConfluenceCredentials = {
-		email: config.targets.default?.email || "",
+		email: config.targets.default.email,
 		// In production, token comes from secret manager/encrypted storage
 		// For now, we read from environment variable or error
 		token: process.env.MARKSYNC_CONFLUENCE_TOKEN || "",
 	};
-	const target = createTarget(
+	const target = ConfluenceTarget.fromCredentials(
 		credentials,
-		config.targets.default?.spaceId || "",
+		config.targets.default.spaceId,
 	);
 
 	// 6. Compute plan
@@ -71,7 +72,7 @@ export async function syncCommand(): Promise<CommandResult<ApplyReport>> {
 	if (!planResult.ok) {
 		return err(
 			planResult.error.kind,
-			planResult.error.cause || planResult.error.kind,
+			planResult.error.humanMessage || planResult.error.kind,
 			false,
 		);
 	}
@@ -92,7 +93,7 @@ export async function syncCommand(): Promise<CommandResult<ApplyReport>> {
 	if (!applyResult.ok) {
 		return err(
 			applyResult.error.kind,
-			applyResult.error.cause || applyResult.error.kind,
+			applyResult.error.humanMessage || applyResult.error.kind,
 			false,
 		);
 	}
