@@ -88,11 +88,11 @@ describe("assertOperationFresh", () => {
 			const result = assertOperationFresh(planOpId, remoteOpId);
 
 			// Should still work (extract timestamp from bare UUID)
-			if (result.ok) {
-				expect(true).toBe(true); // Fresh
-			} else {
-				// Or stale if remote is newer
+			// Remote UUID is provably newer (019f56e5 > 019f56e4)
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
 				expect(result.error.kind).toBe("StalePlan");
+				expect(result.error.operationId).toBe(planOpId);
 			}
 		});
 	});

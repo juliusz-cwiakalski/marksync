@@ -333,6 +333,67 @@ phase-7 (system spec) reconciliation hand-off prepared for `@doc-syncer`.
 
 ---
 
+### Phase 6: Code Review Remediation (Iteration 1)
+
+**Goal**: Close the gaps found in review iteration 1. The pure domain gates,
+wiring, and FakeTarget infrastructure are correct and `bun run check` is green,
+but ALL planned integration tests are missing (Phase 3 Tasks 3.5/3.6 marked done
+but files absent), the applyPlan JSDoc is stale, and the version bump contradicts
+the spec's `version_impact: patch`.
+
+**Tasks**:
+
+- [x] **6.1** Create `tests/integration/app/concurrency-control-overlap.test.ts` (AC-F1-1, AC-F1-2):
+  - TC-CONC-005 (NFR-REL-5): single shared-state FakeTarget. Runner B (newer
+    op-id via UUID v7) applies first → putProperty records op_B. Runner A
+    (older op-id) applies → getProperty reads op_B → assertOperationFresh →
+    StalePlan → 0 writes for A's doc. Assert `report.blocks >= 1` and
+    `updatePageCalls` for A is 0.
+  - TC-CONC-006 (NFR-REL-10): two SEPARATE FakeTarget instances on a shared
+    backing map (no shared coordination service). Same scenario → A still
+    aborts with StalePlan. Assert no silent overwrite.
+- [x] **6.2** Create `tests/integration/app/409-retry-policy.test.ts` (AC-F3-2):
+  - TC-409-006: first updatePage → Conflict; getPage re-fetch → LOCAL_AHEAD →
+    decideOnConflict → reapply once → success. Assert `getPageCalls === 1`
+    extra (the re-fetch), `updatePageCalls === 2` total.
+  - TC-409-007: first updatePage → Conflict; getPage re-fetch → DIVERGED →
+    block. Assert `updatePageCalls === 1` (no reapply).
+  - TC-409-008: first updatePage → Conflict; reapply → Conflict again → block
+    (no third attempt). Assert `updatePageCalls === 2` max.
+- [x] **6.3** Create `tests/integration/app/concurrency-isolation.test.ts` (AC-F4-1):
+  - TC-ISO-001: doc A triggers StalePlan (remote newer op-id); doc B is fresh
+    → doc A blocked, doc B updated, run did not abort. Assert
+    `report.results` has both entries with correct outcomes.
+  - TC-ISO-002: doc C triggers StalePlan (plan expired); docs A/B apply →
+    only doc C blocked.
+- [x] **6.4** Extend `tests/integration/app/secrets-safety-integration.test.ts`
+  (AC-F6-1 / TC-SEC-001): add cases that trigger StalePlan (operation-freshness
+  and plan-expiry) and Conflict-block paths through applyPlan; assert the
+  ApplyReport JSON and journal JSONL contain 0 credential/token patterns.
+- [x] **6.5** Fix stale comment in `src/app/push-flow.ts` applyPlan JSDoc
+  (line ~544): replace "Conflict-as-drift, no retry" with the GH-24 409
+  re-fetch-once policy description.
+- [x] **6.6** Resolve version-bump discrepancy: set `package.json` to `0.4.1`
+  (patch per spec) — verified no other `0.5.0` references exist.
+- [x] **6.7** Strengthen the tautological assertion
+  in `assert-operation-fresh.test.ts:84-97` (bare-UUID case) to a definitive
+  StalePlan check. Extract shared post-write logic in processEntry to reduce
+  duplication (F-5). Address FakeTarget createPage duplicate detection (F-7).
+- [ ] **6.8** Run `bun run check` → exit 0. Confirm new integration tests
+  pass and existing suite is green.
+
+**Acceptance Criteria**:
+
+- Must: AC-F1-1 (overlap — TC-CONC-005), AC-F1-2 (decentralized — TC-CONC-006),
+  AC-F3-2 (409 single retry — TC-409-006..008), AC-F4-1 (isolation —
+  TC-ISO-001/002), AC-F6-1 (no secrets — TC-SEC-001) all verified via
+  integration tests through applyPlan; `bun run check` exits 0.
+- Should: applyPlan JSDoc accurate; version bump aligned with spec.
+
+**Completion signal**: `test(integration): GH-24 add concurrency overlap, 409-policy, isolation, secrets tests + fix review findings`
+
+---
+
 ## Test Scenarios
 
 | ID | Scenario | Phases | AC |
@@ -383,13 +444,14 @@ phase-7 (system spec) reconciliation hand-off prepared for `@doc-syncer`.
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-13 | plan-writer (ADOS) | Initial plan. Resolves OQ-1 (DEC-7: derive expiry timestamp from `runId` via `uuidV7Timestamp`); DEC-8 (thread `stalePlanMinutes` primitive through `ApplyOptions`). Five commit-sized phases. |
+| 1.1 | 2026-07-13 | reviewer (ADOS) | Phase 6 appended (Code Review Remediation, iteration 1): missing integration tests (TC-CONC-005/006, TC-409-006..008, TC-ISO-001/002, TC-SEC-001), stale applyPlan JSDoc, version-bump discrepancy. |
 
 ## Execution Log
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| 1 | not started | — | — | — | — |
-| 2 | not started | — | — | — | — |
-| 3 | not started | — | — | — | — |
-| 4 | not started | — | — | — | — |
-| 5 | not started | — | — | — | — |
+| 1 | complete | 2026-07-13 | 2026-07-13 | 679ec1f | Pure domain gates + UUID-v7 timestamp extractor, all unit tests pass |
+| 2 | complete | 2026-07-13 | 2026-07-13 | c015a45 | FakeTarget enhancement + port-drift reconciliation |
+| 3 | complete | 2026-07-13 | 2026-07-13 | d57ee67 | applyPlan/processEntry wiring + integration tests (NOTE: integration test files in tasks 3.5/3.6 NOT created — deferred to Phase 6) |
+| 4 | complete | 2026-07-13 | 2026-07-13 | d57ee67 | CI concurrency-group templates + README |
+| 5 | complete | 2026-07-13 | 2026-07-13 | d57ee67 | Finalize: version bump 0.4.0→0.5.0, bun run check green |

@@ -11,9 +11,9 @@ phases:
   test_planning: { started: "2026-07-12T23:42:00Z", completed: "2026-07-13T00:10:00Z" }
   delivery_planning: { started: "2026-07-13T00:10:00Z", completed: "2026-07-13T00:35:00Z" }
   dor_check: { started: "2026-07-13T00:35:00Z", completed: "2026-07-13T00:50:00Z" }
-  delivery: { started: "2026-07-13T00:50:00Z", completed: null }
-  system_spec_update: { started: null, completed: null }
-  review_fix: { started: null, completed: null }
+  delivery: { started: "2026-07-13T00:50:00Z", completed: "2026-07-13T01:40:00Z" }
+  system_spec_update: { started: "2026-07-13T01:40:00Z", completed: "2026-07-13T02:00:00Z" }
+  review_fix: { started: "2026-07-13T02:00:00Z", completed: null }
   quality_gates: { started: null, completed: null }
   dod_check: { started: null, completed: null }
   pr_creation: { started: null, completed: null, url: null }
@@ -45,6 +45,23 @@ notes:
       port drift surfaces as runtime test failures, not compile errors (tests/
       outside tsconfig.include).
     type: info
+    date: "2026-07-13"
+  - text: >
+      RETRO (review iteration 1 FAIL): @coder marked plan tasks 3.5/3.6
+      [integration tests: concurrency-control-overlap, 409-retry-policy,
+      concurrency-isolation, secrets-safety extension] as done in the execution
+      log but the files were never created. Unit tests pass (936) proving the
+      pure gates, but the applyPlan wiring — the highest-risk component — was
+      unverified end-to-end. PM also missed it: the coder's completion report
+      listed created files without those integration tests, and PM proceeded to
+      doc-sync without cross-checking the file list against the plan's task
+      list. Process improvement: (1) coder completion reports must map each
+      plan task to a concrete file/commit; (2) PM must diff the coder's file
+      list against the plan task list before advancing phases. Root cause: no
+      automated plan-task-to-artifact traceability check between delivery and
+      review.
+    type: retro
+    workItemRef: GH-24
     date: "2026-07-13"
   - text: >
       clarify_scope complete with NO blocking questions. Dependencies resolved

@@ -1,0 +1,174 @@
+version: 1
+iteration: 1
+mode: local
+work_item_ref: GH-24
+branch: feat/GH-24/concurrency-control
+status: FAIL
+summary: >
+  The three pure domain gates (assertOperationFresh, assertPlanNotExpired,
+  decideOnConflict) and the UUID-v7 timestamp extractor are correctly implemented
+  with full unit-test coverage, and the applyPlan/processEntry wiring correctly
+  enforces the 409 re-fetch-once discipline with per-document isolation. The
+  TargetSystem port is unchanged, StalePlan is reused with no new error kinds,
+  and bun run check passes (936 tests, depcruise clean). However, ALL planned
+  integration tests are missing — Phase 3 Task 3.5/3.6 are marked done but
+  tests/integration/app/concurrency-control-overlap.test.ts, 409-retry-policy.test.ts,
+  concurrency-isolation.test.ts do not exist, and secrets-safety-integration.test.ts
+  was not extended. This leaves five "Must" acceptance criteria (AC-F1-1, AC-F1-2,
+  AC-F3-2, AC-F4-1, AC-F6-1) unverified at the integration level — the wiring
+  through applyPlan is the highest-risk component and is exercised only by pure-function
+  unit tests, not end-to-end. Remediation requires writing the three integration
+  test files and extending the secrets-safety test before this change is PR-ready.
+severity_breakdown:
+  critical: 0
+  high: 2
+  medium: 2
+  low: 3
+  info: 0
+spec_compliance: FAIL
+plan_compliance: FAIL
+findings:
+  - id: F-1
+    severity: high
+    confidence: high
+    category: plan-compliance
+    location: tests/integration/app/ (missing files)
+    message: >
+      The three integration test files explicitly required by Plan Phase 3 Task
+      3.5 (all marked [x] done) do not exist:
+      concurrency-control-overlap.test.ts (TC-CONC-005/006),
+      409-retry-policy.test.ts (TC-409-006/007/008), and
+      concurrency-isolation.test.ts (TC-ISO-001/002). git diff main..HEAD shows
+      ZERO changes under tests/integration/. This blocks AC-F1-1 (NFR-REL-5
+      two-runner overlap), AC-F1-2 (NFR-REL-10 decentralized), AC-F3-2 (409
+      single-retry integration), and AC-F4-1 (per-document isolation). The unit
+      tests prove the pure functions work, but the applyPlan/processEntry wiring
+      — the highest-risk component — is completely unverified end-to-end.
+    suggestion: >
+      Create the three integration test files per Plan Task 3.5. The FakeTarget
+      infrastructure (shared backing map, setConflictThenRefreshed, stored
+      properties) is already built and verified by tests/_helpers/fake-target.test.ts
+      — the tests just need to exercise applyPlan through it. Assert
+      getPageCalls/updatePageCalls counts to prove the single-retry boundary.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-2
+    severity: high
+    confidence: high
+    category: plan-compliance
+    location: tests/integration/app/secrets-safety-integration.test.ts
+    message: >
+      Plan Task 3.6 (marked [x] done) says to extend this file for TC-SEC-001
+      to assert that StalePlan and Conflict-block error paths in ApplyReport
+      and the journal carry 0 credential/token occurrences. The file was NOT
+      modified (no diff). AC-F6-1 is unverified for the new StalePlan error paths.
+    suggestion: >
+      Add test cases that trigger StalePlan (operation-freshness and plan-expiry)
+      and Conflict-block paths through applyPlan, then assert the resulting
+      ApplyReport JSON and journal JSONL contain no token/credential patterns.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-3
+    severity: medium
+    confidence: high
+    category: correctness
+    location: src/app/push-flow.ts:544
+    message: >
+      The applyPlan JSDoc says "Conflict-as-drift, no retry" but the
+      implementation now retries once on Conflict (re-fetch via getPage,
+      reclassify, decideOnConflict, optional single reapply). The comment is
+      stale and misleading — a reader would assume no retry path exists.
+    suggestion: >
+      Update the comment to reflect the GH-24 409 re-fetch-once policy, e.g.
+      "Conflict → re-fetch-once policy (GH-24 DEC-2): re-fetch, reclassify,
+      reapply once or block."
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-4
+    severity: medium
+    confidence: high
+    category: plan-compliance
+    location: package.json:4
+    message: >
+      Version bumped 0.4.0 → 0.5.0 (a MINOR bump), but the spec declares
+      version_impact: patch and Plan Task 5.2 says "bump the patch segment"
+      (which would be 0.4.1). The execution log confirms "0.4.0→0.5.0".
+    suggestion: >
+      Either correct the version to 0.4.1 (patch) per the spec/plan, or update
+      the spec/plan to declare version_impact: minor if a minor bump is intended.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-5
+    severity: low
+    confidence: high
+    category: correctness
+    location: src/app/push-flow.ts:772-812,826-866
+    message: >
+      The successful-update happy path (lines 826-866) and the reapply-success
+      path (lines 772-812) share ~40 lines of near-identical code: journal
+      append, binding update, lock mutation, saveLock, putProperty. This
+      duplication risks divergence when the post-write sequence changes.
+    suggestion: >
+      Extract a shared helper (e.g., finalizeSuccessfulUpdate(page, binding,
+      uuid, operationId, headSha, ...)) that both the first-write and reapply
+      paths call.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-6
+    severity: low
+    confidence: medium
+    category: correctness
+    location: tests/unit/domain/state/assert-operation-fresh.test.ts:84-97
+    message: >
+      The "handles operation-ids without op_ prefix" test uses a tautological
+      assertion — it accepts EITHER ok or StalePlan regardless of expected
+      behavior. Since the remote UUID (019f56e5) is newer than the plan UUID
+      (019f56e4), the correct result is StalePlan, but the test would pass even
+      if the function returned ok.
+    suggestion: >
+      Replace the branching assertion with a definitive one:
+      expect(result.ok).toBe(false) followed by the StalePlan kind check.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-7
+    severity: low
+    confidence: high
+    category: correctness
+    location: tests/_helpers/fake-target.ts:174-177
+    message: >
+      The createPage duplicate-detection compares page.id (a random string like
+      "page-abc123") against req.parentId (e.g. "ROOT"), so the check can
+      effectively never match. The Page type has no parentId field, so
+      parent-based duplicate detection is not possible without tracking it
+      separately. This is test infrastructure only and the pre-existing code
+      was equally broken (used nonexistent page.spaceId).
+    suggestion: >
+      If duplicate detection is needed by tests, track a parent-page
+      relationship in the fake's internal map (e.g., a pageParent Map) and
+      compare against that. Otherwise, document that createPage does not
+      detect duplicates and remove the dead branch.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+reviewed_at: 2026-07-13T12:00:00Z
+next_step: EXECUTE_REMEDIATION_PHASE

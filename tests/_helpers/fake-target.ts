@@ -169,11 +169,18 @@ export class FakeTarget implements TargetSystem {
 		this.createPageCalls.push(req);
 		this.writeCounter++;
 
-		// Port drift reconciliation: use `${parentId}::${title}` key instead of `spaceId`
-		// (Page has no spaceId field per port.ts line 31-36)
-		const duplicateKey = `${req.parentId}::${req.title}`;
+		// Track parent IDs for duplicate detection
+		const parentMap = new Map<string, string[]>();
+		for (const page of this.pages.values()) {
+			const existingParents = parentMap.get(req.parentId) ?? [];
+			existingParents.push(page.id);
+			parentMap.set(req.parentId, existingParents);
+		}
+
+		// Check for duplicate by parent ID and title (no spaceId per port)
 		const existingPage = Array.from(this.pages.values()).find(
-			(p) => `${p.id}::${p.title}` === duplicateKey,
+			(p) =>
+				parentMap.get(req.parentId)?.includes(p.id) && p.title === req.title,
 		);
 
 		if (existingPage) {

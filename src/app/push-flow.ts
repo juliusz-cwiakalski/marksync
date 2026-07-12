@@ -534,6 +534,64 @@ function parentFirstOrder(entries: readonly PlanEntry[]): PlanEntry[] {
 }
 
 /**
+ * Finalize a successful update: journal, update binding, save lock, put property.
+ * Shared between first-write and reapply paths.
+ */
+async function finalizeSuccessfulUpdate(
+	pageId: string,
+	uuid: DocumentId,
+	pageVersion: number,
+	journal: JournalWriter,
+	lock: LockFile,
+	targetId: string,
+	cwd: string,
+	target: TargetSystem,
+	headSha: string,
+	operationId: string,
+	binding: PageBinding,
+): Promise<Result<ApplyResultEntry, MarkSyncError>> {
+	// Journal append BEFORE lock update
+	journal.append({
+		op: "update",
+		pageId,
+		uuid,
+		outcome: "success",
+	});
+
+	// Update binding in memory
+	const updatedBinding: PageBinding = {
+		...binding,
+		pageVersion,
+		sourceCommit: headSha,
+		synchronizedAt: new Date().toISOString(),
+		operationId,
+	};
+
+	const lockTarget = lock.targets[targetId] ?? { documents: {} };
+	lockTarget.documents[uuid] = updatedBinding;
+	lock.targets[targetId] = lockTarget;
+
+	// Save lock atomically
+	const saveResult = saveLock(cwd, lock);
+	if (!saveResult.ok) {
+		return Res.err(saveResult.error);
+	}
+
+	// Put property
+	const property = bindingToProperty(updatedBinding, targetId);
+	const putResult = await target.putProperty(
+		pageId,
+		"marksync.metadata",
+		JSON.stringify(property),
+	);
+	if (!putResult.ok) {
+		return Res.err(putResult.error);
+	}
+
+	return Res.ok({ uuid, outcome: "updated" });
+}
+
+/**
  * Apply a plan parent-first with per-document isolation (F-2, PD-6/7/8).
  *
  * - Reorders creates/moves parent-first
@@ -541,7 +599,7 @@ function parentFirstOrder(entries: readonly PlanEntry[]): PlanEntry[] {
  * - Per-document isolation: one failure does not abort the run (DEC-1)
  * - Journals before lock update (crash safety, ADR-0006 C-3)
  * - Wires provenance via formatVersionMessage (PD-9, DEC-3)
- * - Conflict-as-drift, no retry
+ * - 409 re-fetch-once policy: on Conflict → re-fetch once → re-classify → reapply once or block
  */
 export async function applyPlan(
 	plan: Plan,
@@ -771,45 +829,25 @@ async function processEntry(
 					// Reapply succeeded
 					const updatedPage = reapplyResult.value;
 
-					// Journal append BEFORE lock update
-					journal.append({
-						op: "update",
-						pageId: updatedPage.id,
-						uuid,
-						outcome: "success",
-					});
-
-					// Update binding in memory
-					const updatedBinding: PageBinding = {
-						...binding,
-						pageVersion: updatedPage.version,
-						sourceCommit: headSha,
-						synchronizedAt: new Date().toISOString(),
-						operationId,
-					};
-
-					const lockTarget = lock.targets[targetId] ?? { documents: {} };
-					lockTarget.documents[uuid] = updatedBinding;
-					lock.targets[targetId] = lockTarget;
-
-					// Save lock atomically
-					const saveResult = saveLock(cwd, lock);
-					if (!saveResult.ok) {
-						return { uuid, outcome: "blocked", error: saveResult.error };
-					}
-
-					// Put property
-					const property = bindingToProperty(updatedBinding, targetId);
-					const putResult = await target.putProperty(
+					const finalizeResult = await finalizeSuccessfulUpdate(
 						updatedPage.id,
-						"marksync.metadata",
-						JSON.stringify(property),
+						uuid,
+						updatedPage.version,
+						journal,
+						lock,
+						targetId,
+						cwd,
+						target,
+						headSha,
+						operationId,
+						binding,
 					);
-					if (!putResult.ok) {
-						return { uuid, outcome: "blocked", error: putResult.error };
+
+					if (!finalizeResult.ok) {
+						return { uuid, outcome: "blocked", error: finalizeResult.error };
 					}
 
-					return { uuid, outcome: "updated" };
+					return finalizeResult.value;
 				}
 				// Decision is "block" → block
 				return { uuid, outcome: "blocked", error: err };
@@ -825,45 +863,25 @@ async function processEntry(
 
 		const page = result.value;
 
-		// Journal append BEFORE lock update (crash safety)
-		journal.append({
-			op: "update",
-			pageId: page.id,
-			uuid,
-			outcome: "success",
-		});
-
-		// Update binding in memory
-		const updatedBinding: PageBinding = {
-			...binding,
-			pageVersion: page.version,
-			sourceCommit: headSha,
-			synchronizedAt: new Date().toISOString(),
-			operationId,
-		};
-
-		const lockTarget = lock.targets[targetId] ?? { documents: {} };
-		lockTarget.documents[uuid] = updatedBinding;
-		lock.targets[targetId] = lockTarget;
-
-		// Save lock atomically
-		const saveResult = saveLock(cwd, lock);
-		if (!saveResult.ok) {
-			return { uuid, outcome: "blocked", error: saveResult.error };
-		}
-
-		// Put property
-		const property = bindingToProperty(updatedBinding, targetId);
-		const putResult = await target.putProperty(
+		const finalizeResult = await finalizeSuccessfulUpdate(
 			page.id,
-			"marksync.metadata",
-			JSON.stringify(property),
+			uuid,
+			page.version,
+			journal,
+			lock,
+			targetId,
+			cwd,
+			target,
+			headSha,
+			operationId,
+			binding,
 		);
-		if (!putResult.ok) {
-			return { uuid, outcome: "blocked", error: putResult.error };
+
+		if (!finalizeResult.ok) {
+			return { uuid, outcome: "blocked", error: finalizeResult.error };
 		}
 
-		return { uuid, outcome: "updated" };
+		return finalizeResult.value;
 	}
 
 	// Create → createPage with stale-plan expiry check

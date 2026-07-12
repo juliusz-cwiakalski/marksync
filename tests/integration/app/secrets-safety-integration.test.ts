@@ -1,4 +1,4 @@
-// Integration test for secrets safety (TC-INTEGRATION-011: 0 token occurrences in all outputs).
+// Integration test for secrets safety (TC-SEC-001: 0 credential/token occurrences in all outputs).
 
 import {
 	afterEach,
@@ -12,12 +12,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { LockFile, ProjectConfig } from "#domain/config/types";
 import type { PageBinding } from "#domain/binding/page-binding";
-import type { Result } from "#domain/result";
 import { computePlan, applyPlan } from "#app/push-flow";
 import { FakeRepository } from "#tests/_helpers/fake-repository";
 import { FakeTarget } from "#tests/_helpers/fake-target";
 import { ensureCacheLayout } from "#app/cache";
 import { mkdtempSync, rmSync, readFileSync } from "node:fs";
+import { generateUuidV7 } from "#domain/identity/uuid";
 
 describe("secrets-safety integration test", () => {
 	let tmpCacheDir: string;
@@ -28,7 +28,7 @@ describe("secrets-safety integration test", () => {
 
 	beforeAll(() => {
 		// Create temp cache dir
-		tmpCacheDir = mkdtempSync(join(tmpdir(), "gh23-secrets-"));
+		tmpCacheDir = mkdtempSync(join(tmpdir(), "gh24-secrets-"));
 	});
 
 	beforeEach(() => {
@@ -133,7 +133,6 @@ This is doc A content. Don't leak this: ${fakeToken}`,
 			id: pageId,
 			title: "Doc A",
 			version: 1,
-			spaceId: "TEST-SPACE",
 		});
 
 		// Compute plan
@@ -153,6 +152,7 @@ This is doc A content. Don't leak this: ${fakeToken}`,
 			cwd: tmpCacheDir,
 			cacheDir: tmpCacheDir,
 			targetId: "default",
+			stalePlanMinutes: 15,
 		});
 
 		expect(applyResult.ok).toBe(true);
@@ -274,14 +274,12 @@ Token: ${fakeTokenB}`,
 			id: pageIdA,
 			title: "Doc A",
 			version: 1,
-			spaceId: "TEST-SPACE",
 		});
 
 		fakeTarget.addFixture({
 			id: pageIdB,
 			title: "Doc B",
 			version: 1,
-			spaceId: "TEST-SPACE",
 		});
 
 		// Compute plan
@@ -302,6 +300,7 @@ Token: ${fakeTokenB}`,
 			cwd: tmpCacheDir,
 			cacheDir: tmpCacheDir,
 			targetId: "default",
+			stalePlanMinutes: 15,
 		});
 
 		expect(applyResult.ok).toBe(true);
@@ -321,5 +320,211 @@ Token: ${fakeTokenB}`,
 		// Assert NO occurrences of either fake token
 		expect(reportJson).not.toContain(fakeTokenA);
 		expect(reportJson).not.toContain(fakeTokenB);
+	});
+
+	// TC-SEC-001: StalePlan path — 0 credential/token occurrences in ApplyReport and journal
+	test("TC-SEC-001: StalePlan path → 0 token occurrences in ApplyReport and journal", async () => {
+		const fakeToken = "SECRET_TOKEN_abc123";
+
+		const docUuid = "019f56e4-18f5-7027-bfdf-5438918bb3bc";
+		const pageId = "page-123";
+
+		// Plant the fake token in a document
+		fakeRepo.setFile(
+			"doc-stale.md",
+			`---
+marksync:
+  uuid: ${docUuid}
+---
+# Doc Stale
+
+Content with: ${fakeToken}`,
+		);
+
+		// Setup binding with base version
+		const binding: PageBinding = {
+			uuid: docUuid,
+			sourcePath: "doc-stale.md",
+			pageId,
+			parentPageId: "ROOT",
+			pageVersion: 1,
+			sourceCommit: "base-sha",
+			sourceContentHash: "new-local-hash",
+			renderedBodyHash: "old-rendered-hash",
+			remoteBodyHash: "old-rendered-hash",
+			attachmentHashes: {},
+			operationId: "op-old",
+			synchronizedAt: "2025-01-01T00:00:00Z",
+			toolVersion: "1.0.0",
+		};
+
+		lock.targets.default.documents[docUuid] = binding;
+
+		// Add fixture page at version 1
+		fakeTarget.addFixture({
+			id: pageId,
+			title: "Doc Stale",
+			version: 1,
+			body: "<h1>Doc Stale</h1>",
+		});
+
+		// Set a newer operationId on the remote to trigger StalePlan
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		const newerOpId = `op_${generateUuidV7()}`;
+		fakeTarget.setMetadataProperty(
+			pageId,
+			JSON.stringify({
+				schemaVersion: 1,
+				projectId: "default",
+				targetId: "default",
+				documentId: docUuid,
+				sourcePath: "doc-stale.md",
+				sourceCommit: "remote-commit",
+				sourceContentHash: "remote-hash",
+				renderedBodyHash: "remote-hash",
+				operationId: newerOpId, // Newer than plan's operationId
+				synchronizedAt: new Date().toISOString(),
+				toolVersion: "1.0.0",
+			}),
+		);
+
+		// Compute plan
+		ensureCacheLayout(tmpCacheDir);
+		const planResult = await computePlan(config, lock, fakeRepo, fakeTarget);
+		expect(planResult.ok).toBe(true);
+		const plan = planResult.value!;
+
+		// Apply plan (should trigger StalePlan)
+		const applyResult = await applyPlan(plan, fakeTarget, lock, {
+			cwd: tmpCacheDir,
+			cacheDir: tmpCacheDir,
+			targetId: "default",
+			stalePlanMinutes: 15,
+		});
+
+		expect(applyResult.ok).toBe(true);
+		const report = applyResult.value!;
+
+		// Serialize the ApplyReport to JSON
+		const reportJson = JSON.stringify(report);
+
+		// Assert the ApplyReport JSON contains NO occurrences of the fake token
+		expect(reportJson).not.toContain(fakeToken);
+
+		// Read the journal file (should exist but may be empty for blocked documents)
+		const journalPath = join(tmpCacheDir, "journal", `${plan.runId}.jsonl`);
+		const journalContent = readFileSync(journalPath, "utf-8");
+
+		// Assert the journal contains NO occurrences of the fake token
+		expect(journalContent).not.toContain(fakeToken);
+
+		// Assert the document was blocked with StalePlan
+		const blockedResult = report.results.find((r) => r.uuid === docUuid);
+		expect(blockedResult).toBeDefined();
+		expect(blockedResult?.outcome).toBe("blocked");
+		expect(blockedResult?.error?.kind).toBe("StalePlan");
+
+		// Assert the StalePlan error carries only operationId and expiredAt (no secret material)
+		if (blockedResult?.error?.kind === "StalePlan") {
+			expect(blockedResult.error.operationId).toBe(plan.operationId);
+			expect(blockedResult.error.operationId).toMatch(/^op_[0-9a-f-]+$/); // UUID v7 format
+			expect(blockedResult.error.operationId).not.toContain(fakeToken);
+		}
+	});
+
+	// TC-SEC-001 (variant): Conflict-block path — 0 credential/token occurrences in ApplyReport and journal
+	test("TC-SEC-001: Conflict-block path → 0 token occurrences in ApplyReport and journal", async () => {
+		const fakeToken = "SECRET_TOKEN_xyz789";
+
+		const docUuid = "019f56e4-18f5-7028-bfdf-5438918bb3bc";
+		const pageId = "page-456";
+
+		// Plant the fake token in a document
+		fakeRepo.setFile(
+			"doc-conflict.md",
+			`---
+marksync:
+  uuid: ${docUuid}
+---
+# Doc Conflict
+
+Content with: ${fakeToken}`,
+		);
+
+		// Setup binding with stale base version
+		const binding: PageBinding = {
+			uuid: docUuid,
+			sourcePath: "doc-conflict.md",
+			pageId,
+			parentPageId: "ROOT",
+			pageVersion: 1, // Stale baseVersion
+			sourceCommit: "base-sha",
+			sourceContentHash: "new-local-hash",
+			renderedBodyHash: "old-rendered-hash",
+			remoteBodyHash: "old-rendered-hash",
+			attachmentHashes: {},
+			operationId: "op-old",
+			synchronizedAt: "2025-01-01T00:00:00Z",
+			toolVersion: "1.0.0",
+		};
+
+		lock.targets.default.documents[docUuid] = binding;
+
+		// Add fixture page at version 2 (advanced beyond base)
+		fakeTarget.addFixture({
+			id: pageId,
+			title: "Doc Conflict",
+			version: 2, // Remote is ahead (DIVERGED)
+			body: "<h1>Doc Conflict Remote</h1>",
+		});
+
+		// Compute plan
+		ensureCacheLayout(tmpCacheDir);
+		const planResult = await computePlan(config, lock, fakeRepo, fakeTarget);
+		expect(planResult.ok).toBe(true);
+		const plan = planResult.value!;
+
+		// Apply plan (should trigger Conflict then block)
+		const applyResult = await applyPlan(plan, fakeTarget, lock, {
+			cwd: tmpCacheDir,
+			cacheDir: tmpCacheDir,
+			targetId: "default",
+			stalePlanMinutes: 15,
+		});
+
+		expect(applyResult.ok).toBe(true);
+		const report = applyResult.value!;
+
+		// Serialize the ApplyReport to JSON
+		const reportJson = JSON.stringify(report);
+
+		// Assert the ApplyReport JSON contains NO occurrences of the fake token
+		expect(reportJson).not.toContain(fakeToken);
+
+		// Read the journal file (should exist but may be empty for blocked documents)
+		const journalPath = join(tmpCacheDir, "journal", `${plan.runId}.jsonl`);
+
+		// Journal file may not exist for blocked documents (no successful writes)
+		let journalContent = "";
+		try {
+			journalContent = readFileSync(journalPath, "utf-8");
+		} catch {
+			// File doesn't exist — no journal entries for blocked documents
+		}
+
+		// Assert the journal contains NO occurrences of the fake token
+		expect(journalContent).not.toContain(fakeToken);
+
+		// Assert the document was blocked with Conflict
+		const blockedResult = report.results.find((r) => r.uuid === docUuid);
+		expect(blockedResult).toBeDefined();
+		expect(blockedResult?.outcome).toBe("blocked");
+		expect(blockedResult?.error?.kind).toBe("Conflict");
+
+		// Assert the Conflict error carries no secret material
+		if (blockedResult?.error?.kind === "Conflict") {
+			expect(blockedResult.error.operationId).toBeUndefined(); // Conflict doesn't have operationId
+			expect(blockedResult.error).not.toHaveProperty("operationId");
+		}
 	});
 });
