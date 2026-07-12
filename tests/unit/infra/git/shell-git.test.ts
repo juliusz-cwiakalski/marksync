@@ -2,55 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { tmpdir } from "node:os";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-
-// Test-only stubs for guard functions (avoiding domain imports in infra tests)
-function validateRepoRelative(path: string): void {
-	for (let i = 0; i < path.length; i++) {
-		const code = path.charCodeAt(i);
-		if (code === 0 || (code >= 1 && code <= 31 && code !== 9)) {
-			throw new Error(
-				`Invalid repo-relative path: contains control byte at position ${i}`,
-			);
-		}
-	}
-	if (path.includes("\n") || path.includes("\r")) {
-		throw new Error(`Invalid repo-relative path: contains control byte`);
-	}
-	if (/[`$();|&<> ]/.test(path)) {
-		throw new Error(`Invalid repo-relative path: contains shell metacharacter`);
-	}
-	if (path.startsWith("/") || path.startsWith("\\")) {
-		throw new Error(`Invalid repo-relative path: is absolute`);
-	}
-	if (path.includes("..") || path.includes(".\\")) {
-		throw new Error(
-			`Invalid repo-relative path: contains parent directory reference`,
-		);
-	}
-}
-
-function validateRef(ref: string): void {
-	for (let i = 0; i < ref.length; i++) {
-		const code = ref.charCodeAt(i);
-		if (code === 0 || (code >= 1 && code <= 31 && code !== 9)) {
-			throw new Error(
-				`Invalid git ref: contains control byte at position ${i}`,
-			);
-		}
-	}
-	if (ref.includes("\n") || ref.includes("\r")) {
-		throw new Error(`Invalid git ref: contains control byte`);
-	}
-	if (/[`$();|&<>]/.test(ref)) {
-		throw new Error(`Invalid git ref: contains shell metacharacter`);
-	}
-	if (/\s/.test(ref)) {
-		throw new Error(`Invalid git ref: contains whitespace`);
-	}
-	if (ref.includes("..")) {
-		throw new Error(`Invalid git ref: contains parent directory reference`);
-	}
-}
+import { validateRepoRelative, validateRef } from "#domain/git/paths";
 
 describe("shell-git path validation (via test stubs)", () => {
 	test("rejects paths with ..", () => {

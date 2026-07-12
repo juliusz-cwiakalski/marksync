@@ -69,12 +69,8 @@ describe("createRepository — delegates to createShellGit", () => {
 
 	test("the returned repo is usable against the freshly-init'd git repo", () => {
 		const repo = createRepository(repoDir);
-		const head = repo.headSha();
-		// `git init` has no commits yet → a non-ok Result, not a throw.
-		expect(head.ok).toBe(false);
-		if (!head.ok) {
-			expect(head.error.kind).toBe("RemoteUnreachable");
-		}
+		// `git init` has no commits yet → a non-zero git exit → throws
+		expect(() => repo.headSha()).toThrow();
 	});
 });
 

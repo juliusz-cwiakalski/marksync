@@ -21,11 +21,9 @@ describe("applyPlan integration tests", () => {
 		hierarchy: "flat",
 		targets: {
 			default: {
-				spaceId: "TEST-SPACE",
+				type: "confluence",
+				spaceKey: "TEST",
 				parentPageId: "ROOT",
-				url: "https://test.atlassian.net",
-				email: "test@test.com",
-				secretName: "TEST_SECRET",
 			},
 		},
 		sync: {
@@ -106,7 +104,8 @@ This is doc A content.`,
 				title: "Doc A",
 				version: 2, // Ahead of base's version 1
 				body: "<h1>Doc A</h1>",
-				spaceId: "TEST-SPACE",
+				type: "confluence",
+				spaceKey: "TEST",
 			});
 
 			// Compute plan
@@ -198,7 +197,8 @@ This is NEW local content.`,
 				title: "Doc B",
 				version: 2, // Remote also advanced
 				body: "<h1>Doc B</h1><p>This is REMOTE content.</p>", // Different content
-				spaceId: "TEST-SPACE",
+				type: "confluence",
+				spaceKey: "TEST",
 			});
 
 			// Compute plan
@@ -375,7 +375,8 @@ This is doc D content.`,
 				id: pageId,
 				title: "Doc D",
 				version: 1,
-				spaceId: "TEST-SPACE",
+				type: "confluence",
+				spaceKey: "TEST",
 			});
 
 			// Compute plan (at plan-time, remote is version 1 → LOCAL_AHEAD)
@@ -503,14 +504,16 @@ This is doc F content.`,
 				title: "Doc E",
 				version: 2, // Ahead - will be REMOTE_AHEAD
 				body: "<h1>Doc E</h1>",
-				spaceId: "TEST-SPACE",
+				type: "confluence",
+				spaceKey: "TEST",
 			});
 
 			fakeTarget.addFixture({
 				id: pageIdB,
 				title: "Doc F",
 				version: 1, // Matches base - will be LOCAL_AHEAD
-				spaceId: "TEST-SPACE",
+				type: "confluence",
+				spaceKey: "TEST",
 			});
 
 			// Compute plan
@@ -601,7 +604,8 @@ This is doc G content.`,
 				id: pageId,
 				title: "Doc G",
 				version: 1,
-				spaceId: "TEST-SPACE",
+				type: "confluence",
+				spaceKey: "TEST",
 			});
 
 			// Compute plan

@@ -145,18 +145,16 @@ targets:
 		expect(error.message).toContain("no default target");
 	});
 
-	test("5. computePlan failure (git unreachable) → REMOTE_UNREACHABLE, exit 99", async () => {
+	test("5. computePlan failure (git unreachable) → INTERNAL, exit 99", async () => {
 		copyFileSync(FIXTURE, join(dir, "marksync.yml"));
 		setValidCreds();
 		// Deterministic across dev (TMPDIR inside a repo) and CI (TMPDIR=/tmp):
 		// pointing GIT_DIR at a missing path makes computePlan's branch-gate git
-		// probe fail → RemoteUnreachable, regardless of host repo layout.
+		// probe fail → throw → INTERNAL, regardless of host repo layout.
 		process.env.GIT_DIR = join(dir, ".nonexistent-git");
 		const { exit, parsed } = await runPlanJson();
 		expect(exit).toBe(99);
 		expect(parsed.exit_code).toBe(99);
-		expect((parsed.error as Record<string, unknown>).code).toBe(
-			"REMOTE_UNREACHABLE",
-		);
+		expect((parsed.error as Record<string, unknown>).code).toBe("INTERNAL");
 	});
 });

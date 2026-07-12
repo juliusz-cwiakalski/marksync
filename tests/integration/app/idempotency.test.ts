@@ -21,11 +21,9 @@ describe("idempotency integration test", () => {
 		hierarchy: "flat",
 		targets: {
 			default: {
-				spaceId: "TEST-SPACE",
+				type: "confluence",
+				spaceKey: "TEST",
 				parentPageId: "ROOT",
-				url: "https://test.atlassian.net",
-				email: "test@test.com",
-				secretName: "TEST_SECRET",
 			},
 		},
 		sync: {
