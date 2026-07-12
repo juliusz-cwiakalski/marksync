@@ -78,7 +78,8 @@ describe("idempotency integration test", () => {
 			fakeRepo.setFile(
 				"doc-a.md",
 				`---
-uuid: ${docUuidA}
+marksync:
+  uuid: ${docUuidA}
 ---
 # Doc A
 
@@ -88,7 +89,8 @@ This is doc A content.`,
 			fakeRepo.setFile(
 				"doc-b.md",
 				`---
-uuid: ${docUuidB}
+marksync:
+  uuid: ${docUuidB}
 ---
 # Doc B
 
@@ -98,7 +100,8 @@ This is doc B content.`,
 			fakeRepo.setFile(
 				"doc-c.md",
 				`---
-uuid: ${docUuidC}
+marksync:
+  uuid: ${docUuidC}
 ---
 # Doc C
 

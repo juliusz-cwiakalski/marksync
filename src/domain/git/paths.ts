@@ -35,8 +35,11 @@ export function validateRepoRelative(path: string): void {
 		throw new Error(`Invalid repo-relative path: contains shell metacharacter`);
 	}
 
-	// Check for absolute paths
+	// Check for absolute paths (Unix leading slash, Windows backslash, or drive-letter)
 	if (path.startsWith("/") || path.startsWith("\\")) {
+		throw new Error(`Invalid repo-relative path: is absolute`);
+	}
+	if (/^[A-Za-z]:[\\/]/.test(path)) {
 		throw new Error(`Invalid repo-relative path: is absolute`);
 	}
 

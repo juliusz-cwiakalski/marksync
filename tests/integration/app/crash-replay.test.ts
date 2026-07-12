@@ -25,7 +25,7 @@ describe("crash-replay integration test", () => {
 		tmpCacheDir = mkdtempSync(join(tmpdir(), "gh23-crash-replay-"));
 	});
 
-	test.beforeEach(() => {
+	beforeEach(() => {
 		// Reset helpers
 		fakeRepo = new FakeRepository();
 		fakeTarget = new FakeTarget();
@@ -79,7 +79,7 @@ describe("crash-replay integration test", () => {
 		};
 	});
 
-	test.afterEach(() => {
+	afterEach(() => {
 		// Cleanup temp dir
 		rmSync(tmpCacheDir, { recursive: true, force: true });
 	});
@@ -97,7 +97,8 @@ describe("crash-replay integration test", () => {
 		fakeRepo.setFile(
 			"doc-a.md",
 			`---
-uuid: ${docUuidA}
+marksync:
+  uuid: ${docUuidA}
 ---
 # Doc A
 
@@ -107,7 +108,8 @@ This is doc A content.`,
 		fakeRepo.setFile(
 			"doc-b.md",
 			`---
-uuid: ${docUuidB}
+marksync:
+  uuid: ${docUuidB}
 ---
 # Doc B
 
@@ -117,7 +119,8 @@ This is doc B content.`,
 		fakeRepo.setFile(
 			"doc-c.md",
 			`---
-uuid: ${docUuidC}
+marksync:
+  uuid: ${docUuidC}
 ---
 # Doc C
 
@@ -227,12 +230,9 @@ This is doc C content.`,
 		// Assert 2 updatePage calls were made (K = 2 of N = 3)
 		expect(fakeTarget.updatePageCalls).toHaveLength(2);
 
-		// Read the journal file
-		const journalPath = join(tmpCacheDir, "journal", `${plan.runId}.jsonl`);
-		const replayResult = replayJournal(tmpCacheDir, plan.runId);
-
-		expect(replayResult.ok).toBe(true);
-		const journalEntries = replayResult.value!;
+		// Read the journal file: replayJournal returns the completed entries
+		// directly (a plain array, not a Result).
+		const journalEntries = replayJournal(tmpCacheDir, plan.runId);
 
 		// Assert the journal has exactly 2 entries (the 2 successfully-applied docs)
 		expect(journalEntries).toHaveLength(2);

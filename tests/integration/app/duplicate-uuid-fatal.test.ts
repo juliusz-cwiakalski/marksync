@@ -76,7 +76,8 @@ describe("duplicate-uuid-fatal integration test", () => {
 		fakeRepo.setFile(
 			"doc-a.md",
 			`---
-uuid: ${duplicateUuid}
+marksync:
+  uuid: ${duplicateUuid}
 ---
 # Doc A
 
@@ -86,7 +87,8 @@ This is doc A content.`,
 		fakeRepo.setFile(
 			"doc-b.md",
 			`---
-uuid: ${duplicateUuid}
+marksync:
+  uuid: ${duplicateUuid}
 ---
 # Doc B
 
@@ -121,7 +123,8 @@ This is doc B content.`,
 		fakeRepo.setFile(
 			"doc-a.md",
 			`---
-uuid: ${duplicateUuid}
+marksync:
+  uuid: ${duplicateUuid}
 ---
 # Doc A (bound)`,
 		);
@@ -129,7 +132,8 @@ uuid: ${duplicateUuid}
 		fakeRepo.setFile(
 			"doc-b.md",
 			`---
-uuid: ${duplicateUuid}
+marksync:
+  uuid: ${duplicateUuid}
 ---
 # Doc B (unbound)`,
 		);
@@ -185,7 +189,8 @@ uuid: ${duplicateUuid}
 		fakeRepo.setFile(
 			"doc-a.md",
 			`---
-uuid: 019f56e4-18f5-7022-bfdf-5438918bb3bc
+marksync:
+  uuid: 019f56e4-18f5-7022-bfdf-5438918bb3bc
 ---
 # Doc A`,
 		);
@@ -193,7 +198,8 @@ uuid: 019f56e4-18f5-7022-bfdf-5438918bb3bc
 		fakeRepo.setFile(
 			"doc-b.md",
 			`---
-uuid: 019f56e4-18f5-7023-bfdf-5438918bb3bc
+marksync:
+  uuid: 019f56e4-18f5-7023-bfdf-5438918bb3bc
 ---
 # Doc B`,
 		);

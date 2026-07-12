@@ -1,6 +1,6 @@
 // Integration test for secrets safety (TC-INTEGRATION-011: 0 token occurrences in all outputs).
 
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { LockFile, ProjectConfig } from "#domain/config/types";
@@ -19,12 +19,12 @@ describe("secrets-safety integration test", () => {
 	let config: ProjectConfig;
 	let lock: LockFile;
 
-	test.beforeAll(() => {
+	beforeAll(() => {
 		// Create temp cache dir
 		tmpCacheDir = mkdtempSync(join(tmpdir(), "gh23-secrets-"));
 	});
 
-	test.beforeEach(() => {
+	beforeEach(() => {
 		// Reset helpers
 		fakeRepo = new FakeRepository();
 		fakeTarget = new FakeTarget();
@@ -78,7 +78,7 @@ describe("secrets-safety integration test", () => {
 		};
 	});
 
-	test.afterEach(() => {
+	afterEach(() => {
 		// Cleanup temp dir
 		rmSync(tmpCacheDir, { recursive: true, force: true });
 	});
@@ -95,7 +95,8 @@ describe("secrets-safety integration test", () => {
 		fakeRepo.setFile(
 			"doc-a.md",
 			`---
-uuid: ${docUuid}
+marksync:
+  uuid: ${docUuid}
 ---
 # Doc A
 
@@ -209,7 +210,8 @@ This is doc A content. Don't leak this: ${fakeToken}`,
 		fakeRepo.setFile(
 			"doc-a.md",
 			`---
-uuid: ${docUuidA}
+marksync:
+  uuid: ${docUuidA}
 ---
 # Doc A
 Token: ${fakeTokenA}`,
@@ -218,7 +220,8 @@ Token: ${fakeTokenA}`,
 		fakeRepo.setFile(
 			"doc-b.md",
 			`---
-uuid: ${docUuidB}
+marksync:
+  uuid: ${docUuidB}
 ---
 # Doc B
 Token: ${fakeTokenB}`,

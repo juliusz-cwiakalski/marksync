@@ -93,6 +93,9 @@ export function createShellGit(repoPath: string): Repository {
 		},
 
 		listCommitSubjects(range?: string) {
+			if (range !== undefined) {
+				validateRef(range);
+			}
 			const args = range
 				? ["log", "--format=%s", range]
 				: ["log", "--format=%s"];

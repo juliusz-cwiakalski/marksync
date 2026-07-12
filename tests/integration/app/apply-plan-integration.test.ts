@@ -73,7 +73,8 @@ describe("applyPlan integration tests", () => {
 			fakeRepo.setFile(
 				"doc-a.md",
 				`---
-uuid: ${docUuid}
+marksync:
+  uuid: ${docUuid}
 ---
 # Doc A
 
@@ -164,7 +165,8 @@ This is doc A content.`,
 			fakeRepo.setFile(
 				"doc-b.md",
 				`---
-uuid: ${docUuid}
+marksync:
+  uuid: ${docUuid}
 ---
 # Doc B
 
@@ -255,7 +257,8 @@ This is NEW local content.`,
 			fakeRepo.setFile(
 				"doc-c.md",
 				`---
-uuid: ${docUuid}
+marksync:
+  uuid: ${docUuid}
 ---
 # Doc C
 
@@ -339,7 +342,8 @@ This is doc C content.`,
 			fakeRepo.setFile(
 				"doc-d.md",
 				`---
-uuid: ${docUuid}
+marksync:
+  uuid: ${docUuid}
 ---
 # Doc D
 
@@ -438,7 +442,8 @@ This is doc D content.`,
 			fakeRepo.setFile(
 				"doc-e.md",
 				`---
-uuid: ${docUuidA}
+marksync:
+  uuid: ${docUuidA}
 ---
 # Doc E
 
@@ -448,7 +453,8 @@ This is doc E content.`,
 			fakeRepo.setFile(
 				"doc-f.md",
 				`---
-uuid: ${docUuidB}
+marksync:
+  uuid: ${docUuidB}
 ---
 # Doc F
 
@@ -563,7 +569,8 @@ This is doc F content.`,
 			fakeRepo.setFile(
 				"doc-g.md",
 				`---
-uuid: ${docUuid}
+marksync:
+  uuid: ${docUuid}
 ---
 # Doc G
 
@@ -639,7 +646,7 @@ This is doc G content.`,
 
 			// Assert the lock file was updated (sourceCommit should be updated)
 			const updatedBinding = lock.targets.default.documents[docUuid];
-			expect(updatedBinding.sourceCommit).toBe(fakeRepo.headSha());
+			expect(updatedBinding.sourceCommit).toBe(fakeRepo.headSha().value);
 			expect(updatedBinding.operationId).toBe(plan.operationId);
 		} finally {
 			rmSync(tmpCacheDir, { recursive: true, force: true });
