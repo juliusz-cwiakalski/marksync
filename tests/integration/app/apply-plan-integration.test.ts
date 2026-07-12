@@ -66,7 +66,7 @@ describe("applyPlan integration tests", () => {
 			const fakeRepo = new FakeRepository();
 			const fakeTarget = new FakeTarget();
 			const lock = JSON.parse(JSON.stringify(baseLock)) as LockFile;
-			const docUuid = "doc-uuid-a";
+			const docUuid = "019f56e4-18f5-701a-bfdf-5438918bb3bc";
 			const pageId = "page-123";
 
 			// Add a document with UUID
@@ -109,7 +109,12 @@ This is doc A content.`,
 			});
 
 			// Compute plan
-			const planResult = await computePlan(baseConfig, lock, fakeRepo, fakeTarget);
+			const planResult = await computePlan(
+				baseConfig,
+				lock,
+				fakeRepo,
+				fakeTarget,
+			);
 			expect(planResult.ok).toBe(true);
 			const plan = planResult.value!;
 
@@ -121,16 +126,11 @@ This is doc A content.`,
 
 			// Apply plan
 			ensureCacheLayout(tmpCacheDir);
-			const applyResult = await applyPlan(
-				plan,
-				fakeTarget,
-				lock,
-				{
-					cwd: tmpCacheDir,
-					cacheDir: tmpCacheDir,
-					targetId: "default",
-				},
-			);
+			const applyResult = await applyPlan(plan, fakeTarget, lock, {
+				cwd: tmpCacheDir,
+				cacheDir: tmpCacheDir,
+				targetId: "default",
+			});
 
 			expect(applyResult.ok).toBe(true);
 			const report = applyResult.value!;
@@ -157,7 +157,7 @@ This is doc A content.`,
 			const fakeRepo = new FakeRepository();
 			const fakeTarget = new FakeTarget();
 			const lock = JSON.parse(JSON.stringify(baseLock)) as LockFile;
-			const docUuid = "doc-uuid-b";
+			const docUuid = "019f56e4-18f5-701b-bfdf-5438918bb3bc";
 			const pageId = "page-456";
 
 			// Add a document with UUID (different content than base)
@@ -200,7 +200,12 @@ This is NEW local content.`,
 			});
 
 			// Compute plan
-			const planResult = await computePlan(baseConfig, lock, fakeRepo, fakeTarget);
+			const planResult = await computePlan(
+				baseConfig,
+				lock,
+				fakeRepo,
+				fakeTarget,
+			);
 			expect(planResult.ok).toBe(true);
 			const plan = planResult.value!;
 
@@ -212,16 +217,11 @@ This is NEW local content.`,
 
 			// Apply plan
 			ensureCacheLayout(tmpCacheDir);
-			const applyResult = await applyPlan(
-				plan,
-				fakeTarget,
-				lock,
-				{
-					cwd: tmpCacheDir,
-					cacheDir: tmpCacheDir,
-					targetId: "default",
-				},
-			);
+			const applyResult = await applyPlan(plan, fakeTarget, lock, {
+				cwd: tmpCacheDir,
+				cacheDir: tmpCacheDir,
+				targetId: "default",
+			});
 
 			expect(applyResult.ok).toBe(true);
 			const report = applyResult.value!;
@@ -248,7 +248,7 @@ This is NEW local content.`,
 			const fakeRepo = new FakeRepository();
 			const fakeTarget = new FakeTarget();
 			const lock = JSON.parse(JSON.stringify(baseLock)) as LockFile;
-			const docUuid = "doc-uuid-c";
+			const docUuid = "019f56e4-18f5-701c-bfdf-5438918bb3bc";
 			const pageId = "page-789";
 
 			// Add a document with UUID
@@ -284,7 +284,12 @@ This is doc C content.`,
 			// DO NOT add fixture page - simulate remote missing (404)
 
 			// Compute plan
-			const planResult = await computePlan(baseConfig, lock, fakeRepo, fakeTarget);
+			const planResult = await computePlan(
+				baseConfig,
+				lock,
+				fakeRepo,
+				fakeTarget,
+			);
 			expect(planResult.ok).toBe(true);
 			const plan = planResult.value!;
 
@@ -296,16 +301,11 @@ This is doc C content.`,
 
 			// Apply plan (without --rebind)
 			ensureCacheLayout(tmpCacheDir);
-			const applyResult = await applyPlan(
-				plan,
-				fakeTarget,
-				lock,
-				{
-					cwd: tmpCacheDir,
-					cacheDir: tmpCacheDir,
-					targetId: "default",
-				},
-			);
+			const applyResult = await applyPlan(plan, fakeTarget, lock, {
+				cwd: tmpCacheDir,
+				cacheDir: tmpCacheDir,
+				targetId: "default",
+			});
 
 			expect(applyResult.ok).toBe(true);
 			const report = applyResult.value!;
@@ -332,7 +332,7 @@ This is doc C content.`,
 			const fakeRepo = new FakeRepository();
 			const fakeTarget = new FakeTarget();
 			const lock = JSON.parse(JSON.stringify(baseLock)) as LockFile;
-			const docUuid = "doc-uuid-d";
+			const docUuid = "019f56e4-18f5-701d-bfdf-5438918bb3bc";
 			const pageId = "page-abc";
 
 			// Add a document with UUID
@@ -375,7 +375,12 @@ This is doc D content.`,
 			});
 
 			// Compute plan (at plan-time, remote is version 1 → LOCAL_AHEAD)
-			const planResult = await computePlan(baseConfig, lock, fakeRepo, fakeTarget);
+			const planResult = await computePlan(
+				baseConfig,
+				lock,
+				fakeRepo,
+				fakeTarget,
+			);
 			expect(planResult.ok).toBe(true);
 			const plan = planResult.value!;
 
@@ -390,16 +395,11 @@ This is doc D content.`,
 
 			// Apply plan
 			ensureCacheLayout(tmpCacheDir);
-			const applyResult = await applyPlan(
-				plan,
-				fakeTarget,
-				lock,
-				{
-					cwd: tmpCacheDir,
-					cacheDir: tmpCacheDir,
-					targetId: "default",
-				},
-			);
+			const applyResult = await applyPlan(plan, fakeTarget, lock, {
+				cwd: tmpCacheDir,
+				cacheDir: tmpCacheDir,
+				targetId: "default",
+			});
 
 			expect(applyResult.ok).toBe(true);
 			const report = applyResult.value!;
@@ -430,7 +430,7 @@ This is doc D content.`,
 			const fakeTarget = new FakeTarget();
 			const lock = JSON.parse(JSON.stringify(baseLock)) as LockFile;
 			const docUuidA = "doc-uuid-e";
-			const docUuidB = "doc-uuid-f";
+			const docUuidB = "019f56e4-18f5-701f-bfdf-5438918bb3bc";
 			const pageIdA = "page-111";
 			const pageIdB = "page-222";
 
@@ -509,7 +509,12 @@ This is doc F content.`,
 			});
 
 			// Compute plan
-			const planResult = await computePlan(baseConfig, lock, fakeRepo, fakeTarget);
+			const planResult = await computePlan(
+				baseConfig,
+				lock,
+				fakeRepo,
+				fakeTarget,
+			);
 			expect(planResult.ok).toBe(true);
 			const plan = planResult.value!;
 
@@ -522,16 +527,11 @@ This is doc F content.`,
 
 			// Apply plan
 			ensureCacheLayout(tmpCacheDir);
-			const applyResult = await applyPlan(
-				plan,
-				fakeTarget,
-				lock,
-				{
-					cwd: tmpCacheDir,
-					cacheDir: tmpCacheDir,
-					targetId: "default",
-				},
-			);
+			const applyResult = await applyPlan(plan, fakeTarget, lock, {
+				cwd: tmpCacheDir,
+				cacheDir: tmpCacheDir,
+				targetId: "default",
+			});
 
 			expect(applyResult.ok).toBe(true);
 			const report = applyResult.value!;
@@ -556,7 +556,7 @@ This is doc F content.`,
 			const fakeRepo = new FakeRepository();
 			const fakeTarget = new FakeTarget();
 			const lock = JSON.parse(JSON.stringify(baseLock)) as LockFile;
-			const docUuid = "doc-uuid-g";
+			const docUuid = "019f56e4-18f5-7020-bfdf-5438918bb3bc";
 			const pageId = "page-333";
 
 			// Add a document with UUID
@@ -599,7 +599,12 @@ This is doc G content.`,
 			});
 
 			// Compute plan
-			const planResult = await computePlan(baseConfig, lock, fakeRepo, fakeTarget);
+			const planResult = await computePlan(
+				baseConfig,
+				lock,
+				fakeRepo,
+				fakeTarget,
+			);
 			expect(planResult.ok).toBe(true);
 			const plan = planResult.value!;
 
@@ -611,16 +616,11 @@ This is doc G content.`,
 
 			// Apply plan
 			ensureCacheLayout(tmpCacheDir);
-			const applyResult = await applyPlan(
-				plan,
-				fakeTarget,
-				lock,
-				{
-					cwd: tmpCacheDir,
-					cacheDir: tmpCacheDir,
-					targetId: "default",
-				},
-			);
+			const applyResult = await applyPlan(plan, fakeTarget, lock, {
+				cwd: tmpCacheDir,
+				cacheDir: tmpCacheDir,
+				targetId: "default",
+			});
 
 			expect(applyResult.ok).toBe(true);
 			const report = applyResult.value!;

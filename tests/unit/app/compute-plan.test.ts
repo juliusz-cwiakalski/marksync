@@ -134,10 +134,7 @@ marksync:
 				}),
 			attachmentExists: async () => Res.ok(false),
 			listAttachments: async () => Res.ok([]),
-			searchPages: async () =>
-				Res.ok([
-					{ id: "123", title: "Test" },
-				]),
+			searchPages: async () => Res.ok([{ id: "123", title: "Test" }]),
 			getRestrictions: async () =>
 				Res.ok({
 					pageId: "123",
@@ -152,7 +149,12 @@ marksync:
 			return renderBodySpy(...args);
 		};
 
-		const result = await computePlan(baseConfig, baseLock, mockRepo, mockTarget);
+		const result = await computePlan(
+			baseConfig,
+			baseLock,
+			mockRepo,
+			mockTarget,
+		);
 
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
@@ -169,11 +171,7 @@ marksync:
 		const mockRepo: Repository = {
 			readCommitted: () =>
 				Promise.resolve(
-					Res.ok(
-						new Map([
-							["doc.md", new TextEncoder().encode("# Test")],
-						]),
-					),
+					Res.ok(new Map([["doc.md", new TextEncoder().encode("# Test")]])),
 				),
 			headSha: () => Promise.resolve(Res.ok("abc123")),
 			currentBranch: () => Promise.resolve(Res.ok("feature/x")),
@@ -225,10 +223,7 @@ marksync:
 				}),
 			attachmentExists: async () => Res.ok(false),
 			listAttachments: async () => Res.ok([]),
-			searchPages: async () =>
-				Res.ok([
-					{ id: "123", title: "Test" },
-				]),
+			searchPages: async () => Res.ok([{ id: "123", title: "Test" }]),
 			getRestrictions: async () =>
 				Res.ok({
 					pageId: "123",
@@ -243,7 +238,12 @@ marksync:
 			return readCommittedSpy(...args);
 		};
 
-		const result = await computePlan(baseConfig, baseLock, mockRepo, mockTarget);
+		const result = await computePlan(
+			baseConfig,
+			baseLock,
+			mockRepo,
+			mockTarget,
+		);
 
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
@@ -268,9 +268,7 @@ marksync:
 			readCommitted: () =>
 				Promise.resolve(
 					Res.ok(
-						new Map([
-							["new-doc.md", new TextEncoder().encode(docContent)],
-						]),
+						new Map([["new-doc.md", new TextEncoder().encode(docContent)]]),
 					),
 				),
 			headSha: () => Promise.resolve(Res.ok("abc123")),
@@ -323,10 +321,7 @@ marksync:
 				}),
 			attachmentExists: async () => Res.ok(false),
 			listAttachments: async () => Res.ok([]),
-			searchPages: async () =>
-				Res.ok([
-					{ id: "123", title: "Test" },
-				]),
+			searchPages: async () => Res.ok([{ id: "123", title: "Test" }]),
 			getRestrictions: async () =>
 				Res.ok({
 					pageId: "123",
@@ -334,7 +329,12 @@ marksync:
 				}),
 		};
 
-		const result = await computePlan(baseConfig, baseLock, mockRepo, mockTarget);
+		const result = await computePlan(
+			baseConfig,
+			baseLock,
+			mockRepo,
+			mockTarget,
+		);
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
@@ -342,8 +342,12 @@ marksync:
 			const entry = result.value.entries[0]!;
 			expect(entry.state).toBe("NEW");
 			expect(entry.action.kind).toBe("Create");
-			expect((entry.action as PlanAction & { kind: "Create" }).uuid).toBe("01234567-89ab-7def-8123-456789abcdef");
-			expect((entry.action as PlanAction & { kind: "Create" }).parentId).toBe("123");
+			expect((entry.action as PlanAction & { kind: "Create" }).uuid).toBe(
+				"01234567-89ab-7def-8123-456789abcdef",
+			);
+			expect((entry.action as PlanAction & { kind: "Create" }).parentId).toBe(
+				"123",
+			);
 		}
 	});
 
@@ -383,11 +387,7 @@ marksync:
 		const mockRepo: Repository = {
 			readCommitted: () =>
 				Promise.resolve(
-					Res.ok(
-						new Map([
-							["doc.md", new TextEncoder().encode(docContent)],
-						]),
-					),
+					Res.ok(new Map([["doc.md", new TextEncoder().encode(docContent)]])),
 				),
 			headSha: () => Promise.resolve(Res.ok("abc123")),
 			currentBranch: () => Promise.resolve(Res.ok("main")),
@@ -443,10 +443,7 @@ marksync:
 				}),
 			attachmentExists: async () => Res.ok(false),
 			listAttachments: async () => Res.ok([]),
-			searchPages: async () =>
-				Res.ok([
-					{ id: "123", title: "Test" },
-				]),
+			searchPages: async () => Res.ok([{ id: "123", title: "Test" }]),
 			getRestrictions: async () =>
 				Res.ok({
 					pageId: "123",
@@ -458,7 +455,12 @@ marksync:
 		const renderBodySpy = mockTarget.renderBody.bind(mockTarget);
 		mockTarget.renderBody = renderBodySpy;
 
-		const result = await computePlan(baseConfig, lockWithBinding, mockRepo, mockTarget);
+		const result = await computePlan(
+			baseConfig,
+			lockWithBinding,
+			mockRepo,
+			mockTarget,
+		);
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {

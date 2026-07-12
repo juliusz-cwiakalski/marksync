@@ -87,9 +87,9 @@ describe("crash-replay integration test", () => {
 	// TC-INTEGRATION-006: Crash after K of N docs → journal has K entries → replayJournal resumes without duplicates
 	test("TC-INTEGRATION-006: Crash after K of N docs → journal has K entries → replayJournal resumes", async () => {
 		// Create 3 documents with UUIDs
-		const docUuidA = "doc-uuid-a";
-		const docUuidB = "doc-uuid-b";
-		const docUuidC = "doc-uuid-c";
+		const docUuidA = "019f56e4-18f5-701a-bfdf-5438918bb3bc";
+		const docUuidB = "019f56e4-18f5-701b-bfdf-5438918bb3bc";
+		const docUuidC = "019f56e4-18f5-701c-bfdf-5438918bb3bc";
 		const pageIdA = "page-111";
 		const pageIdB = "page-222";
 		const pageIdC = "page-333";

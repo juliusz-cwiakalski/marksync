@@ -70,7 +70,7 @@ describe("duplicate-uuid-fatal integration test", () => {
 
 	// TC-INTEGRATION-010: Duplicate-UUID corpus → computePlan returns err(DuplicateUuid) before any write
 	test("TC-INTEGRATION-010: Duplicate-UUID corpus → computePlan returns err(DuplicateUuid) before any write", async () => {
-		const duplicateUuid = "duplicate-uuid-xyz";
+		const duplicateUuid = "019f56e4-18f5-759b-bfdf-5438918bb3bc";
 
 		// Create 2 documents with the SAME UUID
 		fakeRepo.setFile(
@@ -114,7 +114,7 @@ This is doc B content.`,
 
 	// TC-INTEGRATION-010 (variant): Duplicate UUID in bound docs + unbound doc
 	test("TC-INTEGRATION-010: Duplicate UUID with bound + unbound docs → err(DuplicateUuid)", async () => {
-		const duplicateUuid = "duplicate-uuid-abc";
+		const duplicateUuid = "duplicate-019f56e4-18f5-7022-bfdf-5438918bb3bcbc";
 		const pageId = "page-123";
 
 		// Create 3 documents: 2 with the same UUID (1 bound, 1 unbound)
@@ -185,7 +185,7 @@ uuid: ${duplicateUuid}
 		fakeRepo.setFile(
 			"doc-a.md",
 			`---
-uuid: uuid-a
+uuid: 019f56e4-18f5-7022-bfdf-5438918bb3bc
 ---
 # Doc A`,
 		);
@@ -193,7 +193,7 @@ uuid: uuid-a
 		fakeRepo.setFile(
 			"doc-b.md",
 			`---
-uuid: uuid-b
+uuid: 019f56e4-18f5-7023-bfdf-5438918bb3bc
 ---
 # Doc B`,
 		);

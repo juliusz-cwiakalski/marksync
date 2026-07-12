@@ -68,9 +68,9 @@ describe("idempotency integration test", () => {
 			const lock = JSON.parse(JSON.stringify(baseLock)) as LockFile;
 
 			// Create 3 documents with UUIDs
-			const docUuidA = "doc-uuid-a";
-			const docUuidB = "doc-uuid-b";
-			const docUuidC = "doc-uuid-c";
+			const docUuidA = "doc-019f56e4-18f5-7022-bfdf-5438918bb3bc";
+			const docUuidB = "019f56e4-18f5-701b-bfdf-5438918bb3bc";
+			const docUuidC = "019f56e4-18f5-701c-bfdf-5438918bb3bc";
 			const pageIdA = "page-111";
 			const pageIdB = "page-222";
 			const pageIdC = "page-333";
@@ -185,7 +185,12 @@ This is doc C content.`,
 
 			// First push: computePlan + applyPlan
 			ensureCacheLayout(tmpCacheDir);
-			const firstPlanResult = await computePlan(baseConfig, lock, fakeRepo, fakeTarget);
+			const firstPlanResult = await computePlan(
+				baseConfig,
+				lock,
+				fakeRepo,
+				fakeTarget,
+			);
 			expect(firstPlanResult.ok).toBe(true);
 			const firstPlan = firstPlanResult.value!;
 
@@ -195,16 +200,11 @@ This is doc C content.`,
 				expect(entry.action.kind).toBe("NoOp");
 			}
 
-			const firstApplyResult = await applyPlan(
-				firstPlan,
-				fakeTarget,
-				lock,
-				{
-					cwd: tmpCacheDir,
-					cacheDir: tmpCacheDir,
-					targetId: "default",
-				},
-			);
+			const firstApplyResult = await applyPlan(firstPlan, fakeTarget, lock, {
+				cwd: tmpCacheDir,
+				cacheDir: tmpCacheDir,
+				targetId: "default",
+			});
 
 			expect(firstApplyResult.ok).toBe(true);
 			const firstReport = firstApplyResult.value!;
@@ -215,7 +215,12 @@ This is doc C content.`,
 			fakeTarget.resetWriteCounter();
 
 			// Second push: computePlan (no changes to local docs or remote)
-			const secondPlanResult = await computePlan(baseConfig, lock, fakeRepo, fakeTarget);
+			const secondPlanResult = await computePlan(
+				baseConfig,
+				lock,
+				fakeRepo,
+				fakeTarget,
+			);
 			expect(secondPlanResult.ok).toBe(true);
 			const secondPlan = secondPlanResult.value!;
 
@@ -226,16 +231,11 @@ This is doc C content.`,
 			}
 
 			// Apply plan (second push)
-			const secondApplyResult = await applyPlan(
-				secondPlan,
-				fakeTarget,
-				lock,
-				{
-					cwd: tmpCacheDir,
-					cacheDir: tmpCacheDir,
-					targetId: "default",
-				},
-			);
+			const secondApplyResult = await applyPlan(secondPlan, fakeTarget, lock, {
+				cwd: tmpCacheDir,
+				cacheDir: tmpCacheDir,
+				targetId: "default",
+			});
 
 			expect(secondApplyResult.ok).toBe(true);
 			const secondReport = secondApplyResult.value!;

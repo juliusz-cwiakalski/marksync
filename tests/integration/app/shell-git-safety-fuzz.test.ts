@@ -1,6 +1,6 @@
 // Integration test for shell-git safety fuzz (TC-INTEGRATION-009: malicious path/ref fuzz).
 
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -9,7 +9,7 @@ import { createShellGit } from "#infra/git/shell-git";
 describe("shell-git safety fuzz integration test", () => {
 	let tmpRepo: string;
 
-	test.beforeEach(() => {
+	beforeEach(() => {
 		// Create temp repo
 		tmpRepo = mkdtempSync(join(tmpdir(), "gh23-shell-git-"));
 
@@ -57,7 +57,7 @@ describe("shell-git safety fuzz integration test", () => {
 		});
 	});
 
-	test.afterEach(() => {
+	afterEach(() => {
 		// Cleanup temp repo
 		rmSync(tmpRepo, { recursive: true, force: true });
 	});
@@ -90,10 +90,6 @@ describe("shell-git safety fuzz integration test", () => {
 			expect(() => {
 				shellGit.readCommitted("HEAD", [maliciousPath]);
 			}).toThrow();
-
-			// The guard throws BEFORE any Bun.spawn call (0 shell-execution surfaces)
-			// We verify this by checking that the malicious input is rejected
-			// and no file system access occurs outside the repo.
 		}
 
 		// Valid paths should work (no throw)

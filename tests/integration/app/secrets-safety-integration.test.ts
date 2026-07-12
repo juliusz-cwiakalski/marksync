@@ -88,7 +88,7 @@ describe("secrets-safety integration test", () => {
 		// Define a fake token that COULD leak
 		const fakeToken = "FAKE_TOKEN_xyz123";
 
-		const docUuid = "doc-uuid-a";
+		const docUuid = "doc-019f56e4-18f5-7022-bfdf-5438918bb3bc";
 		const pageId = "page-111";
 
 		// Plant the fake token in a document (simulating a comment that could leak)
@@ -143,16 +143,11 @@ This is doc A content. Don't leak this: ${fakeToken}`,
 		expect(planJson).not.toContain(fakeToken);
 
 		// Apply plan
-		const applyResult = await applyPlan(
-			plan,
-			fakeTarget,
-			lock,
-			{
-				cwd: tmpCacheDir,
-				cacheDir: tmpCacheDir,
-				targetId: "default",
-			},
-		);
+		const applyResult = await applyPlan(plan, fakeTarget, lock, {
+			cwd: tmpCacheDir,
+			cacheDir: tmpCacheDir,
+			targetId: "default",
+		});
 
 		expect(applyResult.ok).toBe(true);
 		const report = applyResult.value!;
@@ -205,8 +200,8 @@ This is doc A content. Don't leak this: ${fakeToken}`,
 		const fakeTokenA = "FAKE_TOKEN_A";
 		const fakeTokenB = "FAKE_TOKEN_B";
 
-		const docUuidA = "doc-uuid-a";
-		const docUuidB = "doc-uuid-b";
+		const docUuidA = "doc-019f56e4-18f5-7022-bfdf-5438918bb3bc";
+		const docUuidB = "019f56e4-18f5-701b-bfdf-5438918bb3bc";
 		const pageIdA = "page-111";
 		const pageIdB = "page-222";
 
@@ -296,16 +291,11 @@ Token: ${fakeTokenB}`,
 		expect(planJson).not.toContain(fakeTokenB);
 
 		// Apply plan
-		const applyResult = await applyPlan(
-			plan,
-			fakeTarget,
-			lock,
-			{
-				cwd: tmpCacheDir,
-				cacheDir: tmpCacheDir,
-				targetId: "default",
-			},
-		);
+		const applyResult = await applyPlan(plan, fakeTarget, lock, {
+			cwd: tmpCacheDir,
+			cacheDir: tmpCacheDir,
+			targetId: "default",
+		});
 
 		expect(applyResult.ok).toBe(true);
 		const report = applyResult.value!;

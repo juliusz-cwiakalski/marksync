@@ -115,9 +115,7 @@ describe("journal writer + replay", () => {
 		});
 
 		const replayResult = replayJournal(tmp, "run-1");
-		const fileContent = replayResult
-			.map((e) => JSON.stringify(e))
-			.join("\n");
+		const fileContent = replayResult.map((e) => JSON.stringify(e)).join("\n");
 		expect(fileContent).not.toContain(fakeToken);
 	});
 

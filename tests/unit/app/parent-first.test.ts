@@ -60,10 +60,7 @@ describe("applyPlan parent-first ordering (TC-UNIT-003)", () => {
 			}),
 		attachmentExists: async () => Res.ok(false),
 		listAttachments: async () => Res.ok([]),
-		searchPages: async () =>
-			Res.ok([
-				{ id: "123", title: "Test" },
-			]),
+		searchPages: async () => Res.ok([{ id: "123", title: "Test" }]),
 		getRestrictions: async () =>
 			Res.ok({
 				pageId: "123",
@@ -139,16 +136,11 @@ describe("applyPlan parent-first ordering (TC-UNIT-003)", () => {
 		};
 
 		// Apply the plan
-		const result = await applyPlan(
-			plan,
-			mockTarget,
-			baseLock,
-			{
-				cwd: "/tmp/test",
-				cacheDir: "/tmp/test/.marksync",
-				targetId: "confluence",
-			},
-		);
+		const result = await applyPlan(plan, mockTarget, baseLock, {
+			cwd: "/tmp/test",
+			cacheDir: "/tmp/test/.marksync",
+			targetId: "confluence",
+		});
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {

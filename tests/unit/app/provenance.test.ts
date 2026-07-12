@@ -86,10 +86,7 @@ describe("applyPlan provenance wiring (TC-UNIT-002)", () => {
 			}),
 		attachmentExists: async () => Res.ok(false),
 		listAttachments: async () => Res.ok([]),
-		searchPages: async () =>
-			Res.ok([
-				{ id: "page-123", title: "Test" },
-			]),
+		searchPages: async () => Res.ok([{ id: "page-123", title: "Test" }]),
 		getRestrictions: async () =>
 			Res.ok({
 				pageId: "page-123",
@@ -113,7 +110,10 @@ describe("applyPlan provenance wiring (TC-UNIT-002)", () => {
 					uuid: "00000000-0000-0000-0000-000000000001" as DocumentId,
 					sourcePath: "doc.md",
 					state: "LOCAL_AHEAD",
-					action: { kind: "Update", uuid: "00000000-0000-0000-0000-000000000001" as DocumentId },
+					action: {
+						kind: "Update",
+						uuid: "00000000-0000-0000-0000-000000000001" as DocumentId,
+					},
 					hashes: {
 						rawHash: "sha256:new-raw",
 						canonicalHash: "sha256:new",
@@ -126,16 +126,11 @@ describe("applyPlan provenance wiring (TC-UNIT-002)", () => {
 			],
 		};
 
-		const result = await applyPlan(
-			plan,
-			mockTarget,
-			baseLock,
-			{
-				cwd: "/tmp/test",
-				cacheDir: "/tmp/test/.marksync",
-				targetId: "confluence",
-			},
-		);
+		const result = await applyPlan(plan, mockTarget, baseLock, {
+			cwd: "/tmp/test",
+			cacheDir: "/tmp/test/.marksync",
+			targetId: "confluence",
+		});
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
@@ -187,16 +182,11 @@ describe("applyPlan provenance wiring (TC-UNIT-002)", () => {
 			],
 		};
 
-		const result = await applyPlan(
-			plan,
-			mockTarget,
-			baseLock,
-			{
-				cwd: "/tmp/test",
-				cacheDir: "/tmp/test/.marksync",
-				targetId: "confluence",
-			},
-		);
+		const result = await applyPlan(plan, mockTarget, baseLock, {
+			cwd: "/tmp/test",
+			cacheDir: "/tmp/test/.marksync",
+			targetId: "confluence",
+		});
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
