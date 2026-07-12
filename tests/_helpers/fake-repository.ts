@@ -97,7 +97,9 @@ export class FakeRepository implements Repository {
 		return Res.ok(this._branchName);
 	}
 
-	listCommitSubjects(_range?: string): Result<readonly string[], MarkSyncError> {
+	listCommitSubjects(
+		_range?: string,
+	): Result<readonly string[], MarkSyncError> {
 		return Res.ok(this._commitSubjects);
 	}
 }
@@ -109,12 +111,12 @@ export function matchesPattern(path: string, pattern: string): boolean {
 	// Convert glob pattern to regex
 	// Order matters: ** must be processed before *
 	let regexPattern = pattern
-		.replace(/\./g, "\\.")  
-		.replace(/\*\*/g, "DOUBLESTAR")  
-		.replace(/\*/g, "[^/]*")  
+		.replace(/\./g, "\\.")
+		.replace(/\*\*/g, "DOUBLESTAR")
+		.replace(/\*/g, "[^/]*")
 		.replace(/DOUBLESTAR/g, ".*")
-		.replace(/\//, "/?");  // Make first / optional after ** expansion
-	
+		.replace(/\//, "/?"); // Make first / optional after ** expansion
+
 	const regex = new RegExp(`^${regexPattern}$`);
 	return regex.test(path);
 }

@@ -25,8 +25,11 @@ export class FakeTarget implements TargetSystem {
 	public createPageCalls: CreatePageRequest[] = [];
 	public updatePageCalls: UpdatePageRequest[] = [];
 	public getPageCalls: string[] = [];
-	public putPropertyCalls: Array<{ pageId: string; key: string; value: string }> =
-		[];
+	public putPropertyCalls: Array<{
+		pageId: string;
+		key: string;
+		value: string;
+	}> = [];
 
 	// Fixture pages (pageId -> Page)
 	private pages: Map<string, Page> = new Map();
