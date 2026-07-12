@@ -3,7 +3,7 @@
 import { attachmentHash } from "./hashes";
 import type { ContentHash } from "./hashes";
 import type { RemoteState, SharedBase, SyncState } from "./sync-state";
-import { SyncStateSchema, SyncStateValue } from "./sync-state";
+import { SyncStateSchema } from "./sync-state";
 import type { MarkSyncError } from "#domain/errors";
 import { Result } from "#domain/result";
 
@@ -27,11 +27,11 @@ export function classify(
 	}
 
 	if (local === undefined) {
-		return Result.ok(SyncStateValue.LOCAL_MISSING);
+		return Result.ok("LOCAL_MISSING");
 	}
 
 	if (remote.kind === "missing") {
-		return Result.ok(SyncStateValue.REMOTE_MISSING);
+		return Result.ok("REMOTE_MISSING");
 	}
 
 	const baseAttachmentHash = attachmentHash(base.attachmentHashes);
@@ -49,13 +49,13 @@ export function classify(
 
 	let state: SyncState;
 	if (!localChanged && !remoteChanged) {
-		state = SyncStateValue.NO_CHANGE;
+		state = "NO_CHANGE";
 	} else if (localChanged && !remoteChanged) {
-		state = SyncStateValue.LOCAL_AHEAD;
+		state = "LOCAL_AHEAD";
 	} else if (!localChanged && remoteChanged) {
-		state = SyncStateValue.REMOTE_AHEAD;
+		state = "REMOTE_AHEAD";
 	} else {
-		state = SyncStateValue.DIVERGED;
+		state = "DIVERGED";
 	}
 
 	const parsed = SyncStateSchema.safeParse(state);

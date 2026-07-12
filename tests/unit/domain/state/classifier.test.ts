@@ -5,10 +5,15 @@
 
 import { describe, expect, test } from "bun:test";
 import { classify, type ClassifyInput } from "#domain/state/classifier";
-import { buildContentHash, canonicalHash } from "#domain/state/hashes";
+import {
+	buildContentHash,
+	canonicalHash,
+	attachmentHash,
+} from "#domain/state/hashes";
+import type { ContentHash } from "#domain/state/hashes";
 import type { SharedBase } from "#domain/state/sync-state";
 import type { RemoteState } from "#domain/state/sync-state";
-import { SyncStateSchema, SyncStateValue } from "#domain/state/sync-state";
+import { SyncStateSchema } from "#domain/state/sync-state";
 import type { Root, Element } from "hast";
 
 const UUID = "0192b3d4-5e6f-7000-8000-00000000000a" as const;
@@ -132,7 +137,7 @@ describe("TC-STATE-001 through TC-STATE-006", () => {
 		};
 		const result = classify(input);
 		expect(result.ok).toBe(true);
-		if (result.ok) expect(result.value).toBe(SyncStateValue.NO_CHANGE);
+		if (result.ok) expect(result.value).toBe("NO_CHANGE");
 	});
 
 	test("TC-STATE-002: local changed, remote == base → LOCAL_AHEAD", () => {
@@ -142,7 +147,7 @@ describe("TC-STATE-001 through TC-STATE-006", () => {
 		const input = buildInput(baseHast, localHast);
 		const result = classify(input);
 		expect(result.ok).toBe(true);
-		if (result.ok) expect(result.value).toBe(SyncStateValue.LOCAL_AHEAD);
+		if (result.ok) expect(result.value).toBe("LOCAL_AHEAD");
 	});
 
 	test("TC-STATE-003: local == base, remote changed → REMOTE_AHEAD (INV-SAFE-1)", () => {
@@ -163,7 +168,7 @@ describe("TC-STATE-001 through TC-STATE-006", () => {
 		};
 		const result = classify(input);
 		expect(result.ok).toBe(true);
-		if (result.ok) expect(result.value).toBe(SyncStateValue.REMOTE_AHEAD);
+		if (result.ok) expect(result.value).toBe("REMOTE_AHEAD");
 	});
 
 	test("TC-STATE-004: both local and remote changed vs base → DIVERGED (INV-SAFE-1)", () => {
@@ -185,7 +190,7 @@ describe("TC-STATE-001 through TC-STATE-006", () => {
 		};
 		const result = classify(input);
 		expect(result.ok).toBe(true);
-		if (result.ok) expect(result.value).toBe(SyncStateValue.DIVERGED);
+		if (result.ok) expect(result.value).toBe("DIVERGED");
 	});
 
 	test("TC-STATE-005: binding present, remote.kind == 'missing' → REMOTE_MISSING (INV-SAFE-2)", () => {
@@ -202,7 +207,7 @@ describe("TC-STATE-001 through TC-STATE-006", () => {
 		};
 		const result = classify(input);
 		expect(result.ok).toBe(true);
-		if (result.ok) expect(result.value).toBe(SyncStateValue.REMOTE_MISSING);
+		if (result.ok) expect(result.value).toBe("REMOTE_MISSING");
 	});
 
 	test("TC-STATE-006: binding present, local absent → LOCAL_MISSING (DEC-1)", () => {
@@ -212,7 +217,7 @@ describe("TC-STATE-001 through TC-STATE-006", () => {
 		};
 		const result = classify(input);
 		expect(result.ok).toBe(true);
-		if (result.ok) expect(result.value).toBe(SyncStateValue.LOCAL_MISSING);
+		if (result.ok) expect(result.value).toBe("LOCAL_MISSING");
 	});
 });
 
@@ -256,7 +261,7 @@ describe("TC-FALSEPOS-001 through TC-FALSEPOS-005", () => {
 		const input = buildInput(baseHast, variantHast);
 		const result = classify(input);
 		expect(result.ok).toBe(true);
-		if (result.ok) expect(result.value).toBe(SyncStateValue.NO_CHANGE);
+		if (result.ok) expect(result.value).toBe("NO_CHANGE");
 	});
 
 	test("TC-FALSEPOS-002: multiple newline-containing ws nodes collapsed → NO_CHANGE", () => {
@@ -271,7 +276,7 @@ describe("TC-FALSEPOS-001 through TC-FALSEPOS-005", () => {
 		const input = buildInput(baseHast, variantHast);
 		const result = classify(input);
 		expect(result.ok).toBe(true);
-		if (result.ok) expect(result.value).toBe(SyncStateValue.NO_CHANGE);
+		if (result.ok) expect(result.value).toBe("NO_CHANGE");
 	});
 
 	test("TC-FALSEPOS-003: HTML attribute order diff → NO_CHANGE", () => {
@@ -298,7 +303,7 @@ describe("TC-FALSEPOS-001 through TC-FALSEPOS-005", () => {
 		const input = buildInput(baseHast, variantHast);
 		const result = classify(input);
 		expect(result.ok).toBe(true);
-		if (result.ok) expect(result.value).toBe(SyncStateValue.NO_CHANGE);
+		if (result.ok) expect(result.value).toBe("NO_CHANGE");
 	});
 
 	test("TC-FALSEPOS-004: raw-HTML node vs text node for same literal → NO_CHANGE", () => {
@@ -325,7 +330,7 @@ describe("TC-FALSEPOS-001 through TC-FALSEPOS-005", () => {
 		const input = buildInput(baseHast, variantHast);
 		const result = classify(input);
 		expect(result.ok).toBe(true);
-		if (result.ok) expect(result.value).toBe(SyncStateValue.NO_CHANGE);
+		if (result.ok) expect(result.value).toBe("NO_CHANGE");
 	});
 
 	test("TC-FALSEPOS-005: empty line count change → NO_CHANGE", () => {
@@ -345,7 +350,7 @@ describe("TC-FALSEPOS-001 through TC-FALSEPOS-005", () => {
 		const input = buildInput(baseHast, variantHast);
 		const result = classify(input);
 		expect(result.ok).toBe(true);
-		if (result.ok) expect(result.value).toBe(SyncStateValue.NO_CHANGE);
+		if (result.ok) expect(result.value).toBe("NO_CHANGE");
 	});
 });
 
@@ -361,8 +366,8 @@ describe("TC-REALCHG-001 through TC-REALCHG-005", () => {
 		const result = classify(input);
 		expect(result.ok).toBe(true);
 		if (result.ok) {
-			expect(result.value).not.toBe(SyncStateValue.NO_CHANGE);
-			expect(result.value).toBe(SyncStateValue.LOCAL_AHEAD);
+			expect(result.value).not.toBe("NO_CHANGE");
+			expect(result.value).toBe("LOCAL_AHEAD");
 		}
 	});
 
@@ -376,8 +381,8 @@ describe("TC-REALCHG-001 through TC-REALCHG-005", () => {
 		const result = classify(input);
 		expect(result.ok).toBe(true);
 		if (result.ok) {
-			expect(result.value).not.toBe(SyncStateValue.NO_CHANGE);
-			expect(result.value).toBe(SyncStateValue.LOCAL_AHEAD);
+			expect(result.value).not.toBe("NO_CHANGE");
+			expect(result.value).toBe("LOCAL_AHEAD");
 		}
 	});
 
@@ -391,8 +396,8 @@ describe("TC-REALCHG-001 through TC-REALCHG-005", () => {
 		const result = classify(input);
 		expect(result.ok).toBe(true);
 		if (result.ok) {
-			expect(result.value).not.toBe(SyncStateValue.NO_CHANGE);
-			expect(result.value).toBe(SyncStateValue.LOCAL_AHEAD);
+			expect(result.value).not.toBe("NO_CHANGE");
+			expect(result.value).toBe("LOCAL_AHEAD");
 		}
 	});
 
@@ -435,8 +440,8 @@ describe("TC-REALCHG-001 through TC-REALCHG-005", () => {
 		const result = classify(input);
 		expect(result.ok).toBe(true);
 		if (result.ok) {
-			expect(result.value).not.toBe(SyncStateValue.NO_CHANGE);
-			expect(result.value).toBe(SyncStateValue.LOCAL_AHEAD);
+			expect(result.value).not.toBe("NO_CHANGE");
+			expect(result.value).toBe("LOCAL_AHEAD");
 		}
 	});
 
@@ -450,8 +455,8 @@ describe("TC-REALCHG-001 through TC-REALCHG-005", () => {
 		const result = classify(input);
 		expect(result.ok).toBe(true);
 		if (result.ok) {
-			expect(result.value).not.toBe(SyncStateValue.NO_CHANGE);
-			expect(result.value).toBe(SyncStateValue.LOCAL_AHEAD);
+			expect(result.value).not.toBe("NO_CHANGE");
+			expect(result.value).toBe("LOCAL_AHEAD");
 		}
 	});
 });
@@ -475,7 +480,7 @@ describe("TC-METADATA-001, TC-METADATA-002", () => {
 		};
 		const result = classify(input);
 		expect(result.ok).toBe(true);
-		if (result.ok) expect(result.value).toBe(SyncStateValue.LOCAL_AHEAD);
+		if (result.ok) expect(result.value).toBe("LOCAL_AHEAD");
 	});
 
 	test("TC-METADATA-002: parent page id change only (body identical) → LOCAL_AHEAD (R1)", () => {
@@ -495,7 +500,7 @@ describe("TC-METADATA-001, TC-METADATA-002", () => {
 		};
 		const result = classify(input);
 		expect(result.ok).toBe(true);
-		if (result.ok) expect(result.value).toBe(SyncStateValue.LOCAL_AHEAD);
+		if (result.ok) expect(result.value).toBe("LOCAL_AHEAD");
 	});
 });
 
@@ -508,7 +513,7 @@ describe("TC-EDGE-001", () => {
 		};
 		const result = classify(input);
 		expect(result.ok).toBe(true);
-		if (result.ok) expect(result.value).toBe(SyncStateValue.LOCAL_MISSING);
+		if (result.ok) expect(result.value).toBe("LOCAL_MISSING");
 	});
 });
 
