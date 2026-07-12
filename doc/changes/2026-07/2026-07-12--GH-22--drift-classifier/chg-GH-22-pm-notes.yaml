@@ -10,10 +10,10 @@ phases:
   dor_check: { started: "2026-07-12T00:00:00Z", completed: "2026-07-12T00:00:00Z" }
   delivery: { started: "2026-07-12T00:00:00Z", completed: "2026-07-12T00:00:00Z" }
   system_spec_update: { started: "2026-07-12T00:00:00Z", completed: "2026-07-12T00:00:00Z" }
-  review_fix: { started: "2026-07-12T00:00:00Z", completed: null }
-  quality_gates: { started: null, completed: null }
-  dod_check: { started: null, completed: null }
-  pr_creation: { started: null, completed: null, url: null }
+  review_fix: { started: "2026-07-12T00:00:00Z", completed: "2026-07-12T00:00:00Z" }
+  quality_gates: { started: "2026-07-12T00:00:00Z", completed: "2026-07-12T00:00:00Z" }
+  dod_check: { started: "2026-07-12T00:00:00Z", completed: "2026-07-12T00:00:00Z" }
+  pr_creation: { started: "2026-07-12T00:00:00Z", completed: "2026-07-12T00:00:00Z", url: "https://github.com/juliusz-cwiakalski/marksync/pull/57" }
 decisions:
   - text: >
       Issue body wording "5-state drift classification" / "5 states correctly

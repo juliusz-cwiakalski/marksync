@@ -153,7 +153,7 @@ no_regressions:
     evidence: remote.kind === "missing" → REMOTE_MISSING → Block (classifier.ts:33-35; actions.ts:41-46).
   - invariant: DEC-1 (local optional)
     holds: true
-    evidence: ClassifyInput.local?: ContentHash (classifier.ts:11); local === undefined → LOCAL_MISSING (line 29-31).
+    evidence: "ClassifyInput.local?: ContentHash (classifier.ts:11); local === undefined → LOCAL_MISSING (line 29-31)."
   - invariant: DEC-3 (no new error arms)
     holds: true
     evidence: Only Forbidden (403), Conflict, RemoteMissing — all pre-existing in errors.ts. errors.ts unmodified (git diff = 0).
