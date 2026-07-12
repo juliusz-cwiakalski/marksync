@@ -64,7 +64,12 @@ export async function planCommand(): Promise<CommandResult<Plan>> {
 		planResult = await computePlan(config, lock, git, target);
 	} catch (e) {
 		// Git failures throw as host invariants → INTERNAL
-		return err("INTERNAL", "internal error", false);
+		// Include a redacted summary of the error (F-8)
+		const message =
+			e instanceof Error
+				? `internal error: git operation failed (${e.name})`
+				: "internal error: git operation failed";
+		return err("INTERNAL", message, false);
 	}
 	if (!planResult.ok) {
 		const mapped = mapMarkSyncErrorToCommandError(planResult.error);

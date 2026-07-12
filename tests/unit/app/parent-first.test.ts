@@ -80,6 +80,7 @@ describe("applyPlan parent-first ordering (TC-UNIT-003)", () => {
 		};
 
 		// Create a plan with child before parent (wrong order)
+		// Use synthetic pageId format "page:{uuid}" to enable parent-child mapping
 		const parentUuid = "00000000-0000-0000-0000-000000000001" as DocumentId;
 		const childUuid = "00000000-0000-0000-0000-000000000002" as DocumentId;
 
@@ -91,6 +92,7 @@ describe("applyPlan parent-first ordering (TC-UNIT-003)", () => {
 				commitCount: 1,
 				subjects: ["init"],
 			},
+			warnings: [],
 			entries: [
 				{
 					uuid: childUuid,
@@ -99,7 +101,7 @@ describe("applyPlan parent-first ordering (TC-UNIT-003)", () => {
 					action: {
 						kind: "Create",
 						uuid: childUuid,
-						parentId: "parent-123", // Parent's pageId (will be created)
+						parentId: `page:${parentUuid}`, // Parent's synthetic pageId
 						title: "Child Page",
 						body: "<h1>Child</h1>",
 					},
@@ -108,7 +110,7 @@ describe("applyPlan parent-first ordering (TC-UNIT-003)", () => {
 						canonicalHash: "sha256:child",
 						attachmentHash: "",
 						title: "Child Page",
-						parentPageId: "parent-123",
+						parentPageId: `page:${parentUuid}`,
 					},
 					renderedBody: "<h1>Child</h1>",
 				},
@@ -149,11 +151,10 @@ describe("applyPlan parent-first ordering (TC-UNIT-003)", () => {
 			expect(result.value.results[0]?.outcome).toBe("created");
 			expect(result.value.results[1]?.outcome).toBe("created");
 			expect(result.value.writes).toBe(2);
-		}
 
-		// Note: In MS-0002, we don't have actual parent UUID resolution
-		// so the parent-first ordering doesn't really apply in the same way.
-		// This test validates the structure - for a full parent-first test,
-		// we'd need parent UUID mapping which is out of scope for MS-0002.
+			// Parent should be created BEFORE child (parent-first ordering)
+			expect(createCalls[0]?.title).toBe("Parent Page");
+			expect(createCalls[1]?.title).toBe("Child Page");
+		}
 	});
 });

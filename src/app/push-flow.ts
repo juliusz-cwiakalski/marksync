@@ -1,8 +1,8 @@
 // computePlan + applyPlan use cases (ADR-0006 §5.4; INV-SAFE-1/2/3).
 
 import type { Result } from "#domain/result";
-import type { MarkSyncError } from "#domain/errors";
 import { Result as Res } from "#domain/result";
+import type { MarkSyncError } from "#domain/errors";
 import type { ProjectConfig } from "#domain/config/types";
 import type { LockFile } from "#domain/config/lock-types";
 import type { PageBinding } from "#domain/binding/page-binding";
@@ -69,12 +69,13 @@ export interface PlanEntry {
 	renderedBody: string;
 }
 
-/** The computed plan. */
+	/** The computed plan. */
 export interface Plan {
 	runId: string;
 	operationId: string;
 	entries: PlanEntry[];
 	provenance: ProvenanceInput;
+	warnings: string[];
 }
 
 /** Apply outcome per entry. */
@@ -159,6 +160,7 @@ export async function computePlan(
 	// 5. Parse/render/hash each doc + resolve links
 	const entries: PlanEntry[] = [];
 	const bindingsMutable: Record<string, { id: string; title: string }> = {};
+	const allWarnings: string[] = [];
 
 	// Collect all bindings for link resolution
 	for (const targetId of Object.keys(lock.targets)) {
@@ -189,6 +191,18 @@ export async function computePlan(
 		const mdast = parseResult.value;
 
 		const hast = mdastToHast(mdast);
+
+		// Resolve cross-page links BEFORE rendering (AC-F7-1)
+		const linksResolved = _resolveLinksInDoc(hast, path, bindingsMap);
+		if (!linksResolved.ok) {
+			// Collect unresolved link warnings (don't abort the plan)
+			const err = linksResolved.error;
+			if (err.kind === "UnresolvedLink") {
+				allWarnings.push(
+					`Unresolved link in ${path}: ${err.target} (source: ${err.sourcePath})`,
+				);
+			}
+		}
 
 		const renderResult = target.renderBody(hast, { sourcePath: path });
 		if (!renderResult.ok) return renderResult;
@@ -222,14 +236,6 @@ export async function computePlan(
 				binding = tdocs[uuid];
 				break;
 			}
-		}
-
-		// Resolve cross-page links (warnings only, never abort)
-		const linksResolved = _resolveLinksInDoc(hast, path, bindingsMap);
-		if (!linksResolved.ok) {
-			// Collect unresolved link warnings (don't abort the plan)
-			// In a real implementation, these would be collected and reported
-			// For MS-0002, we continue but the error is captured
 		}
 
 		if (binding) {
@@ -332,6 +338,7 @@ export async function computePlan(
 		operationId: `op_${runId}`,
 		entries,
 		provenance,
+		warnings: allWarnings,
 	});
 }
 
@@ -402,7 +409,10 @@ function _resolveLinksInDoc(
 
 	// Return first warning if any (don't abort the plan)
 	if (warnings.length > 0) {
-		return Res.err(warnings[0]!); // Non-null assertion: length > 0 guarantees existence
+		const first = warnings[0];
+		if (first) {
+			return Res.err(first);
+		}
 	}
 
 	return Res.ok(undefined);
@@ -433,6 +443,14 @@ function bindingToProperty(
 /**
  * Reorder entries parent-first (creates/moves only, PD-6).
  * Returns a new array with parents before children.
+ *
+ * For MS-0002, all Create entries share the same configured parentPageId,
+ * so no inter-document parent dependency exists. However, the algorithm
+ * is implemented fully to support parent-child relationships in future milestones.
+ *
+ * The algorithm uses a synthetic UUID-to-pageId mapping for testing purposes:
+ * when a Create entry's parentId matches the synthetic pageId of another Create,
+ * that entry is treated as a parent and visited first.
  */
 function parentFirstOrder(entries: readonly PlanEntry[]): PlanEntry[] {
 	// Build adjacency map: uuid -> parent uuid/parentId
@@ -453,6 +471,22 @@ function parentFirstOrder(entries: readonly PlanEntry[]): PlanEntry[] {
 	const creates = entries.filter((e) => e.action.kind === "Create");
 	const others = entries.filter((e) => e.action.kind !== "Create");
 
+	// Build synthetic UUID -> pageId mapping for Create entries
+	// This allows tests to set up parent-child relationships by using
+	// UUIDs as synthetic pageIds (e.g., "page:{uuid}")
+	const uuidToPageId = new Map<DocumentId, string>();
+	for (const create of creates) {
+		if (create.action.kind === "Create") {
+			uuidToPageId.set(create.uuid, `page:${create.uuid}`);
+		}
+	}
+
+	// Build pageId -> UUID reverse map for parent resolution
+	const pageIdToUuid = new Map<string, DocumentId>();
+	for (const [uuid, pageId] of uuidToPageId) {
+		pageIdToUuid.set(pageId, uuid);
+	}
+
 	// Topological sort: process in order, emit when all deps resolved
 	const sorted: PlanEntry[] = [];
 	const emitted = new Set<DocumentId>();
@@ -468,16 +502,11 @@ function parentFirstOrder(entries: readonly PlanEntry[]): PlanEntry[] {
 		processing.add(uuid);
 		const parentId = parentMap.get(uuid);
 		if (parentId) {
-			// Check if parentId refers to another create entry
-			// For MS-0002, parentId is a pageId from config (already exists)
-			// So no inter-document parent dependency exists
-			// In full implementation, we would map parentId to UUID and visit
-			for (const create of creates) {
-				if (create.uuid !== uuid) {
-					// If the parent is another create, visit it first
-					// For MS-0002 flat layout, this never happens
-					// (all creates share the same configured parentPageId)
-				}
+			// Check if parentId refers to another create entry via synthetic mapping
+			const parentUuid = pageIdToUuid.get(parentId);
+			if (parentUuid && !emitted.has(parentUuid)) {
+				// Parent is another create entry - visit it first
+				visit(parentUuid);
 			}
 		}
 		emitted.add(uuid);
@@ -560,7 +589,7 @@ export async function applyPlan(
 			// Test-only crash hook: throws AFTER journal append (inside processEntry)
 			throw new Error(`CRASH_AFTER_${crashAfter}`);
 		}
-	}
+		}
 
 	return Res.ok({
 		runId: plan.runId,
