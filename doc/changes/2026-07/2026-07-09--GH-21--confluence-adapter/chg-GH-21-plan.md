@@ -1125,6 +1125,72 @@ discharges every spec AC through the documented seam.
 
 ---
 
+### Phase 10: Code Review Remediation (Iteration 2)
+
+> Added by `@reviewer` after iteration-2 review
+> (`code-review/findings-iter-2.json` / `review-iter-2.md`). Verdict was FAIL:
+> iter-1 finding 1 only PARTIALLY resolved (the option-(c) spec reconciliation
+> never executed → AC-F5-1 unmet as written), and the redaction-duplication MAJOR
+> (finding 8) is still open. `@coder` to address.
+
+**Goal**: Close the two open MAJORs — reconcile the spec to the hash-naming
+decision so AC-F5-1 passes by design (finding 1), and collapse the duplicated /
+drifted redaction to a single source of truth on the security path (finding 8) —
+plus the carry-forward minors and the vestigial `/data` test scaffolding.
+
+**Tasks**:
+
+- [ ] **10.1 (MAJOR — finding 1 / AC-F5-1b, carried)** Reconcile the spec to the
+      option-(c) decision in a single pass so the contract matches the
+      implementation. Rewrite AC-F5-1's second clause (spec L391) to state that
+      changed bytes produce a **fresh create** via a new hash-derived filename
+      (not a `/data` version bump). Update every remaining `/data`-update
+      reference: F-5 (L139), G-5 (L80), NFR-4 (L283), DEC-3 (L358), the endpoints
+      table (L246), the artifacts table (L376), the Test Scenarios row TC-UPD-001
+      (L1150 — now orphaned; drop or repurpose to an idempotent-rerun case), and
+      `doc/spec/features/feature-confluence-adapter.md:125`. Promote the rationale
+      to a durable record (PDR/ADR, or formalize the `REVIEW-1-MAJOR` pm-notes
+      entry). After this, AC-F5-1 passes by design.
+- [ ] **10.2 (MAJOR — finding 8, re-verified)** Eliminate the duplicated redaction
+      in `client.ts`. Preferred: lift the patterns/`Redactor` to a tier both infra
+      and presentation may import (e.g. `src/shared/`) so `redactLog` imports the
+      single source of truth (`DEFAULT_PATTERNS`). Minimal acceptable: restore the
+      missing `env-token` pattern, adopt the canonical `[REDACTED:<kind>]`
+      sentinels, AND add a structural compatibility test asserting `redactLog`'s
+      pattern set equals `DEFAULT_PATTERNS` (fail the gate on future drift). Do
+      not leave two independently-evolving security regex sets.
+- [ ] **10.3 (MINOR — finding 12, new)** Remove the vestigial `/data` scaffolding
+      from `TC-INT-ATT-DUP` (`tests/integration/confluence/confluence-target.test.ts`):
+      drop the `/data` mock handler (L211-218) and retitle the describe block to
+      "duplicate upload → already exists" (no `/data` clause). Optional: add an
+      idempotent-rerun case proving a second upload of the SAME hash performs 0
+      writes (the real AC-F5-1 intent under hash-naming).
+- [ ] **10.4 (MINOR — finding 10, carried)** Resolve the shared 429/5xx retry
+      budget: either correct the `MAX_RETRIES` comment (client.ts:11) to describe
+      the single-shared-budget design and add a mixed 429/5xx test, or split into
+      independent per-status counters if "max 3 each" is the intended contract.
+- [ ] **10.5 (MINOR — finding 9, carried)** `resolveExisting` fabricated id:
+      extract the `"unknown"` magic string (attachments.ts:125) to a named
+      constant and add a one-line note that `id`/`version` are best-effort on the
+      unresolvable edge (or return a distinguishable outcome / omit the id).
+- [ ] **10.6 (NIT — finding 11, carried)** `TC-INT-PROP-RT`: make the GET mock
+      return a fixed fixture independent of the POST capture (or narrow the
+      assertion to "a v2 POST then a v2 GET happened" and rely on the unit test
+      for byte-equality).
+
+**Acceptance criteria**:
+
+- Must: AC-F5-1 passes by design — spec reconciled; no remaining `/data`-update
+  claim in the change spec, plan Test Scenarios, or system spec.
+- Must: one redaction source of truth (or a parity test gating drift); AC-F2-2
+  still holds.
+- Must: `bun run check` green; `depcruise src` clean; no `/data` references left
+  in `TC-INT-ATT-DUP`.
+
+**Completion signal**: _to be set by `@coder`_
+
+---
+
 ## Test Scenarios
 
 | ID | Scenario | Phases | AC |
@@ -1188,6 +1254,7 @@ discharges every spec AC through the documented seam.
 | 1.1 | 2026-07-10 | plan-writer | DoR iteration-2 fix (MAJOR): align the boundary negative test (TC-BND-001 / AC-F1-1) with the test plan's iteration-1 fix. The prior static `tests/`-located fixture approach is non-viable (the production `.dependency-cruiser.cjs` rule filters `from: { path: "src/domain/" }` and runs `depcruise src`, so a fixture under `tests/` cannot fire the production rule). Rewrote PD-4, the Phase 2 mechanism open question (now resolved — only API-vs-subprocess remains a delivery detail), Phase 2 tasks 2.2/2.3, the Phase 2 acceptance criteria, TC-BND-001, and the Artifacts table to the ephemeral `src/domain/__boundary_probe__.ts` approach: probe created at runtime under `src/domain/`, cruised with the **production** ruleset (no proxy/adapted copy), then deleted in `afterEach`/`finally` (cleanup is load-bearing — a leaked probe permanently breaks `depcruise src`). No committed fixture file. |
 | 1.2 | 2026-07-10 | reviewer | Review iteration-1 remediation: appended Phase 9 (Code Review Remediation, iter-1). Verdict FAIL on 1 MAJOR (AC-F5-1b — `/data` attachment update implemented on `AttachmentService` + unit-tested but unreachable via the `TargetSystem` port; E4-S1/E4-S2 blocked on it) + 4 MINOR (hardcoded `USER_AGENT` version; HTTP 401 → `RemoteUnreachable` misclassification; `Retry-After` HTTP-date unsupported; duplicated `RenderedBody` types with no compatibility test) + 2 NIT (boundary-probe leak blast radius; awkward `ConfluenceClient` import alias). 8 of 9 ACs PASS; AC-F5-1 PARTIAL. Findings in `code-review/findings-iter-1.json`. |
 | 1.3 | 2026-07-10 | coder | Phase 9 executed — all 7 iter-1 findings fixed. 9.1 resolved as option **(c)** (decision authority / user-directed; supersedes tentative (b) in pm-notes): removed orphaned `AttachmentService.update()` + `TC-UPD-001`, documented the hash-naming invariant in `attachments.ts`. 9.2 `USER_AGENT` ← `package.json`; 9.3 `unreachableCause()` helper (401 → `"HTTP 401 Unauthorized (token expired?)"`) across pages/properties/attachments/search/restrictions; 9.4 `Retry-After` comment; 9.5 port `RenderedBody`/`RenderBodyOptions` note + `TC-RENDER-TYPES-001` compatibility test; 9.6 boundary-probe `beforeAll`/`afterAll` + `.gitignore`; 9.7 `target.ts` import simplified. `bun run check` = 772/0; depcruise clean. |
+| 1.4 | 2026-07-10 | reviewer | Re-review iteration-2 after remediation (commit 91363a5). Verdict **FAIL**: 6 of 7 iter-1 findings fully resolved (2-7); finding 1 only PARTIALLY resolved - the option-(c) **spec reconciliation was never executed** (plan task 9.1 itself flagged it as a deferred follow-up), so AC-F5-1 as-written still requires `/data` update and is unmet; spec/impl drift across AC-F5-1 + ~12 refs + DEC-3 + NFR-4 + system spec + integration-test title. Iter-2 also re-verified the 4 findings a stale pre-remediation iter-2 draft had raised: finding 8 (MAJOR - duplicated, already-drifted redaction in `client.ts` bypassing the centralized layer, missing `env-token`; violates Review Priority #2) still open; 9 (MINOR - fabricated `id:"unknown"`), 10 (MINOR - shared 429/5xx budget), 11 (NIT - store-and-echo RT mock) still open. New finding 12 (MINOR): vestigial `/data` mock + title in `TC-INT-ATT-DUP` left by the partial removal. 8 of 9 ACs PASS; AC-F5-1 FAIL as written. Appended Phase 10. Findings in `code-review/findings-iter-2.json`. |
 
 ## Execution Log
 
@@ -1206,3 +1273,4 @@ discharges every spec AC through the documented seam.
 | 7 — integration (Bun.serve mock) | ✅ | 2026-07-10 | 2026-07-10 | 5c5ddcd | PASS (772/0) | all ACs; 200/409/403/400/429/5xx + no-leak + no-telemetry + boundary |
 | 8 — final gate + boundary + doc handoff | ✅ | 2026-07-10 | 2026-07-10 | _this phase_ | PASS (772/0) | AC-Q-1; boundary clean; doc handoff to phase 7 |
 | 9 — code review remediation (iter-1) | ✅ | 2026-07-10 | 2026-07-10 | _this phase_ | PASS (772/0) | 7 findings fixed: 9.1 option (c) (removed orphaned AttachmentService.update + TC-UPD-001, documented hash-naming); 9.2 USER_AGENT ← package.json; 9.3 401 diagnostic via unreachableCause across all services; 9.4 Retry-After comment; 9.5 RenderedBody compatibility test TC-RENDER-TYPES-001; 9.6 boundary-probe beforeAll/afterAll + gitignore; 9.7 target.ts import simplified; depcruise clean |
+| 10 — code review remediation (iter-2) | ⏳ | 2026-07-10 | — | — | — | PENDING. Re-review FAIL: 10.1 reconcile spec to hash-naming (AC-F5-1 unmet as written); 10.2 collapse duplicated/drifted redaction (security path); 10.3 drop vestigial `/data` test scaffolding; 10.4 shared 429/5xx budget; 10.5 fabricated attachment id; 10.6 store-and-echo RT mock. |

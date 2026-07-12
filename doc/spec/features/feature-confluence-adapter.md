@@ -122,7 +122,7 @@ adapter-agnostic value types (`Page`, `CreatePageRequest`, `UpdatePageRequest`
 | ConfluenceClient | `src/infra/confluence/client.ts` | Native-`fetch` HTTP transport; `v1`/`v2` URL builders rooted at `baseUrl`; `authHeader` injection; redacted logging; 429 backoff → `RateLimited`; 5xx retry → `RemoteUnreachable`; 401/403 never retried |
 | PageService | `src/infra/confluence/pages.ts` | Page create/read/update/move via v2; the 409-conflict parse → typed `Conflict`; 403 → `Forbidden`; 404 → `RemoteMissing` |
 | PropertyService | `src/infra/confluence/properties.ts` | `marksync.metadata` string content-property read/write via v2 (lock cross-check) |
-| AttachmentService | `src/infra/confluence/attachments.ts` | Multipart upload (v1); 400-duplicate-filename idempotency signal → "already exists"; `/data` update on changed bytes; existence + list |
+| AttachmentService | `src/infra/confluence/attachments.ts` | Multipart upload (v1); 400-duplicate-filename idempotency signal → "already exists"; existence + list. `/data` update removed (hash-naming makes it unnecessary: changed bytes → new filename → fresh create) |
 | SearchService | `src/infra/confluence/search.ts` | CQL page discovery via v1 (minimal) |
 | RestrictionsService | `src/infra/confluence/restrictions.ts` | Page restrictions read via v1 (minimal) |
 | Provenance formatter | `src/infra/confluence/provenance.ts` | `version.message` formatter (ADR-0010); deterministic trim to `MAX_VERSION_MESSAGE_LEN` |
