@@ -1,0 +1,357 @@
+version: 1
+iteration: 1
+mode: local
+work_item_ref: GH-23
+branch: feat/GH-23/sync-engine
+head_sha: c82c4e07968c0478d290e942899eb4f0acd8e08c
+status: FAIL
+summary: >
+  The sync-engine safety core is solid and well-tested: computePlan is pure
+  (0 writes), the duplicate-UUID fatal gate fires before render, branch-gate
+  precedes discovery, INV-SAFE-1/2 blocks produce 0 writes with REAL classify,
+  the 409 path surfaces as drift with exactly one updatePage (no retry),
+  per-document isolation holds, idempotency yields writes===0, the journal
+  appends before lock-update, and DM-8 holds (errors.ts + all GH-22 state
+  modules unchanged; provenance uses the REAL formatVersionMessage). However
+  two acceptance criteria are NOT demonstrably satisfied: AC-F7-1 (the link
+  resolver is delivered as a pure function with unit tests but is never wired
+  into computePlan — `_resolveLinksInDoc` is a no-op stub and the bindings map
+  is discarded, so cross-page .md links are never resolved/rewritten in the
+  pipeline) and AC-F6-1 (parent-first ordering is a non-functional stub whose
+  test never asserts ordering or the cycle guard). Plus a PD-3 error-discipline
+  divergence in shell-git, a wrong toolVersion, and several test-honesty gaps.
+  Status FAIL pending remediation of F-1/F-2 (or formal descoping) plus the
+  medium findings.
+severity_breakdown:
+  critical: 0
+  high: 3
+  medium: 6
+  low: 7
+  info: 1
+spec_compliance: FAIL
+plan_compliance: FAIL
+findings:
+  - id: F-1
+    severity: high
+    confidence: high
+    category: spec-compliance
+    location: src/app/push-flow.ts:218-221,358-367
+    message: >
+      AC-F7-1 / F-5 (cross-page link resolver) is NOT wired into the engine.
+      `resolveLink` is never imported or called in push-flow.ts; `_resolveLinksInDoc`
+      is a no-op stub (returns void) and the line `void bindingsMap; void _resolveLinksInDoc;`
+      explicitly discards both the bindings map and the helper. As a result cross-page
+      `.md` links are never resolved to Confluence page references in the actual
+      computePlan→applyPlan pipeline, so Confluence internal links between managed
+      pages will not work after sync (hrefs publish as literal `other.md`). The
+      resolver function itself works in its own unit test, but F-5's stated purpose
+      ("so Confluence internal links work after sync") is unmet. The "no broken URL
+      emitted silently" half is satisfied only vacuously (nothing is rewritten).
+    suggestion: >
+      Wire the resolver: walk the rendered HAST link nodes in computePlan, call
+      `resolveLink` for each `.md` target against the bindings map, rewrite resolved
+      hrefs to the target PageRef id, and collect `UnresolvedLink` entries as plan
+      warnings (never abort). Alternatively, formally descope link-rewriting to a
+      later story with an explicit acknowledgment that MS-0002 publishes literal
+      `.md` hrefs, and update AC-F7-1 + the spec accordingly.
+    suppressed: false
+    published_url: null
+  - id: F-2
+    severity: high
+    confidence: high
+    category: correctness
+    location: src/app/push-flow.ts:395-451
+    message: >
+      AC-F6-1 / NFR-9 / PD-6 (parent-first topological ordering) is a
+      non-functional stub. `parentFirstOrder` builds a `parentMap` and a
+      `processing` cycle-set but the `visit` function's parent edge is commented
+      out ("For now, skip parent resolution"), so it never follows parent
+      dependencies, never reorders, and the cycle guard can never fire. The
+      accompanying test (tests/unit/app/parent-first.test.ts) captures
+      `createCalls` but never asserts the ordering, and its own comment admits
+      "parent-first ordering doesn't really apply in the same way … validates the
+      structure." AC-F6-1 is therefore not demonstrably satisfied, and PD-6's
+      "cycle → throw" invariant is unimplemented and untested.
+    suggestion: >
+      Either (a) implement real parent-first: map each Create's `parentId` to the
+      target create's uuid, topologically sort, throw on cycles, and assert
+      call-order + a cycle-throws case in the test; or (b) if MS-0002 is genuinely
+      flat-under-configured-parent (spec §7.2) with no inter-page parent edges,
+      remove the misleading stub, replace it with a stable passthrough + a clear
+      comment, and mark AC-F6-1 as N/A-for-MS-0002 with spec justification.
+    suppressed: false
+    published_url: null
+  - id: F-3
+    severity: high
+    confidence: high
+    category: correctness
+    location: src/infra/git/shell-git.ts:137-160
+    message: >
+      PD-3 / plan task 1.3 explicitly require that a genuine git runtime failure
+      (non-zero exit on pre-validated input) THROW as a host-invariant violation
+      ("Non-zero git exit → throw (host invariant)"). Instead `spawnGit` returns
+      `Result.err({ kind: "RemoteUnreachable", cause: ... })` for every non-zero
+      exit, non-success spawn, and thrown exception. Using `RemoteUnreachable`
+      for a LOCAL git failure is semantically wrong (git is not a remote; this
+      arm is documented for network/transport failures to Confluence) and will
+      map to a misleading exit code / retry hint for operators and agents. The
+      malicious-path guards (`validateRef`/`validateRepoRelative`) DO throw
+      correctly — the divergence is only the runtime-failure path. (Not a
+      swallow — the error is surfaced via Result — but it contradicts the
+      documented error discipline and misuses an error arm.)
+    suggestion: >
+      Make non-zero git exit / spawn failure `throw` (host invariant) per PD-3,
+      keeping DM-8 intact (no new arm). If a typed channel is genuinely preferred,
+      raise it with the spec-writer/PM as a PD-3 amendment rather than silently
+      reusing `RemoteUnreachable`.
+    suppressed: false
+    published_url: null
+  - id: F-4
+    severity: medium
+    confidence: high
+    category: correctness
+    location: src/app/push-flow.ts:668
+    message: >
+      `toolVersion: "1.0.0"` is hardcoded for newly-created bindings (with a
+      `// TODO: from package`) while package.json declares version `0.4.0`. The
+      recorded toolVersion in both the lock and the `marksync.metadata` property
+      will therefore be wrong, undermining the provenance/metadata accuracy that
+      NFR-REL-9 / reconcile rely on. `bindingToProperty` propagates
+      `binding.toolVersion`, so updates inherit whatever stale value the binding
+      already carries.
+    suggestion: >
+      Read the tool version from a single source (e.g. a `VERSION` constant
+      derived from package.json at build time, or `import { version } from
+      "package.json"`) and use it for both Create and the property. Avoid the
+      magic string.
+    suppressed: false
+    published_url: null
+  - id: F-5
+    severity: medium
+    confidence: high
+    category: correctness
+    location: src/app/push-flow.ts:479,509-513
+    message: >
+      The `crashAfter` hook increments `processed` for EVERY entry (noop/skip/
+      block/update/create) and throws when `processed >= crashAfter`. PD-5
+      specifies "throws after the K-th SUCCESSFUL mutation, AFTER the journal
+      append." In a mixed plan (e.g. a Block or NoOp before the K-th write) the
+      hook fires at the wrong point, so the crash-replay semantics diverge from
+      the spec. The current crash-replay test passes only because all three
+      entries are writes (processed==successful coincidentally).
+    suggestion: >
+      Increment the crash counter only on `created`/`updated` outcomes, then
+      throw after the journal append, matching PD-5.
+    suppressed: false
+    published_url: null
+  - id: F-6
+    severity: medium
+    confidence: high
+    category: testing
+    location: tests/integration/app/apply-plan-integration.test.ts:22-30
+    message: >
+      Integration test fixtures construct `ProjectConfig.targets.default` with
+      fields `spaceId`/`url`/`email`/`secretName` that do NOT exist on
+      `TargetConfig`, and omit the required `type: "confluence"` and `spaceKey`.
+      This is invisible because tsconfig.json excludes `tests/` from `tsc
+      --noEmit`. The fixtures only happen to work because computePlan reads just
+      `parentPageId`. Production (plan.ts/sync.ts) reads `spaceKey` and constructs
+      the real adapter — so the tests exercise a structurally-wrong config that
+      diverges from the real contract (classic test/prod drift).
+    suggestion: >
+      Either typecheck tests (a separate `tsconfig.test.json` included in CI) or
+      fix every fixture to the real `TargetConfig` shape (`type`/`spaceKey`/
+      `parentPageId`). Preferably both — the current setup lets config-contract
+      changes go uncaught.
+    suppressed: false
+    published_url: null
+  - id: F-7
+    severity: medium
+    confidence: high
+    category: testing
+    location: tests/unit/infra/git/shell-git.test.ts:7-53
+    message: >
+      The "shell-git path validation" unit tests define test-only STUB copies of
+      `validateRepoRelative`/`validateRef` and exercise the copies, not the real
+      `src/domain/git/paths.ts` guards (comment: "avoiding domain imports in infra
+      test"). The real guards ARE covered by TC-INTEGRATION-009 via
+      `createShellGit`, but this unit file is misleading — it looks like guard
+      coverage but tests a duplicate. If the real guard regresses, these tests
+      still pass.
+    suggestion: >
+      Delete the stub copies and test the real guards directly (importing
+      `#domain/git/paths` is fine — dep-cruiser's `domain-may-not-import-infra`
+      only forbids the reverse direction). Or remove the redundant unit cases and
+      rely on the integration fuzz test, with a comment pointing to it.
+    suppressed: false
+    published_url: null
+  - id: F-8
+    severity: medium
+    confidence: high
+    category: plan-compliance
+    location: .gitignore:39-40
+    message: >
+      PD-11 / Phase 8.2 require dep-cruiser negative-probe tests + `.gitignore`
+      entries for the NEW `src/domain/git/` and `src/domain/hierarchy/` modules,
+      mirroring the GH-22 `src/domain/state/` precedent. Only
+      `src/domain/__boundary_probe__.ts` and `src/domain/state/__boundary_probe__.ts`
+      are gitignored; `tests/unit/domain/{git,hierarchy}/boundary-negative.test.ts`
+      do not exist. The production tree is boundary-clean (depcruise passes), but
+      the specified PROOF mechanism for the new modules was not delivered.
+    suggestion: >
+      Add `src/domain/git/__boundary_probe__.ts` and
+      `src/domain/hierarchy/__boundary_probe__.ts` to `.gitignore` and create the
+      two boundary-negative tests mirroring
+      `tests/unit/domain/state/boundary-negative.test.ts`, OR explicitly justify
+      why the existing `state/`+`target/` probes sufficiently cover the new
+      modules and amend PD-11.
+    suppressed: false
+    published_url: null
+  - id: F-9
+    severity: medium
+    confidence: medium
+    category: correctness
+    location: src/app/push-flow.ts:579-586
+    message: >
+      In `processEntry`, a transient transport error (RateLimited/
+      RemoteUnreachable) from `updatePage`/`createPage` is recorded as
+      `outcome: "blocked"` — identical to a Conflict/drift block. The inline
+      comment even says "Other errors → failed (but continue)" but there is no
+      "failed" outcome, so both branches return `blocked`. This conflates a
+      retryable transient failure with a non-retryable safety block in the
+      ApplyReport, making it hard for E3-S7 / operators to tell what to retry.
+    suggestion: >
+      Either add a `failed` outcome (PD-7 amendment) for non-drift errors, or at
+      minimum keep the typed error on the result (which you do) and document that
+      `blocked` covers both drift and transient failures for MS-0002. Align the
+      misleading "→ failed" comment with the actual behavior.
+    suppressed: false
+    published_url: null
+  - id: F-10
+    severity: low
+    confidence: high
+    category: testing
+    location: tests/integration/app/crash-replay.test.ts:240-256
+    message: >
+      AC-F4-1's "recovery resumes without duplicates" clause is not verified.
+      The test asserts the journal has K=2 entries and `replayJournal` returns
+      them, but it never re-applies to confirm doc C is written exactly once
+      across both runs (the test comment admits "we just assert that
+      replayJournal returns the completed ops").
+    suggestion: >
+      Add a second apply that filters out journaled uuids and assert doc C is the
+      only new write and docs A/B are not re-written.
+    suppressed: false
+    published_url: null
+  - id: F-11
+    severity: low
+    confidence: high
+    category: testing
+    location: tests/integration/app/apply-plan-integration.test.ts:639-649
+    message: >
+      AC-F9-1's "`reconcileWithProperty` agrees" clause is not verified.
+      TC-INTEGRATION-008 asserts `putProperty` ran and the lock's sourceCommit
+      was updated, but never parses the property JSON and calls
+      `reconcileWithProperty(updatedBinding, parsedProperty)`. The implementation
+      appears correct (bindingToProperty emits all MetadataProperty fields and
+      reconcile checks sourceCommit), but the named clause is untested.
+    suggestion: >
+      Parse the captured `putProperty` value and assert
+      `reconcileWithProperty(updatedBinding, parsed) → ok()` (REAL
+      reconcileWithProperty).
+    suppressed: false
+    published_url: null
+  - id: F-12
+    severity: low
+    confidence: high
+    category: style
+    location: src/app/push-flow.ts:71,95,205,457-461
+    message: >
+      Bare alphabet-soup compliance tags are scattered through push-flow.ts:
+      `(PD-9)`, `(PD-7)`, `(PD-5)`, `(PD-8, DEC-6)`, `(DEC-5)`, `(PD-6)`,
+      `(NFR-REL-7)`. AGENTS.md and .ai/rules/typescript.md explicitly forbid
+      these as silent compliance markers ("No bare alphabet-soup tags … must
+      carry context, not stand alone").
+    suggestion: >
+      Remove the bare tags or fold them into a sentence that carries context
+      (e.g. "journal BEFORE lock-update so a crash leaves a recoverable trail
+      (ADR-0006 C-3)"). Cite the authority once at the load-bearing point.
+    suppressed: false
+    published_url: null
+  - id: F-13
+    severity: low
+    confidence: high
+    category: style
+    location: src/app/push-flow.ts:3-5
+    message: >
+      Two import statements from the same module (`#domain/result`): a type-only
+      `Result` and a value `Result as Res`. The import-hygiene rule calls for one
+      statement per module using the inline `type` modifier.
+    suggestion: >
+      `import { type Result, Result as Res } from "#domain/result";`
+    suppressed: false
+    published_url: null
+  - id: F-14
+    severity: low
+    confidence: medium
+    category: correctness
+    location: src/app/push-flow.ts:329-353
+    message: >
+      `extractTitle` (and `_resolveLinksInDoc`) take `unknown` and use unsafe
+      casts (`hast as Record<string, unknown>`) instead of the typed HAST that
+      `mdastToHast` returns. This defeats strict typing and the function only
+      reads the first H1's first text node (nested formatting / multiple text
+      nodes are missed → "Untitled").
+    suggestion: >
+      Type the parameter as the project's HAST root type and walk children
+      properly; fall back to front-matter title before "Untitled".
+    suppressed: false
+    published_url: null
+  - id: F-15
+    severity: low
+    confidence: medium
+    category: correctness
+    location: src/app/push-flow.ts:194
+    message: >
+      Target-id resolution is inconsistent: computePlan uses
+      `Object.keys(config.targets)[0]` while plan.ts/sync.ts hardcode
+      `config.targets.default`. A single target not named "default" classifies
+      correctly in computePlan but the CLI shells fail with INVALID_CONFIG.
+    suggestion: >
+      Resolve the target id once (e.g. a helper that validates exactly one
+      target and returns its id) and use it in both the use case and the shells.
+    suppressed: false
+    published_url: null
+  - id: F-16
+    severity: low
+    confidence: medium
+    category: testing
+    location: tests/unit/app/provenance.test.ts:97-203
+    message: >
+      AC-F5-1's "over-limit commit list trims deterministically (whole trailing
+      subjects dropped + ellipsis)" clause is not asserted here — only the
+      `marksync git <sha>` prefix and `(count)`. The trim is the formatter's
+      GH-21 contract (tested there), but AC-F5-1 names it explicitly.
+    suggestion: >
+      Add one case with enough long subjects to exceed
+      `MAX_VERSION_MESSAGE_LEN` and assert the captured message length ≤ 255 and
+      ends with the ellipsis.
+    suppressed: false
+    published_url: null
+  - id: F-17
+    severity: info
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-07/2026-07-12--GH-23--sync-engine/chg-GH-23-plan.md
+    message: >
+      Plan bookkeeping is stale: most task checkboxes in Phases 1–8 are still
+      `- [ ]` and the Execution Log shows every phase as ⏳, despite the code
+      being delivered and all gates green (DONE_BUT_UNCHECKED). Non-blocking but
+      the plan artifact no longer reflects reality.
+    suggestion: >
+      Tick the completed task boxes and fill the Execution Log (commit SHAs,
+      pass-count delta 809→894) during remediation.
+    suppressed: false
+    published_url: null
+reviewed_at: 2026-07-12T12:00:00Z
+next_step: EXECUTE_REMEDIATION_PHASE

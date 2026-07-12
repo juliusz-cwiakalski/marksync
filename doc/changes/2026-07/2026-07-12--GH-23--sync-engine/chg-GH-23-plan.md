@@ -1287,6 +1287,127 @@ per the plan template).
 
 ---
 
+### Phase 9: Code Review Remediation (Iteration 1)
+
+> Added by `@reviewer` after review-iter-1 (status FAIL). Two ACs are not
+> demonstrably satisfied (AC-F7-1, AC-F6-1) and a PD-3 error-discipline
+> divergence must be fixed. Tasks 9.1–9.3 are blockers; 9.4–9.9 are medium;
+> 9.10–9.14 are low/style/bookkeeping. DM-8 stays intact throughout (no new
+> `MarkSyncError` arms; `src/domain/errors.ts` unchanged).
+
+**Dependency lattice**: Phase 9 runs after Phase 8; gates re-review (iteration 2).
+
+#### Blockers (drive the FAIL status)
+
+- [ ] **9.1 — Wire the cross-page link resolver into the pipeline (F-1 / AC-F7-1)**
+  - `src/app/push-flow.ts` — `_resolveLinksInDoc` is a no-op stub and
+    `void bindingsMap; void _resolveLinksInDoc;` discards both. Walk the
+    rendered HAST link nodes in `computePlan`, call `resolveLink` for each `.md`
+    target against the bindings map, rewrite resolved hrefs to the target
+    `PageRef` id, and collect `UnresolvedLink` entries as plan warnings (never
+    abort the run). **Alternatively**, if MS-0002 genuinely publishes literal
+    `.md` hrefs by design, formally descope link-rewriting to a later story,
+    update AC-F7-1 + spec §7.2, and remove the dead stub. Either way the
+    current "delivered-but-disconnected" state must be resolved.
+  - Test: if wiring — add/extend a case asserting a managed `.md` link resolves
+    to a page id in the rendered storage format and an unmanaged link produces
+    a warning without aborting.
+- [ ] **9.2 — Make parent-first ordering real OR formally descope (F-2 / AC-F6-1 / NFR-9 / PD-6)**
+  - `src/app/push-flow.ts:395-451` — `parentFirstOrder` never follows parent
+    edges (commented out) and the cycle guard can never fire. Either (a)
+    implement: map each Create's `parentId` to the target create's uuid,
+    topologically sort, throw on cycles; then fix
+    `tests/unit/app/parent-first.test.ts` to assert call order and add a
+    cycle-throws case; or (b) if MS-0002 is flat-under-configured-parent with
+    no inter-page parent edges, remove the misleading stub, replace with a
+    stable passthrough + a clear justification comment, and mark AC-F6-1
+    N/A-for-MS-0002 in the spec. The test currently captures `createCalls` but
+    never asserts ordering — fix regardless of which path is chosen.
+- [ ] **9.3 — Fix shell-git error discipline (F-3 / PD-3)**
+  - `src/infra/git/shell-git.ts:137-160` — `spawnGit` returns
+    `Result.err(RemoteUnreachable)` for every non-zero git exit, spawn failure,
+    and thrown exception. PD-3 / task 1.3 require a genuine git runtime failure
+    to THROW as a host-invariant violation. Make non-zero exit / spawn failure
+    `throw` (DM-8 intact — no new arm). Stop reusing `RemoteUnreachable` for
+    local git failures (it is documented for network/transport failures and
+    maps to a misleading exit code / retry hint). The malicious-path guards
+    (`validateRef`/`validateRepoRelative`) already throw correctly — leave them.
+
+#### Medium
+
+- [ ] **9.4 — Correct the hardcoded `toolVersion` (F-4)**
+  - `src/app/push-flow.ts` Create branch (~line 668) — replace
+    `toolVersion: "1.0.0"` (package.json is `0.4.0`) with a single source of
+    truth (e.g. `import { version } from "../../package.json"` or a build-time
+    `VERSION` constant). Remove the `// TODO: from package`.
+- [ ] **9.5 — Count only successful mutations in `crashAfter` (F-5 / PD-5)**
+  - `src/app/push-flow.ts:479,509-513` — increment the crash counter only on
+    `created`/`updated` outcomes and throw AFTER the journal append, matching
+    PD-5. Currently every entry (incl. noop/skip/block) increments, so the hook
+    fires at the wrong point in mixed plans.
+- [ ] **9.6 — Fix integration-fixture `TargetConfig` drift (F-6)**
+  - `tests/integration/app/*.test.ts` fixtures build
+    `config.targets.default` with `spaceId`/`url`/`email`/`secretName` (not on
+    `TargetConfig`) and omit required `type`/`spaceKey`. This is invisible
+    because `tsconfig.json` excludes `tests/`. Fix every fixture to the real
+    `TargetConfig` shape AND/OR add a `tsconfig.test.json` included in CI so
+    config-contract regressions are caught.
+- [ ] **9.7 — Remove stub guard copies from shell-git unit test (F-7)**
+  - `tests/unit/infra/git/shell-git.test.ts:7-53` — delete the test-only STUB
+    copies of `validateRepoRelative`/`validateRef` and test the REAL
+    `src/domain/git/paths.ts` guards (importing `#domain/git/paths` is
+    dep-cruiser-legal — only `domain → infra` is forbidden, not the reverse).
+- [ ] **9.8 — Deliver boundary-negative proof for git/ + hierarchy/ (F-8 / PD-11)**
+  - Add `src/domain/git/__boundary_probe__.ts` and
+    `src/domain/hierarchy/__boundary_probe__.ts` to `.gitignore` and create
+    `tests/unit/domain/git/boundary-negative.test.ts` +
+    `tests/unit/domain/hierarchy/boundary-negative.test.ts` mirroring the GH-22
+    `state/` precedent. (The production tree is boundary-clean; this delivers
+    the specified PROOF mechanism for the two new modules.)
+- [ ] **9.9 — Resolve transient-vs-block outcome ambiguity (F-9)**
+  - `src/app/push-flow.ts:579-586` — transport errors (RateLimited/
+    RemoteUnreachable) from `updatePage`/`createPage` are recorded as
+    `outcome: "blocked"`, indistinguishable from Conflict/drift, and the comment
+    says "→ failed" but no `failed` outcome exists. Either add a `failed`
+    outcome (PD-7 amendment) or document that `blocked` covers both and align
+    the misleading comment.
+
+#### Low / style / bookkeeping
+
+- [ ] **9.10 — Strengthen crash-replay + lock-property-atomicity assertions (F-10, F-11)**
+  - `tests/integration/app/crash-replay.test.ts` — add a re-apply that filters
+    out journaled uuids and assert doc C is the only new write (AC-F4-1
+    "resumes without duplicates").
+  - `tests/integration/app/lock-property-atomicity.test.ts` (or
+    `apply-plan-integration.test.ts:639-649`) — parse the captured
+    `putProperty` value and assert REAL `reconcileWithProperty(updatedBinding,
+    parsed) → ok()` (AC-F9-1 "agrees" clause).
+- [ ] **9.11 — Remove bare alphabet-soup tags + combine imports (F-12, F-13)**
+  - `src/app/push-flow.ts` — remove or contextualize the scattered `(PD-9)`,
+    `(PD-7)`, `(PD-5)`, `(PD-8, DEC-6)`, `(DEC-5)`, `(PD-6)`, `(NFR-REL-7)`
+    bare tags (forbidden by AGENTS.md / `.ai/rules/typescript.md`). Combine the
+    two `#domain/result` imports (lines 3-5) into one.
+- [ ] **9.12 — Type the HAST + fix target-id resolution (F-14, F-15)**
+  - `src/app/push-flow.ts:329-367` — type `extractTitle` /
+    `_resolveLinksInDoc` parameters as the project HAST root (not `unknown` +
+    casts) and walk children properly (nested formatting / multiple text nodes
+    → currently yields "Untitled").
+  - `src/app/push-flow.ts:194` vs `src/cli/commands/{plan,sync}.ts` — resolve
+    the target id once (helper that validates exactly one target) and use it
+    in both the use case and the shells (currently `Object.keys(...)[0]` vs
+    hardcoded `default`).
+- [ ] **9.13 — Assert provenance over-limit trim (F-16)**
+  - `tests/unit/app/provenance.test.ts` — add a case with enough long subjects
+    to exceed `MAX_VERSION_MESSAGE_LEN` and assert message length ≤ 255 and
+    deterministic trailing ellipsis (AC-F5-1 trim clause).
+- [ ] **9.14 — Refresh plan bookkeeping (F-17)**
+  - Tick completed task boxes in Phases 1–8 and fill the Execution Log (commit
+    SHAs, pass-count delta 809→894). Non-blocking but the artifact is stale.
+
+**Completion signal**: `fix(app): remediate review-iter-1 findings — wire/descope link resolver + parent-first, fix shell-git error discipline, correct toolVersion/crashAfter, test-honesty + style (GH-23)`
+
+---
+
 ## Test Scenarios
 
 | ID | Scenario | Phases | AC |
@@ -1350,6 +1471,7 @@ per the plan template).
 |---------|------|--------|---------|
 | 1.0 | 2026-07-12 | plan-writer | Initial plan. Nine phases per the dependency lattice (spec §18 landing order): Phase 0 branch + baseline gate; Phase 1 `Repository` port + shell-git adapter + path guard (TDR-0003 C-4); Phase 2 cross-page link resolver (pure domain); Phase 3 journal writer + `replayJournal`; Phase 4 `computePlan` pure no-writes pipeline; Phase 5 `applyPlan` parent-first isolated journaled write path; Phase 6 integration suite (`Bun.serve()` mock target — INV-SAFE-1/2/3, 409-as-drift, idempotency, crash→replay, isolation, atomicity, shell-git fuzz); Phase 7 CLI wiring (`plan`/`sync` stubs → thin shells); Phase 8 final gate + boundary purity proof + doc handoff. Surfaced PD-1..PD-11: port residence (`src/domain/git/port.ts`); `readCommitted` returns bytes; shell-git injection controls + malicious-path throws (DM-8-compliant); app-tier `Create`/`NEW` (GH-22 untouched); test-only crash hook; parent-first topological sort; `ApplyReport` outcomes + aggregate counts; Conflict-as-drift no retry; REAL `formatVersionMessage` provenance wiring; minimal `--rebind`; Phase 8 dep-cruiser negative probes. Doc reconciliation (DEC-4 `worktreeStatus` drop, UL bindings, feature-spec tag, push-flow diagram) handed to lifecycle phase 7 — coder touches only `src/`, `tests/`, `.gitignore`. |
 | 1.1 | 2026-07-12 | plan-writer | DoR iter-1 remediation (readiness-reviewer NOT_READY, finding 4). Surgical edits only — no phase/decision rewrite. (1) Phase 8.5 doc-handoff list: add the tier-reclassification of the `architecture-overview.md` §"Components / Core components" "Push executor" (line ~99) + "Lock/journal store" (line ~101) rows — the delivered `applyPlan` loop (`src/app/push-flow.ts`) + journal (`src/app/journal.ts`) are **application** tier (orchestration), while the shell-git adapter (`src/infra/git/`) + the lock atomic-write primitive (`src/infra/lock/store.ts`) STAY infrastructure. (2) Phase 8.5: add explicit reconciliation of the `readCommitted` interface-contract error column (`RefNotFound`/`BadPath` → throw per PD-3; no `Result` error arms per DM-8). (3) Confirm the carried-over `computePlan`/`applyPlan`/`resolveLink` interface-contract rows + the push-flow diagram *(realized — GH-23)* tag. (4) Phase 6: add TC-INTEGRATION-010 (`tests/integration/app/duplicate-uuid-fatal.test.ts` — INV-SAFE-3 at the `computePlan` boundary) + TC-INTEGRATION-011 (`tests/integration/app/secrets-safety-integration.test.ts` — INV-SEC-1 across Plan/journal/ApplyReport/`version.message`); strengthen TC-INTEGRATION-009 to assert a **throw** (not `Result.err`) matching PD-3. (5) Sync TC ranges (Context, Phase 6 title, Acceptance Criteria, Test Scenarios table, Artifacts, Execution Log) to TC-INTEGRATION-001..011. |
+| 1.2 | 2026-07-12 | reviewer | Appended Phase 9 (Code Review Remediation — Iteration 1) after review-iter-1 returned FAIL. Blockers: 9.1 wire-or-descope link resolver (AC-F7-1 — `_resolveLinksInDoc` is a no-op stub, bindings discarded); 9.2 implement-or-descope parent-first ordering (AC-F6-1 — `parentFirstOrder` doesn't follow edges, cycle guard never fires, test asserts no order); 9.3 fix shell-git error discipline (PD-3 — `spawnGit` returns `RemoteUnreachable` instead of throwing on non-zero git exit). Medium: toolVersion "1.0.0" vs package 0.4.0; crashAfter counts all entries not mutations; integration fixtures use wrong TargetConfig shape (tests excluded from typecheck); shell-git unit test uses stub guard copies; boundary-negative probes missing for git/+hierarchy/ (PD-11); transient-vs-block outcome ambiguity. Low/style/bookkeeping: crash-replay re-apply + reconcileWithProperty-agrees assertions; bare alphabet-soup tags; duplicate import; untyped HAST; target-id inconsistency; provenance trim assertion; plan checkbox/log refresh. DM-8 verified intact (errors.ts + all GH-22 state modules unchanged). |
 
 ## Execution Log
 
@@ -1367,3 +1489,4 @@ per the plan template).
 | 6 — integration suite | ⏳ | | | | | TC-INTEGRATION-001..011; REAL classifier/reconcile; mock target. |
 | 7 — CLI wiring | ⏳ | | | | | F-6; plan/sync stubs → thin shells; presentation-tier import discipline. |
 | 8 — final gate + boundary proof + doc handoff | ⏳ | | | | | AC-Q-1; dep-cruiser negative probes (git + hierarchy); errors.ts unchanged; doc handoff to phase 7. |
+| 9 — code review remediation (iter 1) | ⏳ | | | | | review-iter-1 FAIL; blockers 9.1–9.3 (AC-F7-1, AC-F6-1, PD-3); medium 9.4–9.9; low/style 9.10–9.14. DM-8 intact. |
