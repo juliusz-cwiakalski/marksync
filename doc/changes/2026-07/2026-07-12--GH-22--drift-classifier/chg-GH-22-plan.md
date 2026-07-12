@@ -823,28 +823,28 @@ enforcement proof. It lands last so it cruises the complete four-module set.
 
 **Tasks**:
 
-- [ ] **4.1** Add `src/domain/state/__boundary_probe__.ts` to `.gitignore`
-      (alongside the existing `src/domain/__boundary_probe__.ts` entry).
-- [ ] **4.2** Create `tests/unit/domain/state/boundary-negative.test.ts` (new) —
-      **Unit/contract**, mirroring `tests/unit/domain/target/boundary-negative.test.ts`:
-      - `PROBE_PATH = "src/domain/state/__boundary_probe__.ts"`;
-        `PROBE_BODY` imports a real `#infra/*` symbol (e.g.
-        `import { ConfluenceClient } from "#infra/confluence/client";` — GH-21
-        delivered it) and re-exports it, so dep-cruiser resolves a real
-        `src/domain/state/` → `src/infra/` edge.
-      - `depcruiseSrc()` — `Bun.spawnSync({ cmd: ["bunx", "depcruise", "src",
-        "--output-type", "json"], … })` → parse `summary.violations`.
-      - `removeProbe()` — `rmSync(PROBE_PATH, { force: true })` if it exists.
-      - `beforeAll(removeProbe)`, `afterEach(removeProbe)`,
-        `afterAll(removeProbe)` — load-bearing cleanup (a leaked probe
-        permanently breaks `depcruise src`).
-      - **TC-PURITY-001 (AC-F1-1 negative):** write the probe; run
-        `depcruiseSrc()`; assert a violation with `rule.name ===
-        "domain-may-not-import-infra"`, `from === PROBE_PATH`, `to` matches
-        `^src/infra/`.
-      - **TC-PURITY-002 (AC-F1-1 positive):** with the probe removed, run
-        `depcruiseSrc()`; assert **0** `domain-may-not-import-infra` violations
-        under `src/domain/state/` (the four production modules are clean).
+- [x] **4.1** Add `src/domain/state/__boundary_probe__.ts` to `.gitignore`
+       (alongside the existing `src/domain/__boundary_probe__.ts` entry). ✓
+- [x] **4.2** Create `tests/unit/domain/state/boundary-negative.test.ts` (new) —
+       **Unit/contract**, mirroring `tests/unit/domain/target/boundary-negative.test.ts`:
+       - `PROBE_PATH = "src/domain/state/__boundary_probe__.ts"`;
+         `PROBE_BODY` imports a real `#infra/*` symbol (e.g.
+         `import { ConfluenceClient } from "#infra/confluence/client";` — GH-21
+         delivered it) and re-exports it, so dep-cruiser resolves a real
+         `src/domain/state/` → `src/infra/` edge. ✓
+       - `depcruiseSrc()` — `Bun.spawnSync({ cmd: ["bunx", "depcruise", "src",
+         "--output-type", "json"], … })` → parse `summary.violations`. ✓
+       - `removeProbe()` — `rmSync(PROBE_PATH, { force: true })` if it exists. ✓
+       - `beforeAll(removeProbe)`, `afterEach(removeProbe)`,
+         `afterAll(removeProbe)` — load-bearing cleanup (a leaked probe
+         permanently breaks `depcruise src`). ✓
+       - **TC-PURITY-001 (AC-F1-1 negative):** write the probe; run
+         `depcruiseSrc()`; assert a violation with `rule.name ===
+         "domain-may-not-import-infra"`, `from === PROBE_PATH`, `to` matches
+         `^src/infra/`. ✓
+       - **TC-PURITY-002 (AC-F1-1 positive):** with the probe removed, run
+         `depcruiseSrc()`; assert **0** `domain-may-not-import-infra` violations
+         under `src/domain/state/` (the four production modules are clean). ✓
 
 **Acceptance Criteria**:
 
@@ -994,8 +994,9 @@ spec-reconciliation handoff (the final release phase per the plan template).
 | 0 — branch + baseline gate | ✅ | 2026-07-12 | 2026-07-12 | 4e46387 (docs: add gh-22 planning artifacts) | ✅ 773 tests | Baseline established. Verified all reused contracts: canonicalize, PageBinding, errors.ts (RemoteMissing/Forbidden/Conflict), Result, reconcile.ts, boundary test pattern. |
 | 1 — types + VOs (`sync-state.ts` + `hashes.ts`) | ✅ | 2026-07-12 | 2026-07-12 | 808e13c (feat: sync-state enum + content-hash vo + hash helpers) | ✅ 778 tests (+5) | F-2/F-3/F-4; TC-HASH-001/002; canonicalHash delegates to GH-20 (DEC-2/PD-2). SyncState enum + RemoteState union + SharedBase view + ContentHash VO + hash helpers delivered. |
 | 2 — `classify()` core + fixtures | ✅ | 2026-07-12 | 2026-07-12 | e5d74c4 (feat: classify() three-way drift classifier + fixtures) | ✅ 799 tests (+21) | F-1/F-6; TC-STATE-001..006 + FORBIDDEN + FALSEPOS×5 + REALCHG×5 + METADATA×2 + EDGE + BOUNDARY. classify() three-way classifier + all fixtures delivered. |
-| 3 — `Action` mapping + suite | ✅ | 2026-07-12 | 2026-07-12 | [pending] | ✅ 806 tests (+7) | F-5; TC-ACTION-001..006; no new error arms (DEC-3). SyncState → Action mapping + action suite delivered. errors.ts untouched (verified). |
-| 4 — boundary negative test | ⏳ | — | — | — | — | AC-F1-1; TC-PURITY-001/002; state-scoped probe (PD-4) |
+| 3 — `Action` mapping + suite | ✅ | 2026-07-12 | 2026-07-12 | 688d4a9 (feat: sync-state → action mapping) | ✅ 806 tests (+7) | F-5; TC-ACTION-001..006; no new error arms (DEC-3). SyncState → Action mapping + action suite delivered. errors.ts untouched (verified). |
+| 4 — boundary negative test | ✅ | 2026-07-12 | 2026-07-12 | [pending] | ✅ 808 tests (+2) | AC-F1-1; TC-PURITY-001/002; state-scoped probe (PD-4). Boundary negative test proves src/domain/state/ purity. canonicalize.ts and errors.ts untouched (verified). |
+| 5 — final gate + doc handoff | ⏳ | — | — | — | — | AC-Q-1; boundary clean; errors.ts unchanged; doc handoff to phase 7 |
 | 2 — `classify()` core + fixtures | ⏳ | — | — | — | — | F-1/F-6; TC-STATE-001..006 + FORBIDDEN + FALSEPOS×5 + REALCHG×5 + METADATA×2 + EDGE + BOUNDARY |
 | 3 — `Action` mapping + suite | ⏳ | — | — | — | — | F-5; TC-ACTION-001..006; no new error arms (DEC-3) |
 | 4 — boundary negative test | ⏳ | — | — | — | — | AC-F1-1; TC-PURITY-001/002; state-scoped probe (PD-4) |
