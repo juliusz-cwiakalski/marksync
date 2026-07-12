@@ -9,11 +9,10 @@ import { cwd } from "node:process";
 import { loadConfig } from "#app/config";
 import { loadLock } from "#app/lock";
 import { resolveCacheDir } from "#app/cache";
-import { createShellGit } from "#infra/git/shell-git";
-import { ConfluenceTarget } from "#infra/confluence/target";
-import { ConfluenceCredentials } from "#domain/credentials";
+import { createRepository, createTarget } from "#app/ports";
 import { mapConfigError, mapLockError } from "#cli/error-map";
 import { computePlan, type Plan } from "#app/push-flow";
+import type { ConfluenceCredentials } from "#domain/credentials";
 
 /**
  * Run `marksync plan`. Calls computePlan and returns CommandResult<Plan>.
@@ -50,21 +49,21 @@ export async function planCommand(): Promise<CommandResult<Plan>> {
 	}
 	const cacheDir = cacheDirResult.value;
 
-	// 4. Create Repository (shell-git)
-	const git = createShellGit(currentCwd);
+	// 4. Create Repository (via app-tier factory)
+	const git = createRepository(currentCwd);
 
-	// 5. Create TargetSystem (ConfluenceTarget)
+	// 5. Create TargetSystem (via app-tier factory)
 	// NOTE: In a real CLI, credentials would come from environment/secret manager
 	// For this implementation, we use a minimal credential provider
 	const credentials: ConfluenceCredentials = {
-		email: config.targets.default.email,
+		email: config.targets.default?.email || "",
 		// In production, token comes from secret manager/encrypted storage
 		// For now, we read from environment variable or error
 		token: process.env.MARKSYNC_CONFLUENCE_TOKEN || "",
 	};
-	const target = ConfluenceTarget.fromCredentials(
+	const target = createTarget(
 		credentials,
-		config.targets.default.spaceId,
+		config.targets.default?.spaceId || "",
 	);
 
 	// 6. Compute plan
@@ -72,7 +71,7 @@ export async function planCommand(): Promise<CommandResult<Plan>> {
 	if (!planResult.ok) {
 		return err(
 			planResult.error.kind,
-			planResult.error.humanMessage || planResult.error.kind,
+			planResult.error.cause || planResult.error.kind,
 			false,
 		);
 	}
