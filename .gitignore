@@ -34,6 +34,10 @@ coverage/
 .marksync/
 *.tsbuildinfo
 
+# Ephemeral dep-cruiser boundary probe (GH-21 TC-BND-001) — created at runtime
+# under src/domain/; never committed.
+src/domain/__boundary_probe__.ts
+
 # Editor/IDE
 .idea/
 .vscode/

@@ -1,0 +1,88 @@
+{
+  "review": "GH-21 confluence-adapter",
+  "iteration": 2,
+  "date": "2026-07-10",
+  "base": "main",
+  "head": "feat/GH-21/confluence-adapter",
+  "remediation_commit": "91363a5",
+  "verdict": "FAIL",
+  "gate": "bun run check = 772 pass / 0 fail; depcruiser clean (75 modules, 107 deps)",
+  "delta_from_iter1": "Remediation commit 91363a5 addressed 6 of 7 iter-1 findings cleanly (2-7). Finding 1 (MAJOR, AC-F5-1b) is only PARTIALLY resolved: the orphaned AttachmentService.update() + TC-UPD-001 were removed and the hash-naming decision was recorded+documented, BUT the option-(c) spec-reconciliation step (explicitly required by the finding's own suggestedFix and acknowledged as deferred in plan task 9.1) was NEVER executed — AC-F5-1 as written still requires 'update-via-/data bumps the attachment version', and ~12 spec refs + DEC-3 + NFR-4 + the system spec + the integration-test title still describe /data update as delivered. This iteration also re-verifies the 4 findings the stale (pre-remediation) iter-2 draft had flagged (8-11): all are still open, most critically the duplicated, already-drifted redaction on the security path (8). One additional finding (12): vestigial /data scaffolding left in the integration test by the partial removal.",
+  "resolution_summary": {
+    "iter1_finding_1": "PARTIALLY_RESOLVED (code gap closed; spec/AC reconciliation missing -> AC-F5-1 unmet as written)",
+    "iter1_finding_2": "RESOLVED (USER_AGENT <- package.json)",
+    "iter1_finding_3": "RESOLVED (unreachableCause() 401 mapping across all 5 services)",
+    "iter1_finding_4": "RESOLVED (Retry-After HTTP-date limitation documented)",
+    "iter1_finding_5": "RESOLVED (structural-typing note + TC-RENDER-TYPES-001)",
+    "iter1_finding_6": "RESOLVED (beforeAll/afterEach/afterAll cleanup + .gitignore)",
+    "iter1_finding_7": "RESOLVED (single ConfluenceClient import)"
+  },
+  "findings": [
+    {
+      "id": 1,
+      "severity": "major",
+      "confidence": "high",
+      "status": "partially-resolved-carried-from-iter-1",
+      "file": "doc/changes/2026-07/2026-07-09--GH-21--confluence-adapter/chg-GH-21-spec.md",
+      "line": 391,
+      "title": "AC-F5-1 second clause still requires /data update; spec never reconciled for option (c)",
+      "description": "Iter-1 finding 1 was resolved by option (c): remove the orphaned AttachmentService.update() + TC-UPD-001 and rely on hash-naming (changed bytes -> new hash -> new filename -> fresh create, never a same-name dup). That option EXPLICITLY required 'adjust AC-F5-1(b) accordingly' (finding 1 suggestedFix), and plan task 9.1 acknowledged the spec/doc-sync as a deferred follow-up. It was never executed. The change spec AC-F5-1 (line 391) still reads 'given changed bytes, then update-via-/data bumps the attachment version.' So does F-5 (line 139), G-5 (line 80), NFR-4 (line 283), DEC-3 (line 358), the endpoints table (line 246), the artifacts table (line 376), and several other references. The SYSTEM spec doc/spec/features/feature-confluence-adapter.md:125 also still says '/data update on changed bytes.' The hash-naming argument is sound and the port is now honest, but the contract (AC) and the implementation now disagree, and AC-F5-1 as written is NOT met. This is a spec/impl integrity defect and a DoD blocker (an unmet AC).",
+      "suggestedFix": "Reconcile the spec to current truth in one pass: rewrite AC-F5-1's second clause to state that changed bytes produce a fresh create (new hash-derived filename) rather than a /data version bump; update F-5/G-5/NFR-4/DEC-3/endpoints+artifacts tables and doc/spec/features/feature-confluence-adapter.md:125 to drop the /data-update claim and reference the hash-naming invariant; record the decision as a PDR/ADR (or promote the pm-notes REVIEW-1-MAJOR note) so the rationale is durable. Once reconciled, AC-F5-1 passes by design."
+    },
+    {
+      "id": 8,
+      "severity": "major",
+      "confidence": "high",
+      "status": "open-new-from-stale-iter2-reverified",
+      "file": "src/infra/confluence/client.ts",
+      "line": 255,
+      "title": "Redaction duplicated inline (ad-hoc replace) bypassing the centralized layer — and already drifted (missing env-token)",
+      "description": "Review Priority #2 (code-review-instructions.md) and the Security checklist ('Redaction goes through the centralized redaction layer (NFR-SEC-2, ADR-0011) — no ad-hoc replace calls') require a single source of truth. Instead client.ts defines its own redactLog() with 5 chained .replace() regexes (lines 255-267), citing the tier rule (infra may not import the presentation redactor). Verified drift against the canonical DEFAULT_PATTERNS in src/cli/output/redact.ts: the canonical set has 6 kinds (authorization, bearer, github-token, atlassian-token, env-token, email); the mirror has only 5 and OMITS the env-token pattern (MARKSYNC_*_TOKEN=<value>). Sentinels also differ ([REDACTED:auth]/[REDACTED:token] vs canonical [REDACTED:authorization]/[REDACTED:bearer]/[REDACTED:github-token]/[REDACTED:atlassian-token]/[REDACTED:env-token]). Live impact are latent today (default log sink is a no-op, line 64; opaque authHeader caught by the mirrored Authorization:/Basic patterns) so AC-F2-2 holds now — but the moment E3-S6 wires a logger the drifted mirror becomes the active control, and the whole point of centralized redaction (DEC-4) is that there is ONE evolving set so it cannot drift. Unaddressed by the remediation.",
+      "suggestedFix": "Preferred: lift the patterns/Redactor to a tier both infra and presentation may import (e.g. src/shared/) so client.ts imports the single source of truth. Minimal acceptable: restore the missing env-token pattern, adopt the canonical sentinel labels, AND add a structural compatibility test asserting redactLog's pattern set equals DEFAULT_PATTERNS so future drift fails the gate. Do not leave two independently-evolving security regex sets."
+    },
+    {
+      "id": 9,
+      "severity": "minor",
+      "confidence": "medium",
+      "status": "open-partially-mitigated-from-stale-iter2",
+      "file": "src/infra/confluence/attachments.ts",
+      "line": 124,
+      "title": "resolveExisting fabricates an AttachmentRef with magic id 'unknown' / version 0",
+      "description": "On the rare edge case where the server reports a 400 duplicate but the attachment is not enumerated by list(), resolveExisting returns Result.ok({ id: 'unknown', pageId, filename, hash, version: 0 }). A comment was added in the remediation ('Edge case: the duplicate exists but isn't in the list view'), and the removal of /data update means no consumer can any longer use the bogus id to perform an in-place update — so the downstream risk is reduced. But the code still invents identity that does not correspond to a real remote attachment, and 'unknown' is a magic string the checklist discourages. Low real stakes now; still a code-quality/contract-clarity issue.",
+      "suggestedFix": "Either return a distinguishable outcome for 'already-exists-but-unresolvable' (e.g. a distinct result variant, or omit the id), or extract the 'unknown' literal to a named constant and add a one-line note that id/version are best-effort on this path. Lowest-effort acceptable: a named constant + comment."
+    },
+    {
+      "id": 10,
+      "severity": "minor",
+      "confidence": "medium",
+      "status": "open-from-stale-iter2-reverified",
+      "file": "src/infra/confluence/client.ts",
+      "line": 83,
+      "title": "Single shared retry budget across 429 and 5xx (comment claims 'each'); mixed-status path untested",
+      "description": "request() uses ONE attempt counter for both 429 and 5xx within a single request (lines 83-121). A mixed sequence like 429,429,500,500 exhausts at the shared budget rather than giving each status its own max-3. The line-11 comment says '429 and 5xx each retry at most this many times,' which is misleading under the shared-counter design. Spec F-2 says '429 max 3' and '5xx max 3' (ambiguous whether independent). Still bounded, and 401/403 are never retried, so not a safety issue — but the semantics are undocumented and only pure-429 / pure-5xx sequences are tested (never mixed).",
+      "suggestedFix": "Either correct the line-11 comment to describe the single-shared-budget design and add a mixed-status test, or split into independent per-status counters if 'max 3 each' is the intended contract."
+    },
+    {
+      "id": 12,
+      "severity": "minor",
+      "confidence": "high",
+      "status": "new-in-iter-2",
+      "file": "tests/integration/confluence/confluence-target.test.ts",
+      "line": 197,
+      "title": "Vestigial /data scaffolding left in TC-INT-ATT-DUP after the partial /data removal",
+      "description": "The remediation removed the unit test TC-UPD-001 and the AttachmentService.update() method, but the integration test TC-INT-ATT-DUP still carries /data scaffolding: its describe title reads 'duplicate upload -> already exists; /data update bumps version' (line 197) and its mock still has a /data endpoint handler returning version 2 (lines 211-218). The actual test body (lines 233-244) never exercises /data — it does one uploadAttachment and asserts only hash equality. So the title + mock handler are orphaned dead code that contradicts the (now /data-free) implementation and reinforces the AC-F5-1 confusion (finding 1).",
+      "suggestedFix": "Drop the /data mock handler (lines 211-218) and retitle the describe block to 'duplicate upload -> already exists' (no /data clause). Optionally add an integration case proving a second upload of the SAME hash performs 0 writes (idempotent rerun), which is the real AC-F5-1 intent under hash-naming."
+    },
+    {
+      "id": 11,
+      "severity": "nit",
+      "confidence": "medium",
+      "status": "open-from-stale-iter2-reverified",
+      "file": "tests/integration/confluence/confluence-target.test.ts",
+      "line": 167,
+      "title": "Property round-trip integration mock is store-and-echo (tautological)",
+      "description": "TC-INT-PROP-RT captures body.value into a shared store on POST and echoes that same store on GET (lines 167-195). Because read and write share the variable, the assertion would pass even if the adapter stored the value in the wrong field, as long as both sides agree. This lightly trips the testing-strategy 'mocks must not replicate the SUT's logic' guardrail. The v2 POST shape is genuinely validated by the unit test (properties.test.ts), so the integration test's real value is the end-to-end HTTP path, not the shape.",
+      "suggestedFix": "Have the GET mock return a fixed fixture independent of the POST capture (asserting the adapter writes under the right key AND reads from the right field), or narrow the integration assertion to 'a v2 POST then a v2 GET happened' and rely on the unit test for byte-equality."
+    }
+  ]
+}

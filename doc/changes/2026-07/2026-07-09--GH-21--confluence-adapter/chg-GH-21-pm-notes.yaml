@@ -1,0 +1,163 @@
+change_id: GH-21
+title: "[MS2-E3-S4] Confluence adapter (TargetSystem port implementation)"
+business_id: MS2-E3-S4
+epic: MS2-E3 (safe-publish-core)
+milestone: MS-0002
+story_file: doc/planning/milestones/MS-2/MS2-E3--safe-publish-core/MS2-E3-S4--confluence-adapter.md
+feature_spec: doc/spec/features/feature-confluence-adapter.md
+decisions: [ADR-0005, ADR-0006]
+branch: feat/GH-21/confluence-adapter
+
+phases:
+  clarify_scope: { started: "2026-07-09T21:15:00Z", completed: "2026-07-09T21:35:00Z" }
+  specification: { started: "2026-07-09T21:35:00Z", completed: "2026-07-09T21:55:00Z" }
+  test_planning: { started: "2026-07-09T21:55:00Z", completed: "2026-07-09T23:58:00Z" }
+  delivery_planning: { started: "2026-07-09T21:55:00Z", completed: "2026-07-09T23:32:00Z" }
+  dor_check: { started: "2026-07-10T00:00:00Z", completed: "2026-07-10T00:30:00Z" }
+  delivery: { started: "2026-07-10T00:30:00Z", completed: "2026-07-10T01:30:00Z" }
+  system_spec_update: { started: "2026-07-10T01:30:00Z", completed: "2026-07-10T02:00:00Z" }
+  review_fix: { started: "2026-07-10T02:00:00Z", completed: "2026-07-12T00:00:00Z" }
+  quality_gates: { started: "2026-07-12T00:00:00Z", completed: "2026-07-12T00:15:00Z" }
+  dod_check: { started: "2026-07-12T00:15:00Z", completed: "2026-07-12T00:20:00Z" }
+  pr_creation: { started: "2026-07-12T00:20:00Z", completed: null, url: null }
+
+decisions:
+  - text: >
+      OQ-1 resolved (PM-decided): Add a new `RemoteUnreachable { kind:
+      "RemoteUnreachable"; status?: number; cause: string }` arm to MarkSyncError
+      for exhausted-5xx/network failures, alongside the story-mandated RateLimited
+      arm. Rationale: different recovery action than RateLimited (server-down/
+      alert-operator vs wait-and-retry); follows codebase principle "add a kind
+      only when recovery action differs" + AuthUnreachable precedent; additive +
+      exhaustiveness-checked. If DoR reviewer/user prefers a formal TDR, write
+      post-delivery.
+    date: 2026-07-09
+    ref: OQ-1
+  - text: >
+      OQ-2 resolved (PM-decided): RateLimited shape = { kind: "RateLimited";
+      retryAfterMs?: number } — minimal, carries last observed Retry-After.
+    date: 2026-07-09
+    ref: OQ-2
+  - text: >
+      Review iter-1 MAJOR (AC-F5-1b): /data attachment update unreachable via
+      port. Resolved as option (c) — the simplest path (supersedes the
+      tentative (b) above; directed by decision authority / user). Remove the
+      orphaned AttachmentService.update() + TC-UPD-001; document in
+      attachments.ts that hash-derived filenames (marksync-mermaid-<hash>.svg /
+      marksync-asset-) make in-place /data update unnecessary for MS-0002:
+      changed bytes → new hash → new filename → fresh create, never a same-name
+      dup. The /data version-bump path is unreachable by design, so no port op
+      is needed and the port surface stays clean.
+    date: 2026-07-10
+    ref: REVIEW-1-MAJOR
+
+open_questions: []
+
+blockers: []
+
+notes:
+  - text: >
+      DoR iter-2: NOT_READY — 1 new MAJOR + 1 persistent MINOR. MAJOR: plan
+      still describes the non-viable tests/_fixtures/boundary/ fixture in 8
+      locations, contradicting the test-plan's fixed ephemeral src/domain/ probe
+      approach (I only delegated the fix to test-plan-writer, not plan-writer —
+      cross-artifact fix missed half the artifacts). MINOR: spec NG-9/§8.5/§18
+      still say "one/only" arm count (incomplete sweep). Root cause: when fixing
+      a cross-cutting issue, must update ALL artifacts in the same pass.
+    type: retro
+    workItemRef: GH-21
+    date: 2026-07-10
+  - text: >
+      DoR iter-1: NOT_READY — 3 MAJOR + 1 MINOR, all author-revisable. (1) spec
+      falsely claims zod already installed (3 places; plan Phase 0 contradicts);
+      (2) boundary negative test TC-BND-001 uses tests/-located fixture which
+      cannot fire the production domain-may-not-import-infra rule (depcruise src
+      only cruises src/); (3) DEC-5 ID collision — spec DEC-5=renderBody delegate
+      but plan/test-plan cite DEC-5 for a no-secret-in-message rule that has no
+      spec DEC; (4) spec internal inconsistency — some sections still say "only
+      RateLimited" after OQ-1 added RemoteUnreachable. Reopening specification +
+      test_planning; delivery_planning clean.
+    type: retro
+    workItemRef: GH-21
+    date: 2026-07-10
+  - text: >
+      Test planning complete. @test-plan-writer produced chg-GH-21-test-plan.md
+      (1704 lines, 44 test cases across 21 feature families). All 9 ACs
+      covered with explicit traceability (TC-ID -> AC-ID -> F-/NFR- ID). Both
+      resolved OQs covered (RateLimited=TC-RATE-002, RemoteUnreachable=
+      TC-UNREACH-002/003). Critical-safety paths proven via integration tier
+      over Bun.serve mock. Plan-writer noted 4 delivery-time open questions
+      (all non-blocking, safe defaults): zod not yet installed (Phase 0 installs
+      it), renderBody input=HAST (PD-1 resolved), provenance length TO CONFIRM
+      (ADR-0010), dep-cruiser invocation mechanism (coder picks).
+    type: info
+    workItemRef: GH-21
+    date: 2026-07-09
+  - text: >
+      Delivery planning complete. @plan-writer produced chg-GH-21-plan.md
+      (1126 lines, 9 phases). Phase 0 installs zod (spec factual error: zod was
+      NOT already a dependency — GH-15 used ajv). Phase 1 adds RateLimited +
+      RemoteUnreachable error arms across 3 files (errors.ts, cli-error-map.ts,
+      exit-codes.ts). Phases 2-6 implement port/client/services/attachments/
+      search-restrictions/provenance. Phase 7 integration tests. Phase 8 final
+      gate.
+    type: info
+    workItemRef: GH-21
+    date: 2026-07-09
+  - text: >
+      Specification phase complete. @spec-writer produced chg-GH-21-spec.md (475
+      lines, 25 sections). 9 ACs (AC-F1-1..AC-Q-1), each Given/When/Then, each
+      traceable to a story AC + F-/NFR- IDs. 14 NFRs, 8 risks, 8 decisions. The
+      spec surfaced 2 genuine open questions (OQ-1 exhausted-5xx error arm;
+      OQ-2 RateLimited field shape) — both PM-resolved and folded into the spec.
+    type: info
+    workItemRef: GH-21
+    date: 2026-07-09
+  - text: >
+      clarify_scope: Story file (MS2-E3-S4--confluence-adapter.md) is authoritative
+      and extremely detailed — full deliverables list (port interface, client,
+      page/property/attachment/search/restrictions services, provenance, 403/409/429
+      handling), technical approach, test matrix, DoD, out-of-scope. Cross-checked
+      against feature spec (SPEC-CONFLUENCE-ADAPTER) and architecture-overview
+      "Internal interface contracts" — consistent.
+    type: info
+    workItemRef: GH-21
+    date: 2026-07-09
+  - text: >
+      Cross-check — error arms: MarkSyncError union already has Conflict, Forbidden,
+      TooLarge, RemoteMissing. The story calls for a RateLimited error on exhausted
+      429 backoff — this kind does NOT yet exist in src/domain/errors.ts. Coder must
+      add the RateLimited arm to the union + assertNeverMarkSyncError switch.
+      Flagged for spec/plan.
+    type: info
+    workItemRef: GH-21
+    date: 2026-07-09
+  - text: >
+      Cross-check — boundary enforcement: .dependency-cruiser.cjs already enforces
+      domain-may-not-import-infra and presentation-may-not-import-infra (TDR-0006).
+      AC requires a scratch-file negative test proving the port is the only seam.
+      Existing rules satisfy the boundary invariant; the negative test just proves it.
+    type: info
+    workItemRef: GH-21
+    date: 2026-07-09
+  - text: >
+      Cross-check — labels deferral: feature spec lists labels (add/delete) as a
+      capability, but story file explicitly defers labels.ts to post-MS-0002
+      (NFR-MAINT-2, narrow adapter surface). Documented deferral, not a contradiction.
+    type: info
+    workItemRef: GH-21
+    date: 2026-07-09
+  - text: >
+      Dependencies verified: blocked_by [MS2-E2-S4=GH-17 auth provider MERGED,
+      MS2-E3-S3=GH-20 markdown pipeline MERGED]. Both resolved; GH-21 unblocked.
+      blocks [MS2-E3-S5, MS2-E3-S6] (future).
+    type: info
+    workItemRef: GH-21
+    date: 2026-07-09
+  - text: >
+      Housekeeping: GH-20 (PR #55) discovered MERGED at intake (4th recurrence of
+      pm-context stale-by-one-merge-cycle — GH-17/18/19/20). Root cause unchanged:
+      pm-context not updated on out-of-band merge. Moved GH-20 to recently_delivered.
+    type: retro
+    workItemRef: GH-20
+    date: 2026-07-09

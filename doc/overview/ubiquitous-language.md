@@ -6,13 +6,13 @@ ados_distribution: redistributable
 id: UBIQUITOUS-LANGUAGE
 status: Draft
 created: 2026-07-05
-last_updated: 2026-07-09
+last_updated: 2026-07-10
 owners: [Juliusz Ćwiąkalski]
 area: domain
 document_classification: current-truth
 links:
   related_decisions: [ADR-0005, ADR-0006, ADR-0010, ADR-0011, PDR-0001]
-  related_changes: [GH-15, GH-17, GH-18, GH-19, GH-20]
+  related_changes: [GH-15, GH-17, GH-18, GH-19, GH-20, GH-21]
   summary: "Ubiquitous language — the precise, bounded-context vocabulary binding domain concepts to code for MarkSync's Markdown-to-TargetSystem synchronization domain."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -53,7 +53,7 @@ events) and their relationships. Distinct from the reader-friendly
 |---|---|---|---|
 | **Source Document** | The Markdown file as read from a committed Git revision. Has: front-matter (including UUID), MDAST content, resolved assets, and a relative path within the configured root. | Entity (within Managed Document) | belongs to → Managed Document |
 | **Page Binding** | The durable mapping between a Document Identity and a target-system page. Records: page ID, parent page ID, last-known remote version, content hashes, and the shared-base snapshot. Code construct: the `PageBinding` interface (`src/domain/binding/page-binding.ts`) — landed as a type with identity-binding semantics (GH-18); first-persisted into the committed lock by GH-19 (`src/app/lock.ts`). | Entity (within Document Identity) | 1:1 → Target Page; 1:1 → Shared Base |
-| **Target Page** | The remote page as seen from the target system. Has: page ID, version number, body representation (Storage/ADF), content properties, and attachments. | Entity (behind TargetSystem port) | belongs to → Page Binding; has → Content Properties |
+| **Target Page** | The remote page as seen from the target system. Has: page ID, title, version number, optional body representation (Storage/ADF), content properties, and attachments. Exposed through the port as the `Page` value object `{ id; title; version; body? }` (`src/domain/target/port.ts`). | Entity (behind TargetSystem port) | belongs to → Page Binding; has → Content Properties |
 | **Shared Base** | The agreed "last published" snapshot for a document: body hash, attachment hashes, version number, and provenance commit. Stored in the committed lock (`marksync.lock.yml`, `src/app/lock.ts`); enables drift detection by comparison with current Source Document and Target Page. | Entity (within Page Binding) | belongs to → Page Binding |
 
 ### Value Objects
@@ -92,12 +92,14 @@ events) and their relationships. Distinct from the reader-friendly
 | **Link Resolver** | Domain service that resolves local Markdown cross-document links to target-system page IDs/URLs so internal links work after sync. | Domain service | used by → Hierarchy Planner |
 | **Asset Resolver** | Domain service that prepares images/attachments: safe path resolution, content hashing, deduplication. | Domain service | — |
 | **Mermaid Artifact Manager** | Domain service that calculates Mermaid content hashes, detects whether a hash already exists on the target, and orchestrates render→upload→reference. | Domain service | used by → Push Executor |
+| **TargetSystem** | The domain-owned port (`interface TargetSystem`, `src/domain/target/port.ts`) abstracting the remote publishing surface. Declares `renderBody`, `getPage`, `createPage`, `updatePage`, `movePage`, `getProperty`, `putProperty`, `uploadAttachment`, `attachmentExists`, `listAttachments`, `searchPages`, `getRestrictions`. No target-specific type appears in its surface; every operation returns `Result<T, MarkSyncError>`. The domain/application tiers call ONLY through this seam; infrastructure implements it (GH-21). The seam a future non-Confluence adapter plugs into. | Domain service (port) | implemented by → ConfluenceTarget |
 
 ### Infrastructure Services
 
 | Term | Meaning | Type | Relationships |
 |---|---|---|---|
 | **Push Executor** | Infrastructure service that performs ordered safe writes via the `TargetSystem` port, journals each mutation, and handles optimistic concurrency (409). Included here because it owns the journal/409 contract that the domain depends on. | Infrastructure service | consumes → Plan; produces → Page Published, Drift Detected |
+| **ConfluenceTarget** | The sole `TargetSystem` port implementor (`class ConfluenceTarget implements TargetSystem`, `src/infra/confluence/target.ts`). Composes the `ConfluenceClient` + `PageService` + `PropertyService` + `AttachmentService` + `SearchService` + `RestrictionsService`; `renderBody` delegates to the GH-20 `renderStorage`. An anti-corruption layer: it translates Confluence REST v2/v1 responses into adapter-agnostic port value types, isolating every v1/v2 distinction (A-FEA-6). | Infrastructure service (adapter) | implements → TargetSystem |
 
 ### Configuration
 
@@ -152,13 +154,35 @@ code constructs._
 | **CorruptLock** | The corrupt-lock arm (`kind: "CorruptLock"`) of `MarkSyncError`: a present-but-invalid lock (bad `version`, missing field, unparseable YAML). Distinct recovery action (regenerate / `rebuildLockFromConfluence`) from `LockDirty` (property tamper → reconcile). Carries `path`, optional `ajvErrors`, and an AI-readable `humanMessage`. | Value object (error) | member of → MarkSyncError |
 | **LockError** | The lock-failure arms of `MarkSyncError` (`CorruptLock` \| `LockDirty` \| `ConcurrentWrite`) — the narrowed `Result` error `loadLock`/`saveLock` declare (`src/domain/config/lock-types.ts` re-exports it), mirroring `ConfigError`/`AuthError`. | Value object (error) | member of → MarkSyncError |
 
+### Target System (port value types + transport errors)
+
+_The adapter-agnostic value types the `TargetSystem` port exchanges, plus the
+transport-failure `MarkSyncError` arms the Confluence adapter produces. Names
+bind to their code constructs (`src/domain/target/port.ts` for the types;
+`src/domain/errors.ts` for the arms; GH-21)._
+
+| Term | Meaning | Type | Relationships |
+|---|---|---|---|
+| **RenderedBody** | The `{ body; hash; warnings }` payload returned by `TargetSystem.renderBody`. `body` is the target-specific body string (Confluence Storage XHTML); `hash` is the deterministic content hash; `warnings` are non-fatal render warnings. | Value object | produced by → TargetSystem.renderBody |
+| **RenderBodyOptions** | `{ sourcePath }` — the per-render options threaded onto any `renderBody` failure (e.g. an `UnsupportedConstruct` carries the offending source path). | Value object | input to → TargetSystem.renderBody |
+| **Page** | The target page as seen through the port: `{ id; title; version; body? }` — identity + version + optional body. Returned by `getPage`/`createPage`/`updatePage`/`movePage`; the v2 read surfaces the body on demand. (Bound to the **Target Page** entity above.) | Value object | returned by → TargetSystem |
+| **CreatePageRequest** | `{ parentId; title; body; baseHash?; message? }` — create a page under a parent. `representation:"storage"` is the adapter's concern, not the caller's. | Value object | input to → TargetSystem.createPage |
+| **UpdatePageRequest** | The port request for `TargetSystem.updatePage`: `{ pageId; title; body; baseVersion; message? }`. The `title` is carried unchanged (the Confluence v2 PUT requires it); `baseVersion` is the version the caller believes is current (the target rejects a stale value with 409). | Value object | consumed by → TargetSystem.updatePage |
+| **MovePageRequest** | `{ pageId; parentId }` — reparent a page. | Value object | input to → TargetSystem.movePage |
+| **Artifact** | `{ bytes; mime; hash }` — a binary artifact to upload (rendered Mermaid SVG, resolved asset). `hash` is the dedup key. | Value object | input to → TargetSystem.uploadAttachment |
+| **AttachmentRef** | `{ id; pageId; filename; hash; version }` — a reference to a stored attachment, keyed by the hash-derived filename. | Value object | returned by → TargetSystem (`uploadAttachment`/`listAttachments`) |
+| **PageRef** | `{ id; title }` — a discovered page via CQL search (id + title only — minimal). | Value object | returned by → TargetSystem.searchPages |
+| **PageRestrictions** | `{ pageId; restricted }` — a page's view/edit restriction state (minimal — supports the permission-awareness story, R-FEA-10). | Value object | returned by → TargetSystem.getRestrictions |
+| **RateLimited** | The transport-failure arm (`kind: "RateLimited"`) of `MarkSyncError`: produced when Confluence 429 backoff is exhausted (after max retries). Carries optional `retryAfterMs` (last observed `Retry-After`) for the caller's retry decision — no secret material. Distinct kind from `RemoteUnreachable` because the recovery action differs (wait-and-retry vs alert-operator). | Value object (error) | member of → MarkSyncError |
+| **RemoteUnreachable** | The transport-failure arm (`kind: "RemoteUnreachable"`) of `MarkSyncError`: produced on exhausted-5xx backoff, a network failure, or a zod schema-validation failure (remote-shape drift). Carries optional `status` (for 5xx) and a non-secret `cause`. The recovery action (server-down / alert-operator) differs from `RateLimited`. | Value object (error) | member of → MarkSyncError |
+
 ## Context map
 
 _How this context relates to neighbouring bounded contexts._
 
 | Neighbouring context | Relationship | Notes |
 |---|---|---|
-| **Confluence REST API** | Customer/supplier (anti-corruption layer) | The Confluence adapter (`ConfluenceClient`) is an ACL: it translates REST v2/v1 responses into MarkSync domain objects (`Target Page`, `Body Representation`, `Content Properties`). All REST version distinctions are isolated here (A-FEA-6). MarkSync depends on the API but the ACL protects the domain from API churn. |
+| **Confluence REST API** | Customer/supplier (anti-corruption layer) | The Confluence adapter (`ConfluenceTarget`, composing `ConfluenceClient` + per-surface services) is an ACL: it translates REST v2/v1 responses into MarkSync domain objects (`Target Page`, `Body Representation`, `Content Properties`). All REST version distinctions are isolated here (A-FEA-6). MarkSync depends on the API but the ACL protects the domain from API churn. |
 | **Git** | Customer/supplier (anti-corruption layer) | The `Repository` port (implemented by shell-Git, TDR-0003) is an ACL: it translates Git operations into `Source Document` reads. MarkSync reads committed snapshots only; never pushes/pulls. |
 | **Mermaid Rendering** | Conformist (service) | The `Renderer` port (implemented by official `mermaid` + jsdom, ADR-0002) produces deterministic `Artifact` bytes. MarkSync conforms to the renderer's output contract; the `Mermaid Artifact Manager` handles dedup/existence. |
 | **CLI Presentation** | Customer (downstream) | The CLI presentation tier consumes domain/application services and renders output (human/JSON/NDJSON) via the output service. The domain does not know about CLI formatting. |

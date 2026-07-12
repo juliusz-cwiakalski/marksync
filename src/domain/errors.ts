@@ -86,7 +86,15 @@ export type MarkSyncError =
 			path: string;
 			ajvErrors?: ConfigAjvError[];
 			humanMessage: string;
-	  };
+	  }
+	// GH-21 F-9 / OQ-1 / OQ-2 — the transport-failure arms. `RateLimited` is the
+	// exhausted-429 outcome; `RemoteUnreachable` is the exhausted-5xx / network /
+	// schema-drift outcome (PD-5). Both are retryable-but-later: distinct kinds
+	// because the recovery action differs (wait-and-retry vs alert-operator). The
+	// optional `retryAfterMs`/`status`/`cause` fields stay in the typed error for
+	// (redacted) logging only — DEC-9 forbids interpolating them into messages.
+	| { kind: "RateLimited"; retryAfterMs?: number }
+	| { kind: "RemoteUnreachable"; status?: number; cause: string };
 
 /**
  * The config-failure arm of {@link MarkSyncError}. `loadConfig` declares
@@ -144,6 +152,8 @@ export function assertNeverMarkSyncError(error: MarkSyncError): never {
 		case "InvalidConfig":
 		case "Auth":
 		case "CorruptLock":
+		case "RateLimited":
+		case "RemoteUnreachable":
 			// Every kind is named above. If a new kind is added, the `default`
 			// arm's `error` stops being `never` and this file won't compile.
 			throw new Error(`unhandled MarkSyncError kind: ${error.kind}`);

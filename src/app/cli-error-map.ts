@@ -45,6 +45,8 @@
 //   | Auth/InvalidBaseUrl       | AUTH_INVALID_BASE_URL     | false   |
 //   | Auth/InvalidCredentials   | AUTH_INVALID_CREDENTIALS | false   |
 //   | Auth/AuthUnreachable      | AUTH_UNREACHABLE         | true    |
+//   | RateLimited               | RATE_LIMITED            | true      | (GH-21)
+//   | RemoteUnreachable         | REMOTE_UNREACHABLE      | true      | (GH-21)
 //
 // `message` (DEC-5 / NFR-SEC-1 / NFR-SEC-2): stable, AI-readable, and redacted
 // AT THE SOURCE. It is built ONLY from structural identifier fields that belong
@@ -256,6 +258,22 @@ export function mapMarkSyncErrorToCommandError(
 				}
 			}
 		}
+		case "RateLimited":
+			// DEC-9: never interpolate `retryAfterMs` — it's transport detail.
+			return {
+				code: "RATE_LIMITED",
+				retryable: true,
+				message:
+					"rate-limited by Confluence after retry budget exhausted; retry later",
+			};
+		case "RemoteUnreachable":
+			// DEC-9: never interpolate `cause` (raw transport text) or `status`.
+			return {
+				code: "REMOTE_UNREACHABLE",
+				retryable: true,
+				message:
+					"could not reach Confluence (network or server error); retry later",
+			};
 		default:
 			// NFR-3 — adding a kind without a case above is a compile error
 			// (err is `never` here only when every kind is handled).

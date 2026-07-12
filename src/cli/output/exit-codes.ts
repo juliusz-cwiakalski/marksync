@@ -38,6 +38,8 @@
 //   | Auth/InvalidBaseUrl       | AUTH_INVALID_BASE_URL     | 20   | auth           |
 //   | Auth/InvalidCredentials   | AUTH_INVALID_CREDENTIALS | 20   | auth           |
 //   | Auth/AuthUnreachable      | AUTH_UNREACHABLE         | 20   | auth (retry)   |
+//   | RateLimited               | RATE_LIMITED             | 99 * | other (retry) (GH-21) |
+//   | RemoteUnreachable         | REMOTE_UNREACHABLE       | 99 * | other (retry) (GH-21) |
 //   | (no kind — flag/arg fail) | USAGE                 |  2   | usage              |
 //   | (no kind — unexpected)    | INTERNAL              | 99   | internal           |
 //
@@ -106,6 +108,9 @@ export const CODE_TO_EXIT: Record<string, number> = {
 	UNSUPPORTED_CONSTRUCT: EXIT_INTERNAL,
 	TOO_LARGE: EXIT_INTERNAL,
 	UNRESOLVED_LINK: EXIT_INTERNAL,
+	// GH-21 transport-failure codes — retryable, no dedicated exit class yet.
+	RATE_LIMITED: EXIT_INTERNAL,
+	REMOTE_UNREACHABLE: EXIT_INTERNAL,
 	// internal (unexpected throw).
 	INTERNAL: EXIT_INTERNAL,
 };

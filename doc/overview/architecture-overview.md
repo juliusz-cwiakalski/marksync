@@ -6,13 +6,13 @@ ados_distribution: redistributable
 id: ARCHITECTURE-OVERVIEW
 status: Draft
 created: 2026-07-04
-last_updated: 2026-07-09
+last_updated: 2026-07-10
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005, ADR-0006]
-  related_changes: [GH-18, GH-20]
+  related_changes: [GH-18, GH-20, GH-21]
   summary: "Architecture overview — ports-and-adapters CLI; Markdown→Storage pipeline; Confluence Cloud adapter; UUID+lock state model; no hosted backend."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -106,12 +106,15 @@ section below govern residence and dependency direction._
 
 | Component | Container | Tier | Responsibility |
 |---|---|---|---|
-| Confluence client | MarkSync binary | infrastructure | `ConfluenceClient` → Cloud REST v2/v1; pages, content properties, hierarchy |
-| Confluence attachment manager | MarkSync binary | infrastructure | Attachment upload/update/download (V1-only); hash-based dedup; existence detection |
+| Confluence client | MarkSync binary | infrastructure | `ConfluenceClient` → Cloud REST v2/v1; native `fetch`, `v1`/`v2` URL builders rooted at `baseUrl`, `authHeader` injection, redacted logging, 429 backoff → `RateLimited`, 5xx retry → `RemoteUnreachable`; 401/403 never retried *(delivered — GH-21)* |
+| Confluence page service | MarkSync binary | infrastructure (adapter) | `PageService` (v2): page create/read/update/move + the brand-defining 409-conflict parse → typed `Conflict`; 403 → `Forbidden`; 404 → `RemoteMissing` *(delivered — GH-21)* |
+| Confluence content property manager | MarkSync binary | infrastructure (adapter) | `PropertyService` (v2): `marksync.metadata` string property read/write (lock cross-check data); `getProperty` → `string | undefined` *(delivered — GH-21)* |
+| Confluence attachment manager | MarkSync binary | infrastructure | `AttachmentService` (v1-only): multipart upload, hash-named dedup, 400-duplicate idempotency signal → "already exists", `/data` update on changed bytes *(delivered — GH-21)* |
 | Confluence Storage renderer | MarkSync binary | infrastructure (adapter) | HAST → Confluence Storage XHTML string-builder visitor (ADR-0005); `renderStorage(hast, opts) → { body, hash, warnings }` (`src/infra/confluence/render/storage.ts`); CDATA code bodies, omitted `ac:schema-version`/`ac:macro-id`, `<ac:task-list>` as its own block *(delivered — GH-20)* |
+| Confluence search + restrictions | MarkSync binary | infrastructure (adapter) | `SearchService` (CQL, v1-only) + `RestrictionsService` (v1-only) — minimal for MS-0002 *(delivered — GH-21)* |
+| Confluence page-history provenance | MarkSync binary | infrastructure (adapter) | `version.message` formatting per ADR-0010; MarkSync/Git prefix; compact included-commit summary; deterministic trim to `MAX_VERSION_MESSAGE_LEN` *(delivered — GH-21)* |
+| ConfluenceTarget adapter | MarkSync binary | infrastructure (adapter) | `class ConfluenceTarget implements TargetSystem` — composes the client + all services; `renderBody` delegates to `renderStorage`; the sole `TargetSystem` implementor *(delivered — GH-21)* |
 | Confluence reverse converter | MarkSync binary | infrastructure (adapter) | Storage/ADF → Markdown (later phase; `MS-0005+`); target-specific body parsing |
-| Confluence content property manager | MarkSync binary | infrastructure (adapter) | `marksync.metadata` property read/write (v2); lock cross-check data |
-| Confluence page-history provenance | MarkSync binary | infrastructure (adapter) | `version.message` formatting per ADR-0010; MarkSync/Git prefix; squash summary |
 
 ### C4 L3 — Component diagram
 
@@ -205,7 +208,8 @@ specifies which downward dependencies are permitted. Ports (interfaces) live in
 
 Example: the CLI adapter (presentation) may import the application layer; the
 domain layer may NOT import the Confluence adapter. The Confluence adapter
-(infrastructure) **implements** the `ConfluenceClient` port defined in domain.
+(infrastructure) **implements** the `TargetSystem` port defined in the domain
+tier (`src/domain/target/port.ts`).
 
 ### Internal interface contracts
 
@@ -217,22 +221,31 @@ the integration-scenarios docs (`doc/inception/integration-scenarios/`)._
 | app → git port | readCommitted | `readCommitted(ref, patterns)` | `Map<path, bytes>` | `RefNotFound`, `BadPath` |
 | app → git port | worktreeStatus | `worktreeStatus(paths)` | `WorktreeStatus` | — |
 | app → markdown port | parse | `parseMarkdown(bytes, opts?)` | `Result<MdastRoot, MarkSyncError>` | total in MS-0002 — a genuine parse failure is an invariant violation that `throw`s (no `ParseError` arm exists in `MarkSyncError`) |
-| app → target system port | getPage | `getPage(id, repr)` | `Page` | `NotFound`, `Forbidden`, `Conflict` |
-| app → target system port | updatePage | `updatePage(req)` | `Page` | `Conflict` (409 → drift) |
-| app → target system port | putProperty | `putProperty(pageId, key, value)` | `void` | `Conflict`, `TooLarge` |
-| app → target system port | renderBody | `renderStorage(hast, opts)` (Confluence adapter realization) | `{ body, hash, warnings }` | `UnsupportedConstruct` |
-| app → target system port | attachmentExists | `attachmentExists(pageId, hash)` | `boolean` | `Forbidden` |
-| app → target system port | uploadAttachment | `uploadAttachment(pageId, artifact)` | `AttachmentRef` | `TooLarge`, `Forbidden` |
+| app → target system port | renderBody | `renderBody(hast, opts)` | `Result<{ body, hash, warnings }, MarkSyncError>` | `UnsupportedConstruct`; input is canonical **HAST** (the app layer runs `parseMarkdown` → `mdastToHast` → `renderBody`) |
+| app → target system port | getPage | `getPage(id)` | `Result<Page, MarkSyncError>` | `RemoteMissing` (404), `Forbidden` (403), `RateLimited`, `RemoteUnreachable` |
+| app → target system port | createPage | `createPage(req)` | `Result<Page, MarkSyncError>` | `Forbidden`, `Conflict`, `RateLimited`, `RemoteUnreachable` |
+| app → target system port | updatePage | `updatePage(req)` (`req` carries `pageId`, `title`, `body`, `baseVersion`; v2 PUT requires `title`) | `Result<Page, MarkSyncError>` | `Conflict` (409 → drift), `Forbidden`, `RateLimited`, `RemoteUnreachable` |
+| app → target system port | movePage | `movePage(req)` | `Result<Page, MarkSyncError>` | `Forbidden`, `RateLimited`, `RemoteUnreachable` |
+| app → target system port | getProperty | `getProperty(pageId, key)` | `Result<string \| undefined, MarkSyncError>` | `Forbidden`, `RateLimited`, `RemoteUnreachable` (missing key → `ok(undefined)`) |
+| app → target system port | putProperty | `putProperty(pageId, key, value)` | `Result<void, MarkSyncError>` | `Conflict`, `TooLarge`, `Forbidden`, `RateLimited`, `RemoteUnreachable` |
+| app → target system port | uploadAttachment | `uploadAttachment(pageId, artifact)` | `Result<AttachmentRef, MarkSyncError>` | `TooLarge`, `Forbidden`, `RateLimited`, `RemoteUnreachable` (duplicate filename → "already exists" result) |
+| app → target system port | attachmentExists | `attachmentExists(pageId, hash)` | `Result<boolean, MarkSyncError>` | `Forbidden`, `RateLimited`, `RemoteUnreachable` |
+| app → target system port | listAttachments | `listAttachments(pageId)` | `Result<AttachmentRef[], MarkSyncError>` | `Forbidden`, `RateLimited`, `RemoteUnreachable` |
+| app → target system port | searchPages | `searchPages(cql)` | `Result<PageRef[], MarkSyncError>` | `RateLimited`, `RemoteUnreachable` |
+| app → target system port | getRestrictions | `getRestrictions(pageId)` | `Result<PageRestrictions, MarkSyncError>` | `Forbidden`, `RateLimited`, `RemoteUnreachable` |
 | app → target system port | reverseConvert | `reverseConvert(bodyRepr)` | `MdastRoot` | `UnsupportedConstruct` (`MS-0005+`) |
 | app → mermaid port | render | `render(source, opts)` | `Artifact{ bytes, mime, hash }` | `RenderUnavailable` (→ fallback ladder) |
 | app → link resolver | resolveLink | `resolveLink(sourcePath, targetPath)` | `PageRef` | `Unresolved` |
 | app → state classifier | classify | `classify(local, base, remote)` | `SyncState` | — |
 | app → lock store | commit | `commit(newLock)` | `void` | `LockDirty`, `ConcurrentWrite` |
 
-Scope: signature + return/error shape only. The `TargetSystem` port is the
-primary extensibility seam: the Confluence adapter implements it; a future
-adapter (e.g., Notion, GitBook) would implement the same port with its own
-renderer and reverse converter. The `Renderer` interface mirrors spec §9.11.
+Scope: signature + return/error shape only. Every `TargetSystem` operation
+returns `Result<T, MarkSyncError>`; any remote call can additionally surface
+`RateLimited` (exhausted-429) or `RemoteUnreachable` (exhausted-5xx / network /
+schema-drift). The `TargetSystem` port is the primary extensibility seam: the
+Confluence adapter (`ConfluenceTarget`) implements it; a future adapter (e.g.,
+Notion, GitBook) would implement the same port with its own renderer and reverse
+converter. The `Renderer` interface mirrors spec §9.11.
 
 ### Feature → component ownership map
 
