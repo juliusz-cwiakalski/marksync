@@ -8,10 +8,10 @@ phases:
   test_planning: { started: 2026-07-12, completed: 2026-07-12 }
   delivery_planning: { started: 2026-07-12, completed: 2026-07-12 }
   dor_check: { started: 2026-07-12, completed: 2026-07-12, iterations: 2, verdict: READY }
-  delivery: { started: 2026-07-12, completed: null }
-  system_spec_update: { started: null, completed: null }
-  review_fix: { started: null, completed: null }
-  quality_gates: { started: null, completed: null }
+  delivery: { started: 2026-07-12, completed: 2026-07-12 }
+  system_spec_update: { started: 2026-07-12, completed: 2026-07-12 }
+  review_fix: { started: 2026-07-12, completed: null, iterations: 1, verdict: FAIL }
+  quality_gates: { started: 2026-07-12, completed: 2026-07-12 }
   dod_check: { started: null, completed: null }
   pr_creation: { started: null, completed: null, url: null }
 
@@ -49,6 +49,33 @@ open_questions: []
 blockers: []
 
 notes:
+  - text: >
+      Coverage-gap retro: `bun test` exited 1 (848 pass/0 fail) because 4 new
+      GH-23 source files + 2 test helpers violated the per-file coverage
+      threshold (lines >= 70%, functions >= 80%). config-lock-mappers.ts and
+      ports.ts were NEW source files shipped WITHOUT unit tests; plan.ts/sync.ts
+      CLI wiring was only exercised via the no-config error path; FakeTarget/
+      FakeRepository helpers had interface-required methods no test called.
+      Fix: 6 new test files across commits 722d407 + f9fe468. Why not caught
+      earlier: the coder delivered source + integration tests but the unit-
+      coverage obligation on new files wasn't explicitly tracked as a plan
+      task; Bun's per-file threshold includes test-helper files (no exclusion).
+      Process improvement: (1) plan-writer should add explicit "unit coverage
+      for new src/ files" tasks; (2) test helpers with interface-required dead
+      methods need companion unit tests from the start; (3) run full `bun test`
+      (not just targeted files) as a delivery completion gate.
+    type: retro
+    workItemRef: GH-23
+    date: 2026-07-12
+  - text: >
+      Quality gates CEO-verified green at c82c4e0: bun run check = 894 pass /
+      0 fail / depcruise 90 modules clean; commitlint --from origin/main --to
+      HEAD = exit 0; repo-wide YAML validation = all valid (except pre-existing
+      intentionally-malformed test fixture). Coverage gate passes for all src/
+      and test-helper files.
+    type: info
+    workItemRef: GH-23
+    date: 2026-07-12
   - text: >
       DoR iter-1 NOT_READY (4 blocking findings, all small, no human escalation).
       (1) test-plan TC-INTEGRATION-009 asserts err({kind:"BadPath"|"BadRef"})

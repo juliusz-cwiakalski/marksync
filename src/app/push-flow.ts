@@ -69,7 +69,7 @@ export interface PlanEntry {
 	renderedBody: string;
 }
 
-	/** The computed plan. */
+/** The computed plan. */
 export interface Plan {
 	runId: string;
 	operationId: string;
@@ -589,7 +589,7 @@ export async function applyPlan(
 			// Test-only crash hook: throws AFTER journal append (inside processEntry)
 			throw new Error(`CRASH_AFTER_${crashAfter}`);
 		}
-		}
+	}
 
 	return Res.ok({
 		runId: plan.runId,

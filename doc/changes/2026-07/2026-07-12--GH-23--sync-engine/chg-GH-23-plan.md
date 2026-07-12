@@ -1425,7 +1425,7 @@ per the plan template).
 
 #### Blockers (drive the FAIL status)
 
-- [ ] **10.1 — Fix link-resolution render ordering so rewrites reach the published body (iter-2 F-1 / AC-F7-1)**
+- [x] **10.1 — Fix link-resolution render ordering so rewrites reach the published body (iter-2 F-1 / AC-F7-1)**
   - `src/app/push-flow.ts:193-228` — computePlan currently calls
     `target.renderBody(hast)` (line 193) and captures `body` (line 196) BEFORE
     `_resolveLinksInDoc(hast, ...)` (line 228) mutates `el.properties.href`.
@@ -1437,7 +1437,7 @@ per the plan template).
     Add a test that puts a managed `[x](other.md)` in the source, runs
     computePlan, and asserts the captured create/update request body contains
     the resolved `viewpage.action?pageId=<id>` — NOT `other.md`.
-- [ ] **10.2 — Surface unresolved-link warnings (iter-2 F-2 / AC-F7-1)**
+- [x] **10.2 — Surface unresolved-link warnings (iter-2 F-2 / AC-F7-1)**
   - `src/app/push-flow.ts:228-233,382-383` — the `if (!linksResolved.ok)` block
     is empty (comments only); the `UnresolvedLink` warning is computed then
     discarded, and `_resolveLinksInDoc` returns only the first warning. Have
@@ -1448,7 +1448,7 @@ per the plan template).
 
 #### Medium
 
-- [ ] **10.3 — Make parent-first real OR cleanly descope (iter-2 F-3 / AC-F6-1 / NFR-9 / PD-6)**
+- [x] **10.3 — Make parent-first real OR cleanly descope (iter-2 F-3 / AC-F6-1 / NFR-9 / PD-6)**
   - `src/app/push-flow.ts:461-489` — the per-create edge-following loop body
     (475-480) is EMPTY: it never maps a Create's parentId to another create's
     uuid and never calls `visit(parent)`, so it cannot reorder and the cycle
@@ -1467,7 +1467,7 @@ per the plan template).
   - `src/app/push-flow.ts:42-45` — the toolVersion read is cwd-coupled and
     throws at import if `package.json` is absent. Use a build-time constant or
     Bun JSON import (`import pkg from "../../package.json"`) or read lazily.
-- [ ] **10.5 — Combine duplicate imports (iter-2 F-5)**
+- [x] **10.5 — Combine duplicate imports (iter-2 F-5)**
   - `src/app/push-flow.ts:3,5,29,30` — merge the two `#domain/result` and two
     `#domain/hierarchy/link-resolver` statements via the inline `type` modifier.
 - [ ] **10.6 — Fix stale "via test stubs" describe label (iter-2 F-6)**
@@ -1476,7 +1476,7 @@ per the plan template).
 - [ ] **10.7 — Typecheck tests against real config types (iter-2 F-7)**
   - Add `tsconfig.test.json` including `tests/` and wire into the `check` gate
     so TargetConfig-contract regressions are caught (root cause of iter-1 F-6).
-- [ ] **10.8 — Surface git host-invariant failure detail (iter-2 F-8)**
+- [x] **10.8 — Surface git host-invariant failure detail (iter-2 F-8)**
   - `src/cli/commands/{plan,sync}.ts` — the `catch (e)` discards the message
     into a generic "internal error". Include a sanitized summary of the thrown
     message in the INTERNAL error text for agent/operator diagnosability.
