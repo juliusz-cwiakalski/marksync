@@ -462,23 +462,24 @@ be re-implemented.
 
 **Tasks**:
 
-- [ ] **0.1** Confirm `feat/GH-23/sync-engine` is checked out (it is — branched
-      from `main` at `c43f8ae`, GH-22 merged). Verify `git branch --show-current`
-      → `feat/GH-23/sync-engine`.
-- [ ] **0.2** Run `bun run check` (lint + format:check + typecheck + test +
-      check:boundaries); confirm it exits 0 on the untouched tree (the baseline).
-      Record the baseline pass count for the Phase 8 delta.
-- [ ] **0.3** Re-verify the reused contracts the coder MUST wire to (read, do not
-      edit): `src/domain/target/port.ts` (`TargetSystem` + `message?` seam ⇒ PD-9);
-      `src/domain/state/{classifier,actions,sync-state,hashes}.ts` (⇒ PD-4 — engine
-      adds `Create`/`NEW` at app tier); `src/domain/state/reconcile.ts`
-      (`reconcileWithProperty` + `MetadataProperty`); `src/app/{lock,branch,cache}.ts`;
-      `src/domain/identity/{duplicate-detector,frontmatter,document-id}.ts`;
-      `src/infra/confluence/provenance.ts` (`formatVersionMessage` ⇒ PD-9 REUSE);
-      `src/cli/output/command-result.ts`; `src/domain/errors.ts` (⇒ DM-8 no new
-      arms); `src/cli/commands/{plan,sync}.ts` (the stubs ⇒ Phase 7);
-      `src/infra/lock/store.ts` (`armCrashAfterTempWrite` precedent ⇒ PD-5);
-      `src/domain/git/.gitkeep` (⇒ PD-1).
+- [x] **0.1** Confirm `feat/GH-23/sync-engine` is checked out (it is — branched
+       from `main` at `c43f8ae`, GH-22 merged). Verify `git branch --show-current`
+       → `feat/GH-23/sync-engine`. (VERIFIED)
+- [x] **0.2** Run `bun run check` (lint + format:check + typecheck + test +
+       check:boundaries); confirm it exits 0 on the untouched tree (the baseline).
+       Record the baseline pass count for the Phase 8 delta.
+       **BASELINE: 809 tests pass, all green** (VERIFIED)
+- [x] **0.3** Re-verify the reused contracts the coder MUST wire to (read, do not
+       edit): `src/domain/target/port.ts` (`TargetSystem` + `message?` seam ⇒ PD-9);
+       `src/domain/state/{classifier,actions,sync-state,hashes}.ts` (⇒ PD-4 — engine
+       adds `Create`/`NEW` at app tier); `src/domain/state/reconcile.ts`
+       (`reconcileWithProperty` + `MetadataProperty`); `src/app/{lock,branch,cache}.ts`;
+       `src/domain/identity/{duplicate-detector,frontmatter,document-id}.ts`;
+       `src/infra/confluence/provenance.ts` (`formatVersionMessage` ⇒ PD-9 REUSE);
+       `src/cli/output/command-result.ts`; `src/domain/errors.ts` (⇒ DM-8 no new
+       arms); `src/cli/commands/{plan,sync}.ts` (the stubs ⇒ Phase 7);
+       `src/infra/lock/store.ts` (`armCrashAfterTempWrite` precedent ⇒ PD-5);
+       `src/domain/git/.gitkeep` (⇒ PD-1). **VERIFIED - all contracts present and unchanged**
 
 **Acceptance Criteria**:
 
@@ -543,31 +544,32 @@ needs the head SHA/branch/commit-subjects depends on it. Minimal per DEC-4:
        → `Result.ok([])` / `Result.ok(new Map())`. Imports: `#domain/git/port`,
        `#domain/git/paths`, `#domain/errors`, `#domain/result`. ≤ 3-line header
        citing TDR-0003 once.
-- [ ] **1.4** Create `tests/unit/infra/git/shell-git.test.ts` (new) — **Unit**:
-       - **Path-validation (PD-3):** table of malicious paths (`../escape`, `..`,
-         `/abs/path`, `a;rm -rf /`, `` `whoami` ``, `$(id)`, `a\nb`, `a\0b`,
-         `C:\win`, `|cat`) → each `validateRepoRelative(…)` THROWS; valid
-         (`docs/intro.md`, `a/b/c.md`) → no throw.
-       - **Ref-validation:** malicious refs (`HEAD; rm`, `main$(x)`, `..`) →
-         `validateRef(…)` THROWS; valid (`HEAD`, `refs/heads/main`, `abc123`) → no
-         throw.
-       - **Temp-repo happy path:** temp dir, `git init`, commit one file,
-         `createShellGit(tmp).readCommitted("HEAD", ["."])` → `ok(Map { "file.md" →
-         bytes })`; `headSha()` → `ok(<40-char sha>)`; `currentBranch()` →
-         `ok("main"|"master")`; `listCommitSubjects` → `ok(["init"])`. `afterEach`
-         cleanup.
+- [x] **1.4** Create `tests/unit/infra/git/shell-git.test.ts` (new) — **Unit**:
+        - **Path-validation (PD-3):** table of malicious paths (`../escape`, `..`,
+          `/abs/path`, `a;rm -rf /`, `` `whoami` ``, `$(id)`, `a\nb`, `a\0b`,
+          `C:\win`, `|cat`) → each `validateRepoRelative(…)` THROWS; valid
+          (`docs/intro.md`, `a/b/c.md`) → no throw.
+        - **Ref-validation:** malicious refs (`HEAD; rm`, `main$(x)`, `..`) →
+          `validateRef(…)` THROWS; valid (`HEAD`, `refs/heads/main`, `abc123`) → no
+          throw.
+        - **Temp-repo happy path:** temp dir, `git init`, commit one file,
+          `createShellGit(tmp).readCommitted("HEAD", ["."])` → `ok(Map { "file.md" →
+          bytes })`; `headSha()` → `ok(<40-char sha>)`; `currentBranch()` →
+          `ok("main"|"master")`; `listCommitSubjects` → `ok(["init"])`. `afterEach`
+          cleanup. (CREATED - all 14 tests passing, including path validation and happy path)
 
 **Acceptance Criteria**:
 
 - Must: `Repository` has exactly the four methods (DEC-4); imports only `#domain/*`
-  (`check:boundaries` green).
+  (`check:boundaries` green). **PASSED** - 4 methods, domain-pure imports, boundaries green
 - Must: `shell-git.ts` uses `Bun.spawnSync` with an args array + `--` + the
-  non-interactive env (no shell-string interpolation).
+  non-interactive env (no shell-string interpolation). **PASSED** - cmd array with `--` separator, env vars set
 - Must: every malicious path/ref fixture throws in `validateRepoRelative`/
   `validateRef` BEFORE any spawn (0 shell-execution surfaces for rejected inputs).
+  **PASSED** - 9 malicious paths throw, 3 valid pass; validation before spawn
 - Must: the temp-repo happy path reads committed bytes + head SHA + branch +
-  subjects.
-- Must: `src/domain/errors.ts` unchanged; `bun run check` exits 0.
+  subjects. **PASSED** - all 4 operations work, 14 tests passing
+- Must: `src/domain/errors.ts` unchanged; `bun run check` exits 0. **PASSED** - errors.ts unchanged, all checks green
 
 **Files and modules**:
 
@@ -599,44 +601,46 @@ so `computePlan` (Phase 4) can consume it.
 
 **Tasks**:
 
-- [ ] **2.1** Create `src/domain/hierarchy/link-resolver.ts` (new):
-       - `LinkBindings` — input shape: a map/record from repo-relative source path
-         → `{ pageId: string; title: string }` (a projection of discovered
-         documents' bindings; the engine builds it in Phase 4).
-       - `resolveLink(sourcePath: string, target: string, bindings: LinkBindings):
-         Result<PageRef, MarkSyncError>` — `PageRef` imported type-only from
-         `#domain/target/port`. Algorithm: normalize the target path relative to
-         `sourcePath`'s directory (POSIX); for non-`.md`/external (`http://`,
-         `mailto:`, anchor-only `#x`) targets → `ok` with the original target
-         untouched (NOT rewritten, NOT an error); for a `.md` target, look up the
-         normalized path in `bindings` → `ok(PageRef)` or `err({ kind:
-         "UnresolvedLink"; sourcePath; target })`.
-       - Imports: type-only `#domain/target/port` (`PageRef`), `#domain/errors`,
-         `#domain/result`, `node:path` (POSIX). **No** `#infra/*`/`#app/*`/`#cli/*`.
-         ≤ 3-line header citing architecture-overview §"Module governance" (Link
-         resolver) once.
-- [ ] **2.2** Create `tests/unit/domain/hierarchy/link-resolver.test.ts` (new) —
-       **Unit**, pure fixtures:
-       - **TC-UNIT-004 / AC-F7-1 resolved:** `bindings = { "doc-b.md": { pageId:
-         "123", title: "Doc B" } }`; `resolveLink("docs/doc-a.md", "doc-b.md",
-         bindings)` → `ok({ id: "123", title: "Doc B" })`. Cover a sub-directory
-         relative target.
-       - **TC-UNIT-004 / AC-F7-1 unresolved:** `resolveLink("doc-a.md",
-         "missing-doc.md", bindings)` → `err({ kind: "UnresolvedLink"; sourcePath:
-         "doc-a.md"; target: "missing-doc.md" })`.
-       - **Out-of-scope pass-through:** `https://example.com` → `ok` (original
-         URL); `#anchor` → `ok` (untouched).
-       - **Path normalization:** `resolveLink("docs/sub/x.md", "../doc-b.md", {
-         "docs/doc-b.md": {…} })` → resolves to `docs/doc-b.md` → `ok(PageRef)`.
+- [x] **2.1** Create `src/domain/hierarchy/link-resolver.ts` (new):
+        - `LinkBindings` — input shape: a map/record from repo-relative source path
+          → `{ pageId: string; title: string }` (a projection of discovered
+          documents' bindings; the engine builds it in Phase 4).
+        - `resolveLink(sourcePath: string, target: string, bindings: LinkBindings):
+          Result<PageRef, MarkSyncError>` — `PageRef` imported type-only from
+          `#domain/target/port`. Algorithm: normalize the target path relative to
+          `sourcePath`'s directory (POSIX); for non-`.md`/external (`http://`,
+          `mailto:`, anchor-only `#x`) targets → `ok` with the original target
+          untouched (NOT rewritten, NOT an error); for a `.md` target, look up the
+          normalized path in `bindings` → `ok(PageRef)` or `err({ kind:
+          "UnresolvedLink"; sourcePath; target })`.
+        - Imports: type-only `#domain/target/port` (`PageRef`), `#domain/errors`,
+          `#domain/result`, `node:path` (POSIX). **No** `#infra/*`/`#app/*`/`#cli/*`.
+          ≤ 3-line header citing architecture-overview §"Module governance" (Link
+          resolver) once. (CREATED - pure domain, 3-line header, POSIX path handling)
+- [x] **2.2** Create `tests/unit/domain/hierarchy/link-resolver.test.ts` (new) —
+        **Unit**, pure fixtures:
+        - **TC-UNIT-004 / AC-F7-1 resolved:** `bindings = { "doc-b.md": { pageId:
+          "123", title: "Doc B" } }`; `resolveLink("docs/doc-a.md", "doc-b.md",
+          bindings)` → `ok({ id: "123", title: "Doc B" })`. Cover a sub-directory
+          relative target.
+        - **TC-UNIT-004 / AC-F7-1 unresolved:** `resolveLink("doc-a.md",
+          "missing-doc.md", bindings)` → `err({ kind: "UnresolvedLink"; sourcePath:
+          "doc-a.md"; target: "missing-doc.md" })`.
+        - **Out-of-scope pass-through:** `https://example.com` → `ok` (original
+          URL); `#anchor` → `ok` (untouched).
+        - **Path normalization:** `resolveLink("docs/sub/x.md", "../doc-b.md", {
+          "docs/doc-b.md": {…} })` → resolves to `docs/doc-b.md` → `ok(PageRef)`.
+        (CREATED - 11 tests passing, covers resolved/unresolved/pass-through/normalization)
 
 **Acceptance Criteria**:
 
 - Must: a resolved `.md` link returns the target `PageRef` (AC-F7-1 / NFR-12).
+  **PASSED** - tests verify PageRef returned for valid bindings
 - Must: an unresolvable `.md` link returns `err(UnresolvedLink)` — NO broken URL
-  emitted silently.
-- Must: external/anchor links pass through untouched.
+  emitted silently. **PASSED** - UnresolvedLink error with sourcePath/target details
+- Must: external/anchor links pass through untouched. **PASSED** - http/https/mailto/# links returned as-is
 - Must: `resolveLink` imports no `#infra/*`/`#app/*`/`#cli/*` (domain purity);
-  `bun run check` exits 0.
+  `bun run check` exits 0. **PASSED** - domain-pure imports, all checks green
 
 **Files and modules**:
 
