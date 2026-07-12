@@ -433,71 +433,71 @@ This phase satisfies F-2/F-3/F-4 and feeds Phase 2 + Phase 3.
 
 **Tasks**:
 
-- [ ] **1.1** Create `src/domain/state/sync-state.ts` (new):
-      - `SyncState` — a plain union/`as const` (NOT `const enum` —
-        `isolatedModules` forbids it) over the six UL values:
-        `NO_CHANGE | LOCAL_AHEAD | REMOTE_AHEAD | DIVERGED | REMOTE_MISSING |
-        LOCAL_MISSING`. Export an `as const` tuple/array `SYNC_STATES` listing
-        them (drives the zod schema + the exhaustiveness anchor).
-      - `SyncStateSchema` — a `zod` enum/literal schema over the six values
-        (UL binding rule 3 — output-boundary validation; NFR-10). Export it;
-        `classify` (Phase 2) parses its return through it. **TC-BOUNDARY-001**
-        (Phase 2) asserts it rejects ad-hoc strings.
-      - `RemoteState` — discriminated union:
-        `{ kind: "present"; bodyHash: string; version: number; title?: string;
-        parentPageId?: string }` | `{ kind: "missing" }` |
-        `{ kind: "forbidden"; pageId: string }`. `missing` carries **no** `pageId`
-        (the `RemoteMissing` error's `pageId` comes from `base` in Phase 3).
-      - `SharedBase` — the read projection over `PageBinding` the classifier
-        consumes: `{ uuid: DocumentId; pageId: string; parentPageId: string;
-        pageVersion: number; renderedBodyHash: string; attachmentHashes:
-        Record<string, string> }`. **`PageBinding` itself is unchanged** —
-        `SharedBase` is a structural view (Pick-like). No `title` (PD-3).
-      - Imports: `#domain/identity/document-id` (type), value `zod`. **No**
-        `#infra/*`/`#app/*`/`#cli/*`. ≤ 3-line header citing ADR-0006 / UL once.
-- [ ] **1.2** Create `src/domain/state/hashes.ts` (new):
-      - `HASH_WIRE_PREFIX = "sha256:" as const` — the single wire-format constant
-        (PD-2; matches the lock convention in `reconcile.test.ts` fixtures).
-      - `rawHash(source: string | Uint8Array): string` —
-        `HASH_WIRE_PREFIX + createHash("sha256").update(source).digest("hex")`.
-        Informational only (would differ on whitespace; NOT the comparison basis
-        — NFR-8). Uses `node:crypto` directly (GH-20 precedent).
-      - `canonicalHash(hast: Root): string` — **DELEGATES**:
-        `HASH_WIRE_PREFIX + contentHash(canonicalize(hast))`. Imports
-        `canonicalize` + `contentHash` from `#domain/render/canonicalize`.
-        Re-implements no sha256/canonicalization (DEC-2). This is the comparison
-        basis (F-6).
-      - `attachmentHash(attachmentHashes: Record<string, string>): string` — a
-        deterministic digest over the **sorted** attachment set so attachment
-        add/remove/order never perturb it: sort keys, serialize to a stable form
-        (e.g. `key\0hash` lines joined), sha256, prefix. (New composition logic
-        — NOT a GH-20 re-implementation; it digests the caller-supplied
-        per-attachment hashes.)
-      - `ContentHash` — the local-document snapshot VO (PD-1):
-        `{ rawHash: string; canonicalHash: string; attachmentHash: string;
-        title: string; parentPageId: string }`. The three hash facets
-        (TC-HASH-001) + the two R1 metadata facets.
-      - `buildContentHash(input: { source: string | Uint8Array; hast: Root;
-        attachmentHashes: Record<string, string>; title: string; parentPageId:
-        string }): ContentHash` — convenience builder calling the three helpers
-        and bundling the metadata.
-      - Imports: `#domain/render/canonicalize` (value), `node:crypto`
-        (`createHash`), type-only `hast` (`Root`). **No** `#infra/*`/`#app/*`/
-        `#cli/*`. ≤ 3-line header citing GH-20 + DEC-2 once at the delegation.
-- [ ] **1.3** Create `tests/unit/domain/state/hashes.test.ts` (new) — **Unit**
-      (no mocks; pure functions over real inputs):
-      - **TC-HASH-001 (F-2 / DM-2):** construct a `ContentHash` via
-        `buildContentHash` from a small HAST + source bytes + an attachment set +
-        title + parent. Assert all three hash facets are non-empty `sha256:`
-        -prefixed strings; assert `canonicalHash !== rawHash` (proves
-        canonicalization ran — the bare-bytes digest differs from the canonical
-        digest).
-      - **TC-HASH-002 (F-2 / NFR-8):** construct `ContentHash` from the same
-        input N (≥3) times; assert every `canonicalHash` is identical
-        (deterministic — no random IDs/timestamps perturb the digest). Also
-        assert the same HAST with superficially different source bytes (extra
-        whitespace) yields the same `canonicalHash` (the delegation to GH-20's
-        conservative canonicalizer is the false-positive guard).
+- [x] **1.1** Create `src/domain/state/sync-state.ts` (new):
+       - `SyncState` — a plain union/`as const` (NOT `const enum` —
+         `isolatedModules` forbids it) over the six UL values:
+         `NO_CHANGE | LOCAL_AHEAD | REMOTE_AHEAD | DIVERGED | REMOTE_MISSING |
+         LOCAL_MISSING`. Export an `as const` tuple/array `SYNC_STATES` listing
+         them (drives the zod schema + the exhaustiveness anchor).
+       - `SyncStateSchema` — a `zod` enum/literal schema over the six values
+         (UL binding rule 3 — output-boundary validation; NFR-10). Export it;
+         `classify` (Phase 2) parses its return through it. **TC-BOUNDARY-001**
+         (Phase 2) asserts it rejects ad-hoc strings.
+       - `RemoteState` — discriminated union:
+         `{ kind: "present"; bodyHash: string; version: number; title?: string;
+         parentPageId?: string }` | `{ kind: "missing" }` |
+         `{ kind: "forbidden"; pageId: string }`. `missing` carries **no** `pageId`
+         (the `RemoteMissing` error's `pageId` comes from `base` in Phase 3).
+       - `SharedBase` — the read projection over `PageBinding` the classifier
+         consumes: `{ uuid: DocumentId; pageId: string; parentPageId: string;
+         pageVersion: number; renderedBodyHash: string; attachmentHashes:
+         Record<string, string> }`. **`PageBinding` itself is unchanged** —
+         `SharedBase` is a structural view (Pick-like). No `title` (PD-3).
+       - Imports: `#domain/identity/document-id` (type), value `zod`. **No**
+         `#infra/*`/`#app/*`/`#cli/*`. ≤ 3-line header citing ADR-0006 / UL once. ✓
+- [x] **1.2** Create `src/domain/state/hashes.ts` (new):
+       - `HASH_WIRE_PREFIX = "sha256:" as const` — the single wire-format constant
+         (PD-2; matches the lock convention in `reconcile.test.ts` fixtures).
+       - `rawHash(source: string | Uint8Array): string` —
+         `HASH_WIRE_PREFIX + createHash("sha256").update(source).digest("hex")`.
+         Informational only (would differ on whitespace; NOT the comparison basis
+         — NFR-8). Uses `node:crypto` directly (GH-20 precedent).
+       - `canonicalHash(hast: Root): string` — **DELEGATES**:
+         `HASH_WIRE_PREFIX + contentHash(canonicalize(hast))`. Imports
+         `canonicalize` + `contentHash` from `#domain/render/canonicalize`.
+         Re-implements no sha256/canonicalization (DEC-2). This is the comparison
+         basis (F-6).
+       - `attachmentHash(attachmentHashes: Record<string, string>): string` — a
+         deterministic digest over the **sorted** attachment set so attachment
+         add/remove/order never perturb it: sort keys, serialize to a stable form
+         (e.g. `key\0hash` lines joined), sha256, prefix. (New composition logic
+         — NOT a GH-20 re-implementation; it digests the caller-supplied
+         per-attachment hashes.)
+       - `ContentHash` — the local-document snapshot VO (PD-1):
+         `{ rawHash: string; canonicalHash: string; attachmentHash: string;
+         title: string; parentPageId: string }`. The three hash facets
+         (TC-HASH-001) + the two R1 metadata facets.
+       - `buildContentHash(input: { source: string | Uint8Array; hast: Root;
+         attachmentHashes: Record<string, string>; title: string; parentPageId:
+         string }): ContentHash` — convenience builder calling the three helpers
+         and bundling the metadata.
+       - Imports: `#domain/render/canonicalize` (value), `node:crypto`
+         (`createHash`), type-only `hast` (`Root`). **No** `#infra/*`/`#app/*`/
+         `#cli/*`. ≤ 3-line header citing GH-20 + DEC-2 once at the delegation. ✓
+- [x] **1.3** Create `tests/unit/domain/state/hashes.test.ts` (new) — **Unit**
+       (no mocks; pure functions over real inputs):
+       - **TC-HASH-001 (F-2 / DM-2):** construct a `ContentHash` via
+         `buildContentHash` from a small HAST + source bytes + an attachment set +
+         title + parent. Assert all three hash facets are non-empty `sha256:`
+         -prefixed strings; assert `canonicalHash !== rawHash` (proves
+         canonicalization ran — the bare-bytes digest differs from the canonical
+         digest). ✓
+       - **TC-HASH-002 (F-2 / NFR-8):** construct `ContentHash` from the same
+         input N (≥3) times; assert every `canonicalHash` is identical
+         (deterministic — no random IDs/timestamps perturb the digest). Also
+         assert the same HAST with superficially different source bytes (extra
+         whitespace) yields the same `canonicalHash` (the delegation to GH-20's
+         conservative canonicalizer is the false-positive guard). ✓
 
 **Acceptance Criteria**:
 
@@ -992,7 +992,8 @@ spec-reconciliation handoff (the final release phase per the plan template).
 | Phase | Status | Started | Completed | Commit | `bun run check` | Notes |
 |-------|--------|---------|-----------|--------|------------------|-------|
 | 0 — branch + baseline gate | ✅ | 2026-07-12 | 2026-07-12 | 4e46387 (docs: add gh-22 planning artifacts) | ✅ 773 tests | Baseline established. Verified all reused contracts: canonicalize, PageBinding, errors.ts (RemoteMissing/Forbidden/Conflict), Result, reconcile.ts, boundary test pattern. |
-| 1 — types + VOs (`sync-state.ts` + `hashes.ts`) | ⏳ | — | — | — | — | F-2/F-3/F-4; TC-HASH-001/002; canonicalHash delegates to GH-20 (DEC-2/PD-2) |
+| 1 — types + VOs (`sync-state.ts` + `hashes.ts`) | ✅ | 2026-07-12 | 2026-07-12 | [pending] | ✅ 778 tests (+5) | F-2/F-3/F-4; TC-HASH-001/002; canonicalHash delegates to GH-20 (DEC-2/PD-2). SyncState enum + RemoteState union + SharedBase view + ContentHash VO + hash helpers delivered. |
+| 2 — `classify()` core + fixtures | ⏳ | — | — | — | — | F-1/F-6; TC-STATE-001..006 + FORBIDDEN + FALSEPOS×5 + REALCHG×5 + METADATA×2 + EDGE + BOUNDARY |
 | 2 — `classify()` core + fixtures | ⏳ | — | — | — | — | F-1/F-6; TC-STATE-001..006 + FORBIDDEN + FALSEPOS×5 + REALCHG×5 + METADATA×2 + EDGE + BOUNDARY |
 | 3 — `Action` mapping + suite | ⏳ | — | — | — | — | F-5; TC-ACTION-001..006; no new error arms (DEC-3) |
 | 4 — boundary negative test | ⏳ | — | — | — | — | AC-F1-1; TC-PURITY-001/002; state-scoped probe (PD-4) |
