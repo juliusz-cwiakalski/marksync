@@ -5,11 +5,11 @@ ados_distribution: project-generated
 id: SPEC-SAFE-PUBLISH
 status: Current
 created: 2026-07-06
-last_updated: 2026-07-09
+last_updated: 2026-07-12
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: [GH-18, GH-19, GH-20]
+  related_changes: [GH-18, GH-19, GH-20, GH-22]
   decisions: [ADR-0005, ADR-0006, ADR-0010, ADR-0011]
   contracts: []
 ---
@@ -65,10 +65,12 @@ conflict classification that **refuses to silently overwrite remote work**.
   `LockDirty`; `rebuildLockFromConfluence` reconstructs a lost lock), and the
   `sync.allowBranches` branch gate (`ForbiddenBranch` on non-allowed branches).
   *(delivered — GH-19)*
-- **Drift detection:** classifies each document as `NO_CHANGE` /
+- **Drift detection:** classifies each bound document as `NO_CHANGE` /
   `LOCAL_AHEAD` / `REMOTE_AHEAD` / `DIVERGED` / `REMOTE_MISSING` /
-  `LOCAL_MISSING` using canonical semantic hashing (raw + canonical +
-  normalized + attachment).
+  `LOCAL_MISSING` via a pure three-way `classify({ local?, base?, remote })`
+  over canonical semantic hashes — the body `canonicalHash` plus the title,
+  parent-page-id, and attachment-set facets (`rawHash` is informational
+  only). *(delivered — GH-22)*
 - **Safe publish:** create / update / no-op / move based on drift
   classification. Unsafe overwrites blocked by default.
 - **Concurrency control:** decentralized optimistic concurrency — Confluence 409
@@ -112,7 +114,7 @@ a `TargetSystem` port. The Confluence adapter is the sole implementation.
 | Markdown pipeline | `parseMarkdown` (`src/domain/markdown/parse.ts`, remark + remark-gfm) → MDAST→HAST bridge `mdastToHast` (`src/domain/markdown/mdast-to-hast.ts`) → unsupported-node classifier emitting the pre-existing `UnsupportedConstruct` arm (`src/domain/markdown/unsupported.ts`) → canonicalizer + `contentHash` sha256 (`src/domain/render/canonicalize.ts`) → HAST→Storage XHTML visitor `renderStorage` (`src/infra/confluence/render/storage.ts`, returns `{ body, hash, warnings }`); 25 golden `.md`/`.storage.xhtml` fixture pairs (`tests/golden/fixtures/markdown/`) *(delivered — GH-20)* |
 | Identity service | UUID v7 assignment, front-matter management |
 | State manager | Committed `marksync.lock.yml` load/save/merge (`loadLock`/`saveLock`/`mergeBindings`, `src/app/lock.ts`), disposable `.marksync/` cache layout (`src/app/cache.ts`), pure content-property cross-check (`src/domain/state/reconcile.ts`), branch gate (`assertBranchAllowed`, `src/app/branch.ts`) *(delivered — GH-19)* |
-| Drift classifier | Canonical hash comparison → `NO_CHANGE` / `LOCAL_AHEAD` / etc. |
+| Drift classifier | Pure `classify({ local?, base?, remote }) → Result<SyncState, MarkSyncError>` three-way classifier (`src/domain/state/classifier.ts`); `ContentHash` VO carrying the canonical-body + title + parent + attachment facets (`src/domain/state/hashes.ts`); six-value `SyncState` enum + `RemoteState` union + `SharedBase` view (`src/domain/state/sync-state.ts`); `SyncState → Action` mapping `NoOp`/`Update`/`Block`/`Skip` (`src/domain/state/actions.ts`) *(delivered — GH-22)* |
 | Sync engine | Orchestrates plan → apply per document; journal/replay |
 | Confluence adapter | `TargetSystem` port implementation (v2/v1 API) |
 

@@ -6,13 +6,13 @@ ados_distribution: redistributable
 id: GLOSSARY
 status: Draft
 created: 2026-07-05
-last_updated: 2026-07-09
+last_updated: 2026-07-12
 owners: [Juliusz Ćwiąkalski]
 area: domain
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0005, ADR-0006, ADR-0010, ADR-0011, PDR-0001]
-  related_changes: [GH-15, GH-17, GH-18]
+  related_changes: [GH-15, GH-17, GH-18, GH-22]
   summary: "Reader-friendly glossary of terms and acronyms used across the MarkSync repository."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -97,7 +97,7 @@ Documentation Handbook §9 for the glossary-vs-UL distinction._
 | **Shared base** | The agreed "last published" state for a document, recorded in the lock file. Enables drift detection by comparing local/base/remote. | Domain | Shared Base |
 | **Squash (sync)** | One Confluence page version per MarkSync sync, with a compact provenance summary in `version.message`. The `MS-0002` default (ADR-0010). | Process | — |
 | **Storage Format** | Confluence's XHTML-based body representation with `ac:`/`ri:` macros. MarkSync's write target (ADR-0005). | Confluence | Body Representation |
-| **Sync state** | The classification of a document relative to local/base/remote: NO_CHANGE, LOCAL_AHEAD, REMOTE_AHEAD, DIVERGED, REMOTE_MISSING, etc. | Domain | Sync State |
+| **Sync state** | The classification of a bound document relative to local/base/remote: `NO_CHANGE`, `LOCAL_AHEAD`, `REMOTE_AHEAD`, `DIVERGED`, `REMOTE_MISSING`, `LOCAL_MISSING`. Produced by the pure `classify()` drift classifier (`src/domain/state/classifier.ts`). | Domain | Sync State |
 | **Target system** | The remote publishing surface abstracted by the `TargetSystem` port. Confluence is the first implementor. | Architecture | Target System |
 | **TargetConfig** | The per-target shape (`type`, `spaceKey`, `parentPageId`) within the `targets` map of `marksync.yml`. `MS-0002` ships a single Confluence target. | Domain | — |
 | **Trust wedge** | The core value proposition: safe one-way publish with drift detection that refuses to silently overwrite. | Strategy | — |
