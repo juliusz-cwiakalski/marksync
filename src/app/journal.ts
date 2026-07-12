@@ -28,10 +28,7 @@ export interface JournalWriter {
  * Ensures the journal directory exists via ensureCacheLayout.
  * Journal IO failures throw (invariant violation — the cache dir is assumed writable).
  */
-export function openJournal(
-	cacheDir: string,
-	runId: string,
-): JournalWriter {
+export function openJournal(cacheDir: string, runId: string): JournalWriter {
 	const journalDir = join(cacheDir, "journal");
 	ensureCacheLayout(cacheDir); // Idempotent, ensures journal/ exists
 
@@ -43,7 +40,7 @@ export function openJournal(
 				...entry,
 				ts: new Date().toISOString(),
 			};
-			const line = JSON.stringify(fullEntry) + "\n";
+			const line = `${JSON.stringify(fullEntry)}\n`;
 			appendFileSync(filePath, line, "utf-8");
 		},
 	};
@@ -54,10 +51,7 @@ export function openJournal(
  * Missing file returns []; malformed lines are skipped.
  * Unreadable file throws (invariant violation — the cache dir is assumed readable).
  */
-export function replayJournal(
-	cacheDir: string,
-	runId: string,
-): JournalEntry[] {
+export function replayJournal(cacheDir: string, runId: string): JournalEntry[] {
 	const journalPath = join(cacheDir, "journal", `${runId}.jsonl`);
 
 	if (!existsSync(journalPath)) {
@@ -68,14 +62,15 @@ export function replayJournal(
 	const entries: JournalEntry[] = [];
 
 	for (const line of content.split("\n")) {
-		if (!line.trim()) continue; // Skip empty lines
-
-		try {
-			const entry = JSON.parse(line) as JournalEntry;
-			entries.push(entry);
-		} catch {
-			// Skip malformed lines (crash tolerance)
-			continue;
+		if (!line.trim()) {
+			// Skip empty lines
+		} else {
+			try {
+				const entry = JSON.parse(line) as JournalEntry;
+				entries.push(entry);
+			} catch {
+				// Skip malformed lines (crash tolerance)
+			}
 		}
 	}
 

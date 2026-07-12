@@ -2,3 +2,4 @@
 // This module bridges app→cli without violating presentation tier rules.
 
 export * from "#app/cli-error-map";
+export { mapConfigError, mapLockError } from "#app/config-lock-mappers";

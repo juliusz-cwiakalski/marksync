@@ -20,7 +20,7 @@ export function createRepository(repoPath: string): Repository {
  */
 export function createTarget(
 	credentials: ConfluenceCredentials,
-	spaceId: string,
+	spaceKey: string,
 ): TargetSystem {
-	return ConfluenceTarget.fromCredentials(credentials, spaceId);
+	return ConfluenceTarget.fromCredentials(credentials, spaceKey);
 }

@@ -10,11 +10,18 @@ import type { Repository } from "#domain/git/port";
 import type { TargetSystem } from "#domain/target/port";
 import type { DocumentId } from "#domain/identity/document-id";
 import type { ContentHash } from "#domain/state/hashes";
-import type { SyncState, RemoteState, SharedBase } from "#domain/state/sync-state";
+import type {
+	SyncState,
+	RemoteState,
+	SharedBase,
+} from "#domain/state/sync-state";
 import type { Action } from "#domain/state/actions";
 import { classify } from "#domain/state/classifier";
 import { actionFor } from "#domain/state/actions";
-import { detectDuplicateUuids, type DocWithUuid } from "#domain/identity/duplicate-detector";
+import {
+	detectDuplicateUuids,
+	type DocWithUuid,
+} from "#domain/identity/duplicate-detector";
 import { readUuid } from "#domain/identity/frontmatter";
 import { parseMarkdown } from "#domain/markdown/parse";
 import { mdastToHast } from "#domain/markdown/mdast-to-hast";
@@ -107,7 +114,7 @@ export async function computePlan(
 	target: TargetSystem,
 ): Promise<Result<Plan, MarkSyncError>> {
 	// 1. Branch gate FIRST (0 discovery reads on deny)
-	const branchResult = await git.currentBranch();
+	const branchResult = git.currentBranch();
 	if (!branchResult.ok) {
 		return branchResult;
 	}
@@ -117,7 +124,7 @@ export async function computePlan(
 	}
 
 	// 2. Discover committed docs
-	const readResult = await git.readCommitted("HEAD", config.select);
+	const readResult = git.readCommitted("HEAD", config.select);
 	if (!readResult.ok) {
 		return readResult;
 	}
@@ -284,10 +291,10 @@ export async function computePlan(
 	}
 
 	// 8. Assemble provenance input
-	const headResult = await git.headSha();
+	const headResult = git.headSha();
 	if (!headResult.ok) return headResult;
 
-	const subjectsResult = await git.listCommitSubjects();
+	const subjectsResult = git.listCommitSubjects();
 	if (!subjectsResult.ok) return subjectsResult;
 
 	const provenance: ProvenanceInput = {
@@ -321,7 +328,11 @@ function extractTitle(hast: unknown): string {
 			const h1Children = child.children as Array<Record<string, unknown>>;
 			if (h1Children && h1Children.length > 0) {
 				const textNode = h1Children[0];
-				if (textNode && textNode.type === "text" && typeof textNode.value === "string") {
+				if (
+					textNode &&
+					textNode.type === "text" &&
+					typeof textNode.value === "string"
+				) {
 					return textNode.value;
 				}
 			}
@@ -371,9 +382,7 @@ function bindingToProperty(
  * Reorder entries parent-first (creates/moves only, PD-6).
  * Returns a new array with parents before children.
  */
-function parentFirstOrder(
-	entries: readonly PlanEntry[],
-): PlanEntry[] {
+function parentFirstOrder(entries: readonly PlanEntry[]): PlanEntry[] {
 	// Build adjacency map: uuid -> parent uuid/parentId
 	const parentMap = new Map<DocumentId, string | undefined>();
 	const uuidToEntry = new Map<DocumentId, PlanEntry>();
@@ -466,17 +475,17 @@ export async function applyPlan(
 
 	// Process serialized (concurrency = 1, DEC-5)
 	for (const entry of ordered) {
-	const outcome = await processEntry(
-		entry,
-		target,
-		lock,
-		targetId,
-		journal,
-		message,
-		cwd,
-		operationId,
-		headSha,
-	);
+		const outcome = await processEntry(
+			entry,
+			target,
+			lock,
+			targetId,
+			journal,
+			message,
+			cwd,
+			operationId,
+			headSha,
+		);
 
 		results.push(outcome);
 		if (outcome.outcome === "created" || outcome.outcome === "updated") {
@@ -538,7 +547,15 @@ async function processEntry(
 	if (action.kind === "Update") {
 		const binding = lock.targets[targetId]?.documents[uuid];
 		if (!binding) {
-			return { uuid, outcome: "blocked", error: { kind: "CorruptLock", path: entry.sourcePath, humanMessage: `Binding missing for ${uuid}` } };
+			return {
+				uuid,
+				outcome: "blocked",
+				error: {
+					kind: "CorruptLock",
+					path: entry.sourcePath,
+					humanMessage: `Binding missing for ${uuid}`,
+				},
+			};
 		}
 
 		const result = await target.updatePage({
@@ -589,7 +606,11 @@ async function processEntry(
 
 		// Put property
 		const property = bindingToProperty(updatedBinding, targetId);
-		const putResult = await target.putProperty(page.id, "marksync.metadata", JSON.stringify(property));
+		const putResult = await target.putProperty(
+			page.id,
+			"marksync.metadata",
+			JSON.stringify(property),
+		);
 		if (!putResult.ok) {
 			return { uuid, outcome: "blocked", error: putResult.error };
 		}
@@ -650,7 +671,11 @@ async function processEntry(
 
 		// Put property
 		const property = bindingToProperty(newBinding, targetId);
-		const putResult = await target.putProperty(page.id, "marksync.metadata", JSON.stringify(property));
+		const putResult = await target.putProperty(
+			page.id,
+			"marksync.metadata",
+			JSON.stringify(property),
+		);
 		if (!putResult.ok) {
 			return { uuid, outcome: "blocked", error: putResult.error };
 		}

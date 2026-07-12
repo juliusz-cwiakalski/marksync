@@ -8,11 +8,9 @@ import { err, ok } from "#cli/output";
 import { cwd } from "node:process";
 import { loadConfig } from "#app/config";
 import { loadLock } from "#app/lock";
-import { resolveCacheDir } from "#app/cache";
-import { createShellGit } from "#infra/git/shell-git";
-import { ConfluenceTarget } from "#infra/confluence/target";
-import { ConfluenceCredentials } from "#domain/credentials";
-import { mapConfigError, mapLockError } from "#cli/error-map";
+import { resolveCredentials } from "#app/credentials";
+import { createRepository, createTarget } from "#app/ports";
+import { mapMarkSyncErrorToCommandError } from "#cli/error-map";
 import { computePlan, type Plan } from "#app/push-flow";
 
 /**
@@ -24,59 +22,49 @@ export async function planCommand(): Promise<CommandResult<Plan>> {
 	// 1. Load config
 	const configResult = loadConfig(currentCwd);
 	if (!configResult.ok) {
-		return err(
-			mapConfigError(configResult.error).code,
-			mapConfigError(configResult.error).message,
-			false,
-		);
+		const mapped = mapMarkSyncErrorToCommandError(configResult.error);
+		return err(mapped.code, mapped.message, mapped.retryable);
 	}
 	const config = configResult.value;
 
 	// 2. Load lock
 	const lockResult = loadLock(currentCwd);
 	if (!lockResult.ok) {
-		return err(
-			mapLockError(lockResult.error).code,
-			mapLockError(lockResult.error).message,
-			false,
-		);
+		const mapped = mapMarkSyncErrorToCommandError(lockResult.error);
+		return err(mapped.code, mapped.message, mapped.retryable);
 	}
 	const lock = lockResult.value;
 
-	// 3. Resolve cache dir
-	const cacheDirResult = resolveCacheDir(currentCwd);
-	if (!cacheDirResult.ok) {
-		return err("INTERNAL", cacheDirResult.error.humanMessage, false);
+	// 4. Resolve credentials
+	const credsResult = resolveCredentials();
+	if (!credsResult.ok) {
+		const mapped = mapMarkSyncErrorToCommandError(credsResult.error);
+		return err(mapped.code, mapped.message, mapped.retryable);
 	}
-	const cacheDir = cacheDirResult.value;
+	const creds = credsResult.value;
 
-	// 4. Create Repository (shell-git)
-	const git = createShellGit(currentCwd);
+	// 5. Create Repository (shell-git via app-tier factory)
+	const git = createRepository(currentCwd);
 
-	// 5. Create TargetSystem (ConfluenceTarget)
-	// NOTE: In a real CLI, credentials would come from environment/secret manager
-	// For this implementation, we use a minimal credential provider
-	const credentials: ConfluenceCredentials = {
-		email: config.targets.default.email,
-		// In production, token comes from secret manager/encrypted storage
-		// For now, we read from environment variable or error
-		token: process.env.MARKSYNC_CONFLUENCE_TOKEN || "",
-	};
-	const target = ConfluenceTarget.fromCredentials(
-		credentials,
-		config.targets.default.spaceId,
-	);
-
-	// 6. Compute plan
-	const planResult = await computePlan(config, lock, git, target);
-	if (!planResult.ok) {
+	// 6. Create TargetSystem (ConfluenceTarget via app-tier factory)
+	// Use the default target config
+	const targetConfig = config.targets.default;
+	if (!targetConfig) {
 		return err(
-			planResult.error.kind,
-			planResult.error.humanMessage || planResult.error.kind,
+			"INVALID_CONFIG",
+			"no default target configured in marksync.yml",
 			false,
 		);
 	}
+	const target = createTarget(creds, targetConfig.spaceKey);
 
-	// 7. Return success
+	// 7. Compute plan
+	const planResult = await computePlan(config, lock, git, target);
+	if (!planResult.ok) {
+		const mapped = mapMarkSyncErrorToCommandError(planResult.error);
+		return err(mapped.code, mapped.message, mapped.retryable);
+	}
+
+	// 8. Return success
 	return ok(planResult.value);
 }

@@ -8,20 +8,16 @@
 
 import { describe, expect, test } from "bun:test";
 import { doctorCommand } from "#cli/commands/doctor";
-import { planCommand } from "#cli/commands/plan";
 import { repairStateCommand } from "#cli/commands/repair-state";
-import { syncCommand } from "#cli/commands/sync";
 import { codeToExitCode, renderJson } from "#cli/output";
 import type { CommandResult } from "#cli/output";
 
-/** The stub handlers under test. */
+/** The stub handlers under test. plan/sync are now wired (Phase 7), so only doctor/repair-state are stubs. */
 const stubs: ReadonlyArray<{
 	name: string;
 	handler: () => CommandResult<never>;
 	story: string;
 }> = [
-	{ name: "plan", handler: planCommand, story: "MS2-E3" },
-	{ name: "sync", handler: syncCommand, story: "MS2-E3" },
 	{ name: "doctor", handler: doctorCommand, story: "MS2-E5-S2" },
 	{ name: "repair-state", handler: repairStateCommand, story: "MS2-E3" },
 ];
