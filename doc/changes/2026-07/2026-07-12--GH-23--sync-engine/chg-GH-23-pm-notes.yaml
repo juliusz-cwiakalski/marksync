@@ -10,10 +10,10 @@ phases:
   dor_check: { started: 2026-07-12, completed: 2026-07-12, iterations: 2, verdict: READY }
   delivery: { started: 2026-07-12, completed: 2026-07-12 }
   system_spec_update: { started: 2026-07-12, completed: 2026-07-12 }
-  review_fix: { started: 2026-07-12, completed: null, iterations: 1, verdict: FAIL }
+  review_fix: { started: 2026-07-12, completed: 2026-07-12, iterations: 3, verdict: PASS }
   quality_gates: { started: 2026-07-12, completed: 2026-07-12 }
-  dod_check: { started: null, completed: null }
-  pr_creation: { started: null, completed: null, url: null }
+  dod_check: { started: 2026-07-12, completed: 2026-07-12 }
+  pr_creation: { started: 2026-07-12, completed: null, url: null }
 
 decisions:
   - text: >
@@ -49,6 +49,16 @@ open_questions: []
 blockers: []
 
 notes:
+  - text: >
+      Review retro: 3 iterations to PASS. iter-1 FAIL (3 HIGH: link resolver
+      disconnected, parent-first stub, spawnGit returns-err). iter-2 FAIL after
+      Phase 9 (1 HIGH: resolver wired AFTER renderBody — rewrites invisible).
+      iter-3 PASS after Phase 10 (pipeline reorder resolve-before-render; real
+      visit() recursion; Plan.warnings; coverage fix). Process improvement: for
+      pipeline-order fixes, add a test asserting the OUTPUT reflects the fix.
+    type: retro
+    workItemRef: GH-23
+    date: 2026-07-12
   - text: >
       Coverage-gap retro: `bun test` exited 1 (848 pass/0 fail) because 4 new
       GH-23 source files + 2 test helpers violated the per-file coverage

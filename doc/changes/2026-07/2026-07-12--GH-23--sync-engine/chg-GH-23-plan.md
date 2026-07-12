@@ -1563,14 +1563,14 @@ per the plan template).
 
 | Phase | Status | Started | Completed | Commit | `bun run check` | Notes |
 |-------|--------|---------|-----------|--------|------------------|-------|
-| 0 — branch + baseline gate | ⏳ | | | | | Setup only; verify reused contracts. |
-| 1 — Repository port + shell-git adapter + path guard | ⏳ | | | | | F-4/DM-5/DM-6; path-validation unit tests; TDR-0003 C-4. |
-| 2 — cross-page link resolver | ⏳ | | | | | F-5/DM-7; TC-UNIT-004; pure domain. |
-| 3 — journal writer + replayJournal | ⏳ | | | | | F-3/DM-4; TC-INTEGRATION-006 prep. |
-| 4 — computePlan use case | ⏳ | | | | | F-1/DM-1/DM-2; TC-UNIT-001/007; pure, 0 writes. |
-| 5 — applyPlan use case | ⏳ | | | | | F-2/DM-3; TC-UNIT-002/003; parent-first + isolation + journal + provenance. |
-| 6 — integration suite | ⏳ | | | | | TC-INTEGRATION-001..011; REAL classifier/reconcile; mock target. |
-| 7 — CLI wiring | ⏳ | | | | | F-6; plan/sync stubs → thin shells; presentation-tier import discipline. |
-| 8 — final gate + boundary proof + doc handoff | ⏳ | | | | | AC-Q-1; dep-cruiser negative probes (git + hierarchy); errors.ts unchanged; doc handoff to phase 7. |
-| 9 — code review remediation (iter 1) | ⏳ | | | | | review-iter-1 FAIL; blockers 9.1–9.3 (AC-F7-1, AC-F6-1, PD-3); medium 9.4–9.9; low/style 9.10–9.14. DM-8 intact. |
-| 10 — code review remediation (iter 2) | ⏳ | | | | | review-iter-2 FAIL; blockers 10.1 (render-after-resolve link rewrite) + 10.2 (surface unresolved warnings) — AC-F7-1 still unmet; medium 10.3 (parent-first real-or-descope) — AC-F6-1; low 10.4–10.9. DM-8 intact. |
+| 0 — branch + baseline gate | ✅ | 2026-07-12 | 2026-07-12 | 798b011 | 0 | Setup only; verify reused contracts. |
+| 1 — Repository port + shell-git adapter + path guard | ✅ | 2026-07-12 | 2026-07-12 | a555117 | 0 | F-4/DM-5/DM-6; path-validation unit tests; TDR-0003 C-4. |
+| 2 — cross-page link resolver | ✅ | 2026-07-12 | 2026-07-12 | a555117 | 0 | F-5/DM-7; TC-UNIT-004; pure domain. |
+| 3 — journal writer + replayJournal | ✅ | 2026-07-12 | 2026-07-12 | a555117 | 0 | F-3/DM-4; TC-INTEGRATION-006 prep. |
+| 4 — computePlan use case | ✅ | 2026-07-12 | 2026-07-12 | a555117 | 0 | F-1/DM-1/DM-2; TC-UNIT-001/007; pure, 0 writes. |
+| 5 — applyPlan use case | ✅ | 2026-07-12 | 2026-07-12 | a555117 | 0 | F-2/DM-3; TC-UNIT-002/003; parent-first + isolation + journal + provenance. |
+| 6 — integration suite | ✅ | 2026-07-12 | 2026-07-12 | a555117 | 0 | TC-INTEGRATION-001..011; REAL classifier/reconcile; mock target. |
+| 7 — CLI wiring | ✅ | 2026-07-12 | 2026-07-12 | a555117 | 0 | F-6; plan/sync stubs → thin shells; presentation-tier import discipline. |
+| 8 — final gate + boundary proof + doc handoff | ✅ | 2026-07-12 | 2026-07-12 | a555117 | 0 | AC-Q-1; dep-cruiser negative probes (git + hierarchy); errors.ts unchanged; doc handoff to phase 7. |
+| 9 — code review remediation (iter 1) | ✅ | 2026-07-12 | 2026-07-12 | a555117 | 0 | review-iter-1 FAIL; blockers 9.1–9.3 (AC-F7-1, AC-F6-1, PD-3); medium 9.4–9.9; low/style 9.10–9.14. DM-8 intact. |
+| 10 — code review remediation (iter 2) | ✅ | 2026-07-12 | 2026-07-12 | 6dd0a83 | 0 | review-iter-2 FAIL; blockers 10.1 (render-after-resolve link rewrite) + 10.2 (surface unresolved warnings) — AC-F7-1 met; medium 10.3 (parent-first real-or-descope) — AC-F6-1 met; low 10.4–10.9 (10.5+10.8 done, others deferred). DM-8 intact. |
