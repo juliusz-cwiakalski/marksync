@@ -1,9 +1,12 @@
 // classify() three-way drift classifier (ADR-0006 §5.4).
 
-import { attachmentHash } from "./hashes";
-import type { ContentHash } from "./hashes";
-import type { RemoteState, SharedBase, SyncState } from "./sync-state";
-import { SyncStateSchema } from "./sync-state";
+import { attachmentHash, type ContentHash } from "./hashes";
+import {
+	SyncStateSchema,
+	type RemoteState,
+	type SharedBase,
+	type SyncState,
+} from "./sync-state";
 import type { MarkSyncError } from "#domain/errors";
 import { Result } from "#domain/result";
 
@@ -36,11 +39,14 @@ export function classify(
 
 	const baseAttachmentHash = attachmentHash(base.attachmentHashes);
 
+	const remoteTitleChanged =
+		remote.title !== undefined && local.title !== remote.title;
+
 	const localChanged =
 		local.canonicalHash !== base.renderedBodyHash ||
 		local.parentPageId !== base.parentPageId ||
 		local.attachmentHash !== baseAttachmentHash ||
-		local.title !== remote.title;
+		remoteTitleChanged;
 
 	const remoteChanged =
 		remote.bodyHash !== base.renderedBodyHash ||

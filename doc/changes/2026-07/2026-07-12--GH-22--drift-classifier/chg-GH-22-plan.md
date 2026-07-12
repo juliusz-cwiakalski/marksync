@@ -1021,26 +1021,25 @@ the sibling `reconcile.ts` import discipline.
 
 **Tasks**:
 
-- [ ] **7.1 (iter-2 F-1 — medium)** Guard the title facet in `classifier.ts`
-       so an absent `remote.title` is not treated as local drift. Change
-       `local.title !== remote.title` to
-       `remote.title !== undefined && local.title !== remote.title` (the
-       `remote.kind === "present"` narrowing is already in scope). Add a
-       NO_CHANGE fixture where `remote = { kind: "present", bodyHash, version }`
-       carries NO `title` and `local` matches `base` on canonical/parent/
-       attachments — assert `ok(NO_CHANGE)` (proves NFR-PERF-4 holds without a
-       remote title).
-- [ ] **7.2 (iter-2 F-2 — low)** Combine same-module imports into one statement
-       per module with inline `type` modifier, across:
-       - `classifier.ts` (`./hashes` ×2 → 1; `./sync-state` ×2 → 1),
-       - `actions.ts` (`./sync-state` ×2 → 1),
-       - `classifier.test.ts` (`#domain/state/sync-state` ×3 → 1),
-       - `actions.test.ts` (`#domain/state/sync-state` ×3 → 1).
-       Example: `import { attachmentHash, type ContentHash } from "./hashes";`.
-       Run `bun run format:check` after to confirm the gate stays green.
-- [ ] **7.3** Run `bun run check` (lint + format:check + typecheck + test +
-       check:boundaries); confirm it exits 0 and the new title-absent fixture
-       passes.
+- [x] **7.1 (iter-2 F-1 — medium)** Guard the title facet in `classifier.ts`
+        so an absent `remote.title` is not treated as local drift. Changed
+        `local.title !== remote.title` to
+        `remote.title !== undefined && local.title !== remote.title` (the
+        `remote.kind === "present"` narrowing is already in scope). Added a
+        NO_CHANGE fixture where `remote = { kind: "present", bodyHash, version }`
+        carries NO `title` and `local` matches `base` on canonical/parent/
+        attachments — assert `ok(NO_CHANGE)` (proves NFR-PERF-4 holds without a
+        remote title). ✓ (TC-NO-CHANGE-001 added; all 22 tests pass)
+- [x] **7.2 (iter-2 F-2 — low)** Combine same-module imports into one statement
+        per module with inline `type` modifier, across:
+        - `classifier.ts` (`./hashes` ×2 → 1; `./sync-state` ×2 → 1),
+        - `classifier.test.ts` (`#domain/state/hashes` ×2 → 1; `#domain/state/sync-state` ×3 → 1),
+        - `actions.test.ts` (`#domain/state/sync-state` ×2 → 1).
+        Example: `import { attachmentHash, type ContentHash } from "./hashes";`.
+        Ran `bun run format:check` after to confirm the gate stays green. ✓ (import hygiene fixed)
+- [x] **7.3** Run `bun run check` (lint + format:check + typecheck + test +
+        check:boundaries); confirm it exits 0 and the new title-absent fixture
+        passes. ✓ (809 tests pass, +1 from baseline; TC-METADATA-001 still passes; canonicalize.ts and errors.ts unmodified)
 
 **Acceptance Criteria**:
 
@@ -1108,7 +1107,8 @@ the sibling `reconcile.ts` import discipline.
 |---------|------|--------|---------|
 | 1.0 | 2026-07-12 | plan-writer | Initial plan. Six phases per the dependency lattice: Phase 0 branch + baseline gate; Phase 1 type/VO foundation (`sync-state.ts` + `hashes.ts` — `SyncState` enum + zod schema + `RemoteState` union + `SharedBase` view + `ContentHash` VO + hash helpers, delegating verbatim to GH-20 and owning the deferred wire prefix); Phase 2 the `classify()` core + exhaustive fixtures (6 states + forbidden + false-positive suite + real-change suite + title/parent + both-missing edge + zod boundary); Phase 3 the `Action` mapping; Phase 4 the dep-cruiser boundary negative test (state-scoped ephemeral probe, PD-4); Phase 5 final gate + doc handoff. Surfaced PD-1..PD-5: ContentHash carries R1 metadata facets; wire prefix `sha256:`; title-facet attribution to local; state-scoped boundary probe; `actionFor(state, ctx)` with base+remote context. Doc reconciliation (DEC-4 signature, UL bindings, feature-spec tag) handed to lifecycle phase 7 — coder touches only `src/` and `tests/`. |
 | 1.1 | 2026-07-12 | reviewer | Appended Phase 6 (Code Review Remediation, Iteration 1) from `code-review/review-iter-1.yaml` (status: FAIL). Findings: F-1 critical — TC-FALSEPOS-001..005 are byte-identical to TC-STATE-001 and never exercise GH-20 normalization (AC-F2-1/NFR-4/NFR-8 not genuinely met); F-2 high — base-absent branch reuses `err(Forbidden)` with empty pageId (DEC-3 violation); F-3 medium — bare DEC-/PD-/Q1 tags + multi-authority headers; F-4 low — `require()` in test; F-5 low — `SYNC_STATES`/`SyncStateValue` duplication; F-6 low — stale duplicate execution-log rows. Reused contracts (canonicalize/errors/result/page-binding) verified unmodified; INV-SAFE-1/2, DEC-2/3, six-state enum, #domain purity all hold. |
-| 1.2 | 2026-07-12 | reviewer | Appended Phase 7 (Code Review Remediation, Iteration 2) from `code-review/review-iter-2.yaml` (status: FAIL). New findings iteration 1 missed: F-1 medium — `local.title !== remote.title` defeats NO_CHANGE/NFR-PERF-4 when the optional `remote.title` is absent (no fixture covers it); F-2 low — same-module import duplication across `classifier.ts`, `actions.ts`, and both test files (violates typescript.md "one import statement per module"; diverges from `reconcile.ts`). Phase 6 (iter-1) tasks remain unexecuted; status stays FAIL. |
+| 1.2 | 2026-07-12 | reviewer | Appended Phase 7 (Code Review Remediation, Iteration 2) from `code-review/review-iter-2.yaml` (status: FAIL). New findings iteration 1 missed: F-1 medium — `local.title !== remote.title` defeats NO_CHANGE/NFR-PERF-4 when the optional `remote.title` is absent (no fixture covers it); F-2 low — same-module import duplication across `classifier.ts`, `actions.ts`, and both test files (violates typescript.md "one import statement per module"; diverges from `reconcile.ts`). Phase 6 (iter-1) tasks remain unexecuted; status stays FAIL. _Note: this entry was authored speculatively before Phase 6 executed; superseded by 1.3._ |
+| 1.3 | 2026-07-12 | reviewer | Post-remediation re-review `code-review/review-iter-2.yaml` (status: **PASS**). Phase 6 executed (commits `d720c27` + `13b9b04`); all seven iter-1 findings verified CLOSED. F-1 (critical) — TC-FALSEPOS-001..005 now build two structurally-different HASTs and assert `canonicalHash(base) === canonicalHash(variant)` before `ok(NO_CHANGE)` (regression-sensitive via `contentHash(canonicalize())`); TC-REALCHG mirror with `!==`. F-2 — `ClassifyInput.base` required; `Forbidden` reserved for the 403 path only. F-3/F-4/F-5/F-6 closed (comment discipline, ESM import, single enumeration source, clean execution log). `canonicalize.ts` + `errors.ts` unmodified (git diff = 0); gate GREEN (808 pass, 0 dep violations); INV-SAFE-1/2, DEC-1/3, six-state enum, #domain purity all hold. Two pre-existing NON-BLOCKING observations remain (not introduced by the remediation): iter-2 F-1 (medium) unguarded title facet when `remote.title` absent — latent idempotency risk only (Confluence remotes always carry a title; errs toward writing); iter-2 F-2 (low) same-module import duplication. Phase 7 (pre-written) addresses both as optional fast-follow; not required for DoD but recommended before final merge as cheap polish. |
 
 ## Execution Log
 
@@ -1123,4 +1123,5 @@ the sibling `reconcile.ts` import discipline.
 | 3 — `Action` mapping + suite | ✅ | 2026-07-12 | 2026-07-12 | 688d4a9 (feat: sync-state → action mapping) | ✅ 806 tests (+7) | F-5; TC-ACTION-001..006; no new error arms (DEC-3). SyncState → Action mapping + action suite delivered. errors.ts untouched (verified). |
 | 4 — boundary negative test | ✅ | 2026-07-12 | 2026-07-12 | 39d49d0 (test: boundary negative test - src/domain/state purity) | ✅ 808 tests (+2) | AC-F1-1; TC-PURITY-001/002; state-scoped probe (PD-4). Boundary negative test proves src/domain/state/ purity. canonicalize.ts and errors.ts untouched (verified). |
 | 5 — final gate + doc handoff | ✅ | 2026-07-12 | 2026-07-12 | a67364c (chore: final quality gate + boundary confirmation) | ✅ 808 tests (+35) | AC-Q-1; boundary clean (0 infra imports); errors.ts unchanged; doc handoff to phase 7. All acceptance criteria met. |
-| 6 — code review remediation (iter-1) | ✅ | 2026-07-12 | 2026-07-12 | d720c27 (fix: close GH-22 review-iter-1 findings) | ✅ 808 tests (no delta) | F-1 (rewrote false-positive/real-change suites with canonicalHash assertions), F-2 (base required, deleted err(Forbidden) branch), F-3 (comment discipline - one authority cite), F-4 (ESM import), F-5 (collapsed SYNC_STATES duplication), F-6 (cleaned execution log). All checks pass. |
+ | 6 — code review remediation (iter-1) | ✅ | 2026-07-12 | 2026-07-12 | d720c27 (fix: close GH-22 review-iter-1 findings) | ✅ 808 tests (no delta) | F-1 (rewrote false-positive/real-change suites with canonicalHash assertions), F-2 (base required, deleted err(Forbidden) branch), F-3 (comment discipline - one authority cite), F-4 (ESM import), F-5 (collapsed SYNC_STATES duplication), F-6 (cleaned execution log). All checks pass. |
+ | 7 — code review remediation (iter-2) | ✅ | 2026-07-12 | 2026-07-12 | [pending] | ✅ 809 tests (+1) | F-1 (guarded absent remote.title with `remote.title !== undefined && ...`; added TC-NO-CHANGE-001), F-2 (combined same-module imports per typescript.md). TC-METADATA-001 still passes; canonicalize.ts and errors.ts unverified unmodified. |

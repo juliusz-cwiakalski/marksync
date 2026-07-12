@@ -5,15 +5,12 @@
 
 import { describe, expect, test } from "bun:test";
 import { classify, type ClassifyInput } from "#domain/state/classifier";
+import { buildContentHash, canonicalHash } from "#domain/state/hashes";
 import {
-	buildContentHash,
-	canonicalHash,
-	attachmentHash,
-} from "#domain/state/hashes";
-import type { ContentHash } from "#domain/state/hashes";
-import type { SharedBase } from "#domain/state/sync-state";
-import type { RemoteState } from "#domain/state/sync-state";
-import { SyncStateSchema } from "#domain/state/sync-state";
+	SyncStateSchema,
+	type SharedBase,
+	type RemoteState,
+} from "#domain/state/sync-state";
 import type { Root, Element } from "hast";
 
 const UUID = "0192b3d4-5e6f-7000-8000-00000000000a" as const;
@@ -462,7 +459,7 @@ describe("TC-REALCHG-001 through TC-REALCHG-005", () => {
 });
 
 /** METADATA drift tests (R1/PD-3). */
-describe("TC-METADATA-001, TC-METADATA-002", () => {
+describe("TC-METADATA-001, TC-METADATA-002, TC-NO-CHANGE-001", () => {
 	test("TC-METADATA-001: title change only (body identical) → LOCAL_AHEAD (R1)", () => {
 		const contentHast = root([text("Content")]);
 		const hash = canonicalHash(contentHast);
@@ -501,6 +498,32 @@ describe("TC-METADATA-001, TC-METADATA-002", () => {
 		const result = classify(input);
 		expect(result.ok).toBe(true);
 		if (result.ok) expect(result.value).toBe("LOCAL_AHEAD");
+	});
+
+	test("TC-NO-CHANGE-001: title-less present remote → NO_CHANGE (NFR-PERF-4)", () => {
+		const contentHast = root([text("Content")]);
+		const hash = canonicalHash(contentHast);
+
+		const input: ClassifyInput = {
+			local: buildContentHash({
+				source: "local",
+				hast: contentHast,
+				attachmentHashes: { "img.png": "sha256:img" },
+				title: "Test Title",
+				parentPageId: "98765",
+			}),
+			base: mockSharedBase({ renderedBodyHash: hash }),
+			remote: {
+				kind: "present",
+				bodyHash: hash,
+				version: 5,
+				parentPageId: "98765",
+				// title omitted (undefined) — should NOT trigger drift
+			},
+		};
+		const result = classify(input);
+		expect(result.ok).toBe(true);
+		if (result.ok) expect(result.value).toBe("NO_CHANGE");
 	});
 });
 

@@ -5,8 +5,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { actionFor, type ActionContext } from "#domain/state/actions";
-import type { SharedBase } from "#domain/state/sync-state";
-import type { RemoteState } from "#domain/state/sync-state";
+import type { SharedBase, RemoteState } from "#domain/state/sync-state";
 
 const UUID = "0192b3d4-5e6f-7000-8000-00000000000a" as const;
 
