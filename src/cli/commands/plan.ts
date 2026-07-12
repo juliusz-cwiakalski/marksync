@@ -58,19 +58,9 @@ export async function planCommand(): Promise<CommandResult<Plan>> {
 	}
 	const target = createTarget(creds, targetConfig.spaceKey);
 
-	// 7. Compute plan
-	let planResult: Awaited<ReturnType<typeof computePlan>>;
-	try {
-		planResult = await computePlan(config, lock, git, target);
-	} catch (e) {
-		// Git failures throw as host invariants → INTERNAL
-		// Include a redacted summary of the error (F-8)
-		const message =
-			e instanceof Error
-				? `internal error: git operation failed (${e.name})`
-				: "internal error: git operation failed";
-		return err("INTERNAL", message, false);
-	}
+	// 7. Compute plan. Throws (e.g. git host invariants) propagate to runCli's
+	// catch-all, which maps them to INTERNAL / exit 99.
+	const planResult = await computePlan(config, lock, git, target);
 	if (!planResult.ok) {
 		const mapped = mapMarkSyncErrorToCommandError(planResult.error);
 		return err(mapped.code, mapped.message, mapped.retryable);

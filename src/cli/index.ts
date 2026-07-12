@@ -33,7 +33,12 @@
 
 import { buildCommand } from "#cli/commands/router";
 import type { CommandResult } from "#cli/output";
-import { OutputService, type WritableLike, err } from "#cli/output";
+import {
+	OutputService,
+	type OutputFormat,
+	type WritableLike,
+	err,
+} from "#cli/output";
 
 /**
  * Run the CLI against `argv` and return the exit code (without calling
@@ -61,11 +66,14 @@ export async function runCli(
 	} catch (e) {
 		// Cliffy `.throwErrors()` → ValidationError / UnknownCommandError = USAGE
 		// (exit 2). Anything else = INTERNAL (exit 99, DEC-5 redacted message).
+		// Honor the requested output format so a thrown INTERNAL under `--json`
+		// still emits a JSON envelope on stdout (machine contract preserved —
+		// mirrors what a *returned* INTERNAL does via the normal emit path).
 		const result: CommandResult<never> =
 			e instanceof Error && isCliffyParseError(e)
 				? err("USAGE", `usage error: ${e.message}`, false)
 				: err("INTERNAL", "internal error", false);
-		return service.emit(result, { format: "human" });
+		return service.emit(result, { format: resolveRequestedFormat(argv) });
 	}
 
 	const run = getRun();
@@ -97,6 +105,35 @@ function isCliffyParseError(e: Error): boolean {
 		e.constructor.name === "UnknownCommandError" ||
 		(e as { exitCode?: unknown }).exitCode === 2
 	);
+}
+
+/**
+ * Best-effort detection of the requested output format from raw argv, used in
+ * the catch-all so a thrown INTERNAL (or a USAGE error) under `--json` /
+ * `--output json` still emits a JSON envelope on stdout — keeping the machine
+ * contract consistent with a *returned* error result. Cliffy's own flag parsing
+ * remains the source of truth on the happy path; this mirrors the documented
+ * flag surface (`--json`, `--output={json,ndjson}`, `--output <mode>`, `-o`).
+ */
+function resolveRequestedFormat(argv: string[]): OutputFormat {
+	for (let i = 0; i < argv.length; i++) {
+		const arg = argv[i];
+		if (!arg) continue;
+		if (arg === "--json") return "json";
+		const eqVal = arg.startsWith("--output=")
+			? arg.slice("--output=".length)
+			: arg.startsWith("-o=")
+				? arg.slice("-o=".length)
+				: null;
+		if (eqVal === "json") return "json";
+		if (eqVal === "ndjson") return "ndjson";
+		if ((arg === "--output" || arg === "-o") && i + 1 < argv.length) {
+			const next = argv[i + 1];
+			if (next === "json") return "json";
+			if (next === "ndjson") return "ndjson";
+		}
+	}
+	return "human";
 }
 
 // Module bootstrap — only runs when executed directly (not when imported in
