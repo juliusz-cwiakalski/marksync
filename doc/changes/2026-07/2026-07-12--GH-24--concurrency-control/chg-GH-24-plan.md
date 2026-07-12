@@ -240,15 +240,15 @@ before `Create`) and the 409 re-fetch-once policy on `Conflict`; thread
 
 **Tasks**:
 
-- [ ] **3.1** Add `stalePlanMinutes: number` to `ApplyOptions` (`src/app/push-flow.ts`) — thread the single primitive rather than widening the `config` coupling (DEC-8: prefer the primitive). Update the production caller (the push command wiring in `src/app/`/`src/cli/`) to pass `config.sync.stalePlanMinutes`. Thread `stalePlanMinutes` into `processEntry` alongside the existing parameters.
-- [ ] **3.2** In `processEntry`'s `Update` branch, BEFORE `target.updatePage`: call `target.getProperty(pageId, "marksync.metadata")`; best-effort parse → `remoteOpId` (missing/unparseable → `undefined` = no prior operation). Run `assertOperationFresh(plan.operationId, remoteOpId)` then `assertPlanNotExpired(uuidV7Timestamp(plan.runId), Date.now(), stalePlanMinutes)`. On `err(StalePlan)` → `return { uuid, outcome: "blocked", error: StalePlan }` for that document (per-document isolation — the loop continues to other entries).
-- [ ] **3.3** In `processEntry`'s `Create` branch, run `assertPlanNotExpired(uuidV7Timestamp(plan.runId), Date.now(), stalePlanMinutes)` before `target.createPage` (a stale create is still stale). No operation-freshness check — a new page has no prior operation id. On `err(StalePlan)` → block that document.
-- [ ] **3.4** On `Conflict` from `target.updatePage` (currently blocks per GH-23 DEC-6): re-fetch via `target.getPage(pageId)` (ONE re-fetch), re-derive the `RemoteState` + `SharedBase`, `classify` → refreshed `SyncState`, `decideOnConflict(conflict, refreshedState)`. If `"reapply"` → call `target.updatePage` ONCE with the refreshed base version; a second `Conflict` → block (no third attempt). If `"block"` → `return { uuid, outcome: "blocked", error: Conflict }`. **Max 1 re-fetch + max 1 reapply per document — no loop** (NG-3/DEC-2). A transport error on the re-fetch (`RateLimited`/`RemoteUnreachable`) → block that document (preserve GH-23's transport-error policy).
-- [ ] **3.5** Integration tests (tier 3):
+- [x] **3.1** Add `stalePlanMinutes: number` to `ApplyOptions` (`src/app/push-flow.ts`) — thread the single primitive rather than widening the `config` coupling (DEC-8: prefer the primitive). Update the production caller (the push command wiring in `src/app/`/`src/cli/`) to pass `config.sync.stalePlanMinutes`. Thread `stalePlanMinutes` into `processEntry` alongside the existing parameters.
+- [x] **3.2** In `processEntry`'s `Update` branch, BEFORE `target.updatePage`: call `target.getProperty(pageId, "marksync.metadata")`; best-effort parse → `remoteOpId` (missing/unparseable → `undefined` = no prior operation). Run `assertOperationFresh(plan.operationId, remoteOpId)` then `assertPlanNotExpired(uuidV7Timestamp(plan.runId), Date.now(), stalePlanMinutes)`. On `err(StalePlan)` → `return { uuid, outcome: "blocked", error: StalePlan }` for that document (per-document isolation — the loop continues to other entries).
+- [x] **3.3** In `processEntry`'s `Create` branch, run `assertPlanNotExpired(uuidV7Timestamp(plan.runId), Date.now(), stalePlanMinutes)` before `target.createPage` (a stale create is still stale). No operation-freshness check — a new page has no prior operation id. On `err(StalePlan)` → block that document.
+- [x] **3.4** On `Conflict` from `target.updatePage` (currently blocks per GH-23 DEC-6): re-fetch via `target.getPage(pageId)` (ONE re-fetch), re-derive the `RemoteState` + `SharedBase`, `classify` → refreshed `SyncState`, `decideOnConflict(conflict, refreshedState)`. If `"reapply"` → call `target.updatePage` ONCE with the refreshed base version; a second `Conflict` → block (no third attempt). If `"block"` → `return { outcome: "blocked", error: Conflict }`. **Max 1 re-fetch + max 1 reapply per document — no loop** (NG-3/DEC-2). A transport error on the re-fetch (`RateLimited`/`RemoteUnreachable`) → block that document (preserve GH-23's transport-error policy).
+- [x] **3.5** Integration tests (tier 3):
   - `tests/integration/app/concurrency-control-overlap.test.ts` — TC-CONC-005 (single shared-state `FakeTarget`, NFR-REL-5: B wins, A aborts, 0 overwrites) and TC-CONC-006 (two separate `FakeTarget` instances on a shared backing map, NFR-REL-10: no shared service, 0 silent overwrites).
   - `tests/integration/app/409-retry-policy.test.ts` — TC-409-006 (re-fetch → `LOCAL_AHEAD` → reapply once), TC-409-007 (re-fetch → still `DIVERGED` → block), TC-409-008 (reapply → `Conflict` again → block, no second retry). Assert `getPageCalls`/`updatePageCalls` counts prove the single-retry boundary.
   - `tests/integration/app/concurrency-isolation.test.ts` — TC-ISO-001 (`StalePlan` on doc A, doc B still applies) and TC-ISO-002 (`StalePlan` on doc C, docs A/B apply).
-- [ ] **3.6** Extend `tests/integration/app/secrets-safety-integration.test.ts` (TC-SEC-001): assert the `StalePlan` and `Conflict`-block error paths in `ApplyReport` and the journal carry **0** credential/token occurrences — the operation-id is `op_<uuid-v7>` and the error carries only `{ operationId, expiredAt }`.
+- [x] **3.6** Extend `tests/integration/app/secrets-safety-integration.test.ts` (TC-SEC-001): assert the `StalePlan` and `Conflict`-block error paths in `ApplyReport` and the journal carry **0** credential/token occurrences — the operation-id is `op_<uuid-v7>` and the error carries only `{ operationId, expiredAt }`.
 
 **Acceptance Criteria**:
 
@@ -278,9 +278,9 @@ enforcement (NG-7).
 
 **Tasks**:
 
-- [ ] **4.1** Create `examples/ci/github-actions-concurrency.yml` — valid YAML with a `concurrency:` block. Group key combines branch + MarkSync target id (e.g. `${{ github.ref }}-marksync-${{ matrix.target }}`); document `cancel-in-progress` per branch context (cancel-in-progress: true on feature branches, false on `main` to keep the canonical run).
-- [ ] **4.2** Create `examples/ci/README.md` — the group-key strategy (why group by target), the cancel-in-progress tradeoff (cancel-on-branch vs queue-on-main), how to copy the snippet into a workflow, and the relationship to MarkSync's optimistic 409 + operation-id dedup (the templates reduce overlap at the source; MarkSync remains safe even without them because the write-time gates are the hard guarantee).
-- [ ] **4.3** Validate the YAML parses and the README documents the required elements (TC-CI-001): a small automated check (`tests/unit/examples/ci-yaml-validation.test.ts` — parse the YAML with the existing YAML library and assert the `concurrency.group` + `cancel-in-progress` keys are present) plus a README content review.
+- [x] **4.1** Create `examples/ci/github-actions-concurrency.yml` — valid YAML with a `concurrency:` block. Group key combines branch + MarkSync target id (e.g. `${{ github.ref }}-marksync-${{ matrix.target }}`); document `cancel-in-progress` per branch context (cancel-in-progress: true on feature branches, false on `main` to keep the canonical run).
+- [x] **4.2** Create `examples/ci/README.md` — the group-key strategy (why group by target), the cancel-in-progress tradeoff (cancel-on-branch vs queue-on-main), how to copy the snippet into a workflow, and the relationship to MarkSync's optimistic 409 + operation-id dedup (the templates reduce overlap at the source; MarkSync remains safe even without them because the write-time gates are the hard guarantee).
+- [x] **4.3** Validate the YAML parses and the README documents the required elements (TC-CI-001): a small automated check (`tests/unit/examples/ci-yaml-validation.test.ts` — parse the YAML with the existing YAML library and assert the `concurrency.group` + `cancel-in-progress` keys are present) plus a README content review.
 
 **Acceptance Criteria**:
 
@@ -307,13 +307,13 @@ phase-7 (system spec) reconciliation hand-off prepared for `@doc-syncer`.
 
 **Tasks**:
 
-- [ ] **5.1** Run `bun run check` (lint + format:check + typecheck + test + check:boundaries) → exit **0** (AC-Q-1 / TC-QG-001). The boundary check must confirm `src/domain/state/` imports no infrastructure (NFR-7).
-- [ ] **5.2** Version bump per repo conventions — `version_impact: patch` → bump the patch segment in `package.json`. No lock/cache/property migration (the gates read existing `marksync.metadata` and existing `stalePlanMinutes`; MS-0002 is pre-release).
-- [ ] **5.3** Spec reconciliation — **flagged for the `system_spec_update` delivery phase (executed by `@doc-syncer`, not committed here)**. Hand-off list:
+- [x] **5.1** Run `bun run check` (lint + format:check + typecheck + test + check:boundaries) → exit **0** (AC-Q-1 / TC-QG-001). The boundary check must confirm `src/domain/state/` imports no infrastructure (NFR-7).
+- [x] **5.2** Version bump per repo conventions — `version_impact: patch` → bump the patch segment in `package.json`. No lock/cache/property migration (the gates read existing `marksync.metadata` and existing `stalePlanMinutes`; MS-0002 is pre-release).
+- [x] **5.3** Spec reconciliation — **flagged for the `system_spec_update` delivery phase (executed by `@doc-syncer`, not committed here)**. Hand-off list:
   - `doc/spec/features/feature-safe-publish.md` §3.1 "Concurrency control" → tag `*(delivered — GH-24)*` and update the description to reference the delivered gates; add `GH-24` to `links.related_changes`.
   - `doc/overview/architecture-overview.md` "Push executor" row → note the concurrency wiring (operation-freshness + stale-plan-expiry + 409 re-fetch-once).
   - `doc/decisions/ADR-0006-document-identity-and-shared-base-state-model.md` Lessons Learned → append the concurrency-delivery retrospective (the write-time backstop that completes C-5/C-6).
-- [ ] **5.4** Boy-scout tidy: confirm the new `src/domain/state/*` modules and the `processEntry` edits carry ≤3-line file headers citing the spec/ADR once (AGENTS.md / `.ai/rules/typescript.md`); remove any restatement noise or bare tag soup.
+- [x] **5.4** Boy-scout tidy: confirm the new `src/domain/state/*` modules and the `processEntry` edits carry ≤3-line file headers citing the spec/ADR once (AGENTS.md / `.ai/rules/typescript.md`); remove any restatement noise or bare tag soup.
 
 **Acceptance Criteria**:
 

@@ -98,7 +98,14 @@ describe("decideOnConflict", () => {
 				remoteVersion: 2,
 			} as const;
 
-			const allStates: Array<"NO_CHANGE" | "LOCAL_AHEAD" | "REMOTE_AHEAD" | "DIVERGED" | "REMOTE_MISSING" | "LOCAL_MISSING"> = [
+			const allStates: Array<
+				| "NO_CHANGE"
+				| "LOCAL_AHEAD"
+				| "REMOTE_AHEAD"
+				| "DIVERGED"
+				| "REMOTE_MISSING"
+				| "LOCAL_MISSING"
+			> = [
 				"NO_CHANGE",
 				"LOCAL_AHEAD",
 				"REMOTE_AHEAD",

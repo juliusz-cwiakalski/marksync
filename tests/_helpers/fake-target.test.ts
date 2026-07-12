@@ -62,7 +62,11 @@ describe("FakeTarget", () => {
 			const runnerB = new FakeTarget(sharedState);
 
 			// Runner B writes a property
-			await runnerB.putProperty("page-123", "marksync.metadata", '{"operationId":"op_runner_b"}');
+			await runnerB.putProperty(
+				"page-123",
+				"marksync.metadata",
+				'{"operationId":"op_runner_b"}',
+			);
 
 			// Runner A reads the property
 			const result = await runnerA.getProperty("page-123", "marksync.metadata");
@@ -78,7 +82,11 @@ describe("FakeTarget", () => {
 			const runnerB = new FakeTarget();
 
 			// Runner B writes a property
-			await runnerB.putProperty("page-123", "marksync.metadata", '{"operationId":"op_runner_b"}');
+			await runnerB.putProperty(
+				"page-123",
+				"marksync.metadata",
+				'{"operationId":"op_runner_b"}',
+			);
 
 			// Runner A does not see it
 			const result = await runnerA.getProperty("page-123", "marksync.metadata");

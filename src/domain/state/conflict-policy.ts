@@ -1,6 +1,5 @@
 // 409 conflict decision policy (ADR-0006 C-5, GH-24 F-3).
 
-import type { MarkSyncError } from "#domain/errors";
 import type { SyncState } from "#domain/state/sync-state";
 
 /** Decision for a 409 conflict after re-fetch. */
@@ -15,7 +14,12 @@ export type Decision = "reapply" | "block";
  * @returns "reapply" if safe to update, "block" if still conflicting.
  */
 export function decideOnConflict(
-	conflict: { kind: "Conflict"; pageId: string; baseVersion: number; remoteVersion: number },
+	_conflict: {
+		kind: "Conflict";
+		pageId: string;
+		baseVersion: number;
+		remoteVersion: number;
+	},
 	refreshedRemoteState: SyncState,
 ): Decision {
 	// LOCAL_AHEAD or NO_CHANGE → reapply (now safe)

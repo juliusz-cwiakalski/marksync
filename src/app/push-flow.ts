@@ -29,7 +29,10 @@ import { buildContentHash, rawHash } from "#domain/state/hashes";
 import type { LinkBindings } from "#domain/hierarchy/link-resolver";
 import { resolveLink } from "#domain/hierarchy/link-resolver";
 import { assertBranchAllowed } from "#app/branch";
-import { generateUuidV7 } from "#domain/identity/uuid";
+import { generateUuidV7, uuidV7Timestamp } from "#domain/identity/uuid";
+import { assertOperationFresh } from "#domain/state/operation-freshness";
+import { assertPlanNotExpired } from "#domain/state/plan-expiry";
+import { decideOnConflict } from "#domain/state/conflict-policy";
 import type { ProvenanceInput } from "#infra/confluence/provenance";
 import { formatVersionMessage } from "#infra/confluence/provenance";
 import { saveLock } from "#app/lock";
@@ -110,6 +113,8 @@ export interface ApplyOptions {
 	targetId: string;
 	/** Test-only: crash after K successful mutations. */
 	crashAfter?: number;
+	/** Stale-plan expiry window (default 15, from config). */
+	stalePlanMinutes: number;
 }
 
 /**
@@ -573,6 +578,7 @@ export async function applyPlan(
 			cwd,
 			operationId,
 			headSha,
+			opts.stalePlanMinutes,
 		);
 
 		results.push(outcome);
@@ -613,8 +619,11 @@ async function processEntry(
 	cwd: string,
 	operationId: string,
 	headSha: string,
+	stalePlanMinutes: number,
 ): Promise<ApplyResultEntry> {
 	const { uuid, action } = entry;
+	const now = Date.now();
+	const planTimestamp = uuidV7Timestamp(operationId);
 
 	// NoOp → skip
 	if (action.kind === "NoOp") {
@@ -631,7 +640,7 @@ async function processEntry(
 		return { uuid, outcome: "blocked", error: action.error };
 	}
 
-	// Update → updatePage, on Conflict → blocked (DEC-6)
+	// Update → updatePage with concurrency gates
 	if (action.kind === "Update") {
 		const binding = lock.targets[targetId]?.documents[uuid];
 		if (!binding) {
@@ -646,6 +655,47 @@ async function processEntry(
 			};
 		}
 
+		// Stale-plan expiry check (both gates)
+		if (planTimestamp !== undefined) {
+			const expiryResult = assertPlanNotExpired(
+				planTimestamp,
+				now,
+				stalePlanMinutes,
+			);
+			if (!expiryResult.ok) {
+				return { uuid, outcome: "blocked", error: expiryResult.error };
+			}
+		}
+
+		// Operation-freshness gate (only for Update)
+		const propertyResult = await target.getProperty(
+			binding.pageId,
+			"marksync.metadata",
+		);
+		if (!propertyResult.ok) {
+			// Transport error on getProperty → block (spec §21)
+			return { uuid, outcome: "blocked", error: propertyResult.error };
+		}
+
+		let remoteOperationId: string | undefined = undefined;
+		if (propertyResult.ok && propertyResult.value !== undefined) {
+			try {
+				const parsed = JSON.parse(propertyResult.value) as MetadataProperty;
+				remoteOperationId = parsed.operationId;
+			} catch {
+				// Parse error → treat as missing (fresh)
+			}
+		}
+
+		const freshnessResult = assertOperationFresh(
+			operationId,
+			remoteOperationId,
+		);
+		if (!freshnessResult.ok) {
+			return { uuid, outcome: "blocked", error: freshnessResult.error };
+		}
+
+		// Attempt updatePage with 409 re-fetch-once policy
 		const result = await target.updatePage({
 			pageId: binding.pageId,
 			title: entry.hashes.title,
@@ -655,20 +705,122 @@ async function processEntry(
 		});
 
 		if (!result.ok) {
-			// Conflict → blocked (DEC-6, PD-8)
-			if (result.error.kind === "Conflict") {
-				return { uuid, outcome: "blocked", error: result.error };
+			const err = result.error;
+			// Conflict → re-fetch ONCE, reclassify, decide
+			if (err.kind === "Conflict") {
+				const pageResult = await target.getPage(binding.pageId);
+				if (!pageResult.ok) {
+					// Transport error on re-fetch → block
+					return { uuid, outcome: "blocked", error: pageResult.error };
+				}
+
+				const page = pageResult.value;
+				// Re-classify with refreshed remote
+				const base: SharedBase = {
+					uuid: binding.uuid,
+					pageId: binding.pageId,
+					parentPageId: binding.parentPageId,
+					pageVersion: binding.pageVersion,
+					renderedBodyHash: binding.renderedBodyHash,
+					attachmentHashes: binding.attachmentHashes,
+				};
+				let remote: RemoteState;
+				if (page.body) {
+					remote = {
+						kind: "present",
+						bodyHash: rawHash(page.body),
+						version: page.version,
+						title: page.title,
+						parentPageId: binding.parentPageId,
+					};
+				} else {
+					remote = { kind: "missing" };
+				}
+
+				const classifyResult = classify({
+					local: entry.hashes,
+					base,
+					remote,
+				});
+				if (!classifyResult.ok) {
+					return { uuid, outcome: "blocked", error: classifyResult.error };
+				}
+
+				const refreshedState = classifyResult.value;
+				const decision = decideOnConflict(err, refreshedState);
+
+				if (decision === "reapply") {
+					// Reapply ONCE with refreshed base version
+					const reapplyResult = await target.updatePage({
+						pageId: binding.pageId,
+						title: entry.hashes.title,
+						body: entry.renderedBody,
+						baseVersion: page.version, // Use refreshed version
+						message,
+					});
+
+					if (!reapplyResult.ok) {
+						// Second Conflict or other error → block
+						return {
+							uuid,
+							outcome: "blocked",
+							error: reapplyResult.error,
+						};
+					}
+
+					// Reapply succeeded
+					const updatedPage = reapplyResult.value;
+
+					// Journal append BEFORE lock update
+					journal.append({
+						op: "update",
+						pageId: updatedPage.id,
+						uuid,
+						outcome: "success",
+					});
+
+					// Update binding in memory
+					const updatedBinding: PageBinding = {
+						...binding,
+						pageVersion: updatedPage.version,
+						sourceCommit: headSha,
+						synchronizedAt: new Date().toISOString(),
+						operationId,
+					};
+
+					const lockTarget = lock.targets[targetId] ?? { documents: {} };
+					lockTarget.documents[uuid] = updatedBinding;
+					lock.targets[targetId] = lockTarget;
+
+					// Save lock atomically
+					const saveResult = saveLock(cwd, lock);
+					if (!saveResult.ok) {
+						return { uuid, outcome: "blocked", error: saveResult.error };
+					}
+
+					// Put property
+					const property = bindingToProperty(updatedBinding, targetId);
+					const putResult = await target.putProperty(
+						updatedPage.id,
+						"marksync.metadata",
+						JSON.stringify(property),
+					);
+					if (!putResult.ok) {
+						return { uuid, outcome: "blocked", error: putResult.error };
+					}
+
+					return { uuid, outcome: "updated" };
+				}
+				// Decision is "block" → block
+				return { uuid, outcome: "blocked", error: err };
 			}
 			// Transient transport errors → blocked (retryable)
 			// RateLimited / RemoteUnreachable from target HTTP failures
-			if (
-				result.error.kind === "RateLimited" ||
-				result.error.kind === "RemoteUnreachable"
-			) {
-				return { uuid, outcome: "blocked", error: result.error };
+			if (err.kind === "RateLimited" || err.kind === "RemoteUnreachable") {
+				return { uuid, outcome: "blocked", error: err };
 			}
 			// Other errors → blocked (but continue, per-document isolation)
-			return { uuid, outcome: "blocked", error: result.error };
+			return { uuid, outcome: "blocked", error: err };
 		}
 
 		const page = result.value;
@@ -714,8 +866,20 @@ async function processEntry(
 		return { uuid, outcome: "updated" };
 	}
 
-	// Create → createPage
+	// Create → createPage with stale-plan expiry check
 	if (action.kind === "Create") {
+		// Stale-plan expiry check (only expiry, no operation-freshness)
+		if (planTimestamp !== undefined) {
+			const expiryResult = assertPlanNotExpired(
+				planTimestamp,
+				now,
+				stalePlanMinutes,
+			);
+			if (!expiryResult.ok) {
+				return { uuid, outcome: "blocked", error: expiryResult.error };
+			}
+		}
+
 		const result = await target.createPage({
 			parentId: action.parentId,
 			title: action.title,
