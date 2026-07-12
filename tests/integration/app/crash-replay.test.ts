@@ -137,7 +137,7 @@ This is doc C content.`,
 			sourceCommit: "base-sha",
 			sourceContentHash: "new-local-hash-a", // Local ahead
 			renderedBodyHash: "old-rendered-hash-a",
-			remoteBodyHash: "old-remote-hash-a",
+			remoteBodyHash: "old-rendered-hash-a", // == base → remote unchanged → LOCAL_AHEAD
 			attachmentHashes: {},
 			operationId: "op-old",
 			synchronizedAt: "2025-01-01T00:00:00Z",
@@ -153,7 +153,7 @@ This is doc C content.`,
 			sourceCommit: "base-sha",
 			sourceContentHash: "new-local-hash-b", // Local ahead
 			renderedBodyHash: "old-rendered-hash-b",
-			remoteBodyHash: "old-remote-hash-b",
+			remoteBodyHash: "old-rendered-hash-b", // == base → remote unchanged → LOCAL_AHEAD
 			attachmentHashes: {},
 			operationId: "op-old",
 			synchronizedAt: "2025-01-01T00:00:00Z",
@@ -169,7 +169,7 @@ This is doc C content.`,
 			sourceCommit: "base-sha",
 			sourceContentHash: "new-local-hash-c", // Local ahead
 			renderedBodyHash: "old-rendered-hash-c",
-			remoteBodyHash: "old-remote-hash-c",
+			remoteBodyHash: "old-rendered-hash-c", // == base → remote unchanged → LOCAL_AHEAD
 			attachmentHashes: {},
 			operationId: "op-old",
 			synchronizedAt: "2025-01-01T00:00:00Z",
@@ -185,7 +185,6 @@ This is doc C content.`,
 			id: pageIdA,
 			title: "Doc A",
 			version: 1,
-			body: "<h1>Doc A</h1>",
 			spaceId: "TEST-SPACE",
 		});
 
@@ -193,7 +192,6 @@ This is doc C content.`,
 			id: pageIdB,
 			title: "Doc B",
 			version: 1,
-			body: "<h1>Doc B</h1>",
 			spaceId: "TEST-SPACE",
 		});
 
@@ -201,7 +199,6 @@ This is doc C content.`,
 			id: pageIdC,
 			title: "Doc C",
 			version: 1,
-			body: "<h1>Doc C</h1>",
 			spaceId: "TEST-SPACE",
 		});
 

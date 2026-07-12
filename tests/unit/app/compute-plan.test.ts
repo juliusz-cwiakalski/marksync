@@ -75,17 +75,15 @@ marksync:
 
 		const mockRepo: Repository = {
 			readCommitted: () =>
-				Promise.resolve(
-					Res.ok(
-						new Map([
-							["doc-a.md", new TextEncoder().encode(docAContent)],
-							["doc-b.md", new TextEncoder().encode(docBContent)],
-						]),
-					),
+				Res.ok(
+					new Map([
+						["doc-a.md", new TextEncoder().encode(docAContent)],
+						["doc-b.md", new TextEncoder().encode(docBContent)],
+					]),
 				),
-			headSha: () => Promise.resolve(Res.ok("abc123")),
-			currentBranch: () => Promise.resolve(Res.ok("main")),
-			listCommitSubjects: () => Promise.resolve(Res.ok(["init"])),
+			headSha: () => Res.ok("abc123"),
+			currentBranch: () => Res.ok("main"),
+			listCommitSubjects: () => Res.ok(["init"]),
 		};
 
 		const mockTarget: TargetSystem = {
@@ -170,12 +168,10 @@ marksync:
 	test("TC-UNIT-007: non-allowed branch → err(ForbiddenBranch) before discovery", async () => {
 		const mockRepo: Repository = {
 			readCommitted: () =>
-				Promise.resolve(
-					Res.ok(new Map([["doc.md", new TextEncoder().encode("# Test")]])),
-				),
-			headSha: () => Promise.resolve(Res.ok("abc123")),
-			currentBranch: () => Promise.resolve(Res.ok("feature/x")),
-			listCommitSubjects: () => Promise.resolve(Res.ok(["init"])),
+				Res.ok(new Map([["doc.md", new TextEncoder().encode("# Test")]])),
+			headSha: () => Res.ok("abc123"),
+			currentBranch: () => Res.ok("feature/x"),
+			listCommitSubjects: () => Res.ok(["init"]),
 		};
 
 		const mockTarget: TargetSystem = {
@@ -266,14 +262,10 @@ marksync:
 
 		const mockRepo: Repository = {
 			readCommitted: () =>
-				Promise.resolve(
-					Res.ok(
-						new Map([["new-doc.md", new TextEncoder().encode(docContent)]]),
-					),
-				),
-			headSha: () => Promise.resolve(Res.ok("abc123")),
-			currentBranch: () => Promise.resolve(Res.ok("main")),
-			listCommitSubjects: () => Promise.resolve(Res.ok(["init"])),
+				Res.ok(new Map([["new-doc.md", new TextEncoder().encode(docContent)]])),
+			headSha: () => Res.ok("abc123"),
+			currentBranch: () => Res.ok("main"),
+			listCommitSubjects: () => Res.ok(["init"]),
 		};
 
 		const mockTarget: TargetSystem = {
@@ -386,12 +378,10 @@ marksync:
 
 		const mockRepo: Repository = {
 			readCommitted: () =>
-				Promise.resolve(
-					Res.ok(new Map([["doc.md", new TextEncoder().encode(docContent)]])),
-				),
-			headSha: () => Promise.resolve(Res.ok("abc123")),
-			currentBranch: () => Promise.resolve(Res.ok("main")),
-			listCommitSubjects: () => Promise.resolve(Res.ok(["init"])),
+				Res.ok(new Map([["doc.md", new TextEncoder().encode(docContent)]])),
+			headSha: () => Res.ok("abc123"),
+			currentBranch: () => Res.ok("main"),
+			listCommitSubjects: () => Res.ok(["init"]),
 		};
 
 		let capturedHast: unknown | undefined;

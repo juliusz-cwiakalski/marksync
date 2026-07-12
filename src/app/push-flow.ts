@@ -221,28 +221,38 @@ export async function computePlan(
 		void _resolveLinksInDoc;
 
 		if (binding) {
-			// Bound doc: fetch remote → classify → action
+			// Bound doc: fetch remote → classify → action.
+			// INV-SAFE-2: a missing/forbidden remote is still classifiable —
+			// REMOTE_MISSING → Block(RemoteMissing) (0 re-creates), Forbidden →
+			// classify surfaces it. Only transport failures (rate-limit,
+			// unreachable, …) abort the whole plan.
 			const pageResult = await target.getPage(binding.pageId);
+
+			let remote: RemoteState;
 			if (!pageResult.ok) {
-				return pageResult;
+				const err = pageResult.error;
+				if (err.kind === "RemoteMissing") {
+					remote = { kind: "missing" };
+				} else if (err.kind === "Forbidden") {
+					remote = { kind: "forbidden", pageId: binding.pageId };
+				} else {
+					return pageResult;
+				}
+			} else {
+				const page = pageResult.value;
+				// Remote body hash is raw hash of Storage XHTML (default: lock value)
+				let remoteBodyHash = binding.remoteBodyHash;
+				if (page.body) {
+					remoteBodyHash = rawHash(page.body);
+				}
+				remote = {
+					kind: "present",
+					bodyHash: remoteBodyHash,
+					version: page.version,
+					title: page.title,
+					parentPageId: binding.parentPageId,
+				};
 			}
-			const page = pageResult.value;
-
-			// Build RemoteState: remote body hash is raw hash of Storage XHTML
-			let remoteBodyHash = binding.remoteBodyHash; // default to lock value
-			if (page.body) {
-				// Compute raw hash of the remote Storage XHTML body
-				// This makes local vs remote comparable when unchanged
-				remoteBodyHash = rawHash(page.body);
-			}
-
-			const remote: RemoteState = {
-				kind: "present",
-				bodyHash: remoteBodyHash,
-				version: page.version,
-				title: page.title,
-				parentPageId: binding.parentPageId,
-			};
 
 			const base: SharedBase = {
 				uuid: binding.uuid,

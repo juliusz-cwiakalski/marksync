@@ -360,7 +360,7 @@ This is doc D content.`,
 				sourceCommit: "base-sha",
 				sourceContentHash: "local-hash",
 				renderedBodyHash: "rendered-hash",
-				remoteBodyHash: "remote-hash",
+				remoteBodyHash: "rendered-hash", // == base → remote unchanged → LOCAL_AHEAD
 				attachmentHashes: {},
 				operationId: "op-old",
 				synchronizedAt: "2025-01-01T00:00:00Z",
@@ -369,12 +369,12 @@ This is doc D content.`,
 
 			lock.targets.default.documents[docUuid] = binding;
 
-			// Add fixture page at version 1 (matches binding)
+			// Add fixture page at version 1 (matches binding); no body so
+			// computePlan falls back to binding.remoteBodyHash for remote.bodyHash.
 			fakeTarget.addFixture({
 				id: pageId,
 				title: "Doc D",
 				version: 1,
-				body: "<h1>Doc D</h1>",
 				spaceId: "TEST-SPACE",
 			});
 
@@ -433,7 +433,7 @@ This is doc D content.`,
 			const fakeRepo = new FakeRepository();
 			const fakeTarget = new FakeTarget();
 			const lock = JSON.parse(JSON.stringify(baseLock)) as LockFile;
-			const docUuidA = "doc-uuid-e";
+			const docUuidA = "019f56e4-18f5-7021-bfdf-5438918bb3bc";
 			const docUuidB = "019f56e4-18f5-701f-bfdf-5438918bb3bc";
 			const pageIdA = "page-111";
 			const pageIdB = "page-222";
@@ -487,7 +487,7 @@ This is doc F content.`,
 				sourceCommit: "base-sha",
 				sourceContentHash: "new-local-hash", // Local ahead
 				renderedBodyHash: "old-rendered-hash",
-				remoteBodyHash: "old-remote-hash",
+				remoteBodyHash: "old-rendered-hash", // == base → remote unchanged → LOCAL_AHEAD
 				attachmentHashes: {},
 				operationId: "op-old",
 				synchronizedAt: "2025-01-01T00:00:00Z",
@@ -510,7 +510,6 @@ This is doc F content.`,
 				id: pageIdB,
 				title: "Doc F",
 				version: 1, // Matches base - will be LOCAL_AHEAD
-				body: "<h1>Doc F</h1>",
 				spaceId: "TEST-SPACE",
 			});
 
@@ -587,7 +586,7 @@ This is doc G content.`,
 				sourceCommit: "base-sha",
 				sourceContentHash: "new-local-hash", // Local ahead
 				renderedBodyHash: "old-rendered-hash",
-				remoteBodyHash: "old-remote-hash",
+				remoteBodyHash: "old-rendered-hash", // == base → remote unchanged → LOCAL_AHEAD
 				attachmentHashes: {},
 				operationId: "op-old",
 				synchronizedAt: "2025-01-01T00:00:00Z",
@@ -596,12 +595,12 @@ This is doc G content.`,
 
 			lock.targets.default.documents[docUuid] = binding;
 
-			// Add fixture page at version 1 (matches binding)
+			// Add fixture page at version 1 (matches binding); no body so
+			// computePlan falls back to binding.remoteBodyHash for remote.bodyHash.
 			fakeTarget.addFixture({
 				id: pageId,
 				title: "Doc G",
 				version: 1,
-				body: "<h1>Doc G</h1>",
 				spaceId: "TEST-SPACE",
 			});
 

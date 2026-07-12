@@ -68,7 +68,7 @@ describe("idempotency integration test", () => {
 			const lock = JSON.parse(JSON.stringify(baseLock)) as LockFile;
 
 			// Create 3 documents with UUIDs
-			const docUuidA = "doc-019f56e4-18f5-7022-bfdf-5438918bb3bc";
+			const docUuidA = "019f56e4-18f5-7024-bfdf-5438918bb3bc";
 			const docUuidB = "019f56e4-18f5-701b-bfdf-5438918bb3bc";
 			const docUuidC = "019f56e4-18f5-701c-bfdf-5438918bb3bc";
 			const pageIdA = "page-111";
@@ -117,8 +117,8 @@ This is doc C content.`,
 				pageVersion: 1,
 				sourceCommit: "base-sha",
 				sourceContentHash: "local-hash-a",
-				renderedBodyHash: "rendered-hash-a",
-				remoteBodyHash: "rendered-hash-a", // Remote matches base
+				renderedBodyHash: "fixture-hash", // == local canonical hash → NO_CHANGE
+				remoteBodyHash: "fixture-hash", // == base → remote unchanged
 				attachmentHashes: {},
 				operationId: "op-old",
 				synchronizedAt: "2025-01-01T00:00:00Z",
@@ -133,8 +133,8 @@ This is doc C content.`,
 				pageVersion: 1,
 				sourceCommit: "base-sha",
 				sourceContentHash: "local-hash-b",
-				renderedBodyHash: "rendered-hash-b",
-				remoteBodyHash: "rendered-hash-b", // Remote matches base
+				renderedBodyHash: "fixture-hash", // == local canonical hash → NO_CHANGE
+				remoteBodyHash: "fixture-hash", // == base → remote unchanged
 				attachmentHashes: {},
 				operationId: "op-old",
 				synchronizedAt: "2025-01-01T00:00:00Z",
@@ -149,8 +149,8 @@ This is doc C content.`,
 				pageVersion: 1,
 				sourceCommit: "base-sha",
 				sourceContentHash: "local-hash-c",
-				renderedBodyHash: "rendered-hash-c",
-				remoteBodyHash: "rendered-hash-c", // Remote matches base
+				renderedBodyHash: "fixture-hash", // == local canonical hash → NO_CHANGE
+				remoteBodyHash: "fixture-hash", // == base → remote unchanged
 				attachmentHashes: {},
 				operationId: "op-old",
 				synchronizedAt: "2025-01-01T00:00:00Z",
@@ -166,7 +166,6 @@ This is doc C content.`,
 				id: pageIdA,
 				title: "Doc A",
 				version: 1,
-				body: "<h1>Doc A</h1>",
 				spaceId: "TEST-SPACE",
 			});
 
@@ -174,7 +173,6 @@ This is doc C content.`,
 				id: pageIdB,
 				title: "Doc B",
 				version: 1,
-				body: "<h1>Doc B</h1>",
 				spaceId: "TEST-SPACE",
 			});
 
@@ -182,7 +180,6 @@ This is doc C content.`,
 				id: pageIdC,
 				title: "Doc C",
 				version: 1,
-				body: "<h1>Doc C</h1>",
 				spaceId: "TEST-SPACE",
 			});
 

@@ -1,6 +1,13 @@
 // Integration test for secrets safety (TC-INTEGRATION-011: 0 token occurrences in all outputs).
 
-import { afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import {
+	afterEach,
+	beforeAll,
+	beforeEach,
+	describe,
+	expect,
+	test,
+} from "bun:test";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { LockFile, ProjectConfig } from "#domain/config/types";
@@ -88,7 +95,7 @@ describe("secrets-safety integration test", () => {
 		// Define a fake token that COULD leak
 		const fakeToken = "FAKE_TOKEN_xyz123";
 
-		const docUuid = "doc-019f56e4-18f5-7022-bfdf-5438918bb3bc";
+		const docUuid = "019f56e4-18f5-7025-bfdf-5438918bb3bc";
 		const pageId = "page-111";
 
 		// Plant the fake token in a document (simulating a comment that could leak)
@@ -113,7 +120,7 @@ This is doc A content. Don't leak this: ${fakeToken}`,
 			sourceCommit: "base-sha",
 			sourceContentHash: "new-local-hash", // Local ahead
 			renderedBodyHash: "old-rendered-hash",
-			remoteBodyHash: "old-remote-hash",
+			remoteBodyHash: "old-rendered-hash", // == base → remote unchanged → LOCAL_AHEAD
 			attachmentHashes: {},
 			operationId: "op-old",
 			synchronizedAt: "2025-01-01T00:00:00Z",
@@ -122,12 +129,12 @@ This is doc A content. Don't leak this: ${fakeToken}`,
 
 		lock.targets.default.documents[docUuid] = binding;
 
-		// Add fixture page at version 1
+		// Add fixture page at version 1; no body so computePlan falls back to
+		// binding.remoteBodyHash for remote.bodyHash (LOCAL_AHEAD → writes journal).
 		fakeTarget.addFixture({
 			id: pageId,
 			title: "Doc A",
 			version: 1,
-			body: "<h1>Doc A</h1>",
 			spaceId: "TEST-SPACE",
 		});
 
@@ -201,7 +208,7 @@ This is doc A content. Don't leak this: ${fakeToken}`,
 		const fakeTokenA = "FAKE_TOKEN_A";
 		const fakeTokenB = "FAKE_TOKEN_B";
 
-		const docUuidA = "doc-019f56e4-18f5-7022-bfdf-5438918bb3bc";
+		const docUuidA = "019f56e4-18f5-7026-bfdf-5438918bb3bc";
 		const docUuidB = "019f56e4-18f5-701b-bfdf-5438918bb3bc";
 		const pageIdA = "page-111";
 		const pageIdB = "page-222";
@@ -237,7 +244,7 @@ Token: ${fakeTokenB}`,
 			sourceCommit: "base-sha",
 			sourceContentHash: "new-local-hash-a",
 			renderedBodyHash: "old-rendered-hash-a",
-			remoteBodyHash: "old-remote-hash-a",
+			remoteBodyHash: "old-rendered-hash-a", // == base → remote unchanged → LOCAL_AHEAD
 			attachmentHashes: {},
 			operationId: "op-old",
 			synchronizedAt: "2025-01-01T00:00:00Z",
@@ -253,7 +260,7 @@ Token: ${fakeTokenB}`,
 			sourceCommit: "base-sha",
 			sourceContentHash: "new-local-hash-b",
 			renderedBodyHash: "old-rendered-hash-b",
-			remoteBodyHash: "old-remote-hash-b",
+			remoteBodyHash: "old-rendered-hash-b", // == base → remote unchanged → LOCAL_AHEAD
 			attachmentHashes: {},
 			operationId: "op-old",
 			synchronizedAt: "2025-01-01T00:00:00Z",
@@ -263,12 +270,12 @@ Token: ${fakeTokenB}`,
 		lock.targets.default.documents[docUuidA] = bindingA;
 		lock.targets.default.documents[docUuidB] = bindingB;
 
-		// Add fixture pages
+		// Add fixture pages; no body so computePlan falls back to
+		// binding.remoteBodyHash (LOCAL_AHEAD → writes journal).
 		fakeTarget.addFixture({
 			id: pageIdA,
 			title: "Doc A",
 			version: 1,
-			body: "<h1>Doc A</h1>",
 			spaceId: "TEST-SPACE",
 		});
 
@@ -276,7 +283,6 @@ Token: ${fakeTokenB}`,
 			id: pageIdB,
 			title: "Doc B",
 			version: 1,
-			body: "<h1>Doc B</h1>",
 			spaceId: "TEST-SPACE",
 		});
 

@@ -116,7 +116,7 @@ This is doc B content.`,
 
 	// TC-INTEGRATION-010 (variant): Duplicate UUID in bound docs + unbound doc
 	test("TC-INTEGRATION-010: Duplicate UUID with bound + unbound docs → err(DuplicateUuid)", async () => {
-		const duplicateUuid = "duplicate-019f56e4-18f5-7022-bfdf-5438918bb3bcbc";
+		const duplicateUuid = "019f56e4-18f5-7027-bfdf-5438918bb3bc";
 		const pageId = "page-123";
 
 		// Create 3 documents: 2 with the same UUID (1 bound, 1 unbound)
