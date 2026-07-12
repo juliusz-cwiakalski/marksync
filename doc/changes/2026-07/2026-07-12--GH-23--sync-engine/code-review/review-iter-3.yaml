@@ -1,0 +1,225 @@
+version: 1
+iteration: 3
+mode: local
+work_item_ref: GH-23
+branch: feat/GH-23/sync-engine
+head_sha: 4b186bc6b2655ba428635ec6b200537ce2cba2f3
+status: PASS
+summary: >
+  Final re-review (iteration 3, max reached). The two iter-2 HIGH blockers are
+  GENUINELY RESOLVED in code. (1) AC-F7-1 / 10.1: `_resolveLinksInDoc(hast,
+  path, bindingsMap)` now runs at push-flow.ts:196 BEFORE
+  `target.renderBody(hast)` at :207, mutating the HAST in-place (el.properties.href
+  rewrite at :394) so the resolved `viewpage.action?pageId=<id>` reaches the body
+  string Confluence actually receives; content hash is built from the same
+  post-resolution HAST (body↔hash consistent). (2) AC-F6-1 / 10.3:
+  `parentFirstOrder` now has REAL recursive edge-following (`visit(parentUuid)`
+  at :509) with a reachable cycle guard (:497-499); the parent-first test
+  ASSERTS the parent is created before the child (parent-first.test.ts:156-157),
+  satisfying the CEO "must actually reorder, not stub" directive. (3) 10.2:
+  unresolved-link warnings are collected into `Plan.warnings: string[]` and
+  serialized in the JSON `data`. (4) The 4b186bc catch-all correctly honors
+  `--json` via `resolveRequestedFormat(argv)`. Gate is GREEN (894 pass).
+  Remaining findings are 2 MEDIUM test-evidence/observability gaps and 3 LOW
+  plan-bookkeeping mismatches — NONE blocking. All 15 ACs are met. DM-8 intact
+  (errors.ts unchanged; provenance reuses the REAL formatVersionMessage). With 0
+  HIGH/0 CRITICAL and this being the final iteration, the change is ready for PR.
+  The MEDIUM items (pipeline link-in-body assertion, top-level warning surface)
+  should ride as fast-follow test hardening, not a merge gate.
+severity_breakdown:
+  critical: 0
+  high: 0
+  medium: 2
+  low: 3
+  info: 2
+spec_compliance: PASS
+plan_compliance: FAIL
+plan_gaps:
+  - type: CHECKED_BUT_MISSING
+    task: "10.1 (test half)"
+    detail: >
+      Task 10.1 is marked [x] and explicitly promised "Add a test that ... asserts
+      the captured body contains viewpage.action?pageId=<id> — NOT other.md." The
+      CODE fix shipped, but that pipeline assertion test was NOT added (only the
+      pure resolveLink unit test TC-UNIT-004 exists). See F-1.
+  - type: CHECKED_BUT_MISSING
+    task: "10.5"
+    detail: >
+      Marked [x] ("Combine duplicate imports") but lines 3-4 (#domain/result) and
+      29-30 (#domain/hierarchy/link-resolver) are still two separate statements
+      each. The Phase 10 commit only reordered the MarkSyncError import. See F-4.
+  - type: CHECKED_BUT_MISSING
+    task: "10.8"
+    detail: >
+      Marked [x] ("Surface git host-invariant failure detail") but the catch-all
+      (index.ts:75) still returns generic `err("INTERNAL","internal error",false)`
+      and discards the thrown error `e`. The 4b186bc refactor removed the
+      per-command try/catch that was the intended fix site. See F-5.
+  - type: OPEN_TASKS
+    task: "10.4 / 10.6 / 10.7 / 10.9"
+    detail: >
+      Correctly tracked as open [ ]: module-level readFileSync(cwd) toolVersion
+      (10.4); stale "via test stubs" describe (10.6); tsconfig.test.json (10.7);
+      Execution-Log/checkbox bookkeeping (10.9 — partially done in the uncommitted
+      working-tree plan edit). All LOW, explicitly deferred, non-blocking.
+publication: ~
+findings:
+  - id: F-1
+    severity: medium
+    confidence: high
+    category: testing
+    location: tests/unit/app/compute-plan.test.ts (whole file); src/app/push-flow.ts:196-207
+    message: >
+      No pipeline-level test asserts a resolved cross-page link reaches the
+      published body. iter-2 F-1 AND Phase 10 task 10.1 explicitly required
+      "Add a test that puts a managed [x](other.md) in the source, runs
+      computePlan, and asserts the captured create/update body contains
+      viewpage.action?pageId=<id> — NOT other.md." The CODE is now correct
+      (_resolveLinksInDoc mutates HAST in-place at :394 BEFORE renderBody at
+      :207), and the pure resolver is unit-tested (TC-UNIT-004), but nothing
+      guards the resolve-before-render ORDERING against a future regression that
+      silently re-freezes the body before rewrite. This is the highest-value
+      unverified path in the change (it was the iter-1 AND iter-2 blocker).
+    suggestion: >
+      Add one computePlan case: source doc with `[b](doc-b.md)` + a lock binding
+      for doc-b.md → assert the entry's renderedBody/action.body contains
+      `viewpage.action?pageId=<doc-b-pageId>` and NOT `doc-b.md`. This is a
+      fast-follow; the current code is verifiably correct by inspection.
+    suppressed: false
+    published_url: null
+  - id: F-2
+    severity: medium
+    confidence: high
+    category: observability
+    location: src/app/push-flow.ts:78,341; src/cli/commands/plan.ts:70; src/cli/commands/sync.ts:86
+    message: >
+      Unresolved-link warnings are collected into `Plan.warnings: string[]` and
+      serialized inside the JSON `data.warnings`, but plan.ts/sync.ts call
+      `ok(plan.value)` WITHOUT translating them into the top-level
+      `CommandResult.warnings` envelope field (which expects
+      Array<{code,message}> per the command-result contract). Operators/CI
+      inspecting `result.warnings` see nothing; they must dig into
+      `result.data.warnings`. There is also no test asserting Plan.warnings is
+      populated when a managed .md link is unresolvable. The "no broken URL
+      emitted silently" half of AC-F7-1 is met (a warning IS produced), but its
+      visibility to the standard machine surface is incomplete.
+    suggestion: >
+      Either map Plan.warnings into CommandResult.warnings (as {code:"LINK",
+      message} entries) in plan.ts/sync.ts, or document that plan warnings ride
+      in `data.warnings` for MS-0002. Add one assertion that a plan over a corpus
+      with an unresolvable .md link carries a non-empty warnings collection.
+    suppressed: false
+    published_url: null
+  - id: F-3
+    severity: low
+    confidence: high
+    category: correctness
+    location: src/app/push-flow.ts:410-416
+    message: >
+      `_resolveLinksInDoc` still returns only the FIRST unresolved-link warning
+      per document (`Res.err(warnings[0])`). A doc with N broken cross-page links
+      surfaces only one. Cross-document accumulation works (up to 1 per doc into
+      allWarnings), and href REWRITES for resolvable links remain complete (the
+      walk rewrites every resolvable el.properties.href regardless), so only the
+      warning report is truncated — not a silent break. iter-2 F-2 flagged this;
+      the multi-warning return was not adopted.
+    suggestion: >
+      Have `_resolveLinksInDoc` return ALL unresolved links (e.g. mutate a passed
+      accumulator or return `{ warnings: MarkSyncError[] }`) so a doc reports
+      every broken link. Low priority; current behavior is non-silent.
+    suppressed: false
+    published_url: null
+  - id: F-4
+    severity: low
+    confidence: high
+    category: plan-compliance
+    location: src/app/push-flow.ts:3-4,29-30; chg-GH-23-plan.md:1470
+    message: >
+      Phase 10 task 10.5 is marked [x] ("Combine duplicate imports") but is NOT
+      done. Lines 3-4 are still two separate `#domain/result` statements
+      (`import type { Result }` + `import { Result as Res }`) and lines 29-30 are
+      still two separate `#domain/hierarchy/link-resolver` statements
+      (`import type { LinkBindings }` + `import { resolveLink }`). The 6dd0a83
+      commit only reordered the MarkSyncError import below `Result as Res`. The
+      repo import-hygiene rule (.ai/rules/typescript.md) calls for one statement
+      per module via the inline `type` modifier.
+    suggestion: >
+      `import { type Result, Result as Res } from "#domain/result";` and
+      `import { type LinkBindings, resolveLink } from "#domain/hierarchy/link-resolver";`.
+      Trivial; can ride into the PR or a fast-follow.
+    suppressed: false
+    published_url: null
+  - id: F-5
+    severity: low
+    confidence: high
+    category: observability
+    location: src/cli/index.ts:75; chg-GH-23-plan.md:1479-1482
+    message: >
+      Phase 10 task 10.8 is marked [x] ("Surface git host-invariant failure
+      detail") but the catch-all still returns a generic
+      `err("INTERNAL","internal error",false)` and discards the thrown error `e`
+      entirely (index.ts:75). The 4b186bc refactor removed the per-command
+      try/catch that was the intended fix site, so ALL throws now funnel to this
+      generic message. An operator hitting a real git host-invariant failure
+      (missing git, bad GIT_DIR, corrupt repo) gets "internal error" with zero
+      diagnostic hint. Separately, no test exercises a non-Cliffy THROW under
+      `--json` to assert the catch-all's JSON envelope lands on stdout (the
+      resolveRequestedFormat logic is correct by inspection; plan/sync return
+      errors normally in the test environment, so the thrown-INTERNAL branch is
+      behaviorally unverified).
+    suggestion: >
+      Include a sanitized summary of the thrown message in the INTERNAL text
+      (e.g. `git host-invariant failure: ${e instanceof Error ? e.message :
+      "unknown"}`) without leaking credentials, and add one runCli test that
+      forces a throw under --json asserting a parseable JSON envelope on stdout.
+    suppressed: false
+    published_url: null
+  - id: F-6
+    severity: info
+    confidence: high
+    category: plan-compliance
+    location: src/app/push-flow.ts:42-45; tests/integration/app/crash-replay.test.ts; tests/unit/app/provenance.test.ts
+    message: >
+      Deferred LOW items confirmed truly non-blocking for MS-0002 MVP. (a) 10.4
+      module-level `readFileSync(join(process.cwd(),"package.json"))` for
+      toolVersion (push-flow.ts:42-45) is cwd-coupled and throws at import if
+      package.json is absent — correctly tracked OPEN [ ], acceptable for MVP.
+      (b) F-10 crash-replay "resumes without duplicates" re-apply assertion — core
+      K-entries/replay tested, the idempotent-resume clause is a weak assertion.
+      (c) F-14 HAST typing — top-level param is now typed `Root` (:375); the
+      internal `walk(node: unknown)` still casts. (d) F-15 target-id
+      inconsistency (computePlan uses keys()[0] vs CLI hardcodes `default`) —
+      harmless for MS-0002 single-target. (e) F-16 provenance over-limit trim
+      assertion — formatter contract tested in GH-21; AC-F5-1 names it but core
+      met. All safe to defer to MS-0003 polish.
+    suggestion: >
+      Track as a follow-up backlog item (MS-0003 polish / doctor). No action
+      required for GH-23 merge.
+    suppressed: false
+    published_url: null
+  - id: F-7
+    severity: info
+    confidence: medium
+    category: correctness
+    location: src/app/push-flow.ts:474-488
+    message: >
+      The `parentFirstOrder` synthetic `page:${uuid}` UUID→pageId mapping is a
+      test-only seam. The reordering LOGIC is real (recursive visit(:509),
+      reachable cycle guard (:497-499)) and the test ASSERTS parent-before-child,
+      so AC-F6-1 and the CEO "must actually reorder, not stub" directive ARE
+      satisfied for MS-0002. Caveat (informational, not a defect): for the flat
+      MS-0002 layout all Create parentIds are the configured parentPageId (a real
+      pre-existing Confluence page), so `pageIdToUuid.get(parentId)` never matches
+      and production is a stable passthrough — correct. In a FUTURE milestone with
+      real inter-document parent edges, a child's parentId will be the parent's
+      Confluence-ASSIGNED pageId, which is unknown at computePlan time, so this
+      synthetic mapping will NOT capture those edges — a different edge-resolution
+      strategy (e.g. provisional-id assignment) will be needed then.
+    suggestion: >
+      No action for GH-23. Note for MS-0003+: revisit edge resolution when
+      inter-document hierarchy is introduced; the current synthetic mapping is an
+      intentional MS-0002 test seam.
+    suppressed: false
+    published_url: null
+reviewed_at: 2026-07-12T13:30:00Z
+next_step: PROCEED
