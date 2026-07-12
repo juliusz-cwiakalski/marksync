@@ -1,0 +1,160 @@
+version: 1
+iteration: 1
+mode: local
+work_item_ref: GH-22
+branch: feat/GH-22/drift-classifier
+status: FAIL
+summary: >
+  The classifier, hash delegation, Action mapping, and boundary purity are
+  implemented correctly and the reused contracts (canonicalize/errors/result/
+  page-binding) are untouched — INV-SAFE-1, INV-SAFE-2, DEC-1/2/3/5/6, the
+  six-state enum, and the #domain-only purity all hold. However the change
+  FAILS its DoD because AC-F2-1/NFR-4/NFR-8 (the false-positive guard) is not
+  genuinely satisfied: TC-FALSEPOS-001..005 are byte-identical to TC-STATE-001
+  and never run two superficially-different HASTs through canonicalHash(), so
+  the canonical-comparison basis is unproven. A second high issue is the
+  base-absent branch returning a misleading err(Forbidden) with an empty
+  pageId, which violates DEC-3's reservation of Forbidden for the 403 path.
+severity_breakdown:
+  critical: 1
+  high: 1
+  medium: 1
+  low: 3
+  info: 1
+spec_compliance: FAIL
+plan_compliance: FAIL
+findings:
+  - id: F-1
+    severity: critical
+    confidence: high
+    category: correctness
+    location: tests/unit/domain/state/classifier.test.ts:158-214
+    message: >
+      The false-positive suite (TC-FALSEPOS-001..005) is hollow. All five tests
+      construct identical fixtures — mockContentHash() (hardcoded canonicalHash:
+      BASE_BODY_HASH) + mockSharedBase() + mockRemote() — i.e. byte-for-byte the
+      same input as TC-STATE-001. They never call canonicalHash() on two
+      superficially-different HASTs, so they assert NO_CHANGE by construction,
+      not because GH-20 normalization ran. Plan task 2.2 explicitly required
+      "five superficial diffs that the verified GH-20 canonicalizer provably
+      normalizes to identical canonicalHash" and listed the four GH-20
+      invariants (structural-ws-node drop, multi-ws-node collapse, attribute
+      order, raw-vs-text, empty-line count). None are exercised. AC-F2-1 and
+      NFR-4/NFR-8 (NFR-REL-3 mitigation) are not genuinely covered; if GH-20's
+      canonicalizer regressed, these tests would still pass. The TC-REALCHG suite
+      has the same weakness — it hardcodes differing hash constants rather than
+      deriving them from genuine HAST edits through canonicalHash().
+    suggestion: >
+      For each false-positive case, build TWO structurally-different HAST inputs
+      (e.g. base = {h1:[text:"A"]}, variant = {h1:[text:"A"], text:"\n"} where
+      the extra node is newline structural whitespace) and assert
+      canonicalHash(baseHast) === canonicalHash(variantHast) FIRST (proves GH-20
+      normalizes), then feed them as local vs base/remote and assert
+      ok(NO_CHANGE). Mirror for TC-REALCHG: build genuine content-edit HASTs and
+      assert canonicalHash differs before asserting LOCAL_AHEAD. This makes the
+      false-positive guard the thing under test, not the comparator.
+    suppressed: false
+  - id: F-2
+    severity: high
+    confidence: high
+    category: correctness
+    location: src/domain/state/classifier.ts:46-50
+    message: >
+      The base-absent branch returns err({ kind: "Forbidden"; pageId: "";
+      operation: "read" }) for a contract-precondition violation (base
+      undefined). DEC-3 reserves the Forbidden arm exclusively for the 403 path
+      (Q1); reusing it here is semantically wrong and is a latent footgun: E3-S6
+      would treat a programmer error as a 403 access condition (warn+skip,
+      never delete/recreate) instead of surfacing a real bug. The empty pageId:
+      "" placeholder is also a smell. This branch was not in the plan's classify
+      pseudocode (task 2.1 step 4 assumes base present per DEC-5) and is
+      untested.
+    suggestion: >
+      Make base required: change ClassifyInput.base from `base?: SharedBase` to
+      `base: SharedBase` and delete the dead branch. DEC-5's contract is
+      "classify is invoked only for bound documents (base present)", so the
+      optional base is a lenient accommodation that creates this footgun for no
+      benefit. If an impossible state must be defended, throw a typed invariant
+      error — never reuse Forbidden for a non-403 condition.
+    suppressed: false
+  - id: F-3
+    severity: medium
+    confidence: high
+    category: clarity
+    location: src/domain/state/classifier.ts:1,27,36,41,46,52,79
+    message: >
+      Bare alphabet-soup tags (DEC-1/DEC-5/Q1/PD-3) and multi-authority headers
+      scattered as compliance markers, contrary to AGENTS.md "cite the authority
+      once" and typescript.md §Comments ("scattering bare (DEC-1)/(NFR-x)/(AC-6)
+      as silent compliance markers ... is forbidden"). The classifier.ts header
+      alone cites ADR-0006 §5.4 + INV-SAFE-1/2 + GH-22 + F-1/F-6 (four
+      authorities in one line). Same pattern in sync-state.ts (lines 1,6,16,19,
+      44 — including a duplicate JSDoc), hashes.ts (1,11,19,40), actions.ts (1).
+    suggestion: >
+      Keep ONE substantive reference per module header at the load-bearing
+      point. Convert inline tags to either a brief explaining comment or delete
+      them where the code is self-documenting. Remove the duplicate JSDoc in
+      sync-state.ts (lines 6 and 16 are identical).
+    suppressed: false
+  - id: F-4
+    severity: low
+    confidence: high
+    category: style
+    location: tests/unit/domain/state/classifier.test.ts:330
+    message: >
+      Uses require("#domain/state/sync-state") to obtain SyncStateSchema.
+      typescript.md mandates ESM-only ("No require() / module.exports"). It is
+      also inconsistent with the rest of the file which uses ESM imports.
+    suggestion: >
+      Add SyncStateSchema to the value import at the top:
+      `import { SyncStateSchema, SyncStateValue } from "#domain/state/sync-state";`
+      and drop the require() call.
+    suppressed: false
+  - id: F-5
+    severity: low
+    confidence: medium
+    category: clarity
+    location: src/domain/state/sync-state.ts:22-30
+    message: >
+      SyncStateValue duplicates SYNC_STATES — both enumerate the same six
+      values. The typescript.md "simplify trivially derivable logic" guidance
+      and "don't enumerate every union member" apply. Callers use the values as
+      string literals already typed by the SyncState union, so SyncStateValue is
+      a second source of truth that could drift.
+    suggestion: >
+      Either drop SyncStateValue and use bare literal values (typed as SyncState)
+      in switches/tests, or keep only SyncStateValue and derive the type/SCHEMA
+      from it. Pick one enumeration source.
+    suppressed: false
+  - id: F-6
+    severity: low
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-07/2026-07-12--GH-22--drift-classifier/chg-GH-22-plan.md:1000-1003
+    message: >
+      The Execution Log table duplicates phases 2/3/4/5 a second time as ⏳
+      (pending) after the same phases are already recorded ✅ above. Stale
+      copy-paste artifact that makes the log ambiguous about completion status.
+    suggestion: >
+      Delete the four duplicate ⏳ rows (lines 1000-1003); keep the ✅ rows
+      (phases 0-5) as the single source of truth.
+    suppressed: false
+  - id: F-7
+    severity: info
+    confidence: medium
+    category: correctness
+    location: src/domain/state/classifier.ts:62-65
+    message: >
+      remoteChanged only compares bodyHash and parentPageId — the remote side
+      carries no attachment facet (RemoteState.present has no attachmentHashes),
+      so remote-side attachment drift is structurally undetectable. This matches
+      PD-3's explicit scoping (remoteChanged = body/parent only) and is a known
+      MS-0002 limitation, not a defect — but it means a remote-only attachment
+      loss would classify as NO_CHANGE/LOCAL_AHEAD rather than DIVERGED.
+    suggestion: >
+      No action required for GH-22 (this is a RemoteState/DM-3 design choice).
+      Worth a one-line note in classifier.ts at the remoteChanged computation so
+      a future reader knows attachments are local-vs-base only by design.
+    suppressed: false
+reviewed_at: 2026-07-12T00:00:00Z
+next_step: CALL_CODER

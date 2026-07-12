@@ -1,0 +1,81 @@
+version: 1
+iteration: 2
+mode: local
+work_item_ref: GH-22
+branch: feat/GH-22/drift-classifier
+status: FAIL
+summary: >
+  Second-pass local review. Iteration 1 (review-iter-1.yaml) already captured
+  the two heaviest findings — the vacuous false-positive suite (F-1 critical)
+  and the misleading err(Forbidden) base-absent branch (F-2 high) — and a
+  Phase 6 remediation was appended but is NOT yet executed (all tasks open),
+  so those findings remain open and this iteration does not re-emit them. This
+  pass independently re-verifies the spec/plan compliance points (six-state
+  enum correct; canonicalHash delegates verbatim to GH-20; canonicalize.ts /
+  errors.ts / result.ts / page-binding.ts unmodified; no infra imports; INV-
+  SAFE-1/2 and DEC-1/2/3/5/6 honored; gate green) and adds TWO new findings
+  iteration 1 missed: (1) a latent idempotency risk in the title comparison
+  when remote.title is absent (optional on RemoteState) that can defeat
+  NO_CHANGE / NFR-PERF-4, with no test covering it; (2) repeated same-module
+  import duplication across all four new files plus both test files, violating
+  the explicit "one import statement per module" rule. Overall status stays
+  FAIL pending Phase 6 + Phase 7 remediation execution.
+severity_breakdown:
+  critical: 0
+  high: 0
+  medium: 1
+  low: 1
+  info: 0
+spec_compliance: FAIL
+plan_compliance: FAIL
+findings:
+  - id: F-1
+    severity: medium
+    confidence: high
+    category: correctness
+    location: src/domain/state/classifier.ts:60
+    message: >
+      `local.title !== remote.title` is fragile because `remote.title` is
+      OPTIONAL on `RemoteState.present` (DM-3 / sync-state.ts:38). When the
+      engine (E3-S6) omits `remote.title`, any non-empty `local.title` makes
+      `localChanged` true unconditionally, so the NO_CHANGE path
+      (NFR-PERF-4 — "second unchanged push writes 0") is never reached and the
+      classifier returns LOCAL_AHEAD -> Update on every push. This is a latent
+      idempotency defect, not a silent-overwrite risk (it errs toward writing).
+      No fixture exercises the absent-`remote.title` case — every mock sets
+      `title: "Test Title"`. PD-3 attributes title to local-vs-remote but does
+      not address the undefined case.
+    suggestion: >
+      Guard the title facet so an absent remote title is NOT treated as drift:
+      `remote.title !== undefined && local.title !== remote.title`. Add a
+      fixture (TC-STATE-001 variant) where `remote = { kind: "present",
+      bodyHash, version }` (no title) still classifies as NO_CHANGE when local
+      matches base on body/parent/attachments. Alternatively, document in the
+      classifier that the engine MUST supply remote.title — but the guard is
+      cheaper and keeps the idempotency invariant robust.
+    suppressed: false
+  - id: F-2
+    severity: low
+    confidence: high
+    category: style
+    location: src/domain/state/classifier.ts:3-6, src/domain/state/actions.ts:3-4, tests/unit/domain/state/classifier.test.ts:8-11, tests/unit/domain/state/actions.test.ts:8-10
+    message: >
+      Multiple import statements from the SAME module instead of one combined
+      statement with inline `type` modifier. classifier.ts has two from
+      `./hashes` and two from `./sync-state`; actions.ts has two from
+      `./sync-state`; classifier.test.ts and actions.test.ts each have THREE
+      from `#domain/state/sync-state`. This violates typescript.md "One import
+      statement per module" and code-review-instructions.md "Import hygiene:
+      one import statement per module — combine import type + import via inline
+      type modifier". The sibling `reconcile.ts` does NOT exhibit this (its
+      imports are one-per-module), so the new files diverge from the established
+      pattern. Biome organizeImports does not catch it in check mode, so it is a
+      reviewer-enforced rule.
+    suggestion: >
+      Combine each same-module pair/triple into one statement, e.g.
+      `import { attachmentHash, type ContentHash } from "./hashes";` and
+      `import { SyncStateSchema, SyncStateValue, type RemoteState, type SharedBase, type SyncState } from "./sync-state";`.
+      Apply to all four locations.
+    suppressed: false
+reviewed_at: 2026-07-12T12:00:00Z
+next_step: CALL_CODER
