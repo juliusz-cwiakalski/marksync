@@ -8,9 +8,9 @@ phases:
   test_planning: { started: "2026-07-12T00:00:00Z", completed: "2026-07-12T00:00:00Z" }
   delivery_planning: { started: "2026-07-12T00:00:00Z", completed: "2026-07-12T00:00:00Z" }
   dor_check: { started: "2026-07-12T00:00:00Z", completed: "2026-07-12T00:00:00Z" }
-  delivery: { started: "2026-07-12T00:00:00Z", completed: null }
-  system_spec_update: { started: null, completed: null }
-  review_fix: { started: null, completed: null }
+  delivery: { started: "2026-07-12T00:00:00Z", completed: "2026-07-12T00:00:00Z" }
+  system_spec_update: { started: "2026-07-12T00:00:00Z", completed: "2026-07-12T00:00:00Z" }
+  review_fix: { started: "2026-07-12T00:00:00Z", completed: null }
   quality_gates: { started: null, completed: null }
   dod_check: { started: null, completed: null }
   pr_creation: { started: null, completed: null, url: null }
@@ -124,6 +124,33 @@ notes:
       (finding 2 dep-cruiser rule-name typo; finding 3 folded plan PD-1 into
       spec DM-2/F-2 so ContentHash owns title+parentPageId) + pm-notes nit
       (finding 4); delegating test-plan false-positive rework to @test-plan-writer.
+    type: retro
+    workItemRef: GH-22
+    date: "2026-07-12"
+  - text: >
+      Delivery complete: 808 tests pass (+35), 0 boundary violations,
+      canonicalize.ts/errors.ts untouched. @doc-syncer updated 6 current-truth
+      docs, 0 residual gaps (commit 9038034).
+    type: info
+    workItemRef: GH-22
+    date: "2026-07-12"
+  - text: >
+      @reviewer iter-1 FAIL (1 blocker + 1 major + 1 minor + 3 nits + 1 info).
+      Blocker F-1: the false-positive suite is HOLLOW — TC-FALSEPOS-001..005 are
+      byte-identical to TC-STATE-001 (all use mockContentHash with hardcoded
+      canonicalHash), so they assert NO_CHANGE by construction, NEVER exercising
+      GH-20 normalization. AC-F2-1/NFR-4/NFR-8 not genuinely met. TC-REALCHG same
+      weakness (hardcodes differing hash constants instead of deriving from real
+      HAST edits). Major F-2: base-absent branch reuses err(Forbidden) with empty
+      pageId (DEC-3 reserves Forbidden for 403) — fix: make base required, delete
+      dead branch. Why this matters: this is the trust-wedge; tests that pass
+      without proving the property are worse than no tests. Why DoR didn't catch
+      it: DoR reviews spec/test-plan/plan (pre-code); the test-plan accurately
+      DESCRIBED the fixtures, but the coder implemented them as hollow mocks —
+      only code review catches the spec-vs-implementation gap. Process
+      observation: coder took the mock-shortcut on the highest-risk test suite.
+      Remediation Phase 6 (6.1-6.7) appended to plan; delegating to @coder, then
+      re-review.
     type: retro
     workItemRef: GH-22
     date: "2026-07-12"

@@ -948,49 +948,46 @@ cleanups.
 
 **Tasks**:
 
-- [ ] **6.1 (F-1 — critical)** Rewrite the false-positive and real-change suites
-       so they exercise GH-20 normalization end-to-end, not hardcoded hashes.
-       In `tests/unit/domain/state/classifier.test.ts`:
-       - Add HAST-builder helpers that emit two **structurally different** trees
-         per case. For each of TC-FALSEPOS-001..005 build a `baseHast` and a
-         `variantHast` that differ ONLY in a way GH-20 normalizes:
-         (001) extra newline-whitespace text node between block siblings;
-         (002) multiple newline-ws nodes vs one; (003) element with properties
-         in different key order; (004) a `raw` node vs a `text` node with the
-         same value; (005) different empty-line/newline-ws node count.
-       - For each case FIRST assert `canonicalHash(baseHast) ===
-         canonicalHash(variantHast)` (proves GH-20 normalizes), THEN feed
-         `local = buildContentHash({ hast: variantHast, ... })` against
-         `base.renderedBodyHash = canonicalHash(baseHast)` and assert
-         `ok(NO_CHANGE)`.
-       - Mirror for TC-REALCHG-001..005: build genuine content-edit HAST pairs,
-         assert `canonicalHash(baseHast) !== canonicalHash(editHast)`, then
-         assert the classifier returns `LOCAL_AHEAD`.
-       - Do NOT assert NO_CHANGE for internal-whitespace collapse or code-block
-         trimming — GH-20 does not normalize those (real changes).
-- [ ] **6.2 (F-2 — high)** Remove the misleading base-absent footgun. Make
-       `base` required in `ClassifyInput` (`base: SharedBase`, not `base?`) and
-       delete the `base === undefined → err(Forbidden, pageId: "")` branch in
-       `classifier.ts`. DEC-5's contract is "classify is invoked only for bound
-       documents (base present)"; the type should enforce it. If a defensive
-       guard is still desired for the truly-impossible case, throw a typed
-       invariant error — never reuse `Forbidden` (DEC-3 reserves it for 403).
-- [ ] **6.3 (F-3 — medium)** Apply comment discipline: keep ONE substantive
-       reference per module header at the load-bearing point across
-       `sync-state.ts`, `hashes.ts`, `classifier.ts`, `actions.ts`. Convert or
-       delete the bare DEC-/PD-/Q1/F-/NFR- inline tags. Remove the duplicate
-       JSDoc in `sync-state.ts` (lines 6 and 16 are identical). Headers stay
-       ≤ 3 lines, single authority cite.
-- [ ] **6.4 (F-4 — low)** Replace the `require("#domain/state/sync-state")` in
-       `classifier.test.ts` (TC-BOUNDARY-001) with an ESM import
-       (`import { SyncStateSchema, SyncStateValue } from ...`).
-- [ ] **6.5 (F-5 — low)** Collapse the `SYNC_STATES`/`SyncStateValue`
-       duplication in `sync-state.ts` to a single enumeration source.
-- [ ] **6.6 (F-6 — low)** Delete the four stale duplicate `⏳` rows in the
-       Execution Log table (phases 2-5 listed twice); keep the `✅` rows.
-- [ ] **6.7** Run `bun run check` (lint + format:check + typecheck + test +
-       check:boundaries); confirm it exits 0 and the rewritten false-positive /
-       real-change fixtures genuinely pass through `canonicalHash`.
+- [x] **6.1 (F-1 — critical)** Rewrite the false-positive and real-change suites
+        so they exercise GH-20 normalization end-to-end, not hardcoded hashes.
+        In `tests/unit/domain/state/classifier.test.ts`:
+        - Added HAST-builder helpers that emit two **structurally different** trees
+          per case. For each of TC-FALSEPOS-001..005 built a `baseHast` and a
+          `variantHast` that differ ONLY in a way GH-20 normalizes:
+          (001) extra newline-whitespace text node between block siblings;
+          (002) multiple newline-ws nodes vs one; (003) element with properties
+          in different key order; (004) a `raw` node vs a `text` node with the
+          same value; (005) different empty-line/newline-ws node count.
+        - For each case FIRST assert `canonicalHash(baseHast) ===
+          canonicalHash(variantHast)` (proves GH-20 normalizes), THEN feed
+          `local = buildContentHash({ hast: variantHast, ... })` against
+          `base.renderedBodyHash = canonicalHash(baseHast)` and assert
+          `ok(NO_CHANGE)`.
+        - Mirror for TC-REALCHG-001..005: built genuine content-edit HAST pairs,
+          assert `canonicalHash(baseHast) !== canonicalHash(editHast)`, then
+          assert the classifier returns `LOCAL_AHEAD`.
+        - Do NOT assert NO_CHANGE for internal-whitespace collapse or code-block
+          trimming — GH-20 does not normalize those (real changes). ✓
+- [x] **6.2 (F-2 — high)** Remove the misleading base-absent footgun. Made
+        `base` required in `ClassifyInput` (`base: SharedBase`, not `base?`) and
+        deleted the `base === undefined → err(Forbidden, pageId: "")` branch in
+        `classifier.ts`. DEC-5's contract is "classify is invoked only for bound
+        documents (base present)"; the type now enforces it. ✓
+- [x] **6.3 (F-3 — medium)** Applied comment discipline: kept ONE substantive
+        reference per module header at the load-bearing point across
+        `sync-state.ts`, `hashes.ts`, `classifier.ts`, `actions.ts`. Converted or
+        deleted the bare DEC-/PD-/Q1/F-/NFR- inline tags. Removed the duplicate
+        JSDoc in `sync-state.ts`. Headers stay ≤ 3 lines, single authority cite. ✓
+- [x] **6.4 (F-4 — low)** Replaced the `require("#domain/state/sync-state")` in
+        `classifier.test.ts` (TC-BOUNDARY-001) with an ESM import
+        (`import { SyncStateSchema, SyncStateValue } from ...`). ✓
+- [x] **6.5 (F-5 — low)** Collapsed the `SYNC_STATES`/`SyncStateValue`
+        duplication in `sync-state.ts` to a single enumeration source (kept SYNC_STATES as source, SyncStateValue derives from it). ✓
+- [x] **6.6 (F-6 — low)** Deleted the four stale duplicate `⏳` rows in the
+        Execution Log table (phases 2-5 listed twice); kept the `✅` rows. ✓
+- [x] **6.7** Ran `bun run check` (lint + format:check + typecheck + test +
+        check:boundaries); confirmed it exits 0 with 808 tests passing and the rewritten false-positive /
+        real-change fixtures genuinely pass through `canonicalHash`. ✓
 
 **Acceptance Criteria**:
 
@@ -1126,7 +1123,4 @@ the sibling `reconcile.ts` import discipline.
 | 3 — `Action` mapping + suite | ✅ | 2026-07-12 | 2026-07-12 | 688d4a9 (feat: sync-state → action mapping) | ✅ 806 tests (+7) | F-5; TC-ACTION-001..006; no new error arms (DEC-3). SyncState → Action mapping + action suite delivered. errors.ts untouched (verified). |
 | 4 — boundary negative test | ✅ | 2026-07-12 | 2026-07-12 | 39d49d0 (test: boundary negative test - src/domain/state purity) | ✅ 808 tests (+2) | AC-F1-1; TC-PURITY-001/002; state-scoped probe (PD-4). Boundary negative test proves src/domain/state/ purity. canonicalize.ts and errors.ts untouched (verified). |
 | 5 — final gate + doc handoff | ✅ | 2026-07-12 | 2026-07-12 | a67364c (chore: final quality gate + boundary confirmation) | ✅ 808 tests (+35) | AC-Q-1; boundary clean (0 infra imports); errors.ts unchanged; doc handoff to phase 7. All acceptance criteria met. |
-| 2 — `classify()` core + fixtures | ⏳ | — | — | — | — | F-1/F-6; TC-STATE-001..006 + FORBIDDEN + FALSEPOS×5 + REALCHG×5 + METADATA×2 + EDGE + BOUNDARY |
-| 3 — `Action` mapping + suite | ⏳ | — | — | — | — | F-5; TC-ACTION-001..006; no new error arms (DEC-3) |
-| 4 — boundary negative test | ⏳ | — | — | — | — | AC-F1-1; TC-PURITY-001/002; state-scoped probe (PD-4) |
-| 5 — final gate + doc handoff | ⏳ | — | — | — | — | AC-Q-1; boundary clean; errors.ts unchanged; doc handoff to phase 7 |
+| 6 — code review remediation (iter-1) | ✅ | 2026-07-12 | 2026-07-12 | TBD | ✅ 808 tests (no delta) | F-1 (rewrote false-positive/real-change suites with canonicalHash assertions), F-2 (base required, deleted err(Forbidden) branch), F-3 (comment discipline - one authority cite), F-4 (ESM import), F-5 (collapsed SYNC_STATES duplication), F-6 (cleaned execution log). All checks pass. |

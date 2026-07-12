@@ -1,37 +1,17 @@
 // tests/unit/domain/state/classifier.test.ts
 //
-// Unit tests for classify() three-way drift classifier (GH-22 F-1/F-6).
+// Unit tests for classify() three-way drift classifier (GH-22).
 // Pure fixtures — no mocks.
 
 import { describe, expect, test } from "bun:test";
 import { classify, type ClassifyInput } from "#domain/state/classifier";
-import type { ContentHash } from "#domain/state/hashes";
+import { buildContentHash, canonicalHash } from "#domain/state/hashes";
 import type { SharedBase } from "#domain/state/sync-state";
 import type { RemoteState } from "#domain/state/sync-state";
-import { SyncStateValue } from "#domain/state/sync-state";
-import type { Root } from "hast";
+import { SyncStateSchema, SyncStateValue } from "#domain/state/sync-state";
+import type { Root, Element } from "hast";
 
 const UUID = "0192b3d4-5e6f-7000-8000-00000000000a" as const;
-
-// Real hash constants for fixtures (computed by rawHash/attachmentHash)
-const BASE_BODY_HASH =
-	"sha256:c729601120e7a64b970416eed41dd06fdb45d5eaf3d3b057bbe511dd4e018b69";
-const REMOTE_CHANGED_HASH =
-	"sha256:4e9f485c4db602adc1f3b10fea9321fd6a58f595594af424d8083e287d29891e";
-const LOCAL_CHANGED_HASH =
-	"sha256:93fd3b07c7a3dd01f968c94845647661c7e4d728781da1f1645553ee8c365b24";
-const BASE_ATTACHMENT_HASH =
-	"sha256:e25a5c8de807a45bb4b2f48d451cb97887709837ebcec20e38a6de2f37d017de";
-const TEXT_CHANGED_HASH =
-	"sha256:cea68bbf0813e0595bce10a7576d378448614374af49fd295ed88f83f33902ed";
-const HEADING_CHANGED_HASH =
-	"sha256:445acb1967ea24852694ae1f30a2effece4db78d77c7a4347d6e34cb66296c30";
-const LINK_CHANGED_HASH =
-	"sha256:d34ee8063f74f5de7437015f9174b9ae6718baea65a43e1a604562c7d7a9bbbd";
-const CELL_CHANGED_HASH =
-	"sha256:a3a31d46bf777a3dca56f12631331c65df1677abb64153f1ada442a50987fa44";
-const CODELANG_CHANGED_HASH =
-	"sha256:4ffa2eedbaea4003208a4e13a70b0690d753c1a949f7fc66b7e68ff89c6dabb1";
 
 /** Test fixtures. */
 function mockSharedBase(overrides?: Partial<SharedBase>): SharedBase {
@@ -40,7 +20,7 @@ function mockSharedBase(overrides?: Partial<SharedBase>): SharedBase {
 		pageId: "12345",
 		parentPageId: "98765",
 		pageVersion: 5,
-		renderedBodyHash: BASE_BODY_HASH,
+		renderedBodyHash: "",
 		attachmentHashes: { "img.png": "sha256:img" },
 		...overrides,
 	};
@@ -49,7 +29,7 @@ function mockSharedBase(overrides?: Partial<SharedBase>): SharedBase {
 function mockRemote(overrides?: Partial<RemoteState>): RemoteState {
 	return {
 		kind: "present",
-		bodyHash: BASE_BODY_HASH,
+		bodyHash: "",
 		version: 5,
 		title: "Test Title",
 		parentPageId: "98765",
@@ -57,24 +37,98 @@ function mockRemote(overrides?: Partial<RemoteState>): RemoteState {
 	};
 }
 
-function mockContentHash(overrides?: Partial<ContentHash>): ContentHash {
+/** HAST builder helpers. */
+function text(value: string): Element {
 	return {
-		rawHash: BASE_BODY_HASH,
-		canonicalHash: BASE_BODY_HASH,
-		attachmentHash: BASE_ATTACHMENT_HASH,
+		type: "element",
+		tagName: "p",
+		properties: {},
+		children: [{ type: "text", value }],
+	};
+}
+
+function heading(value: string): Element {
+	return {
+		type: "element",
+		tagName: "h1",
+		properties: {},
+		children: [{ type: "text", value }],
+	};
+}
+
+function link(href: string, text: string): Element {
+	return {
+		type: "element",
+		tagName: "a",
+		properties: { href },
+		children: [{ type: "text", value: text }],
+	};
+}
+
+function tableCell(value: string): Element {
+	return {
+		type: "element",
+		tagName: "td",
+		properties: {},
+		children: [{ type: "text", value }],
+	};
+}
+
+function codeBlock(language: string): Element {
+	return {
+		type: "element",
+		tagName: "pre",
+		properties: {},
+		children: [
+			{
+				type: "element",
+				tagName: "code",
+				properties: { class: `language-${language}` },
+				children: [{ type: "text", value: "const x = 1;" }],
+			},
+		],
+	};
+}
+
+function root(children: Element[]): Root {
+	return { type: "root", children };
+}
+
+/** Build input for classify() where remote and base share the same hash. */
+function buildInput(baseHast: Root, localHast: Root): ClassifyInput {
+	const baseHash = canonicalHash(baseHast);
+
+	const local = buildContentHash({
+		source: "local",
+		hast: localHast,
+		attachmentHashes: { "img.png": "sha256:img" },
 		title: "Test Title",
 		parentPageId: "98765",
-		...overrides,
+	});
+
+	return {
+		local,
+		base: mockSharedBase({ renderedBodyHash: baseHash }),
+		remote: mockRemote({ bodyHash: baseHash }),
 	};
 }
 
 /** STATE fixtures. */
 describe("TC-STATE-001 through TC-STATE-006", () => {
 	test("TC-STATE-001: all three agree on canonical hash + title + parent + attachments → NO_CHANGE", () => {
+		const contentHast = root([text("Content")]);
+		const hash = canonicalHash(contentHast);
+
 		const input: ClassifyInput = {
-			local: mockContentHash(),
-			base: mockSharedBase(),
-			remote: mockRemote(),
+			local: buildContentHash({
+				source: "local",
+				hast: contentHast,
+				attachmentHashes: { "img.png": "sha256:img" },
+				title: "Test Title",
+				parentPageId: "98765",
+			}),
+			base: mockSharedBase({ renderedBodyHash: hash }),
+			remote: mockRemote({ bodyHash: hash }),
 		};
 		const result = classify(input);
 		expect(result.ok).toBe(true);
@@ -82,21 +136,30 @@ describe("TC-STATE-001 through TC-STATE-006", () => {
 	});
 
 	test("TC-STATE-002: local changed, remote == base → LOCAL_AHEAD", () => {
-		const input: ClassifyInput = {
-			local: mockContentHash({ canonicalHash: LOCAL_CHANGED_HASH }),
-			base: mockSharedBase(),
-			remote: mockRemote(),
-		};
+		const baseHast = root([text("Base content")]);
+		const localHast = root([text("Modified content")]);
+
+		const input = buildInput(baseHast, localHast);
 		const result = classify(input);
 		expect(result.ok).toBe(true);
 		if (result.ok) expect(result.value).toBe(SyncStateValue.LOCAL_AHEAD);
 	});
 
 	test("TC-STATE-003: local == base, remote changed → REMOTE_AHEAD (INV-SAFE-1)", () => {
+		const baseHast = root([text("Base content")]);
+		const hash = canonicalHash(baseHast);
+		const remoteHast = root([text("Remote modified")]);
+
 		const input: ClassifyInput = {
-			local: mockContentHash(),
-			base: mockSharedBase(),
-			remote: mockRemote({ bodyHash: REMOTE_CHANGED_HASH }),
+			local: buildContentHash({
+				source: "local",
+				hast: baseHast,
+				attachmentHashes: { "img.png": "sha256:img" },
+				title: "Test Title",
+				parentPageId: "98765",
+			}),
+			base: mockSharedBase({ renderedBodyHash: hash }),
+			remote: mockRemote({ bodyHash: canonicalHash(remoteHast) }),
 		};
 		const result = classify(input);
 		expect(result.ok).toBe(true);
@@ -104,10 +167,21 @@ describe("TC-STATE-001 through TC-STATE-006", () => {
 	});
 
 	test("TC-STATE-004: both local and remote changed vs base → DIVERGED (INV-SAFE-1)", () => {
+		const baseHast = root([text("Base content")]);
+		const hash = canonicalHash(baseHast);
+		const localHast = root([text("Local modified")]);
+		const remoteHast = root([text("Remote modified")]);
+
 		const input: ClassifyInput = {
-			local: mockContentHash({ canonicalHash: LOCAL_CHANGED_HASH }),
-			base: mockSharedBase(),
-			remote: mockRemote({ bodyHash: REMOTE_CHANGED_HASH }),
+			local: buildContentHash({
+				source: "local",
+				hast: localHast,
+				attachmentHashes: { "img.png": "sha256:img" },
+				title: "Test Title",
+				parentPageId: "98765",
+			}),
+			base: mockSharedBase({ renderedBodyHash: hash }),
+			remote: mockRemote({ bodyHash: canonicalHash(remoteHast) }),
 		};
 		const result = classify(input);
 		expect(result.ok).toBe(true);
@@ -116,7 +190,13 @@ describe("TC-STATE-001 through TC-STATE-006", () => {
 
 	test("TC-STATE-005: binding present, remote.kind == 'missing' → REMOTE_MISSING (INV-SAFE-2)", () => {
 		const input: ClassifyInput = {
-			local: mockContentHash(),
+			local: buildContentHash({
+				source: "local",
+				hast: root([text("Content")]),
+				attachmentHashes: { "img.png": "sha256:img" },
+				title: "Test Title",
+				parentPageId: "98765",
+			}),
 			base: mockSharedBase(),
 			remote: { kind: "missing" },
 		};
@@ -138,9 +218,15 @@ describe("TC-STATE-001 through TC-STATE-006", () => {
 
 /** FORBIDDEN path. */
 describe("TC-FORBIDDEN-001", () => {
-	test("remote.kind == 'forbidden' → err(Forbidden), not a SyncState (Q1)", () => {
+	test("remote.kind == 'forbidden' → err(Forbidden), not a SyncState", () => {
 		const input: ClassifyInput = {
-			local: mockContentHash(),
+			local: buildContentHash({
+				source: "local",
+				hast: root([text("Content")]),
+				attachmentHashes: { "img.png": "sha256:img" },
+				title: "Test Title",
+				parentPageId: "98765",
+			}),
 			base: mockSharedBase(),
 			remote: { kind: "forbidden", pageId: "12345" },
 		};
@@ -156,57 +242,107 @@ describe("TC-FORBIDDEN-001", () => {
 
 /** FALSE-POSITIVE suite — semantically-unchanged-but-superficially-different docs. */
 describe("TC-FALSEPOS-001 through TC-FALSEPOS-005", () => {
-	// All these fixtures use the same canonical hash (GH-20 normalizes to identical output)
 	test("TC-FALSEPOS-001: structural-whitespace text node count change → NO_CHANGE", () => {
-		const input: ClassifyInput = {
-			local: mockContentHash(), // GH-20 drops structural ws
-			base: mockSharedBase(),
-			remote: mockRemote(),
-		};
+		const baseHast = root([text("First paragraph"), text("Second paragraph")]);
+
+		const variantHast = root([
+			text("First paragraph"),
+			{ type: "text", value: "\n" },
+			text("Second paragraph"),
+		]);
+
+		expect(canonicalHash(baseHast)).toBe(canonicalHash(variantHast));
+
+		const input = buildInput(baseHast, variantHast);
 		const result = classify(input);
 		expect(result.ok).toBe(true);
 		if (result.ok) expect(result.value).toBe(SyncStateValue.NO_CHANGE);
 	});
 
 	test("TC-FALSEPOS-002: multiple newline-containing ws nodes collapsed → NO_CHANGE", () => {
-		const input: ClassifyInput = {
-			local: mockContentHash(),
-			base: mockSharedBase(),
-			remote: mockRemote(),
-		};
+		const baseHast = root([text("Content")]);
+		const variantHast = root([
+			{ type: "text", value: "\n\n\n" },
+			text("Content"),
+		]);
+
+		expect(canonicalHash(baseHast)).toBe(canonicalHash(variantHast));
+
+		const input = buildInput(baseHast, variantHast);
 		const result = classify(input);
 		expect(result.ok).toBe(true);
 		if (result.ok) expect(result.value).toBe(SyncStateValue.NO_CHANGE);
 	});
 
 	test("TC-FALSEPOS-003: HTML attribute order diff → NO_CHANGE", () => {
-		const input: ClassifyInput = {
-			local: mockContentHash(), // GH-20 sorts properties
-			base: mockSharedBase(),
-			remote: mockRemote(),
-		};
+		const baseHast = root([
+			{
+				type: "element",
+				tagName: "a",
+				properties: { href: "/link", target: "_blank" },
+				children: [{ type: "text", value: "Link" }],
+			},
+		]);
+
+		const variantHast = root([
+			{
+				type: "element",
+				tagName: "a",
+				properties: { target: "_blank", href: "/link" },
+				children: [{ type: "text", value: "Link" }],
+			},
+		]);
+
+		expect(canonicalHash(baseHast)).toBe(canonicalHash(variantHast));
+
+		const input = buildInput(baseHast, variantHast);
 		const result = classify(input);
 		expect(result.ok).toBe(true);
 		if (result.ok) expect(result.value).toBe(SyncStateValue.NO_CHANGE);
 	});
 
 	test("TC-FALSEPOS-004: raw-HTML node vs text node for same literal → NO_CHANGE", () => {
-		const input: ClassifyInput = {
-			local: mockContentHash(), // GH-20 converts raw→text
-			base: mockSharedBase(),
-			remote: mockRemote(),
-		};
+		const baseHast = root([
+			{
+				type: "element",
+				tagName: "p",
+				properties: {},
+				children: [{ type: "text", value: "Text" }],
+			},
+		]);
+
+		const variantHast = root([
+			{
+				type: "element",
+				tagName: "p",
+				properties: {},
+				children: [{ type: "raw", value: "Text" }],
+			},
+		]);
+
+		expect(canonicalHash(baseHast)).toBe(canonicalHash(variantHast));
+
+		const input = buildInput(baseHast, variantHast);
 		const result = classify(input);
 		expect(result.ok).toBe(true);
 		if (result.ok) expect(result.value).toBe(SyncStateValue.NO_CHANGE);
 	});
 
 	test("TC-FALSEPOS-005: empty line count change → NO_CHANGE", () => {
-		const input: ClassifyInput = {
-			local: mockContentHash(), // GH-20 drops structural ws
-			base: mockSharedBase(),
-			remote: mockRemote(),
-		};
+		const baseHast = root([
+			{ type: "text", value: "Line 1" },
+			{ type: "text", value: "Line 2" },
+		]);
+
+		const variantHast = root([
+			{ type: "text", value: "Line 1" },
+			{ type: "text", value: "\n\n" },
+			{ type: "text", value: "Line 2" },
+		]);
+
+		expect(canonicalHash(baseHast)).toBe(canonicalHash(variantHast));
+
+		const input = buildInput(baseHast, variantHast);
 		const result = classify(input);
 		expect(result.ok).toBe(true);
 		if (result.ok) expect(result.value).toBe(SyncStateValue.NO_CHANGE);
@@ -216,11 +352,12 @@ describe("TC-FALSEPOS-001 through TC-FALSEPOS-005", () => {
 /** REAL-CHANGE suite — genuine content edits. */
 describe("TC-REALCHG-001 through TC-REALCHG-005", () => {
 	test("TC-REALCHG-001: text content change → NOT NO_CHANGE", () => {
-		const input: ClassifyInput = {
-			local: mockContentHash({ canonicalHash: TEXT_CHANGED_HASH }),
-			base: mockSharedBase(),
-			remote: mockRemote(),
-		};
+		const baseHast = root([text("Original text")]);
+		const editHast = root([text("Modified text")]);
+
+		expect(canonicalHash(baseHast)).not.toBe(canonicalHash(editHast));
+
+		const input = buildInput(baseHast, editHast);
 		const result = classify(input);
 		expect(result.ok).toBe(true);
 		if (result.ok) {
@@ -229,12 +366,13 @@ describe("TC-REALCHG-001 through TC-REALCHG-005", () => {
 		}
 	});
 
-	test("TC-REALCHG-002: heading addition/removal → NOT NO_CHANGE", () => {
-		const input: ClassifyInput = {
-			local: mockContentHash({ canonicalHash: HEADING_CHANGED_HASH }),
-			base: mockSharedBase(),
-			remote: mockRemote(),
-		};
+	test("TC-REALCHG-002: heading addition → NOT NO_CHANGE", () => {
+		const baseHast = root([text("Content")]);
+		const editHast = root([heading("Title"), text("Content")]);
+
+		expect(canonicalHash(baseHast)).not.toBe(canonicalHash(editHast));
+
+		const input = buildInput(baseHast, editHast);
 		const result = classify(input);
 		expect(result.ok).toBe(true);
 		if (result.ok) {
@@ -244,11 +382,12 @@ describe("TC-REALCHG-001 through TC-REALCHG-005", () => {
 	});
 
 	test("TC-REALCHG-003: link URL change → NOT NO_CHANGE", () => {
-		const input: ClassifyInput = {
-			local: mockContentHash({ canonicalHash: LINK_CHANGED_HASH }),
-			base: mockSharedBase(),
-			remote: mockRemote(),
-		};
+		const baseHast = root([link("/old", "Link")]);
+		const editHast = root([link("/new", "Link")]);
+
+		expect(canonicalHash(baseHast)).not.toBe(canonicalHash(editHast));
+
+		const input = buildInput(baseHast, editHast);
 		const result = classify(input);
 		expect(result.ok).toBe(true);
 		if (result.ok) {
@@ -258,11 +397,41 @@ describe("TC-REALCHG-001 through TC-REALCHG-005", () => {
 	});
 
 	test("TC-REALCHG-004: table cell content change → NOT NO_CHANGE", () => {
-		const input: ClassifyInput = {
-			local: mockContentHash({ canonicalHash: CELL_CHANGED_HASH }),
-			base: mockSharedBase(),
-			remote: mockRemote(),
-		};
+		const baseHast = root([
+			{
+				type: "element",
+				tagName: "table",
+				properties: {},
+				children: [
+					{
+						type: "element",
+						tagName: "tr",
+						properties: {},
+						children: [tableCell("Old")],
+					},
+				],
+			},
+		]);
+
+		const editHast = root([
+			{
+				type: "element",
+				tagName: "table",
+				properties: {},
+				children: [
+					{
+						type: "element",
+						tagName: "tr",
+						properties: {},
+						children: [tableCell("New")],
+					},
+				],
+			},
+		]);
+
+		expect(canonicalHash(baseHast)).not.toBe(canonicalHash(editHast));
+
+		const input = buildInput(baseHast, editHast);
 		const result = classify(input);
 		expect(result.ok).toBe(true);
 		if (result.ok) {
@@ -272,11 +441,12 @@ describe("TC-REALCHG-001 through TC-REALCHG-005", () => {
 	});
 
 	test("TC-REALCHG-005: code block language change → NOT NO_CHANGE", () => {
-		const input: ClassifyInput = {
-			local: mockContentHash({ canonicalHash: CODELANG_CHANGED_HASH }),
-			base: mockSharedBase(),
-			remote: mockRemote(),
-		};
+		const baseHast = root([codeBlock("javascript")]);
+		const editHast = root([codeBlock("typescript")]);
+
+		expect(canonicalHash(baseHast)).not.toBe(canonicalHash(editHast));
+
+		const input = buildInput(baseHast, editHast);
 		const result = classify(input);
 		expect(result.ok).toBe(true);
 		if (result.ok) {
@@ -289,10 +459,19 @@ describe("TC-REALCHG-001 through TC-REALCHG-005", () => {
 /** METADATA drift tests (R1/PD-3). */
 describe("TC-METADATA-001, TC-METADATA-002", () => {
 	test("TC-METADATA-001: title change only (body identical) → LOCAL_AHEAD (R1)", () => {
+		const contentHast = root([text("Content")]);
+		const hash = canonicalHash(contentHast);
+
 		const input: ClassifyInput = {
-			local: mockContentHash({ title: "New Title" }),
-			base: mockSharedBase(),
-			remote: mockRemote({ title: "Test Title" }),
+			local: buildContentHash({
+				source: "local",
+				hast: contentHast,
+				attachmentHashes: { "img.png": "sha256:img" },
+				title: "New Title",
+				parentPageId: "98765",
+			}),
+			base: mockSharedBase({ renderedBodyHash: hash }),
+			remote: mockRemote({ bodyHash: hash, title: "Test Title" }),
 		};
 		const result = classify(input);
 		expect(result.ok).toBe(true);
@@ -300,10 +479,19 @@ describe("TC-METADATA-001, TC-METADATA-002", () => {
 	});
 
 	test("TC-METADATA-002: parent page id change only (body identical) → LOCAL_AHEAD (R1)", () => {
+		const contentHast = root([text("Content")]);
+		const hash = canonicalHash(contentHast);
+
 		const input: ClassifyInput = {
-			local: mockContentHash({ parentPageId: "99999" }),
-			base: mockSharedBase(),
-			remote: mockRemote({ parentPageId: "98765" }),
+			local: buildContentHash({
+				source: "local",
+				hast: contentHast,
+				attachmentHashes: { "img.png": "sha256:img" },
+				title: "Test Title",
+				parentPageId: "99999",
+			}),
+			base: mockSharedBase({ renderedBodyHash: hash }),
+			remote: mockRemote({ bodyHash: hash, parentPageId: "98765" }),
 		};
 		const result = classify(input);
 		expect(result.ok).toBe(true);
@@ -326,8 +514,7 @@ describe("TC-EDGE-001", () => {
 
 /** BOUNDARY test: zod schema rejects ad-hoc state strings. */
 describe("TC-BOUNDARY-001", () => {
-	test("TC-BOUNDARY-001: SyncStateSchema rejects ad-hoc state string (UL rule 3)", () => {
-		const { SyncStateSchema } = require("#domain/state/sync-state");
+	test("TC-BOUNDARY-001: SyncStateSchema rejects ad-hoc state string", () => {
 		expect(() => SyncStateSchema.parse("SOMETHING_ELSE")).toThrow();
 		expect(() => SyncStateSchema.parse("NO_CHANGE")).not.toThrow();
 		expect(() => SyncStateSchema.parse("LOCAL_AHEAD")).not.toThrow();
