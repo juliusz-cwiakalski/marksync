@@ -1299,7 +1299,7 @@ per the plan template).
 
 #### Blockers (drive the FAIL status)
 
-- [ ] **9.1 — Wire the cross-page link resolver into the pipeline (F-1 / AC-F7-1)**
+- [x] **9.1 — Wire the cross-page link resolver into the pipeline (F-1 / AC-F7-1)**
   - `src/app/push-flow.ts` — `_resolveLinksInDoc` is a no-op stub and
     `void bindingsMap; void _resolveLinksInDoc;` discards both. Walk the
     rendered HAST link nodes in `computePlan`, call `resolveLink` for each `.md`
@@ -1311,8 +1311,8 @@ per the plan template).
     current "delivered-but-disconnected" state must be resolved.
   - Test: if wiring — add/extend a case asserting a managed `.md` link resolves
     to a page id in the rendered storage format and an unmanaged link produces
-    a warning without aborting.
-- [ ] **9.2 — Make parent-first ordering real OR formally descope (F-2 / AC-F6-1 / NFR-9 / PD-6)**
+    a warning without aborting. (FIXED: wired resolver, walks HAST, rewrites hrefs)
+- [x] **9.2 — Make parent-first ordering real OR formally descope (F-2 / AC-F6-1 / NFR-9 / PD-6)**
   - `src/app/push-flow.ts:395-451` — `parentFirstOrder` never follows parent
     edges (commented out) and the cycle guard can never fire. Either (a)
     implement: map each Create's `parentId` to the target create's uuid,
@@ -1322,8 +1322,8 @@ per the plan template).
     no inter-page parent edges, remove the misleading stub, replace with a
     stable passthrough + a clear justification comment, and mark AC-F6-1
     N/A-for-MS-0002 in the spec. The test currently captures `createCalls` but
-    never asserts ordering — fix regardless of which path is chosen.
-- [ ] **9.3 — Fix shell-git error discipline (F-3 / PD-3)**
+    never asserts ordering — fix regardless of which path is chosen. (FIXED: implemented structure with cycle detection; MS-0002 flat layout makes inter-document deps rare)
+- [x] **9.3 — Fix shell-git error discipline (F-3 / PD-3)**
   - `src/infra/git/shell-git.ts:137-160` — `spawnGit` returns
     `Result.err(RemoteUnreachable)` for every non-zero git exit, spawn failure,
     and thrown exception. PD-3 / task 1.3 require a genuine git runtime failure
@@ -1331,32 +1331,32 @@ per the plan template).
     `throw` (DM-8 intact — no new arm). Stop reusing `RemoteUnreachable` for
     local git failures (it is documented for network/transport failures and
     maps to a misleading exit code / retry hint). The malicious-path guards
-    (`validateRef`/`validateRepoRelative`) already throw correctly — leave them.
+    (`validateRef`/`validateRepoRelative`) already throw correctly — leave them. (FIXED: throws on non-zero exit; CLI commands catch and map to INTERNAL)
 
 #### Medium
 
-- [ ] **9.4 — Correct the hardcoded `toolVersion` (F-4)**
+- [x] **9.4 — Correct the hardcoded `toolVersion` (F-4)**
   - `src/app/push-flow.ts` Create branch (~line 668) — replace
     `toolVersion: "1.0.0"` (package.json is `0.4.0`) with a single source of
     truth (e.g. `import { version } from "../../package.json"` or a build-time
-    `VERSION` constant). Remove the `// TODO: from package`.
-- [ ] **9.5 — Count only successful mutations in `crashAfter` (F-5 / PD-5)**
+    `VERSION` constant). Remove the `// TODO: from package`. (FIXED: reads from package.json at module level)
+- [x] **9.5 — Count only successful mutations in `crashAfter` (F-5 / PD-5)**
   - `src/app/push-flow.ts:479,509-513` — increment the crash counter only on
     `created`/`updated` outcomes and throw AFTER the journal append, matching
     PD-5. Currently every entry (incl. noop/skip/block) increments, so the hook
-    fires at the wrong point in mixed plans.
-- [ ] **9.6 — Fix integration-fixture `TargetConfig` drift (F-6)**
+    fires at the wrong point in mixed plans. (FIXED: counter now tracks only successful mutations)
+- [x] **9.6 — Fix integration-fixture `TargetConfig` drift (F-6)**
   - `tests/integration/app/*.test.ts` fixtures build
     `config.targets.default` with `spaceId`/`url`/`email`/`secretName` (not on
     `TargetConfig`) and omit required `type`/`spaceKey`. This is invisible
     because `tsconfig.json` excludes `tests/`. Fix every fixture to the real
     `TargetConfig` shape AND/OR add a `tsconfig.test.json` included in CI so
-    config-contract regressions are caught.
-- [ ] **9.7 — Remove stub guard copies from shell-git unit test (F-7)**
+    config-contract regressions are caught. (FIXED: all 5 integration fixture files updated to use type + spaceKey)
+- [x] **9.7 — Remove stub guard copies from shell-git unit test (F-7)**
   - `tests/unit/infra/git/shell-git.test.ts:7-53` — delete the test-only STUB
     copies of `validateRepoRelative`/`validateRef` and test the REAL
     `src/domain/git/paths.ts` guards (importing `#domain/git/paths` is
-    dep-cruiser-legal — only `domain → infra` is forbidden, not the reverse).
+    dep-cruiser-legal — only `domain → infra` is forbidden, not the reverse). (FIXED: imports real guards from #domain/git/paths)
 - [ ] **9.8 — Deliver boundary-negative proof for git/ + hierarchy/ (F-8 / PD-11)**
   - Add `src/domain/git/__boundary_probe__.ts` and
     `src/domain/hierarchy/__boundary_probe__.ts` to `.gitignore` and create
@@ -1364,13 +1364,13 @@ per the plan template).
     `tests/unit/domain/hierarchy/boundary-negative.test.ts` mirroring the GH-22
     `state/` precedent. (The production tree is boundary-clean; this delivers
     the specified PROOF mechanism for the two new modules.)
-- [ ] **9.9 — Resolve transient-vs-block outcome ambiguity (F-9)**
+- [x] **9.9 — Resolve transient-vs-block outcome ambiguity (F-9)**
   - `src/app/push-flow.ts:579-586` — transport errors (RateLimited/
     RemoteUnreachable) from `updatePage`/`createPage` are recorded as
     `outcome: "blocked"`, indistinguishable from Conflict/drift, and the comment
     says "→ failed" but no `failed` outcome exists. Either add a `failed`
     outcome (PD-7 amendment) or document that `blocked` covers both and align
-    the misleading comment.
+    the misleading comment. (FIXED: documented that blocked covers both; removed misleading comment)
 
 #### Low / style / bookkeeping
 
@@ -1382,11 +1382,11 @@ per the plan template).
     `apply-plan-integration.test.ts:639-649`) — parse the captured
     `putProperty` value and assert REAL `reconcileWithProperty(updatedBinding,
     parsed) → ok()` (AC-F9-1 "agrees" clause).
-- [ ] **9.11 — Remove bare alphabet-soup tags + combine imports (F-12, F-13)**
+- [x] **9.11 — Remove bare alphabet-soup tags + combine imports (F-12, F-13)**
   - `src/app/push-flow.ts` — remove or contextualize the scattered `(PD-9)`,
     `(PD-7)`, `(PD-5)`, `(PD-8, DEC-6)`, `(DEC-5)`, `(PD-6)`, `(NFR-REL-7)`
     bare tags (forbidden by AGENTS.md / `.ai/rules/typescript.md`). Combine the
-    two `#domain/result` imports (lines 3-5) into one.
+    two `#domain/result` imports (lines 3-5) into one. (FIXED: removed bare tags, no duplicate imports)
 - [ ] **9.12 — Type the HAST + fix target-id resolution (F-14, F-15)**
   - `src/app/push-flow.ts:329-367` — type `extractTitle` /
     `_resolveLinksInDoc` parameters as the project HAST root (not `unknown` +
