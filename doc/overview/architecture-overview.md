@@ -11,8 +11,8 @@ owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
-  related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005, ADR-0006]
-  related_changes: [GH-18, GH-20, GH-21, GH-22]
+  related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005, ADR-0006, TDR-0003, ADR-0010]
+  related_changes: [GH-18, GH-20, GH-21, GH-22, GH-23]
   summary: "Architecture overview — ports-and-adapters CLI; Markdown→Storage pipeline; Confluence Cloud adapter; UUID+lock state model; no hosted backend."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -91,15 +91,15 @@ section below govern residence and dependency direction._
 | Identity module | MarkSync binary | domain | UUID v7 generation (`generateUuidV7`), `DocumentId` branded value object, front-matter binding (`injectUuid`/`readUuid`), duplicate-UUID detection (`detectDuplicateUuids`) — `src/domain/identity/` |
 | Page binding | MarkSync binary | domain | `PageBinding` record mapping a `DocumentId` to a target page (type + identity-binding semantics; lock persistence is E3-S2) — `src/domain/binding/` |
 | Hierarchy planner | MarkSync binary | domain | Page graph, titles, parents, document-node resolution |
-| Link resolver | MarkSync binary | domain | Resolve local Markdown cross-document links to target-system page IDs/URLs so Confluence internal links work after sync |
+| Link resolver | MarkSync binary | domain | Resolve local Markdown cross-document links to target-system page IDs/URLs so Confluence internal links work after sync. `resolveLink(sourcePath, target, bindings)` at `src/domain/hierarchy/link-resolver.ts` *(delivered — GH-23)* |
 | State classifier | MarkSync binary | domain | Pure three-way `classify({ local?, base?, remote }) → Result<SyncState, MarkSyncError>` + `SyncState` enum + `RemoteState` union + `SharedBase` view + `SyncState → Action` mapping (`NoOp`/`Update`/`Block`/`Skip`) — `src/domain/state/{classifier,sync-state,hashes,actions}.ts` *(delivered — GH-22)* |
 | Markdown parser | MarkSync binary | domain | Markdown → MDAST/HAST (remark + remark-gfm); canonical subset validation. `parseMarkdown` (`src/domain/markdown/parse.ts`) → `mdastToHast` bridge (`src/domain/markdown/mdast-to-hast.ts`) → unsupported-node classifier emitting `UnsupportedConstruct` (`src/domain/markdown/unsupported.ts`) → canonical HAST + `contentHash` sha256 (`src/domain/render/canonicalize.ts`) *(delivered — GH-20)* |
 | Asset resolver | MarkSync binary | domain | Safe path/hash/dedup prep for images + attachments |
 | Mermaid artifact manager | MarkSync binary | domain | Calculate Mermaid content hash, detect whether a given hash already exists on the target, orchestrate render→upload→reference |
-| Push executor | MarkSync binary | infrastructure | Ordered safe writes via `TargetSystem` port; journal; optimistic concurrency |
+| Push executor | MarkSync binary | application | Ordered safe writes via `TargetSystem` port; the `computePlan` (pure, no-writes dry-run) + `applyPlan` (parent-first, per-document isolation, journaling, provenance wiring, Conflict-as-drift) use cases at `src/app/push-flow.ts` *(delivered — GH-23)* |
 | Pull/conflict service | MarkSync binary | infrastructure | Reverse-sync patches/conflict workspace; never commits |
-| Lock/journal store | MarkSync binary | infrastructure | Lock atomic write, journal replay, `repair-state` |
-| Git adapter | MarkSync binary | infrastructure | `Repository` interface → Git CLI (or `isomorphic-git`) |
+| Lock/journal store | MarkSync binary | application | Lock atomic save (`saveLock`, delegating to the infra `writeAtomic` primitive at `src/infra/lock/store.ts`) + append-only journal writer + `replayJournal` for partial-apply recovery (`src/app/journal.ts`) *(delivered — GH-23)* |
+| Git adapter | MarkSync binary | infrastructure | `Repository` port (`src/domain/git/port.ts`) → shell-git adapter (`createShellGit`, `src/infra/git/shell-git.ts`) via Git CLI (TDR-0003); read-only committed snapshots *(delivered — GH-23)* |
 | Mermaid renderer | MarkSync binary | infrastructure | `Renderer` interface → official `mermaid` + jsdom (ADR-0002); produces image bytes + hash |
 
 ### Confluence adapter components (target-system-specific, behind `TargetSystem` port)
@@ -126,9 +126,10 @@ flowchart TB
   end
 
   subgraph application [Application tier]
-    App["Use-case orchestration\n(plan → apply → verify)"]
+    App["Push executor\ncomputePlan/applyPlan\n(plan → apply → verify)"]
     Config["Config loader\n(YAML + lock)"]
     Cred["Credential provider"]
+    Lock["Lock/journal store\n(saveLock + journal/replay)"]
   end
 
   subgraph domain [Domain tier — no infra imports]
@@ -141,9 +142,7 @@ flowchart TB
   end
 
   subgraph infra [Infrastructure tier]
-    Push["Push executor"]
-    Lock["Lock/journal store"]
-    Git["Git adapter\n(Repository port)"]
+    Git["Git adapter\n(shell-git → Repository port)"]
     Render["Mermaid renderer\n(Renderer port)"]
     subgraph confadapter [Confluence adapter — TargetSystem port]
       ConfClient["Confluence client\n(REST v2/v1)"]
@@ -158,14 +157,14 @@ flowchart TB
   CLI --> App
   Out --> App
   App --> Hierarchy & Link & State & MD & Asset & MermaidMgr
-  App --> Push & Lock
+  App --> Lock
   App -.->|"via ports"| Git & Render & ConfClient
-  Push -.->|"via TargetSystem port"| ConfClient & ConfAttach
+  App -.->|"via TargetSystem port"| ConfClient & ConfAttach
   MermaidMgr --> Render
   Render --> ConfAttach
   Hierarchy --> Link
   MD --> ConfRender
-  ConfRender --> Push
+  ConfRender -.->|"renderBody via port"| App
 ```
 
 - **Solid arrows** = direct calls within the binary.
@@ -218,8 +217,10 @@ the integration-scenarios docs (`doc/inception/integration-scenarios/`)._
 
 | Boundary (A → B) | Operation | Signature | Returns | Errors |
 |---|---|---|---|---|
-| app → git port | readCommitted | `readCommitted(ref, patterns)` | `Map<path, bytes>` | `RefNotFound`, `BadPath` |
-| app → git port | worktreeStatus | `worktreeStatus(paths)` | `WorktreeStatus` | — |
+| app → git port | readCommitted | `readCommitted(ref, patterns)` | `Result<Map<path, Uint8Array>, MarkSyncError>` | throws on malformed path/ref (invariant guard, TDR-0003 C-4 — no `BadPath`/`BadRef` `Result` arm per DM-8); `RemoteUnreachable` on git runtime failure. Empty map if no matches |
+| app → git port | headSha | `headSha()` | `Result<string, MarkSyncError>` | `RemoteUnreachable` on git runtime failure |
+| app → git port | currentBranch | `currentBranch()` | `Result<string, MarkSyncError>` | `RemoteUnreachable` on git runtime failure; falls back to `GITHUB_REF_NAME` on detached HEAD |
+| app → git port | listCommitSubjects | `listCommitSubjects(range?)` | `Result<readonly string[], MarkSyncError>` | throws on malformed range (invariant); `RemoteUnreachable` on git runtime failure |
 | app → markdown port | parse | `parseMarkdown(bytes, opts?)` | `Result<MdastRoot, MarkSyncError>` | total in MS-0002 — a genuine parse failure is an invariant violation that `throw`s (no `ParseError` arm exists in `MarkSyncError`) |
 | app → target system port | renderBody | `renderBody(hast, opts)` | `Result<{ body, hash, warnings }, MarkSyncError>` | `UnsupportedConstruct`; input is canonical **HAST** (the app layer runs `parseMarkdown` → `mdastToHast` → `renderBody`) |
 | app → target system port | getPage | `getPage(id)` | `Result<Page, MarkSyncError>` | `RemoteMissing` (404), `Forbidden` (403), `RateLimited`, `RemoteUnreachable` |
@@ -235,9 +236,11 @@ the integration-scenarios docs (`doc/inception/integration-scenarios/`)._
 | app → target system port | getRestrictions | `getRestrictions(pageId)` | `Result<PageRestrictions, MarkSyncError>` | `Forbidden`, `RateLimited`, `RemoteUnreachable` |
 | app → target system port | reverseConvert | `reverseConvert(bodyRepr)` | `MdastRoot` | `UnsupportedConstruct` (`MS-0005+`) |
 | app → mermaid port | render | `render(source, opts)` | `Artifact{ bytes, mime, hash }` | `RenderUnavailable` (→ fallback ladder) |
-| app → link resolver | resolveLink | `resolveLink(sourcePath, targetPath)` | `PageRef` | `Unresolved` |
+| app → link resolver | resolveLink | `resolveLink(sourcePath, target, bindings)` | `Result<PageRef \| string, MarkSyncError>` | `UnresolvedLink` for an unresolvable `.md` target; external/anchor/non-`.md` targets pass through as the original string *(delivered — GH-23)* |
 | app → state classifier | classify | `classify({ local?, base?, remote })` | `Result<SyncState, MarkSyncError>` | `Forbidden` (when `remote.kind === "forbidden"` — not a sync state); `local` optional (absent ⇒ `LOCAL_MISSING`); invoked only for bound documents |
 | app → lock store | commit | `commit(newLock)` | `void` | `LockDirty`, `ConcurrentWrite` |
+| cli → app (push-flow) | computePlan | `computePlan(config, lock, git, target)` | `Promise<Result<Plan, MarkSyncError>>` | `ForbiddenBranch` (branch gate — 0 discovery reads on deny), `DuplicateUuid` (INV-SAFE-3 fatal gate — 0 writes), transport (`RateLimited`/`RemoteUnreachable`). Pure no-writes dry-run; `Plan = { runId, operationId, entries[], provenance }` *(delivered — GH-23)* |
+| cli → app (push-flow) | applyPlan | `applyPlan(plan, target, lock, opts)` | `Promise<Result<ApplyReport, MarkSyncError>>` | per-document errors collected in the report as `blocked` outcomes (Conflict-as-drift, no retry); only transport failures abort the run. `ApplyReport = { runId, results[], writes, skips, blocks }`; parent-first, per-document isolation, journal-before-lock *(delivered — GH-23)* |
 
 Scope: signature + return/error shape only. Every `TargetSystem` operation
 returns `Result<T, MarkSyncError>`; any remote call can additionally surface
@@ -272,7 +275,7 @@ converter. The `Renderer` interface mirrors spec §9.11.
 
 ## Data flow
 
-### Push flow (primary — `MS-0002`)
+### Push flow (primary — `MS-0002`) *(realized — GH-23)*
 
 ```mermaid
 flowchart TD
@@ -293,6 +296,7 @@ flowchart TD
 ```
 
 - Each step is idempotent; partial-apply rerun uses journal + remote property to avoid duplicates (spec §9.8).
+- The dry-run path (Load → Classify → return `Plan` with 0 writes) is `computePlan`; the apply path (create/update parent-first → upload assets → update bodies + property → journal → lock) is `applyPlan` — both at `src/app/push-flow.ts` *(delivered — GH-23)*. Writes are serialized (bounded concurrency = 1, ADR-0010 C-3); each mutation is journaled (`src/app/journal.ts`) before the lock updates, and a 409 surfaces as drift with no retry.
 - Concurrency control (`A-FEA-7`): decentralized — Confluence 409 on stale `version.number` + operation-ID dedup + stale-plan expiry. No shared service; no pessimistic leasing. CI concurrency-group templates reduce overlap at the source.
 
 ### Reverse sync flow (later — `MS-0005+`)

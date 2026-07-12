@@ -9,7 +9,7 @@ last_updated: 2026-07-12
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: [GH-18, GH-19, GH-20, GH-22]
+  related_changes: [GH-18, GH-19, GH-20, GH-22, GH-23]
   decisions: [ADR-0005, ADR-0006, ADR-0010, ADR-0011]
   contracts: []
 ---
@@ -71,13 +71,16 @@ conflict classification that **refuses to silently overwrite remote work**.
   over canonical semantic hashes — the body `canonicalHash` plus the title,
   parent-page-id, and attachment-set facets (`rawHash` is informational
   only). *(delivered — GH-22)*
-- **Safe publish:** create / update / no-op / move based on drift
-  classification. Unsafe overwrites blocked by default.
+- **Safe publish:** create / update / no-op based on drift classification.
+  Unsafe overwrites blocked by default. Realized by `computePlan` (pure dry-run)
+  + `applyPlan` (parent-first, isolated, journaled write path) at
+  `src/app/push-flow.ts` *(delivered — GH-23)*.
 - **Concurrency control:** decentralized optimistic concurrency — Confluence 409
   on stale `version.number` + operation-ID dedup + stale-plan expiry + CI
   concurrency-group templates.
 - **Minimal repair:** `repair-state` for stale locks and interrupted-apply
-  journal replay.
+  journal replay. The append-only journal writer + `replayJournal`
+  (`src/app/journal.ts`) is the partial-apply recovery basis *(delivered — GH-23)*.
 - **Provenance:** visible panel/footer (source path + Git revision + last-sync)
   + machine content-property metadata.
 
@@ -115,7 +118,7 @@ a `TargetSystem` port. The Confluence adapter is the sole implementation.
 | Identity service | UUID v7 assignment, front-matter management |
 | State manager | Committed `marksync.lock.yml` load/save/merge (`loadLock`/`saveLock`/`mergeBindings`, `src/app/lock.ts`), disposable `.marksync/` cache layout (`src/app/cache.ts`), pure content-property cross-check (`src/domain/state/reconcile.ts`), branch gate (`assertBranchAllowed`, `src/app/branch.ts`) *(delivered — GH-19)* |
 | Drift classifier | Pure `classify({ local?, base?, remote }) → Result<SyncState, MarkSyncError>` three-way classifier (`src/domain/state/classifier.ts`); `ContentHash` VO carrying the canonical-body + title + parent + attachment facets (`src/domain/state/hashes.ts`); six-value `SyncState` enum + `RemoteState` union + `SharedBase` view (`src/domain/state/sync-state.ts`); `SyncState → Action` mapping `NoOp`/`Update`/`Block`/`Skip` (`src/domain/state/actions.ts`) *(delivered — GH-22)* |
-| Sync engine | Orchestrates plan → apply per document; journal/replay |
+| Sync engine | The use-case orchestration that ties the trust wedge together. `computePlan(config, lock, git, target) → Promise<Result<Plan, MarkSyncError>>` is the pure no-writes dry-run: branch gate → discover committed docs via the `Repository` port → duplicate-UUID fatal gate → parse/render/hash via `TargetSystem.renderBody` → resolve cross-page links → fetch remote state → classify → emit a reviewable `Plan`. `applyPlan(plan, target, lock, opts) → Promise<Result<ApplyReport, MarkSyncError>>` is the only write path: parent-first ordering, per-document isolation, journal-before-lock, provenance via `formatVersionMessage`, 409 Conflict surfaced as drift (no retry), atomic lock + `marksync.metadata` per doc. Append-only journal (`.marksync/journal/<run-id>.jsonl`) + `replayJournal` for partial-apply recovery. Modules: `src/app/push-flow.ts`, `src/app/journal.ts`, `src/domain/hierarchy/link-resolver.ts`, `src/domain/git/port.ts`, `src/infra/git/shell-git.ts` *(delivered — GH-23)* |
 | Confluence adapter | `TargetSystem` port implementation (v2/v1 API) |
 
 ### 4.3 Key decisions
