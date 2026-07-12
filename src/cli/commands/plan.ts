@@ -59,7 +59,13 @@ export async function planCommand(): Promise<CommandResult<Plan>> {
 	const target = createTarget(creds, targetConfig.spaceKey);
 
 	// 7. Compute plan
-	const planResult = await computePlan(config, lock, git, target);
+	let planResult: Awaited<ReturnType<typeof computePlan>>;
+	try {
+		planResult = await computePlan(config, lock, git, target);
+	} catch (e) {
+		// Git failures throw as host invariants → INTERNAL
+		return err("INTERNAL", "internal error", false);
+	}
 	if (!planResult.ok) {
 		const mapped = mapMarkSyncErrorToCommandError(planResult.error);
 		return err(mapped.code, mapped.message, mapped.retryable);

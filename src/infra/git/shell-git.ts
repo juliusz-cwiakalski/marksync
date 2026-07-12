@@ -135,27 +135,26 @@ function spawnGit(cwd: string, args: string[]): Result<string, MarkSyncError> {
 		});
 
 		if (!result.success) {
-			return Result.err({
-				kind: "RemoteUnreachable",
-				cause: `git ${args[0]} failed: ${result.stderr?.toString() || "unknown error"}`,
-			});
+			throw new Error(
+				`git ${args[0]} spawn failed: ${result.stderr?.toString() || "unknown error"}`,
+			);
 		}
 
 		if (result.exitCode !== 0) {
 			const stderr = result.stderr?.toString() || "";
-			return Result.err({
-				kind: "RemoteUnreachable",
-				cause: `git ${args[0]} exited with ${result.exitCode}: ${stderr}`,
-			});
+			throw new Error(
+				`git ${args[0]} exited with ${result.exitCode}: ${stderr}`,
+			);
 		}
 
 		const stdout = result.stdout?.toString() || "";
 		return Result.ok(stdout);
 	} catch (e) {
-		const msg = e instanceof Error ? e.message : String(e);
-		return Result.err({
-			kind: "RemoteUnreachable",
-			cause: `git ${args[0]} spawn failed: ${msg}`,
-		});
+		// Re-throw if already an Error (host invariant)
+		if (e instanceof Error) {
+			throw e;
+		}
+		// Wrap unknown errors
+		throw new Error(`git ${args[0]} failed: ${String(e)}`);
 	}
 }

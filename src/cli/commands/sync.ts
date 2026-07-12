@@ -63,7 +63,13 @@ export async function syncCommand(): Promise<CommandResult<ApplyReport>> {
 	const target = createTarget(creds, targetConfig.spaceKey);
 
 	// 7. Compute plan
-	const planResult = await computePlan(config, lock, git, target);
+	let planResult: Awaited<ReturnType<typeof computePlan>>;
+	try {
+		planResult = await computePlan(config, lock, git, target);
+	} catch (e) {
+		// Git failures throw as host invariants → INTERNAL
+		return err("INTERNAL", "internal error", false);
+	}
 	if (!planResult.ok) {
 		const mapped = mapMarkSyncErrorToCommandError(planResult.error);
 		return err(mapped.code, mapped.message, mapped.retryable);
@@ -71,11 +77,17 @@ export async function syncCommand(): Promise<CommandResult<ApplyReport>> {
 	const plan = planResult.value;
 
 	// 8. Apply plan
-	const applyResult = await applyPlan(plan, target, lock, {
-		cwd: currentCwd,
-		cacheDir,
-		targetId: "default",
-	});
+	let applyResult: Awaited<ReturnType<typeof applyPlan>>;
+	try {
+		applyResult = await applyPlan(plan, target, lock, {
+			cwd: currentCwd,
+			cacheDir,
+			targetId: "default",
+		});
+	} catch (e) {
+		// Git failures throw as host invariants → INTERNAL
+		return err("INTERNAL", "internal error", false);
+	}
 	if (!applyResult.ok) {
 		const mapped = mapMarkSyncErrorToCommandError(applyResult.error);
 		return err(mapped.code, mapped.message, mapped.retryable);

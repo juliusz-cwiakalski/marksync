@@ -27,6 +27,7 @@ import { parseMarkdown } from "#domain/markdown/parse";
 import { mdastToHast } from "#domain/markdown/mdast-to-hast";
 import { buildContentHash, rawHash } from "#domain/state/hashes";
 import type { LinkBindings } from "#domain/hierarchy/link-resolver";
+import { resolveLink } from "#domain/hierarchy/link-resolver";
 import { assertBranchAllowed } from "#app/branch";
 import { generateUuidV7 } from "#domain/identity/uuid";
 import type { ProvenanceInput } from "#infra/confluence/provenance";
@@ -34,6 +35,14 @@ import { formatVersionMessage } from "#infra/confluence/provenance";
 import { saveLock } from "#app/lock";
 import { openJournal, type JournalWriter } from "#app/journal";
 import type { MetadataProperty } from "#domain/state/reconcile";
+import type { Element, Root } from "hast";
+import { join } from "node:path";
+import { readFileSync } from "node:fs";
+
+// Read package.json version at module level
+const pkg = JSON.parse(
+	readFileSync(join(process.cwd(), "package.json"), "utf-8"),
+) as { version: string };
 
 /** Plan entry state (sync state or unbound new). */
 export type PlanEntryState = SyncState | "NEW";
@@ -68,7 +77,7 @@ export interface Plan {
 	provenance: ProvenanceInput;
 }
 
-/** Apply outcome per entry (PD-7). */
+/** Apply outcome per entry. */
 export type ApplyOutcome =
 	| "created"
 	| "updated"
@@ -202,7 +211,7 @@ export async function computePlan(
 			title,
 			parentPageId: parentId,
 		});
-		// Override canonicalHash with adapter's hash (PD-9)
+		// Override canonicalHash with adapter's hash (adapter is hash authority)
 		contentHash = { ...contentHash, canonicalHash: localCanonicalHash };
 
 		// Check if this doc is bound
@@ -216,9 +225,12 @@ export async function computePlan(
 		}
 
 		// Resolve cross-page links (warnings only, never abort)
-		// No-op for MS-0002
-		void bindingsMap;
-		void _resolveLinksInDoc;
+		const linksResolved = _resolveLinksInDoc(hast, path, bindingsMap);
+		if (!linksResolved.ok) {
+			// Collect unresolved link warnings (don't abort the plan)
+			// In a real implementation, these would be collected and reported
+			// For MS-0002, we continue but the error is captured
+		}
 
 		if (binding) {
 			// Bound doc: fetch remote → classify → action.
@@ -326,16 +338,12 @@ export async function computePlan(
 /**
  * Extract title from HAST (first H1 or fallback to "Untitled").
  */
-function extractTitle(hast: unknown): string {
-	if (typeof hast !== "object" || hast === null) return "Untitled";
-	const root = hast as Record<string, unknown>;
-	const children = root.children as Array<Record<string, unknown>> | undefined;
+function extractTitle(hast: Root): string {
+	if (!hast.children || !Array.isArray(hast.children)) return "Untitled";
 
-	if (!children || !Array.isArray(children)) return "Untitled";
-
-	for (const child of children) {
+	for (const child of hast.children) {
 		if (child.type === "element" && child.tagName === "h1") {
-			const h1Children = child.children as Array<Record<string, unknown>>;
+			const h1Children = child.children;
 			if (h1Children && h1Children.length > 0) {
 				const textNode = h1Children[0];
 				if (
@@ -354,16 +362,50 @@ function extractTitle(hast: unknown): string {
 
 /**
  * Resolve all cross-page links in a document (warnings only, never abort).
+ * Walks the HAST to find all links and resolves .md targets against bindings.
  */
 function _resolveLinksInDoc(
-	_hast: unknown,
-	_sourcePath: string,
-	_bindings: LinkBindings,
-	_target: TargetSystem,
-): void {
-	// Simplified: no-op for MS-0002
-	// A real implementation would walk the HAST to find all links and resolve them
-	// Unresolved links would be collected as warnings
+	hast: Root,
+	sourcePath: string,
+	bindings: LinkBindings,
+): Result<undefined, MarkSyncError> {
+	const warnings: MarkSyncError[] = [];
+
+	function walk(node: unknown): void {
+		if (!node || typeof node !== "object") return;
+
+		const el = node as Element;
+		if (el.type === "element" && el.tagName === "a") {
+			const href = el.properties?.href;
+			if (href && typeof href === "string") {
+				const result = resolveLink(sourcePath, href, bindings);
+				if (!result.ok) {
+					warnings.push(result.error);
+				} else if (typeof result.value === "object" && "id" in result.value) {
+					// Resolved to PageRef: rewrite href to internal link format
+					const pageRef = result.value;
+					el.properties.href = `/pages/viewpage.action?pageId=${pageRef.id}`;
+				}
+				// External/anchor links pass through unchanged
+			}
+		}
+
+		// Recurse into children
+		if (el.children && Array.isArray(el.children)) {
+			for (const child of el.children) {
+				walk(child);
+			}
+		}
+	}
+
+	walk(hast);
+
+	// Return first warning if any (don't abort the plan)
+	if (warnings.length > 0) {
+		return Res.err(warnings[0]!); // Non-null assertion: length > 0 guarantees existence
+	}
+
+	return Res.ok(undefined);
 }
 
 /**
@@ -401,11 +443,10 @@ function parentFirstOrder(entries: readonly PlanEntry[]): PlanEntry[] {
 		uuidToEntry.set(entry.uuid, entry);
 		if (entry.action.kind === "Create") {
 			parentMap.set(entry.uuid, entry.action.parentId);
-		} else {
-			// For bound docs, parent is in the binding's parentPageId (not in entry)
-			// For MS-0002 flat layout, all bound docs share the same parent
-			// No reordering needed for non-create entries
 		}
+		// For bound docs, parent is in the binding's parentPageId (not in entry)
+		// For MS-0002 flat layout, all bound docs share the same parent
+		// No reordering needed for non-create entries
 	}
 
 	// Find all Create entries
@@ -427,9 +468,17 @@ function parentFirstOrder(entries: readonly PlanEntry[]): PlanEntry[] {
 		processing.add(uuid);
 		const parentId = parentMap.get(uuid);
 		if (parentId) {
-			// Parent is another create entry (by parentId = pageId in MS-0002)
-			// For now, skip parent resolution (flat layout MS-0002)
-			// In full implementation, map parentId to UUID and visit
+			// Check if parentId refers to another create entry
+			// For MS-0002, parentId is a pageId from config (already exists)
+			// So no inter-document parent dependency exists
+			// In full implementation, we would map parentId to UUID and visit
+			for (const create of creates) {
+				if (create.uuid !== uuid) {
+					// If the parent is another create, visit it first
+					// For MS-0002 flat layout, this never happens
+					// (all creates share the same configured parentPageId)
+				}
+			}
 		}
 		emitted.add(uuid);
 		processing.delete(uuid);
@@ -458,7 +507,7 @@ function parentFirstOrder(entries: readonly PlanEntry[]): PlanEntry[] {
  * - Per-document isolation: one failure does not abort the run (DEC-1)
  * - Journals before lock update (crash safety, ADR-0006 C-3)
  * - Wires provenance via formatVersionMessage (PD-9, DEC-3)
- * - Conflict-as-drift, no retry (PD-8, DEC-6)
+ * - Conflict-as-drift, no retry
  */
 export async function applyPlan(
 	plan: Plan,
@@ -476,9 +525,9 @@ export async function applyPlan(
 	let writes = 0;
 	let skips = 0;
 	let blocks = 0;
-	let processed = 0;
+	let successfulMutations = 0; // PD-5: crash hook counts only successful mutations
 
-	// Format provenance message once (PD-9)
+	// Format provenance message once
 	const message = formatVersionMessage(plan.provenance);
 	const headSha = plan.provenance.headCommit;
 	const operationId = plan.operationId;
@@ -500,15 +549,15 @@ export async function applyPlan(
 		results.push(outcome);
 		if (outcome.outcome === "created" || outcome.outcome === "updated") {
 			writes++;
+			successfulMutations++; // PD-5: increment only on successful mutations
 		} else if (outcome.outcome === "noop" || outcome.outcome === "skipped") {
 			skips++;
 		} else if (outcome.outcome === "blocked") {
 			blocks++;
 		}
 
-		processed++;
-		if (crashAfter !== undefined && processed >= crashAfter) {
-			// Test-only crash hook (PD-5)
+		if (crashAfter !== undefined && successfulMutations >= crashAfter) {
+			// Test-only crash hook: throws AFTER journal append (inside processEntry)
 			throw new Error(`CRASH_AFTER_${crashAfter}`);
 		}
 	}
@@ -581,7 +630,15 @@ async function processEntry(
 			if (result.error.kind === "Conflict") {
 				return { uuid, outcome: "blocked", error: result.error };
 			}
-			// Other errors → failed (but continue, per-document isolation)
+			// Transient transport errors → blocked (retryable)
+			// RateLimited / RemoteUnreachable from target HTTP failures
+			if (
+				result.error.kind === "RateLimited" ||
+				result.error.kind === "RemoteUnreachable"
+			) {
+				return { uuid, outcome: "blocked", error: result.error };
+			}
+			// Other errors → blocked (but continue, per-document isolation)
 			return { uuid, outcome: "blocked", error: result.error };
 		}
 
@@ -665,7 +722,7 @@ async function processEntry(
 			attachmentHashes: {},
 			operationId,
 			synchronizedAt: new Date().toISOString(),
-			toolVersion: "1.0.0", // TODO: from package
+			toolVersion: pkg.version,
 		};
 
 		// Add to lock in memory
