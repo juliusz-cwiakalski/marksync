@@ -1,0 +1,182 @@
+version: 1
+iteration: 2
+mode: local
+work_item_ref: GH-22
+branch: feat/GH-22/drift-classifier
+status: PASS
+summary: >
+  Post-remediation re-review (commits d720c27 + 13b9b04 executed Phase 6). All
+  seven iteration-1 findings are genuinely CLOSED. The DoD blocker (F-1 — the
+  hollow false-positive suite) is now a real regression-sensitive guard: each
+  of TC-FALSEPOS-001..005 builds TWO structurally-different HASTs and asserts
+  canonicalHash(base) === canonicalHash(variant) BEFORE ok(NO_CHANGE); the
+  assertion delegates through contentHash(canonicalize()) (hashes.ts:14), so a
+  canonicalize regression (e.g. ceasing to drop structural-whitespace / sort
+  properties / convert raw→text) would fail the equality check. TC-REALCHG
+  pairs mirror this with !== before NOT NO_CHANGE. F-2's base-required type
+  and Forbidden-only-for-403 are in place; F-3/F-4/F-5/F-6 cleanups verified.
+  canonicalize.ts and errors.ts are UNMODIFIED (git diff = 0); the quality
+  gate is GREEN (808 pass, 0 fail, 0 dependency violations); INV-SAFE-1/2,
+  DEC-1/3, the six-state enum, and #domain-only purity all hold. Two
+  pre-existing non-blocking observations remain (NOT introduced by the
+  remediation): an unguarded title comparison that is latent idempotency risk
+  only when a remote omits title (Confluence remotes always carry one), and
+  same-module import duplication. The pre-written Phase 7 already captures
+  both as optional fast-follow; neither blocks the DoD.
+severity_breakdown:
+  critical: 0
+  high: 0
+  medium: 1
+  low: 1
+  info: 0
+spec_compliance: PASS
+plan_compliance: PASS
+iter1_closure:
+  - id: F-1
+    iter1_severity: critical
+    status: CLOSED
+    evidence: >
+      tests/unit/domain/state/classifier.test.ts:249-355. Each of
+      TC-FALSEPOS-001..005 builds a baseHast and a structurally-different
+      variantHast (001 extra "\n" text node; 002 leading "\n\n\n" ws node;
+      003 swapped href/target property order; 004 text-vs-raw node; 005 extra
+      empty-line ws node) and asserts expect(canonicalHash(baseHast)).toBe(
+      canonicalHash(variantHast)) BEFORE asserting ok(NO_CHANGE).
+      canonicalHash (hashes.ts:13-15) = HASH_WIRE_PREFIX +
+      contentHash(canonicalize(hast)); canonicalize.ts:61-63 drops structural
+      whitespace (isStructuralWhitespace = trim()=="" && includes("\n")),
+      :47-54/82-88 sorts properties, :64-67 converts raw→text. If
+      canonicalize regressed on any of these, the equality assertion would
+      FAIL. TC-REALCHG-001..005 (lines 358-462) build genuine edits and assert
+      canonicalHash(base) !== canonicalHash(edit) before LOCAL_AHEAD. No
+      hardcoded hash constants remain; mockContentHash/BASE_BODY_HASH removed.
+      Regression-sensitive: YES.
+  - id: F-2
+    iter1_severity: high
+    status: CLOSED
+    evidence: >
+      src/domain/state/classifier.ts:10-14 — ClassifyInput.base is now
+      `base: SharedBase` (required, non-optional). The base-absent
+      err({kind:"Forbidden", pageId:""}) branch is deleted. The only Forbidden
+      in classifier.ts is lines 21-27, gated on remote.kind === "forbidden"
+      with pageId: remote.pageId (the legitimate 403 path, DEC-3). grep
+      confirms a single "Forbidden" occurrence at line 23.
+  - id: F-3
+    iter1_severity: medium
+    status: CLOSED
+    evidence: >
+      Module headers reduced to one line + one authority cite each:
+      classifier.ts:1 "(ADR-0006 §5.4)"; sync-state.ts:1 "(ADR-0006)";
+      hashes.ts:1 "(delegates to GH-20 canonicalize)"; actions.ts:1 (no
+      cite). grep for bare (DEC-/PD-/F-/NFR-/AC-/INV-/Q# tags across
+      src/domain/state/ returns zero hits in the changed files (the one
+      reconcile.ts:32 hit is outside this change's diff). Duplicate JSDoc in
+      sync-state.ts removed (file is now 37 lines, single definition per
+      export).
+  - id: F-4
+    iter1_severity: low
+    status: CLOSED
+    evidence: >
+      grep for require( across tests/ and src/domain/state/ returns nothing.
+      classifier.test.ts:16 now ESM-imports SyncStateSchema from
+      "#domain/state/sync-state".
+  - id: F-5
+    iter1_severity: low
+    status: CLOSED
+    evidence: >
+      grep for SyncStateValue across src/ and tests/ returns nothing.
+      sync-state.ts:6-17 is a single enumeration source: SYNC_STATES (const
+      tuple) → SyncState (typeof derived) → SyncStateSchema (z.enum). No
+      duplicate union.
+  - id: F-6
+    iter1_severity: low
+    status: CLOSED
+    evidence: >
+      chg-GH-22-plan.md Execution Log (lines 1118-1125) lists phases 0-5 once
+      each, all ✅, single source of truth. The only remaining ⏙ ⏳ glyph in
+      the plan is inside the Phase 6.6 task description prose ("Deleted the
+      four stale duplicate ⏳ rows"), which is correct narrative, not a stale
+      table row.
+  - id: F-7
+    iter1_severity: info
+    status: NO_ACTION_REQUIRED
+    evidence: >
+      remoteChanged (classifier.ts:45-48) compares bodyHash + parentPageId
+      only, matching PD-3's explicit scoping. Unchanged by remediation; known
+      MS-0002 limitation, not a defect. No action required (as iter-1 stated).
+findings:
+  - id: F-1
+    severity: medium
+    confidence: high
+    category: correctness
+    location: src/domain/state/classifier.ts:43
+    message: >
+      PRE-EXISTING (not introduced by the Phase 6 remediation). The title
+      facet `local.title !== remote.title` is unguarded against an absent
+      remote.title. RemoteState.present.title is optional (sync-state.ts:24);
+      SharedBase carries no title, so title drift is necessarily detected
+      local-vs-remote. If a remote ever omits title, any non-empty local.title
+      forces localChanged → LOCAL_AHEAD → Update, defeating NFR-PERF-4
+      idempotency. No fixture covers the absent-title case. Latent only:
+      Confluence page fetches always return a title, and it errs toward
+      writing (safe side), so it is non-blocking for the GH-22 DoD.
+    suggestion: >
+      Guard the facet: `remote.title !== undefined && local.title !==
+      remote.title`, and add a NO_CHANGE fixture where remote = { kind:
+      "present", bodyHash, version } carries no title. One-line fix; already
+      captured in the pre-written Phase 7 (task 7.1) as optional fast-follow.
+    suppressed: false
+  - id: F-2
+    severity: low
+    confidence: high
+    category: style
+    location: src/domain/state/classifier.ts:3-6, src/domain/state/actions.ts:3-4, tests/unit/domain/state/classifier.test.ts:8-16, tests/unit/domain/state/actions.test.ts:7-9
+    message: >
+      PRE-EXISTING (not introduced by the remediation). Multiple import
+      statements per module instead of one combined statement with inline
+      `type` modifier (classifier.ts: two from ./hashes, two from ./sync-state;
+      actions.ts: two from ./sync-state; the test files likewise). Diverges
+      from the sibling reconcile.ts and the typescript.md "one import
+      statement per module" guidance; Biome organizeImports does not enforce
+      it in check mode.
+    suggestion: >
+      Combine each same-module pair into one statement, e.g.
+      `import { attachmentHash, type ContentHash } from "./hashes";`. Already
+      captured in the pre-written Phase 7 (task 7.2) as optional fast-follow.
+    suppressed: false
+no_regressions:
+  - invariant: INV-SAFE-1 (never publish over a remote-changed doc)
+    holds: true
+    evidence: REMOTE_AHEAD and DIVERGED both map to Block (actions.ts:26-40); classify truth table (classifier.ts:50-59) routes any remoteChanged to REMOTE_AHEAD/DIVERGED.
+  - invariant: INV-SAFE-2 (never treat remotely-deleted as up-to-date)
+    holds: true
+    evidence: remote.kind === "missing" → REMOTE_MISSING → Block (classifier.ts:33-35; actions.ts:41-46).
+  - invariant: DEC-1 (local optional)
+    holds: true
+    evidence: "ClassifyInput.local?: ContentHash (classifier.ts:11); local === undefined → LOCAL_MISSING (line 29-31)."
+  - invariant: DEC-3 (no new error arms)
+    holds: true
+    evidence: Only Forbidden (403), Conflict, RemoteMissing — all pre-existing in errors.ts. errors.ts unmodified (git diff = 0).
+  - invariant: six-state enum intact
+    holds: true
+    evidence: sync-state.ts:6-13 lists all six states; SyncStateSchema safeParse guards the switch (classifier.ts:61-64); TC-BOUNDARY-001 rejects ad-hoc strings.
+  - invariant: #domain-only purity
+    holds: true
+    evidence: depcruise reports 0 violations (80 modules); git diff of src/domain/state/ adds no #infra/#adapters imports; boundary-negative.test.ts passes.
+  - invariant: reused contracts unmodified
+    holds: true
+    evidence: git diff main...HEAD on src/domain/render/canonicalize.ts and src/domain/errors.ts is empty (0 lines).
+  - invariant: quality gate
+    holds: true
+    evidence: bun run check → 808 pass, 0 fail, 27 snapshots, 0 dependency violations.
+plan_status:
+  core_phases: "0-5 complete (✅); Phase 6 (iter-1 remediation) complete (all tasks [x], commits d720c27 + 13b9b04)."
+  phase_7: "Pre-written for the two non-blocking findings below; tasks unchecked. Optional fast-follow — NOT required for DoD. Recommend executing before final merge as cheap polish (one-line title guard + import consolidation)."
+  inconsistencies: >
+    The on-disk review-iter-2.yaml this file replaces was a stale speculative
+    draft authored BEFORE Phase 6 executed (it stated "Phase 6 remediation…
+    is NOT yet executed"); revision-log entry 1.2 and the Phase 7 header
+    likewise pre-claim an iter-2 FAIL. The actual post-remediation verdict is
+    PASS. A revision-log entry should reconcile this (see report).
+reviewed_at: 2026-07-12T12:45:00Z
+next_step: PROCEED

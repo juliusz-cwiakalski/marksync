@@ -6,7 +6,7 @@ decision_type: adr
 status: Accepted
 created: 2026-07-04
 decision_date: null
-last_updated: 2026-07-10
+last_updated: 2026-07-12
 summary: "Document identity = immutable source-side UUID v7; shared base = committed versioned lock file; cache = disposable (single CI-cacheable dir); duplicate-UUID is fatal before any write; decentralized coordination via Confluence 409 + operation-ID dedup (no shared service); commit ID recorded per Confluence page version; sync restricted to configured branches. Establishes the safety foundation for drift detection, concurrency control, and reverse sync."
 owners:
   - Juliusz Ćwiąkalski
@@ -48,7 +48,7 @@ revisit_triggers:
   - "Reverse sync (`MS-0005+`) requires a base representation the lock cannot express."
   - "CI concurrency proves unachievable with a committed lock + optimistic 409 concurrency alone."
 links:
-  related_changes: [GH-19, GH-21]
+  related_changes: [GH-19, GH-21, GH-22]
   supersedes: []
   superseded_by: []
   spec: ["../inception/system-specification-draft-from-ai-brainstorm.md"]
@@ -336,6 +336,18 @@ cross-check is `validated` (A-FEA-4, A-FEA-5).
   `Forbidden` and the path issues zero delete/recreate operations. The 409 gate,
   the property cross-check, and the 403 policy now exist as code, not just as
   this decision's text; their live-tenant confirmation is wired for E5-S1.
+- **The pure drift classifier (GH-22) landed the pre-write three-way
+  comparison** this decision's safety invariants rest on:
+  `classify({ local?, base?, remote }) → Result<SyncState, MarkSyncError>` is a
+  pure domain function under `src/domain/state/` (zero infrastructure imports),
+  producing exactly the six Ubiquitous-Language `SyncState` values and an
+  `Action` mapping that blocks `REMOTE_AHEAD`/`DIVERGED` (→ `Conflict`) and
+  `REMOTE_MISSING` (→ `RemoteMissing`) by default — enforcing INV-SAFE-1 /
+  INV-SAFE-2 at the decision point, ahead of the write-time 409 backstop
+  (E3-S7). Its `ContentHash` snapshot delegates `canonicalHash` to the GH-20
+  `contentHash(canonicalize(hast))` digest (a single canonicalization
+  authority), so the false-positive guard tracks that module automatically;
+  `rawHash` stays informational only.
 
 ## References
 

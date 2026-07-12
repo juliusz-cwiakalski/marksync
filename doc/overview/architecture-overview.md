@@ -6,13 +6,13 @@ ados_distribution: redistributable
 id: ARCHITECTURE-OVERVIEW
 status: Draft
 created: 2026-07-04
-last_updated: 2026-07-10
+last_updated: 2026-07-12
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005, ADR-0006]
-  related_changes: [GH-18, GH-20, GH-21]
+  related_changes: [GH-18, GH-20, GH-21, GH-22]
   summary: "Architecture overview — ports-and-adapters CLI; Markdown→Storage pipeline; Confluence Cloud adapter; UUID+lock state model; no hosted backend."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -92,7 +92,7 @@ section below govern residence and dependency direction._
 | Page binding | MarkSync binary | domain | `PageBinding` record mapping a `DocumentId` to a target page (type + identity-binding semantics; lock persistence is E3-S2) — `src/domain/binding/` |
 | Hierarchy planner | MarkSync binary | domain | Page graph, titles, parents, document-node resolution |
 | Link resolver | MarkSync binary | domain | Resolve local Markdown cross-document links to target-system page IDs/URLs so Confluence internal links work after sync |
-| State classifier | MarkSync binary | domain | Compare local/remote/base → NO_CHANGE/LOCAL_AHEAD/REMOTE_AHEAD/DIVERGED/REMOTE_MISSING/etc. |
+| State classifier | MarkSync binary | domain | Pure three-way `classify({ local?, base?, remote }) → Result<SyncState, MarkSyncError>` + `SyncState` enum + `RemoteState` union + `SharedBase` view + `SyncState → Action` mapping (`NoOp`/`Update`/`Block`/`Skip`) — `src/domain/state/{classifier,sync-state,hashes,actions}.ts` *(delivered — GH-22)* |
 | Markdown parser | MarkSync binary | domain | Markdown → MDAST/HAST (remark + remark-gfm); canonical subset validation. `parseMarkdown` (`src/domain/markdown/parse.ts`) → `mdastToHast` bridge (`src/domain/markdown/mdast-to-hast.ts`) → unsupported-node classifier emitting `UnsupportedConstruct` (`src/domain/markdown/unsupported.ts`) → canonical HAST + `contentHash` sha256 (`src/domain/render/canonicalize.ts`) *(delivered — GH-20)* |
 | Asset resolver | MarkSync binary | domain | Safe path/hash/dedup prep for images + attachments |
 | Mermaid artifact manager | MarkSync binary | domain | Calculate Mermaid content hash, detect whether a given hash already exists on the target, orchestrate render→upload→reference |
@@ -236,7 +236,7 @@ the integration-scenarios docs (`doc/inception/integration-scenarios/`)._
 | app → target system port | reverseConvert | `reverseConvert(bodyRepr)` | `MdastRoot` | `UnsupportedConstruct` (`MS-0005+`) |
 | app → mermaid port | render | `render(source, opts)` | `Artifact{ bytes, mime, hash }` | `RenderUnavailable` (→ fallback ladder) |
 | app → link resolver | resolveLink | `resolveLink(sourcePath, targetPath)` | `PageRef` | `Unresolved` |
-| app → state classifier | classify | `classify(local, base, remote)` | `SyncState` | — |
+| app → state classifier | classify | `classify({ local?, base?, remote })` | `Result<SyncState, MarkSyncError>` | `Forbidden` (when `remote.kind === "forbidden"` — not a sync state); `local` optional (absent ⇒ `LOCAL_MISSING`); invoked only for bound documents |
 | app → lock store | commit | `commit(newLock)` | `void` | `LockDirty`, `ConcurrentWrite` |
 
 Scope: signature + return/error shape only. Every `TargetSystem` operation
@@ -280,7 +280,7 @@ flowchart TD
   B --> C["Parse + validate + render to Storage + hash"]
   C --> D[Build hierarchy + resolve cross-page links]
   D --> E["Fetch remote state: pages, properties, versions"]
-  E --> F["Classify: NO_CHANGE/LOCAL_AHEAD/REMOTE_AHEAD/DIVERGED/REMOTE_MISSING"]
+  E --> F["Classify: NO_CHANGE/LOCAL_AHEAD/REMOTE_AHEAD/DIVERGED/REMOTE_MISSING/LOCAL_MISSING"]
   F --> G{Error or conflict?}
   G -- Yes --> H["Return plan; NO unsafe write"]
   G -- No --> I{Dry-run?}
