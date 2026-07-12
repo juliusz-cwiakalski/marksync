@@ -19,6 +19,16 @@ export type SyncState = (typeof SYNC_STATES)[number];
 /** Zod schema for output-boundary validation (UL binding rule 3). */
 export const SyncStateSchema = z.enum(SYNC_STATES);
 
+/** SyncState values as namespace (for test fixtures and mapping). */
+export const SyncStateValue = {
+	NO_CHANGE: "NO_CHANGE",
+	LOCAL_AHEAD: "LOCAL_AHEAD",
+	REMOTE_AHEAD: "REMOTE_AHEAD",
+	DIVERGED: "DIVERGED",
+	REMOTE_MISSING: "REMOTE_MISSING",
+	LOCAL_MISSING: "LOCAL_MISSING",
+} as const satisfies Record<string, SyncState>;
+
 /** Remote state discriminated union — the adapter-agnostic shape the engine builds. */
 export type RemoteState =
 	| { kind: "present"; bodyHash: string; version: number; title?: string; parentPageId?: string }

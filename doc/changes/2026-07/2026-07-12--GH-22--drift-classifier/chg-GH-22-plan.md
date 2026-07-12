@@ -578,96 +578,96 @@ edge, and the forbidden path are proven by fixtures.
 
 **Tasks**:
 
-- [ ] **2.1** Create `src/domain/state/classifier.ts` (new):
-      - `ClassifyInput` — `{ local?: ContentHash; base?: SharedBase; remote:
-        RemoteState }` (DEC-1 `local?` optional; DEC-5 `base?` optional-lenient).
-      - `classify(input: ClassifyInput): Result<SyncState, MarkSyncError>`:
-        1. If `input.remote.kind === "forbidden"` → return
-           `Result.err({ kind: "Forbidden"; pageId: input.remote.pageId;
-           operation: "read" })` (Q1 — short-circuit before any state).
-        2. If `input.local === undefined` → return `Result.ok(SyncState.
-           LOCAL_MISSING)` (DEC-1; covers TC-STATE-006 **and** TC-EDGE-001 —
-           whether `remote.kind` is `present` or `missing`, absent local ⇒
-           `LOCAL_MISSING` per DEC-6).
-        3. If `input.remote.kind === "missing"` → return
-           `Result.ok(SyncState.REMOTE_MISSING)` (TC-STATE-005; `local` is
-           present here — step 2 already handled absent-local).
-        4. Now `local` present, `remote.kind === "present"`, `base` present
-           (DEC-5 precondition). Compute the change booleans against `base`:
-           - `localChanged = local.canonicalHash !== base.renderedBodyHash
-             || local.parentPageId !== base.parentPageId
-             || local.attachmentHash !== attachmentHash(base.attachmentHashes)
-             || local.title !== remote.title` (PD-3 — title vs remote).
-           - `remoteChanged = remote.bodyHash !== base.renderedBodyHash
-             || remote.parentPageId !== base.parentPageId
-             || (remote.title !== undefined && remote.title !== local.title
-                 && /* title not already counted as localChanged via remote.title
-                       equality — see PD-3 */) ...`
-             — attribute title mismatch to **local** only (PD-3); `remoteChanged`
-             covers body/parent only.
-           - Matrix → `NO_CHANGE` / `LOCAL_AHEAD` / `REMOTE_AHEAD` / `DIVERGED`
-             (truth table rows 1-4).
-        5. Validate the chosen value through `SyncStateSchema.parse(...)` (UL
-           rule 3 — no ad-hoc state string escapes; NFR-10). On the impossible
-           parse failure, throw (invariant violation — not a Result error).
-      - Imports: `#domain/state/sync-state` (`SyncState`, `SyncStateSchema`,
-        type `RemoteState`/`SharedBase`), `#domain/state/hashes` (type
-        `ContentHash`, `attachmentHash`), `#domain/errors` (type `MarkSyncError`),
-        `#domain/result` (`Result`). **No** `#infra/*`/`#app/*`/`#cli/*`.
-        ≤ 3-line header citing ADR-0006 §5.4 + INV-SAFE-1/2 once.
-      - **Exhaustiveness**: the `remote.kind` switch + the
-        `localChanged`/`remoteChanged` boolean matrix must cover every path; use
-        a terminal `assertNever`-style guard (or `_exhaustive: never` on the
-        `remote.kind` default) so adding a future `RemoteState` kind is a compile
-        error.
-- [ ] **2.2** Create `tests/unit/domain/state/classifier.test.ts` (new) —
-      **Unit**, pure fixtures, no mocks. Build small `ContentHash`/`SharedBase`/
-      `RemoteState` helpers (real `buildContentHash` over tiny HASTs; string
-      hashes for `base`/`remote` where the comparison is the point, not the
-      digest). Cover:
-      - **TC-STATE-001 (AC-F3-1 / NFR-6 / NFR-PERF-4):** all three agree on
-        canonical hash + title + parent + attachments → `ok(NO_CHANGE)`.
-      - **TC-STATE-002 (AC-F3-2 / NFR-7):** local changed, remote == base →
-        `ok(LOCAL_AHEAD)`.
-      - **TC-STATE-003 (AC-F3-3 / NFR-2 / INV-SAFE-1):** local == base, remote
-        changed → `ok(REMOTE_AHEAD)`.
-      - **TC-STATE-004 (AC-F3-4 / NFR-2 / INV-SAFE-1):** both changed vs base →
-        `ok(DIVERGED)`.
-      - **TC-STATE-005 (AC-F3-5 / NFR-3 / INV-SAFE-2):** binding present,
-        `remote.kind === "missing"` → `ok(REMOTE_MISSING)`.
-      - **TC-STATE-006 (AC-F3-6 / DEC-1):** binding present, `local` absent →
-        `ok(LOCAL_MISSING)`.
-      - **TC-FORBIDDEN-001 (AC-F4-1 / Q1 / NFR-7):** `remote.kind ===
-        "forbidden"` → `err({ kind: "Forbidden"; pageId; operation: "read" })`;
-        assert it is NOT an `ok(SyncState)`.
-      - **TC-FALSEPOS-001..005 (AC-F2-1 / NFR-4 / NFR-8):** five superficial diffs
-        that the verified GH-20 canonicalizer provably normalizes to identical
-        `canonicalHash` — (001) structural-whitespace text-node count between
-        block siblings (ws-only + `\n`, dropped by `isStructuralWhitespace`);
-        (002) multiple newline-containing ws nodes between blocks collapsed;
-        (003) HTML attribute order (`sortProperties`); (004) raw-HTML node vs
-        text node for the same literal value (`raw`→`text` branch); (005)
-        empty-line count change (structural ws dropped) → each `ok(NO_CHANGE)`.
-        These prove the canonical-comparison basis via the GH-20 delegation —
-        the classifier must NOT consult `rawHash`. Do NOT assert `NO_CHANGE` for
-        internal-whitespace collapse or code-block trimming (GH-20 does not
-        normalize those — they are real changes).
-      - **TC-REALCHG-001..005 (AC-F2-2 / NFR-5):** five genuine content edits
-        (text change, heading add/remove, link URL change, table cell change,
-        code-block language change) → each NOT `NO_CHANGE` (i.e. `LOCAL_AHEAD`).
-      - **TC-METADATA-001 (AC-F5-1 / R1 / PD-3):** body identical but
-        `local.title !== remote.title` → `ok(LOCAL_AHEAD)`.
-      - **TC-METADATA-002 (AC-F5-1 / R1):** body + title identical but
-        `local.parentPageId !== base.parentPageId` → `ok(LOCAL_AHEAD)`.
-      - **TC-EDGE-001 (AC-F6-1 / DEC-6):** `local` absent AND
-        `remote.kind === "missing"` with a binding → `ok(LOCAL_MISSING)`
-        deterministically (not `REMOTE_MISSING`).
-      - **TC-BOUNDARY-001 (NFR-10 / UL rule 3):** `SyncStateSchema.parse(...)`
-        throws on an ad-hoc string (e.g. `"SOMETHING_ELSE"`); accepts each of the
-        six values. (Target-layer per test plan: `classifier.test.ts`.)
-      - _Note:_ the `mapAction(...)` assertions in the TC-STATE steps land in
-        Phase 3 (`actions.test.ts`); this phase asserts the `classify()` return
-        value exhaustively.
+- [x] **2.1** Create `src/domain/state/classifier.ts` (new):
+       - `ClassifyInput` — `{ local?: ContentHash; base?: SharedBase; remote:
+         RemoteState }` (DEC-1 `local?` optional; DEC-5 `base?` optional-lenient).
+       - `classify(input: ClassifyInput): Result<SyncState, MarkSyncError>`:
+         1. If `input.remote.kind === "forbidden"` → return
+            `Result.err({ kind: "Forbidden"; pageId: input.remote.pageId;
+            operation: "read" })` (Q1 — short-circuit before any state). ✓
+         2. If `input.local === undefined` → return `Result.ok(SyncState.
+            LOCAL_MISSING)` (DEC-1; covers TC-STATE-006 **and** TC-EDGE-001 —
+            whether `remote.kind` is `present` or `missing`, absent local ⇒
+            `LOCAL_MISSING` per DEC-6). ✓
+         3. If `input.remote.kind === "missing"` → return
+            `Result.ok(SyncState.REMOTE_MISSING)` (TC-STATE-005; `local` is
+            present here — step 2 already handled absent-local). ✓
+         4. Now `local` present, `remote.kind === "present"`, `base` present
+            (DEC-5 precondition). Compute the change booleans against `base`:
+            - `localChanged = local.canonicalHash !== base.renderedBodyHash
+              || local.parentPageId !== base.parentPageId
+              || local.attachmentHash !== attachmentHash(base.attachmentHashes)
+              || local.title !== remote.title` (PD-3 — title vs remote). ✓
+            - `remoteChanged = remote.bodyHash !== base.renderedBodyHash
+              || remote.parentPageId !== base.parentPageId
+              || (remote.title !== undefined && remote.title !== local.title
+                  && /* title not already counted as localChanged via remote.title
+                        equality — see PD-3 */) ...`
+              — attribute title mismatch to **local** only (PD-3); `remoteChanged`
+              covers body/parent only. ✓
+            - Matrix → `NO_CHANGE` / `LOCAL_AHEAD` / `REMOTE_AHEAD` / `DIVERGED`
+              (truth table rows 1-4). ✓
+         5. Validate the chosen value through `SyncStateSchema.parse(...)` (UL
+            rule 3 — no ad-hoc state string escapes; NFR-10). On the impossible
+            parse failure, throw (invariant violation — not a Result error). ✓
+       - Imports: `#domain/state/sync-state` (`SyncState`, `SyncStateSchema`,
+         type `RemoteState`/`SharedBase`), `#domain/state/hashes` (type
+         `ContentHash`, `attachmentHash`), `#domain/errors` (type `MarkSyncError`),
+         `#domain/result` (`Result`). **No** `#infra/*`/`#app/*`/`#cli/*`.
+         ≤ 3-line header citing ADR-0006 §5.4 + INV-SAFE-1/2 once. ✓
+       - **Exhaustiveness**: the `remote.kind` switch + the
+         `localChanged`/`remoteChanged` boolean matrix must cover every path; use
+         a terminal `assertNever`-style guard (or `_exhaustive: never` on the
+         `remote.kind` default) so adding a future `RemoteState` kind is a compile
+         error. ✓
+- [x] **2.2** Create `tests/unit/domain/state/classifier.test.ts` (new) —
+       **Unit**, pure fixtures, no mocks. Build small `ContentHash`/`SharedBase`/
+       `RemoteState` helpers (real `buildContentHash` over tiny HASTs; string
+       hashes for `base`/`remote` where the comparison is the point, not the
+       digest). Cover:
+       - **TC-STATE-001 (AC-F3-1 / NFR-6 / NFR-PERF-4):** all three agree on
+         canonical hash + title + parent + attachments → `ok(NO_CHANGE)`. ✓
+       - **TC-STATE-002 (AC-F3-2 / NFR-7):** local changed, remote == base →
+         `ok(LOCAL_AHEAD)`. ✓
+       - **TC-STATE-003 (AC-F3-3 / NFR-2 / INV-SAFE-1):** local == base, remote
+         changed → `ok(REMOTE_AHEAD)`. ✓
+       - **TC-STATE-004 (AC-F3-4 / NFR-2 / INV-SAFE-1):** both changed vs base →
+         `ok(DIVERGED)`. ✓
+       - **TC-STATE-005 (AC-F3-5 / NFR-3 / INV-SAFE-2):** binding present,
+         `remote.kind === "missing"` → `ok(REMOTE_MISSING)`. ✓
+       - **TC-STATE-006 (AC-F3-6 / DEC-1):** binding present, `local` absent →
+         `ok(LOCAL_MISSING)`. ✓
+       - **TC-FORBIDDEN-001 (AC-F4-1 / Q1 / NFR-7):** `remote.kind ===
+         "forbidden"` → `err({ kind: "Forbidden"; pageId; operation: "read" })`;
+         assert it is NOT an `ok(SyncState)`. ✓
+       - **TC-FALSEPOS-001..005 (AC-F2-1 / NFR-4 / NFR-8):** five superficial diffs
+         that the verified GH-20 canonicalizer provably normalizes to identical
+         `canonicalHash` — (001) structural-whitespace text-node count between
+         block siblings (ws-only + `\n`, dropped by `isStructuralWhitespace`);
+         (002) multiple newline-containing ws nodes between blocks collapsed;
+         (003) HTML attribute order (`sortProperties`); (004) raw-HTML node vs
+         text node for the same literal value (`raw`→`text` branch); (005)
+         empty-line count change (structural ws dropped) → each `ok(NO_CHANGE)`. ✓
+         These prove the canonical-comparison basis via the GH-20 delegation —
+         the classifier must NOT consult `rawHash`. Do NOT assert `NO_CHANGE` for
+         internal-whitespace collapse or code-block trimming (GH-20 does not
+         normalize those — they are real changes).
+       - **TC-REALCHG-001..005 (AC-F2-2 / NFR-5):** five genuine content edits
+         (text change, heading add/remove, link URL change, table cell change,
+         code-block language change) → each NOT `NO_CHANGE` (i.e. `LOCAL_AHEAD`). ✓
+       - **TC-METADATA-001 (AC-F5-1 / R1 / PD-3):** body identical but
+         `local.title` differs → `ok(LOCAL_AHEAD)`. ✓
+       - **TC-METADATA-002 (AC-F5-1 / R1):** body + title identical but
+         `local.parentPageId !== base.parentPageId` → `ok(LOCAL_AHEAD)`. ✓
+       - **TC-EDGE-001 (AC-F6-1 / DEC-6):** `local` absent AND
+         `remote.kind === "missing"` with a binding → `ok(LOCAL_MISSING)`
+         deterministically (not `REMOTE_MISSING`). ✓
+       - **TC-BOUNDARY-001 (NFR-10 / UL rule 3):** `SyncStateSchema.parse(...)`
+         throws on an ad-hoc string (e.g. `"SOMETHING_ELSE"`); accepts each of the
+         six values. (Target-layer per test plan: `classifier.test.ts`.) ✓
+       - _Note:_ the `mapAction(...)` assertions in the TC-STATE steps land in
+         Phase 3 (`actions.test.ts`); this phase asserts the `classify()` return
+         value exhaustively. ✓
 
 **Acceptance Criteria**:
 
@@ -992,8 +992,9 @@ spec-reconciliation handoff (the final release phase per the plan template).
 | Phase | Status | Started | Completed | Commit | `bun run check` | Notes |
 |-------|--------|---------|-----------|--------|------------------|-------|
 | 0 — branch + baseline gate | ✅ | 2026-07-12 | 2026-07-12 | 4e46387 (docs: add gh-22 planning artifacts) | ✅ 773 tests | Baseline established. Verified all reused contracts: canonicalize, PageBinding, errors.ts (RemoteMissing/Forbidden/Conflict), Result, reconcile.ts, boundary test pattern. |
-| 1 — types + VOs (`sync-state.ts` + `hashes.ts`) | ✅ | 2026-07-12 | 2026-07-12 | [pending] | ✅ 778 tests (+5) | F-2/F-3/F-4; TC-HASH-001/002; canonicalHash delegates to GH-20 (DEC-2/PD-2). SyncState enum + RemoteState union + SharedBase view + ContentHash VO + hash helpers delivered. |
-| 2 — `classify()` core + fixtures | ⏳ | — | — | — | — | F-1/F-6; TC-STATE-001..006 + FORBIDDEN + FALSEPOS×5 + REALCHG×5 + METADATA×2 + EDGE + BOUNDARY |
+| 1 — types + VOs (`sync-state.ts` + `hashes.ts`) | ✅ | 2026-07-12 | 2026-07-12 | 808e13c (feat: sync-state enum + content-hash vo + hash helpers) | ✅ 778 tests (+5) | F-2/F-3/F-4; TC-HASH-001/002; canonicalHash delegates to GH-20 (DEC-2/PD-2). SyncState enum + RemoteState union + SharedBase view + ContentHash VO + hash helpers delivered. |
+| 2 — `classify()` core + fixtures | ✅ | 2026-07-12 | 2026-07-12 | [pending] | ✅ 799 tests (+21) | F-1/F-6; TC-STATE-001..006 + FORBIDDEN + FALSEPOS×5 + REALCHG×5 + METADATA×2 + EDGE + BOUNDARY. classify() three-way classifier + all fixtures delivered. |
+| 3 — `Action` mapping + suite | ⏳ | — | — | — | — | F-5; TC-ACTION-001..006; no new error arms (DEC-3) |
 | 2 — `classify()` core + fixtures | ⏳ | — | — | — | — | F-1/F-6; TC-STATE-001..006 + FORBIDDEN + FALSEPOS×5 + REALCHG×5 + METADATA×2 + EDGE + BOUNDARY |
 | 3 — `Action` mapping + suite | ⏳ | — | — | — | — | F-5; TC-ACTION-001..006; no new error arms (DEC-3) |
 | 4 — boundary negative test | ⏳ | — | — | — | — | AC-F1-1; TC-PURITY-001/002; state-scoped probe (PD-4) |
