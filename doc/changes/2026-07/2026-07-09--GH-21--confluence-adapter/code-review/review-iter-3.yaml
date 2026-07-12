@@ -1,0 +1,109 @@
+version: 1
+iteration: 3
+mode: local
+work_item_ref: GH-21
+branch: feat/GH-21/confluence-adapter
+status: PASS
+summary: >
+  All 13 findings from iterations 1 and 2 are fully resolved. The two MAJORs
+  are closed: AC-F5-1 is reconciled (spec AC, F-5, G-5, DEC-3, NFR-4, artifacts
+  table, and system spec all document hash-naming makes /data unnecessary) and
+  the redaction duplication is eliminated (single source in src/shared/redact.ts,
+  both infra and presentation import from it, no ad-hoc replace calls remain).
+  All 9 ACs pass. Gate is green: 773 pass / 0 fail, depcruiser clean (76 modules,
+  109 deps), tsc --noEmit green. No new correctness, security, or reliability
+  issues. Four non-blocking LOW/INFO plan-hygiene observations remain (orphaned
+  TC-UPD-001 row, unchecked Phase 10 boxes, endpoints-table annotation, stale
+  Phase 5 task text) — all documentation/plan-tracking items addressable by
+  @committer during merge, no code changes needed.
+severity_breakdown:
+  critical: 0
+  high: 0
+  medium: 0
+  low: 2
+  info: 2
+spec_compliance: PASS
+plan_compliance: FAIL
+findings:
+  - id: F-1
+    severity: low
+    confidence: high
+    category: plan-compliance
+    location: chg-GH-21-plan.md:1216
+    message: >
+      Plan Test Scenarios table still has an orphaned TC-UPD-001 row claiming
+      "changed bytes -> /data update bumps version" linked to AC-F5-1. The test
+      was removed in iter-1 remediation (commit 91363a5) and Phase 10 task 10.1
+      explicitly called for dropping or repurposing this row, but it was not done.
+      The TC-UPD-001 test no longer exists in the test file.
+    suggestion: >
+      Drop the TC-UPD-001 row from the Test Scenarios table, or repurpose it to
+      an idempotent-rerun case ("second upload of same hash -> 0 writes") per
+      task 10.1's optional suggestion.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-2
+    severity: low
+    confidence: high
+    category: plan-compliance
+    location: chg-GH-21-plan.md:1276
+    message: >
+      Phase 10 execution log shows PENDING and all 6 task checkboxes are
+      unchecked, despite the remediation being fully executed (commits 73e52ae +
+      eacb7fa). No revision log entry (1.5) was added for the iter-2 remediation
+      execution. The code and spec changes are correct; only the plan tracking
+      is stale.
+    suggestion: >
+      Check all 6 Phase 10 task boxes, update the execution log row to
+      status=PASS with commit=73e52ae, and append a revision log entry (1.5)
+      documenting the iter-2 remediation execution.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-3
+    severity: info
+    confidence: high
+    category: documentation
+    location: chg-GH-21-spec.md:246
+    message: >
+      Spec endpoints table (section 8.1) still lists "Attachment update | POST
+      .../data | v1-only; version bump (H4)" without annotating that the adapter
+      does not use this endpoint. The table header says "the adapter consumes
+      these endpoints," which is slightly misleading for this row. All narrative
+      sections (AC-F5-1, F-5, DEC-3, NFR-4, artifacts table) and the system spec
+      are fully reconciled.
+    suggestion: >
+      Annotate the endpoints table row with "not used by adapter (hash-naming
+      makes /data unnecessary)" or move it to a footnote documenting the
+      spike-validated API surface separately.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-4
+    severity: info
+    confidence: high
+    category: documentation
+    location: chg-GH-21-plan.md:832
+    message: >
+      Plan Phase 5 task description (line 832) and acceptance criteria (line 842)
+      still reference /data update as a deliverable. These are historical text
+      from the original plan, not updated to reflect the option-c decision. The
+      Phase 9 and 10 revision logs document the change, so the rationale is
+      traceable.
+    suggestion: >
+      Optionally update the Phase 5 task text to note the option-c supersession,
+      or leave as historical with a forward-reference to Phase 9.1.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+reviewed_at: 2026-07-12T00:00:00Z
+next_step: PROCEED
