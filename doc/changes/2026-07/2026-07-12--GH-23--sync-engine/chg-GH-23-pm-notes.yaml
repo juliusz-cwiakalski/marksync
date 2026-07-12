@@ -1,0 +1,68 @@
+change_id: GH-23
+title: "[MS2-E3-S6] Sync engine (plan → apply → verify)"
+story_file: doc/planning/milestones/MS-2/MS2-E3--safe-publish-core/MS2-E3-S6--sync-engine.md
+branch: feat/GH-23/sync-engine
+phases:
+  clarify_scope: { started: 2026-07-12, completed: 2026-07-12 }
+  specification: { started: 2026-07-12, completed: 2026-07-12 }
+  test_planning: { started: 2026-07-12, completed: 2026-07-12 }
+  delivery_planning: { started: 2026-07-12, completed: 2026-07-12 }
+  dor_check: { started: 2026-07-12, completed: null }
+  delivery: { started: null, completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+
+decisions:
+  - text: >
+      Git adapter / document-source port is owned by GH-23. No prior story
+      delivered src/infra/git/ or a Repository port (TDR-0003 defines the
+      decision but no backlog story implements it). The engine's "discover docs
+      via git port readCommitted" deliverable therefore requires GH-23 to
+      (a) define the document-source abstraction the engine consumes and
+      (b) provide a minimal shell-git (or filesystem-backed) implementation.
+      This stays within architecture (infra git adapter behind a domain-owned
+      port) and does not expand functional scope — it is the implementation of
+      an already-owned deliverable, not new functionality.
+    date: 2026-07-12
+  - text: >
+      MS2-E1-S2 (version.message limit spike, GH-12) is OPEN but de-risked for
+      GH-23. The provenance formatter (src/infra/confluence/provenance.ts,
+      delivered GH-21) uses a conservative MAX_VERSION_MESSAGE_LEN = 255.
+      ADR-0010 §"Unresolved Questions" states "No MS-0002 flow depends on the
+      exact value"; exact limit is an E5-S1 live-smoke concern. GH-23 wires the
+      existing formatter; it does NOT depend on the spike completing.
+    date: 2026-07-12
+  - text: >
+      Provenance format: use the EXISTING formatVersionMessage (GH-21) which
+      produces "marksync git <head> (<count>): <subjects>" trimmed to 255. The
+      story AC text ("marksync:squash commit=<sha> ...") predates implementation;
+      the shipped formatter is the current truth. The engine passes the formatted
+      string as the `message` field on createPage/updatePage requests (the port
+      already accepts message?). Do not reimplement provenance here.
+    date: 2026-07-12
+
+open_questions: []
+
+blockers: []
+
+notes:
+  - text: >
+      Intake: GH-23 OPEN, priority:critical, no existing branch/PR. State =
+      new delivery (full 11-phase). All E3-S1..S5 code deps delivered & merged
+      (GH-18/19/20/21/22). Parked GH-22 (PR #57 open, awaiting review) per
+      explicit user request to deliver GH-23.
+    type: info
+    workItemRef: GH-23
+    date: 2026-07-12
+  - text: >
+      clarify_scope cross-checked story file + feature-safe-publish spec +
+      architecture-overview + ADR-0010 + existing src/ contracts (TargetSystem
+      port, classifier, actions, lock, reconcile, provenance, CommandResult).
+      Requirements complete & testable; no human-blocking gap. Key design points
+      captured in `decisions` above for spec-writer/plan-writer.
+    type: info
+    workItemRef: GH-23
+    date: 2026-07-12
