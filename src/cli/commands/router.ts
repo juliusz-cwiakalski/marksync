@@ -184,26 +184,26 @@ export function buildCommand(): CommandRouter {
 			capture("init", flags as GlobalCommandFlags, await initCommand());
 		})
 		.command("plan", "Compute a sync plan from the local corpus.")
-		.action((flags) => {
-			capture("plan", flags as GlobalCommandFlags, planCommand());
+		.action(async (flags) => {
+			capture("plan", flags as GlobalCommandFlags, await planCommand());
 		})
 		.command("sync", "Apply a sync plan to the remote Confluence space.")
-		.action((flags) => {
-			capture("sync", flags as GlobalCommandFlags, syncCommand());
+		.action(async (flags) => {
+			capture("sync", flags as GlobalCommandFlags, await syncCommand());
 		})
 		.command("doctor", "Run health checks against the local corpus and config.")
-		.action((flags) => {
-			capture("doctor", flags as GlobalCommandFlags, doctorCommand());
+		.action(async (flags) => {
+			capture("doctor", flags as GlobalCommandFlags, await doctorCommand());
 		})
 		.command(
 			"repair-state",
 			"Repair the committed versioned lock after drift or interruption.",
 		)
-		.action((flags) => {
+		.action(async (flags) => {
 			capture(
 				"repair-state",
 				flags as GlobalCommandFlags,
-				repairStateCommand(),
+				await repairStateCommand(),
 			);
 		});
 
