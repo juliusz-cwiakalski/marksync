@@ -1,21 +1,87 @@
 // src/cli/commands/sync.ts
 //
-// `marksync sync` command handler — STUB (GH-16 D-8 / F-8). Real sync logic is
-// out of scope (NG-1 — it lands in a later story). This stub returns a
-// placeholder `CommandResult` so the framework wires end-to-end (AC-2).
-//
-// Tier rule: presentation. Imports only `#cli/output` (same tier) — no
-// `#domain/*` / `#infra/*` (DEC-1 / dep-cruiser). The handler NEVER calls
-// `process.exit` directly — the entrypoint does.
+// `marksync sync` command handler — thin shell calling applyPlan
+// (MS2-E3-S6 Phase 7). Returns CommandResult<ApplyReport> via ok() / err().
 
 import type { CommandResult } from "#cli/output";
-import { err } from "#cli/output";
+import { err, ok } from "#cli/output";
+import { cwd } from "node:process";
+import { loadConfig } from "#app/config";
+import { loadLock } from "#app/lock";
+import { resolveCacheDir } from "#app/cache";
+import { resolveCredentials } from "#app/credentials";
+import { createRepository, createTarget } from "#app/ports";
+import { mapMarkSyncErrorToCommandError } from "#cli/error-map";
+import { computePlan, applyPlan, type ApplyReport } from "#app/push-flow";
 
 /**
- * Run `marksync sync`. **Stub** — returns a placeholder error result until the
- * real sync logic lands. The `INTERNAL` code → exit 99 via `codeToExitCode`
- * (set by the `err` factory — DEC-2).
+ * Run `marksync sync`. Calls computePlan + applyPlan and returns CommandResult<ApplyReport>.
  */
-export function syncCommand(): CommandResult<never> {
-	return err("INTERNAL", "sync is not yet implemented (MS2-E3)", false);
+export async function syncCommand(): Promise<CommandResult<ApplyReport>> {
+	const currentCwd = cwd();
+
+	// 1. Load config
+	const configResult = loadConfig(currentCwd);
+	if (!configResult.ok) {
+		const mapped = mapMarkSyncErrorToCommandError(configResult.error);
+		return err(mapped.code, mapped.message, mapped.retryable);
+	}
+	const config = configResult.value;
+
+	// 2. Load lock
+	const lockResult = loadLock(currentCwd);
+	if (!lockResult.ok) {
+		const mapped = mapMarkSyncErrorToCommandError(lockResult.error);
+		return err(mapped.code, mapped.message, mapped.retryable);
+	}
+	const lock = lockResult.value;
+
+	// 3. Resolve cache dir (pure function, always succeeds)
+	const cacheDir = resolveCacheDir(currentCwd);
+
+	// 4. Resolve credentials
+	const credsResult = resolveCredentials();
+	if (!credsResult.ok) {
+		const mapped = mapMarkSyncErrorToCommandError(credsResult.error);
+		return err(mapped.code, mapped.message, mapped.retryable);
+	}
+	const creds = credsResult.value;
+
+	// 5. Create Repository (shell-git via app-tier factory)
+	const git = createRepository(currentCwd);
+
+	// 6. Create TargetSystem (ConfluenceTarget via app-tier factory)
+	// Use the default target config
+	const targetConfig = config.targets.default;
+	if (!targetConfig) {
+		return err(
+			"INVALID_CONFIG",
+			"no default target configured in marksync.yml",
+			false,
+		);
+	}
+	const target = createTarget(creds, targetConfig.spaceKey);
+
+	// 7. Compute plan. Throws (e.g. git host invariants) propagate to runCli's
+	// catch-all, which maps them to INTERNAL / exit 99.
+	const planResult = await computePlan(config, lock, git, target);
+	if (!planResult.ok) {
+		const mapped = mapMarkSyncErrorToCommandError(planResult.error);
+		return err(mapped.code, mapped.message, mapped.retryable);
+	}
+	const plan = planResult.value;
+
+	// 8. Apply plan. Throws propagate to runCli's catch-all (INTERNAL / exit 99).
+	const applyResult = await applyPlan(plan, target, lock, {
+		cwd: currentCwd,
+		cacheDir,
+		targetId: "default",
+	});
+	if (!applyResult.ok) {
+		const mapped = mapMarkSyncErrorToCommandError(applyResult.error);
+		return err(mapped.code, mapped.message, mapped.retryable);
+	}
+
+	// 9. Return success
+	return ok(applyResult.value);
 }

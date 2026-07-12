@@ -7,7 +7,8 @@
 //
 // Asserts:
 //   - a valid command + --json emits parseable snake_case JSON (AC-2);
-//   - exit codes match the mapped code (stub INTERNAL → 99; USAGE → 2);
+//   - exit codes match the mapped code (plan/sync INVALID_CONFIG → 10 in a
+//     no-config cwd; doctor/repair-state stub INTERNAL → 99; USAGE → 2);
 //   - redaction flows through the entrypoint (INV-SEC-1);
 //   - human format routes errors to stderr.
 
@@ -43,25 +44,41 @@ function newStreams(): {
 }
 
 describe("runCli — valid command + --json emits parseable JSON (AC-2)", () => {
-	test("plan --json → valid snake_case JSON on stdout, exit 99", async () => {
+	test("plan --json → valid snake_case JSON envelope on stdout (INVALID_CONFIG, exit 10)", async () => {
 		const s = newStreams();
 		const exit = await runCli(["plan", "--json"], {
 			stdout: s.stdout_w,
 			stderr: s.stderr_w,
 		});
-		expect(exit).toBe(99);
+		expect(exit).toBe(10);
 		expect(s.stderr.joined()).toBe("");
 		const parsed = JSON.parse(s.stdout.joined()) as Record<string, unknown>;
 		expect(parsed.schema_version).toBe(1);
-		expect(parsed.exit_code).toBe(99);
+		expect(parsed.exit_code).toBe(10);
 		const error = parsed.error as Record<string, unknown>;
-		expect(error.code).toBe("INTERNAL");
+		expect(error.code).toBe("INVALID_CONFIG");
 		expect(typeof error.message).toBe("string");
 		expect(error.retryable).toBe(false);
 	});
 
-	test("every stub under --json produces valid JSON", async () => {
-		for (const cmd of ["plan", "sync", "doctor", "repair-state"]) {
+	test("wired commands (plan/sync) under --json produce valid JSON envelope", async () => {
+		for (const cmd of ["plan", "sync"]) {
+			const s = newStreams();
+			const exit = await runCli([cmd, "--json"], {
+				stdout: s.stdout_w,
+				stderr: s.stderr_w,
+			});
+			expect(exit).toBe(10);
+			const parsed = JSON.parse(s.stdout.joined()) as Record<string, unknown>;
+			expect(parsed.schema_version).toBe(1);
+			expect((parsed.error as Record<string, unknown>).code).toBe(
+				"INVALID_CONFIG",
+			);
+		}
+	});
+
+	test("stub commands (doctor/repair-state) under --json still produce valid JSON envelope", async () => {
+		for (const cmd of ["doctor", "repair-state"]) {
 			const s = newStreams();
 			const exit = await runCli([cmd, "--json"], {
 				stdout: s.stdout_w,
@@ -115,9 +132,9 @@ describe("runCli — human format routing", () => {
 			stdout: s.stdout_w,
 			stderr: s.stderr_w,
 		});
-		expect(exit).toBe(99);
+		expect(exit).toBe(10);
 		// Human error → stderr (not stdout).
-		expect(s.stderr.joined()).toContain("INTERNAL");
+		expect(s.stderr.joined()).toContain("INVALID_CONFIG");
 		expect(s.stdout.joined()).toBe("");
 	});
 
@@ -127,10 +144,10 @@ describe("runCli — human format routing", () => {
 			stdout: s.stdout_w,
 			stderr: s.stderr_w,
 		});
-		expect(exit).toBe(99);
+		expect(exit).toBe(10);
 		// JSON still emitted on stdout even under --quiet.
 		const parsed = JSON.parse(s.stdout.joined()) as Record<string, unknown>;
-		expect(parsed.exit_code).toBe(99);
+		expect(parsed.exit_code).toBe(10);
 	});
 });
 

@@ -1,23 +1,71 @@
 // src/cli/commands/plan.ts
 //
-// `marksync plan` command handler — STUB (GH-16 D-8 / F-8). Real plan logic is
-// out of scope (NG-1 — it lands in MS2-E3). This stub returns a placeholder
-// `CommandResult` so the framework wires end-to-end: every subcommand produces
-// a valid `CommandResult` and therefore valid JSON under `--json` (AC-2).
-//
-// Tier rule: presentation. Imports only `#cli/output` (same tier) — no
-// `#domain/*` / `#infra/*` (DEC-1 / dep-cruiser). The handler NEVER calls
-// `process.exit` directly — the entrypoint does (story technical-approach
-// §"Exit-code mapping centralized").
+// `marksync plan` command handler — thin shell calling computePlan
+// (MS2-E3-S6 Phase 7). Returns CommandResult<Plan> via ok() / err().
 
 import type { CommandResult } from "#cli/output";
-import { err } from "#cli/output";
+import { err, ok } from "#cli/output";
+import { cwd } from "node:process";
+import { loadConfig } from "#app/config";
+import { loadLock } from "#app/lock";
+import { resolveCredentials } from "#app/credentials";
+import { createRepository, createTarget } from "#app/ports";
+import { mapMarkSyncErrorToCommandError } from "#cli/error-map";
+import { computePlan, type Plan } from "#app/push-flow";
 
 /**
- * Run `marksync plan`. **Stub** — returns a placeholder error result until the
- * real plan logic lands (MS2-E3). The `INTERNAL` code → exit 99 via
- * `codeToExitCode("INTERNAL")` (set by the `err` factory — DEC-2).
+ * Run `marksync plan`. Calls computePlan and returns CommandResult<Plan>.
  */
-export function planCommand(): CommandResult<never> {
-	return err("INTERNAL", "plan is not yet implemented (MS2-E3)", false);
+export async function planCommand(): Promise<CommandResult<Plan>> {
+	const currentCwd = cwd();
+
+	// 1. Load config
+	const configResult = loadConfig(currentCwd);
+	if (!configResult.ok) {
+		const mapped = mapMarkSyncErrorToCommandError(configResult.error);
+		return err(mapped.code, mapped.message, mapped.retryable);
+	}
+	const config = configResult.value;
+
+	// 2. Load lock
+	const lockResult = loadLock(currentCwd);
+	if (!lockResult.ok) {
+		const mapped = mapMarkSyncErrorToCommandError(lockResult.error);
+		return err(mapped.code, mapped.message, mapped.retryable);
+	}
+	const lock = lockResult.value;
+
+	// 4. Resolve credentials
+	const credsResult = resolveCredentials();
+	if (!credsResult.ok) {
+		const mapped = mapMarkSyncErrorToCommandError(credsResult.error);
+		return err(mapped.code, mapped.message, mapped.retryable);
+	}
+	const creds = credsResult.value;
+
+	// 5. Create Repository (shell-git via app-tier factory)
+	const git = createRepository(currentCwd);
+
+	// 6. Create TargetSystem (ConfluenceTarget via app-tier factory)
+	// Use the default target config
+	const targetConfig = config.targets.default;
+	if (!targetConfig) {
+		return err(
+			"INVALID_CONFIG",
+			"no default target configured in marksync.yml",
+			false,
+		);
+	}
+	const target = createTarget(creds, targetConfig.spaceKey);
+
+	// 7. Compute plan. Throws (e.g. git host invariants) propagate to runCli's
+	// catch-all, which maps them to INTERNAL / exit 99.
+	const planResult = await computePlan(config, lock, git, target);
+	if (!planResult.ok) {
+		const mapped = mapMarkSyncErrorToCommandError(planResult.error);
+		return err(mapped.code, mapped.message, mapped.retryable);
+	}
+
+	// 8. Return success
+	return ok(planResult.value);
 }

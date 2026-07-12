@@ -21,7 +21,8 @@
 		"#infra/*": "./src/infra/*.ts",
 		"#shared/*": "./src/shared/*.ts",
 		"#cli/output": "./src/cli/output/index.ts",
-		"#cli/*": "./src/cli/*.ts"
+		"#cli/*": "./src/cli/*.ts",
+		"#tests/_helpers/*": "./tests/_helpers/*.ts"
 	},
 	"scripts": {
 		"lint": "biome lint .",
