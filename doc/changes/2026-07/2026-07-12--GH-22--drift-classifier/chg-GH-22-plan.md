@@ -727,55 +727,55 @@ document identity (`uuid`).
 
 **Tasks**:
 
-- [ ] **3.1** Create `src/domain/state/actions.ts` (new):
-      - `Action` — discriminated union:
-        `{ kind: "NoOp"; uuid: DocumentId }` |
-        `{ kind: "Update"; uuid: DocumentId }` |
-        `{ kind: "Block"; uuid: DocumentId; error: MarkSyncError }` |
-        `{ kind: "Skip"; uuid: DocumentId; reason: "LOCAL_MISSING" }`.
-        (Every arm carries `uuid` from `base.uuid` — the document identity;
-        `Block` carries the typed `MarkSyncError`; `Skip` carries the reason.)
-      - `ActionContext` — `{ base: SharedBase; remote: RemoteState }` (PD-5).
-      - `actionFor(state: SyncState, ctx: ActionContext): Action`:
-        - `NO_CHANGE` → `{ kind: "NoOp"; uuid: ctx.base.uuid }`.
-        - `LOCAL_AHEAD` → `{ kind: "Update"; uuid: ctx.base.uuid }`.
-        - `REMOTE_AHEAD` / `DIVERGED` → `{ kind: "Block"; uuid: ctx.base.uuid;
-          error: { kind: "Conflict"; pageId: ctx.base.pageId; baseVersion:
-          ctx.base.pageVersion; remoteVersion: ctx.remote.kind === "present" ?
-          ctx.remote.version : ctx.base.pageVersion } }`. (For these states
-          `remote` is `present`; the guard is defensive.)
-        - `REMOTE_MISSING` → `{ kind: "Block"; uuid: ctx.base.uuid; error:
-          { kind: "RemoteMissing"; pageId: ctx.base.pageId } }`.
-        - `LOCAL_MISSING` → `{ kind: "Skip"; uuid: ctx.base.uuid; reason:
-          "LOCAL_MISSING" }`.
-        - Exhaustive switch with a terminal `never` guard (a future `SyncState`
-          value is a compile error — UL rule 3 keeps the enum closed).
-      - Imports: `#domain/state/sync-state` (`SyncState`, type `SharedBase`/
-        `RemoteState`), `#domain/identity/document-id` (type `DocumentId`),
-        `#domain/errors` (type `MarkSyncError`). **No** `#infra/*`/`#app/*`/
-        `#cli/*`. ≤ 3-line header citing ADR-0006 / INV-SAFE-1/2 once.
-- [ ] **3.2** Create `tests/unit/domain/state/actions.test.ts` (new) — **Unit**,
-      no mocks. Build a `SharedBase` + `RemoteState.present` fixture carrying
-      known `pageId`/`pageVersion`/`version`. Cover:
-      - **TC-ACTION-001 (F-5 / DM-5):** `actionFor(NO_CHANGE, ctx)` →
-        `{ kind: "NoOp"; uuid }`.
-      - **TC-ACTION-002 (F-5):** `actionFor(LOCAL_AHEAD, ctx)` →
-        `{ kind: "Update"; uuid }`.
-      - **TC-ACTION-003 (F-5 / NFR-2 / INV-SAFE-1):** `actionFor(REMOTE_AHEAD,
-        ctx)` → `{ kind: "Block"; uuid; error: { kind: "Conflict"; pageId;
-        baseVersion; remoteVersion } }` with the exact `pageId` from
-        `base.pageId`, `baseVersion` from `base.pageVersion`, `remoteVersion`
-        from `remote.version`.
-      - **TC-ACTION-004 (F-5 / NFR-2):** `actionFor(DIVERGED, ctx)` →
-        `Block(Conflict)` with the same field provenance.
-      - **TC-ACTION-005 (F-5 / NFR-3 / INV-SAFE-2):** `actionFor(REMOTE_MISSING,
-        ctx)` → `{ kind: "Block"; uuid; error: { kind: "RemoteMissing"; pageId }
-        }` with `pageId` from `base.pageId`. Assert the action carries NO write
-        operation (the engine honors the block; never re-creates).
-      - **TC-ACTION-006 (F-5):** `actionFor(LOCAL_MISSING, ctx)` →
-        `{ kind: "Skip"; uuid; reason: "LOCAL_MISSING" }`.
-      - **DEC-3 spot-check:** assert every `Block.error.kind` is one of
-        `Conflict`/`RemoteMissing` (no new kind is produced).
+- [x] **3.1** Create `src/domain/state/actions.ts` (new):
+       - `Action` — discriminated union:
+         `{ kind: "NoOp"; uuid: DocumentId }` |
+         `{ kind: "Update"; uuid: DocumentId }` |
+         `{ kind: "Block"; uuid: DocumentId; error: MarkSyncError }` |
+         `{ kind: "Skip"; uuid: DocumentId; reason: "LOCAL_MISSING" }`.
+         (Every arm carries `uuid` from `base.uuid` — the document identity;
+         `Block` carries the typed `MarkSyncError`; `Skip` carries the reason.) ✓
+       - `ActionContext` — `{ base: SharedBase; remote: RemoteState }` (PD-5). ✓
+       - `actionFor(state: SyncState, ctx: ActionContext): Action`:
+         - `NO_CHANGE` → `{ kind: "NoOp"; uuid: ctx.base.uuid }`. ✓
+         - `LOCAL_AHEAD` → `{ kind: "Update"; uuid: ctx.base.uuid }`. ✓
+         - `REMOTE_AHEAD` / `DIVERGED` → `{ kind: "Block"; uuid: ctx.base.uuid;
+           error: { kind: "Conflict"; pageId: ctx.base.pageId; baseVersion:
+           ctx.base.pageVersion; remoteVersion: ctx.remote.kind === "present" ?
+           ctx.remote.version : ctx.base.pageVersion } }`. (For these states
+           `remote` is `present`; the guard is defensive.) ✓
+         - `REMOTE_MISSING` → `{ kind: "Block"; uuid: ctx.base.uuid; error:
+           { kind: "RemoteMissing"; pageId: ctx.base.pageId } }`. ✓
+         - `LOCAL_MISSING` → `{ kind: "Skip"; uuid: ctx.base.uuid; reason:
+           "LOCAL_MISSING" }`. ✓
+         - Exhaustive switch with a terminal `never` guard (a future `SyncState`
+           value is a compile error — UL rule 3 keeps the enum closed). ✓
+       - Imports: `#domain/state/sync-state` (`SyncState`, type `SharedBase`/
+         `RemoteState`), `#domain/identity/document-id` (type `DocumentId`),
+         `#domain/errors` (type `MarkSyncError`). **No** `#infra/*`/`#app/*`/
+         `#cli/*`. ≤ 3-line header citing ADR-0006 / INV-SAFE-1/2 once. ✓
+- [x] **3.2** Create `tests/unit/domain/state/actions.test.ts` (new) — **Unit**,
+       no mocks. Build a `SharedBase` + `RemoteState.present` fixture carrying
+       known `pageId`/`pageVersion`/`version`. Cover:
+       - **TC-ACTION-001 (F-5 / DM-5):** `actionFor(NO_CHANGE, ctx)` →
+         `{ kind: "NoOp"; uuid }`. ✓
+       - **TC-ACTION-002 (F-5):** `actionFor(LOCAL_AHEAD, ctx)` →
+         `{ kind: "Update"; uuid }`. ✓
+       - **TC-ACTION-003 (F-5 / NFR-2 / INV-SAFE-1):** `actionFor(REMOTE_AHEAD,
+         ctx)` → `{ kind: "Block"; uuid; error: { kind: "Conflict"; pageId;
+         baseVersion; remoteVersion } }` with the exact `pageId` from
+         `base.pageId`, `baseVersion` from `base.pageVersion`, `remoteVersion`
+         from `remote.version`. ✓
+       - **TC-ACTION-004 (F-5 / NFR-2):** `actionFor(DIVERGED, ctx)` →
+         `Block(Conflict)` with the same field provenance. ✓
+       - **TC-ACTION-005 (F-5 / NFR-3 / INV-SAFE-2):** `actionFor(REMOTE_MISSING,
+         ctx)` → `{ kind: "Block"; uuid; error: { kind: "RemoteMissing"; pageId }
+         }` with `pageId` from `base.pageId`. Assert the action carries NO write
+         operation (the engine honors the block; never re-creates). ✓
+       - **TC-ACTION-006 (F-5):** `actionFor(LOCAL_MISSING, ctx)` →
+         `{ kind: "Skip"; uuid; reason: "LOCAL_MISSING" }`. ✓
+       - **DEC-3 spot-check:** assert every `Block.error.kind` is one of
+         `Conflict`/`RemoteMissing` (no new kind is produced). ✓
 
 **Acceptance Criteria**:
 
@@ -993,8 +993,9 @@ spec-reconciliation handoff (the final release phase per the plan template).
 |-------|--------|---------|-----------|--------|------------------|-------|
 | 0 — branch + baseline gate | ✅ | 2026-07-12 | 2026-07-12 | 4e46387 (docs: add gh-22 planning artifacts) | ✅ 773 tests | Baseline established. Verified all reused contracts: canonicalize, PageBinding, errors.ts (RemoteMissing/Forbidden/Conflict), Result, reconcile.ts, boundary test pattern. |
 | 1 — types + VOs (`sync-state.ts` + `hashes.ts`) | ✅ | 2026-07-12 | 2026-07-12 | 808e13c (feat: sync-state enum + content-hash vo + hash helpers) | ✅ 778 tests (+5) | F-2/F-3/F-4; TC-HASH-001/002; canonicalHash delegates to GH-20 (DEC-2/PD-2). SyncState enum + RemoteState union + SharedBase view + ContentHash VO + hash helpers delivered. |
-| 2 — `classify()` core + fixtures | ✅ | 2026-07-12 | 2026-07-12 | [pending] | ✅ 799 tests (+21) | F-1/F-6; TC-STATE-001..006 + FORBIDDEN + FALSEPOS×5 + REALCHG×5 + METADATA×2 + EDGE + BOUNDARY. classify() three-way classifier + all fixtures delivered. |
-| 3 — `Action` mapping + suite | ⏳ | — | — | — | — | F-5; TC-ACTION-001..006; no new error arms (DEC-3) |
+| 2 — `classify()` core + fixtures | ✅ | 2026-07-12 | 2026-07-12 | e5d74c4 (feat: classify() three-way drift classifier + fixtures) | ✅ 799 tests (+21) | F-1/F-6; TC-STATE-001..006 + FORBIDDEN + FALSEPOS×5 + REALCHG×5 + METADATA×2 + EDGE + BOUNDARY. classify() three-way classifier + all fixtures delivered. |
+| 3 — `Action` mapping + suite | ✅ | 2026-07-12 | 2026-07-12 | [pending] | ✅ 806 tests (+7) | F-5; TC-ACTION-001..006; no new error arms (DEC-3). SyncState → Action mapping + action suite delivered. errors.ts untouched (verified). |
+| 4 — boundary negative test | ⏳ | — | — | — | — | AC-F1-1; TC-PURITY-001/002; state-scoped probe (PD-4) |
 | 2 — `classify()` core + fixtures | ⏳ | — | — | — | — | F-1/F-6; TC-STATE-001..006 + FORBIDDEN + FALSEPOS×5 + REALCHG×5 + METADATA×2 + EDGE + BOUNDARY |
 | 3 — `Action` mapping + suite | ⏳ | — | — | — | — | F-5; TC-ACTION-001..006; no new error arms (DEC-3) |
 | 4 — boundary negative test | ⏳ | — | — | — | — | AC-F1-1; TC-PURITY-001/002; state-scoped probe (PD-4) |
