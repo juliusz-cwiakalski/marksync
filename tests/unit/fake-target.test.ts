@@ -5,7 +5,7 @@
 // fake clears the per-file coverage threshold (GH-23 MS2-E3-S6).
 
 import { describe, expect, test } from "bun:test";
-import { FakeTarget } from "./fake-target";
+import { FakeTarget } from "#tests/_helpers/fake-target";
 
 describe("FakeTarget — stub defaults for uncovered TargetSystem methods", () => {
 	test("createPage succeeds, stores the page, and bumps the write counter", async () => {

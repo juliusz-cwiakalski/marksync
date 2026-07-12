@@ -5,7 +5,10 @@
 // threshold (GH-23 MS2-E3-S6).
 
 import { describe, expect, test } from "bun:test";
-import { FakeRepository, matchesPattern } from "./fake-repository";
+import {
+	FakeRepository,
+	matchesPattern,
+} from "#tests/_helpers/fake-repository";
 
 describe("FakeRepository — stub defaults for Repository methods", () => {
 	test("constructor wires headSha/branch/subjects and round-trips files", () => {
