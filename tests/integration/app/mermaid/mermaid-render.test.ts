@@ -44,9 +44,7 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 
 /** Stub renderer returning deterministic fixed SVG for every source. */
 class StubRenderer implements Renderer {
-	async render(
-		_source: string,
-	): Promise<Result<Artifact, MarkSyncError>> {
+	async render(_source: string): Promise<Result<Artifact, MarkSyncError>> {
 		const hash = await sha256Hex(SVG);
 		return Res.ok({ bytes: SVG, mime: "image/svg+xml", hash, kind: "mermaid" });
 	}
@@ -54,9 +52,7 @@ class StubRenderer implements Renderer {
 
 /** Stub renderer that fails for sources containing "FAIL". */
 class SelectiveRenderer implements Renderer {
-	async render(
-		source: string,
-	): Promise<Result<Artifact, MarkSyncError>> {
+	async render(source: string): Promise<Result<Artifact, MarkSyncError>> {
 		if (source.includes("FAIL")) {
 			return Res.err({
 				kind: "RemoteUnreachable",
@@ -69,7 +65,9 @@ class SelectiveRenderer implements Renderer {
 	}
 }
 
-function baseConfig(policy: "render" | "code" | "skip" = "render"): ProjectConfig {
+function baseConfig(
+	policy: "render" | "code" | "skip" = "render",
+): ProjectConfig {
 	return {
 		version: 1,
 		root: ".",
@@ -136,15 +134,13 @@ function makeTarget(): TargetSystem & {
 		_existsCalls: typeof existsCalls;
 		_uploadedHashes: typeof uploadedHashes;
 	} = {
-		renderBody(hast: Root, opts: RenderBodyOptions): Result<
-			RenderedBody,
-			MarkSyncError
-		> {
+		renderBody(
+			hast: Root,
+			opts: RenderBodyOptions,
+		): Result<RenderedBody, MarkSyncError> {
 			return renderStorage(hast, opts);
 		},
-		async getPage(
-			id: string,
-		): Promise<Result<Page, MarkSyncError>> {
+		async getPage(id: string): Promise<Result<Page, MarkSyncError>> {
 			return Res.ok({ id, title: "Mermaid Doc", version: 1 });
 		},
 		async createPage(
@@ -161,7 +157,9 @@ function makeTarget(): TargetSystem & {
 		): Promise<Result<Page, MarkSyncError>> {
 			return Res.ok({ id: req.pageId, title: req.title, version: 2 });
 		},
-		async movePage(_req: MovePageRequest): Promise<Result<Page, MarkSyncError>> {
+		async movePage(
+			_req: MovePageRequest,
+		): Promise<Result<Page, MarkSyncError>> {
 			return Res.err({ kind: "Forbidden", pageId: "", operation: "move" });
 		},
 		async getProperty(
@@ -220,7 +218,9 @@ function makeTarget(): TargetSystem & {
 
 describe("TC-MERM-001 render activation (AC-1 / F-1 / F-2 / F-3)", () => {
 	test("mermaid fence → <ac:image><ri:attachment> with full-hash filename + 1 artifact", async () => {
-		const git = new FakeRepository({ files: { "doc.md": mermaidDoc("graph TD\nA-->B") } });
+		const git = new FakeRepository({
+			files: { "doc.md": mermaidDoc("graph TD\nA-->B") },
+		});
 		const target = makeTarget();
 		const renderer = new StubRenderer();
 
@@ -254,7 +254,9 @@ describe("TC-MERM-001 render activation (AC-1 / F-1 / F-2 / F-3)", () => {
 	test("uploadAssets uploads the mermaid artifact exactly once (exists=false)", async () => {
 		const target = makeTarget();
 		const renderer = new StubRenderer();
-		const git = new FakeRepository({ files: { "doc.md": mermaidDoc("graph TD\nA-->B") } });
+		const git = new FakeRepository({
+			files: { "doc.md": mermaidDoc("graph TD\nA-->B") },
+		});
 
 		const planResult = await computePlan(
 			baseConfig("render"),
@@ -278,7 +280,9 @@ describe("TC-MERM-003 attachment reuse (AC-2 / F-4 / NFR-PERF-4)", () => {
 	test("first uploadAssets → 1 upload; second with exists=true → 0 uploads", async () => {
 		const target = makeTarget();
 		const renderer = new StubRenderer();
-		const git = new FakeRepository({ files: { "doc.md": mermaidDoc("graph TD\nA-->B") } });
+		const git = new FakeRepository({
+			files: { "doc.md": mermaidDoc("graph TD\nA-->B") },
+		});
 
 		const planResult = await computePlan(
 			baseConfig("render"),
@@ -305,11 +309,25 @@ describe("TC-MERM-003 attachment reuse (AC-2 / F-4 / NFR-PERF-4)", () => {
 	});
 
 	test("deterministic hash: same source across two computePlan calls → same filename", async () => {
-		const git = new FakeRepository({ files: { "doc.md": mermaidDoc("graph TD\nA-->B") } });
+		const git = new FakeRepository({
+			files: { "doc.md": mermaidDoc("graph TD\nA-->B") },
+		});
 		const renderer = new StubRenderer();
 
-		const r1 = await computePlan(baseConfig("render"), emptyLock, git, makeTarget(), renderer);
-		const r2 = await computePlan(baseConfig("render"), emptyLock, git, makeTarget(), renderer);
+		const r1 = await computePlan(
+			baseConfig("render"),
+			emptyLock,
+			git,
+			makeTarget(),
+			renderer,
+		);
+		const r2 = await computePlan(
+			baseConfig("render"),
+			emptyLock,
+			git,
+			makeTarget(),
+			renderer,
+		);
 		if (!r1.ok || !r2.ok) return;
 
 		const f1 = r1.value.entries[0]!.assets![0]!.hash;
@@ -346,7 +364,9 @@ describe("TC-MERM-006 per-document isolation (AC-4 / NFR-6)", () => {
 		// Run did not abort: both entries present
 		expect(planResult.value.entries).toHaveLength(2);
 
-		const byPath = new Map(planResult.value.entries.map((e) => [e.sourcePath, e]));
+		const byPath = new Map(
+			planResult.value.entries.map((e) => [e.sourcePath, e]),
+		);
 		const docA = byPath.get("doc-a.md")!;
 		const docB = byPath.get("doc-b.md")!;
 
@@ -358,9 +378,13 @@ describe("TC-MERM-006 per-document isolation (AC-4 / NFR-6)", () => {
 		expect(docB.renderedBody).toContain('language">mermaid<');
 
 		// Warning for doc B's failure
-		expect(planResult.value.warnings.some((w) => w.includes("doc-b.md"))).toBe(true);
+		expect(planResult.value.warnings.some((w) => w.includes("doc-b.md"))).toBe(
+			true,
+		);
 		expect(
-			planResult.value.warnings.some((w) => w.includes("falling back to code block")),
+			planResult.value.warnings.some((w) =>
+				w.includes("falling back to code block"),
+			),
 		).toBe(true);
 	});
 });
@@ -375,7 +399,13 @@ describe("TC-MERM-008 privacy warning (AC-6 / F-5 / NFR-PRIV-2)", () => {
 		});
 		const target = makeTarget();
 
-		const result = await computePlan(baseConfig("render"), emptyLock, git, target, new StubRenderer());
+		const result = await computePlan(
+			baseConfig("render"),
+			emptyLock,
+			git,
+			target,
+			new StubRenderer(),
+		);
 
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
@@ -387,10 +417,18 @@ describe("TC-MERM-008 privacy warning (AC-6 / F-5 / NFR-PRIV-2)", () => {
 	});
 
 	test('policy "code" → no privacy warning', async () => {
-		const git = new FakeRepository({ files: { "a.md": mermaidDoc("graph TD\nA-->B") } });
+		const git = new FakeRepository({
+			files: { "a.md": mermaidDoc("graph TD\nA-->B") },
+		});
 		const target = makeTarget();
 
-		const result = await computePlan(baseConfig("code"), emptyLock, git, target, new StubRenderer());
+		const result = await computePlan(
+			baseConfig("code"),
+			emptyLock,
+			git,
+			target,
+			new StubRenderer(),
+		);
 
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
@@ -400,10 +438,18 @@ describe("TC-MERM-008 privacy warning (AC-6 / F-5 / NFR-PRIV-2)", () => {
 	});
 
 	test('policy "skip" → no privacy warning', async () => {
-		const git = new FakeRepository({ files: { "a.md": mermaidDoc("graph TD\nA-->B") } });
+		const git = new FakeRepository({
+			files: { "a.md": mermaidDoc("graph TD\nA-->B") },
+		});
 		const target = makeTarget();
 
-		const result = await computePlan(baseConfig("skip"), emptyLock, git, target, new StubRenderer());
+		const result = await computePlan(
+			baseConfig("skip"),
+			emptyLock,
+			git,
+			target,
+			new StubRenderer(),
+		);
 
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
@@ -421,7 +467,13 @@ describe("TC-MERM-011 no secrets in output (NFR-8 / INV-SEC-1)", () => {
 		});
 		const target = makeTarget();
 
-		const result = await computePlan(baseConfig("render"), emptyLock, git, target, new StubRenderer());
+		const result = await computePlan(
+			baseConfig("render"),
+			emptyLock,
+			git,
+			target,
+			new StubRenderer(),
+		);
 
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
@@ -429,7 +481,9 @@ describe("TC-MERM-011 no secrets in output (NFR-8 / INV-SEC-1)", () => {
 		const expectedHash = await sha256Hex(SVG);
 
 		// Filename contains the hash, NOT the token
-		expect(entry.renderedBody).toContain(`marksync-mermaid-${expectedHash}.svg`);
+		expect(entry.renderedBody).toContain(
+			`marksync-mermaid-${expectedHash}.svg`,
+		);
 		// The token appears 0 times in the rendered body
 		expect(entry.renderedBody).not.toContain(fakeToken);
 		// The plan JSON (warnings etc.) does not contain the token

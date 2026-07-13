@@ -65,7 +65,7 @@ async function processChildren(
 ): Promise<void> {
 	for (let i = 0; i < children.length; i++) {
 		const child = children[i];
-		if (!child || child.type !== "element") continue;
+		if (child?.type !== "element") continue;
 		if (isMermaidFence(child)) {
 			const replacement = await tryRenderFence(child, ctx);
 			if (replacement) {
@@ -104,8 +104,7 @@ async function tryRenderFence(
 	const result = await ctx.renderer.render(source);
 	if (!result.ok) {
 		const err = result.error;
-		const detail =
-			err.kind === "RemoteUnreachable" ? err.cause : err.kind;
+		const detail = err.kind === "RemoteUnreachable" ? err.cause : err.kind;
 		ctx.warnings.push(
 			`Mermaid render failed for diagram at ${ctx.location}: ${detail} — falling back to code block`,
 		);

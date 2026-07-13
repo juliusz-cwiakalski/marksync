@@ -104,10 +104,9 @@ describe("TC-MERM-002 golden fixture — mermaid render policy (AC-1 / F-2)", ()
 				new StubRenderer(),
 				"mermaid-render-policy.md",
 			);
-			const r = renderStorage(
-				t.ok ? t.value.transformedHast : hast,
-				{ sourcePath: "mermaid-render-policy.md" },
-			);
+			const r = renderStorage(t.ok ? t.value.transformedHast : hast, {
+				sourcePath: "mermaid-render-policy.md",
+			});
 			if (!r.ok) throw new Error("render failed");
 			outputs.push(r.value.body);
 		}

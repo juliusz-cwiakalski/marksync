@@ -68,8 +68,7 @@ describe("KrokiClient", () => {
 	describe("TC-MERM-005 network fallback (AC-4 / NFR-5)", () => {
 		test("HTTP 503 → err(RemoteUnreachable, status=503)", async () => {
 			const client = new KrokiClient({
-				fetch: async () =>
-					new Response("Service Unavailable", { status: 503 }),
+				fetch: async () => new Response("Service Unavailable", { status: 503 }),
 			});
 
 			const result = await client.render("graph TD; A-->B");

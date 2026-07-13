@@ -234,25 +234,35 @@ and the implementation satisfies the quality gate.
 
 **Tasks:**
 
-- [ ] **P5.1** Run `bun run check` (lint + typecheck + tests). Fix any failures.
-  Target: 0 failures, 0 dependency-violations (dep-cruiser).
+  - [x] **P5.1** Run `bun run check` (lint + typecheck + tests). Fix any failures.
+    Target: 0 failures, 0 dependency-violations (dep-cruiser).
+    (done — lint exit 0 [warnings only], format:check exit 0, typecheck exit 0,
+    1042 pass / 0 fail, depcruise 0 violations. Fixed formatting in 7 files incl.
+    pre-existing target.test.ts; fixed optional-chain lint warning in transform.ts).
 
-- [ ] **P5.2** Verify dep-cruiser tier rules:
+- [x] **P5.2** Verify dep-cruiser tier rules:
   - `src/domain/mermaid/` may NOT import from `src/infra/` or `src/app/`.
   - `src/infra/mermaid/` may import from `src/domain/mermaid/port.ts` (port) but
     not from other domain services.
+  - (done — domain/mermaid imports only `hast` + `#domain/*`; infra/mermaid imports
+    only `#domain/mermaid/port` + `#domain/*` types; depcruise 0 violations.)
 
-- [ ] **P5.3** Verify no new `MarkSyncError` arms were introduced
+- [x] **P5.3** Verify no new `MarkSyncError` arms were introduced
   (`src/domain/errors.ts` unchanged) and the `assertNeverMarkSyncError`
   exhaustiveness check still compiles.
+  (done — `git diff main -- src/domain/errors.ts` empty; typecheck exit 0.)
 
-- [ ] **P5.4** Verify that `src/infra/confluence/attachments.ts` `attachmentFilename()`
+- [x] **P5.4** Verify that `src/infra/confluence/attachments.ts` `attachmentFilename()`
   produces `marksync-mermaid-<fullhash>.svg` for `kind === "mermaid"` (no changes
   needed; this is verification).
+  (done — line 143: `artifact.kind === "mermaid" ? "marksync-mermaid-" : "marksync-asset-"`;
+  full hash appended; file unchanged.)
 
-- [ ] **P5.5** Confirm `bun run check` is green; report test counts.
+- [x] **P5.5** Confirm `bun run check` is green; report test counts.
+  (done — lint exit 0, format:check exit 0, typecheck exit 0, 1042 pass / 0 fail,
+  depcruise 0 violations.)
 
-- [ ] **P5.6** Final commit if any cleanup: `chore(mermaid): GH-69 lint/typecheck pass`.
+- [x] **P5.6** Final commit if any cleanup: `chore(mermaid): gh-69 lint/typecheck pass`.
 
 ---
 
@@ -343,7 +353,7 @@ identifies the following docs that will need updating:
 | Phase 2 | Done | 2026-07-13 | 2026-07-13 | 2a5953e | Mermaid HAST transform; 8 unit tests PASS, typecheck + depcruise clean |
 | Phase 3 | Done | 2026-07-13 | 2026-07-13 | 50b01a0 | computePlan wiring; 9 integration tests PASS, full suite 1040 pass |
 | Phase 4 | Done | 2026-07-13 | 2026-07-13 | 44616b7 | Golden fixture; 2 golden tests PASS, existing 33 golden tests unaffected |
-| Phase 5 | Pending | - | - | - | Quality gate & cleanup |
+| Phase 5 | Done | 2026-07-13 | 2026-07-13 | 34f9675 | Quality gate green: 1042 pass / 0 fail, depcruise 0 violations, errors.ts unchanged, tier rules verified |
 | Remediation | Pending | - | - | - | Populated by `@reviewer` if needed |
 
 ---
