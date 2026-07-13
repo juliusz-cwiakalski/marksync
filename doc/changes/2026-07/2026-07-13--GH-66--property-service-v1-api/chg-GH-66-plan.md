@@ -122,11 +122,11 @@ This plan fixes a P0 bug where the MarkSync update flow fails with HTTP 400 on e
 
 **Tasks**:
 
-- [ ] **2.1** Rewrite `get()` in `properties.ts` (lines 16-54):
+- [x] **2.1** Rewrite `get()` in `properties.ts` (lines 16-54):
   - Change line 22 from `this.client.v2(\`/pages/${pageId}/properties/${encodeURIComponent(key)}\`)` to `this.client.v1(\`/content/${pageId}/property/${encodeURIComponent(key)}\`)`
   - Preserve existing error mappings (404→ok(undefined), 403→Forbidden, other non-2xx→RemoteUnreachable)
-  - Update `unreachableCause` messages to reference v1 (line 37: "property get") (F-1, AC-F1-1, AC-F1-2)
-- [ ] **2.2** Rewrite `put()` in `properties.ts` (lines 56-94):
+  - Update `unreachableCause` messages to reference v1 (line 37: "property get") (F-1, AC-F1-1, AC-F1-2) — DONE: v1 GET path; error mappings preserved
+- [x] **2.2** Rewrite `put()` in `properties.ts` (lines 56-94):
   - Change line 65 from `this.client.v2(\`/pages/${pageId}/properties\`)` to `this.client.v1(\`/content/${pageId}/property\`)` (F-3, AC-F2-1)
   - Change line 63 comment from "POST creates; a 409 (key exists, v1+v2 share one namespace) falls back to PUT-by-key" to "POST creates; a 409 (key exists) falls back to GET version → PUT with incremented version"
   - Replace line 73 `return this.updateByKey(pageId, key, value);` with version-extraction logic:
@@ -135,24 +135,24 @@ This plan fixes a P0 bug where the MarkSync update flow fails with HTTP 400 on e
     - On fallback GET non-200: 404 → `RemoteUnreachable` (key vanished between POST-409 and GET), 403 → `Forbidden` (consistent with `get()`), other non-2xx → `RemoteUnreachable` (catch-all)
     - Call `updateByKey(pageId, key, value, currentVersion)` (F-2, F-3, AC-F2-2, DEC-3)
   - Preserve error mappings (403→Forbidden, 413→TooLarge, schema-fail→RemoteUnreachable) (G-3)
-  - **Note**: A 409 on the property PUT (rare concurrent-write race in the GET→PUT window) maps to `RemoteUnreachable` (the catch-all), NOT `Conflict`, for MS-0002 MVP (PM-DEC-1 / spec DEC-6). The putProperty consumer does not special-case Conflict, and the Conflict error kind is page-shaped.
-- [ ] **2.3** Rewrite `updateByKey()` in `properties.ts` (lines 96-122):
+  - **Note**: A 409 on the property PUT (rare concurrent-write race in the GET→PUT window) maps to `RemoteUnreachable` (the catch-all), NOT `Conflict`, for MS-0002 MVP (PM-DEC-1 / spec DEC-6). The putProperty consumer does not special-case Conflict, and the Conflict error kind is page-shaped. — DONE: version-extraction extracted into private `fetchCurrentVersion(pageId, key)` helper for readability; put() 409 branch calls it then updateByKey with currentVersion
+- [x] **2.3** Rewrite `updateByKey()` in `properties.ts` (lines 96-122):
   - Change line 103 from `this.client.v2(\`/pages/${pageId}/properties/${encodeURIComponent(key)}\`)` to `this.client.v1(\`/content/${pageId}/property/${encodeURIComponent(key)}\`)`
   - Change line 104 body from `{json: {key, value}}` to `{json: {key, value, version: {number: currentVersion + 1}}}` (version number passed in from `put()`)
   - Change signature to `updateByKey(pageId, key, value, currentVersion: number)` (explicit parameter type)
   - Update `unreachableCause` messages to reference v1 (line 120: "property update") (F-2, AC-F2-2)
-  - **Note**: A 409 on this PUT (rare concurrent-write race in the GET→PUT window) maps to `RemoteUnreachable` (the catch-all), NOT `Conflict`, for MS-0002 MVP (PM-DEC-1 / spec DEC-6). The putProperty consumer does not special-case Conflict, and the Conflict error kind is page-shaped.
+  - **Note**: A 409 on this PUT (rare concurrent-write race in the GET→PUT window) maps to `RemoteUnreachable` (the catch-all), NOT `Conflict`, for MS-0002 MVP (PM-DEC-1 / spec DEC-6). The putProperty consumer does not special-case Conflict, and the Conflict error kind is page-shaped. — DONE: v1 PUT path, version-number body, currentVersion param; explanatory comment cites GH-66 DEC-6
 
 **Acceptance Criteria**:
 
-- Must: `get()` uses v1 path `GET /wiki/rest/api/content/{pageId}/property/{key}`
-- Must: `put()` uses v1 POST create path `POST /wiki/rest/api/content/{pageId}/property`
-- Must: `put()` on 409 issues its own raw v1 GET to extract current version via `PropertyV1Response` schema, handles non-200 (404→RemoteUnreachable, 403→Forbidden, other→RemoteUnreachable), then PUTs with incremented version number
-- Must: `updateByKey()` signature is `updateByKey(pageId, key, value, currentVersion: number)` and uses v1 path `PUT /wiki/rest/api/content/{pageId}/property/{key}` with `{key, value, version: {number: n+1}}`
-- Must: Error semantics preserved: 403→Forbidden, 404(GET)→ok(undefined), 413→TooLarge, schema-fail→RemoteUnreachable
-- Must: Property-PUT 409 (rare concurrent-write race) maps to RemoteUnreachable, NOT Conflict, per PM-DEC-1/DEC-6
+- Must: `get()` uses v1 path `GET /wiki/rest/api/content/{pageId}/property/{key}` — PASSED
+- Must: `put()` uses v1 POST create path `POST /wiki/rest/api/content/{pageId}/property` — PASSED
+- Must: `put()` on 409 issues its own raw v1 GET to extract current version via `PropertyV1Response` schema, handles non-200 (404→RemoteUnreachable, 403→Forbidden, other→RemoteUnreachable), then PUTs with incremented version number — PASSED (private `fetchCurrentVersion` helper issues the v1 GET + schema validation; 404/403/non-2xx handled; result flows to `updateByKey` with currentVersion)
+- Must: `updateByKey()` signature is `updateByKey(pageId, key, value, currentVersion: number)` and uses v1 path `PUT /wiki/rest/api/content/{pageId}/property/{key}` with `{key, value, version: {number: n+1}}` — PASSED
+- Must: Error semantics preserved: 403→Forbidden, 404(GET)→ok(undefined), 413→TooLarge, schema-fail→RemoteUnreachable — PASSED
+- Must: Property-PUT 409 (rare concurrent-write race) maps to RemoteUnreachable, NOT Conflict, per PM-DEC-1/DEC-6 — PASSED (catch-all RemoteUnreachable in `updateByKey`; explanatory comment cites GH-66 DEC-6)
   - Note: This path is covered by the catch-all RemoteUnreachable mapping (not a dedicated Conflict test, per DEC-6); see error-semantics coverage for RemoteUnreachable/error-mapping behavior
-- Should: No TypeScript compilation errors
+- Should: No TypeScript compilation errors — PASSED (`bun run typecheck` clean; `bun run lint` exit 0, changed files have no diagnostics)
 
 **Affected code areas**:
 
@@ -371,4 +371,5 @@ This plan fixes a P0 bug where the MarkSync update flow fails with HTTP 400 on e
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
 | (Populated during execution) | | | | | |
-| 1 — Schema | COMPLETE | 2026-07-13 | 2026-07-13 | (see below) | PropertyV1Response schema ({id,key,value,version:{number,when?}}); import/usage/header updated; typecheck clean |
+| 1 — Schema | COMPLETE | 2026-07-13 | 2026-07-13 | de3780e | PropertyV1Response schema ({id,key,value,version:{number,when?}}); import/usage/header updated; typecheck clean |
+| 2 — Core fix | COMPLETE | 2026-07-13 | 2026-07-13 | (see below) | get/put/updateByKey → v1 paths; put() 409 → fetchCurrentVersion (private helper) → updateByKey(currentVersion); PUT-409→RemoteUnreachable (DEC-6); typecheck+lint clean |

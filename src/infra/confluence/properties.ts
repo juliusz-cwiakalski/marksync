@@ -19,7 +19,7 @@ export class PropertyService {
 	): Promise<Result<string | undefined, MarkSyncError>> {
 		const response = await this.client.request(
 			"GET",
-			this.client.v2(`/pages/${pageId}/properties/${encodeURIComponent(key)}`),
+			this.client.v1(`/content/${pageId}/property/${encodeURIComponent(key)}`),
 		);
 		if (!response.ok) return response;
 		if (response.value.status === 404) return Result.ok(undefined);
@@ -53,16 +53,16 @@ export class PropertyService {
 		return Result.ok(parsed.data.value);
 	}
 
+	// POST creates; a 409 (key exists) falls back to GET version → PUT with the
+	// incremented version number (v1 requires optimistic concurrency).
 	async put(
 		pageId: string,
 		key: string,
 		value: string,
 	): Promise<Result<void, MarkSyncError>> {
-		// POST creates; a 409 (key exists, v1+v2 share one namespace) falls back
-		// to PUT-by-key so the write is idempotent.
 		const create = await this.client.request(
 			"POST",
-			this.client.v2(`/pages/${pageId}/properties`),
+			this.client.v1(`/content/${pageId}/property`),
 			{ json: { key, value } },
 		);
 		if (!create.ok) return create;
@@ -70,7 +70,9 @@ export class PropertyService {
 			return Result.ok(undefined);
 		}
 		if (create.value.status === 409) {
-			return this.updateByKey(pageId, key, value);
+			const version = await this.fetchCurrentVersion(pageId, key);
+			if (!version.ok) return version;
+			return this.updateByKey(pageId, key, value, version.value);
 		}
 		if (create.value.status === 403) {
 			return Result.err({
@@ -93,15 +95,57 @@ export class PropertyService {
 		});
 	}
 
+	/** Fetch the current property version number after a POST-create 409. */
+	private async fetchCurrentVersion(
+		pageId: string,
+		key: string,
+	): Promise<Result<number, MarkSyncError>> {
+		const fetched = await this.client.request(
+			"GET",
+			this.client.v1(`/content/${pageId}/property/${encodeURIComponent(key)}`),
+		);
+		if (!fetched.ok) return fetched;
+		// 404 here means the key vanished between the POST-409 and this GET.
+		if (fetched.value.status === 404) {
+			return Result.err({
+				kind: "RemoteUnreachable",
+				cause: "property vanished between create-conflict and version fetch",
+			});
+		}
+		if (fetched.value.status === 403) {
+			return Result.err({
+				kind: "Forbidden",
+				pageId,
+				operation: "putProperty",
+			});
+		}
+		if (fetched.value.status < 200 || fetched.value.status >= 300) {
+			return Result.err({
+				kind: "RemoteUnreachable",
+				status: fetched.value.status,
+				cause: unreachableCause(fetched.value.status, "property get"),
+			});
+		}
+		const parsed = PropertyV1Response.safeParse(fetched.value.json);
+		if (!parsed.success) {
+			return Result.err({
+				kind: "RemoteUnreachable",
+				cause: "schema validation failed: PropertyV1Response",
+			});
+		}
+		return Result.ok(parsed.data.version.number);
+	}
+
 	private async updateByKey(
 		pageId: string,
 		key: string,
 		value: string,
+		currentVersion: number,
 	): Promise<Result<void, MarkSyncError>> {
 		const update = await this.client.request(
 			"PUT",
-			this.client.v2(`/pages/${pageId}/properties/${encodeURIComponent(key)}`),
-			{ json: { key, value } },
+			this.client.v1(`/content/${pageId}/property/${encodeURIComponent(key)}`),
+			{ json: { key, value, version: { number: currentVersion + 1 } } },
 		);
 		if (!update.ok) return update;
 		if (update.value.status >= 200 && update.value.status < 300) {
@@ -114,6 +158,10 @@ export class PropertyService {
 				operation: "putProperty",
 			});
 		}
+		// A 409 here is a rare concurrent-write race in the GET→PUT window. It maps
+		// to RemoteUnreachable (catch-all), NOT Conflict: the Conflict error kind is
+		// page-shaped and putProperty blocks on any error. Recovery is re-running
+		// sync, which re-GETs the current version (GH-66 DEC-6).
 		return Result.err({
 			kind: "RemoteUnreachable",
 			status: update.value.status,
