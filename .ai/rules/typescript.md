@@ -670,7 +670,7 @@ export interface ResultError { code: string; message: string; retryable: boolean
 | `ajv` | JSON Schema validation (config/lock) |
 | `picocolors` | Terminal coloring (ADR-0011 C-2) |
 | `yaml` | YAML parsing (`marksync.yml` + front-matter) |
-| `remark`, `remark-gfm`, `remark-rehype` | Markdown pipeline — bytes → MDAST → HAST → Storage (GH-20; `rehype` is transitive via `remark-rehype`, not a direct dep) |
+| `remark`, `remark-frontmatter`, `remark-gfm`, `remark-rehype` | Markdown pipeline — bytes → MDAST → HAST → Storage (GH-20; `remark-frontmatter` strips document-leading YAML front-matter, GH-63; `rehype` is transitive via `remark-rehype`, not a direct dep) |
 | `uuid` | UUID v7 generation (`v7`, `src/domain/identity/uuid.ts`; GH-18) |
 | `zod` | Runtime validation at IO boundaries — every Confluence REST response is `zod`-validated before crossing into a typed adapter return (GH-21) |
 

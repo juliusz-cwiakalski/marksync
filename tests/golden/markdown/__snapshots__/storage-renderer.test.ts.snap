@@ -121,3 +121,9 @@ exports[`TC-GOLDEN (AC-F4-1 / NFR-REL-4) — remark-gfm-reachable fixtures byte-
   Start --> Process[Process]
   Process --> Stop]]></ac:plain-text-body></ac:structured-macro>"
 `;
+
+exports[`TC-GOLDEN (AC-F4-1 / NFR-REL-4) — remark-gfm-reachable fixtures byte-match goldens byte-exact + snapshot — frontmatter: frontmatter.storage 1`] = `
+"<h1>Hello World</h1>
+
+<p>This is the page body after front-matter.</p>"
+`;

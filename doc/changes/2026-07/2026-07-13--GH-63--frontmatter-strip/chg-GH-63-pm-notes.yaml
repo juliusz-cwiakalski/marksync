@@ -1,0 +1,119 @@
+change_id: GH-63
+title: "[MS2-E4] YAML front-matter leaks into rendered Confluence content (P0)"
+branch: fix/GH-63/frontmatter-strip
+slug: frontmatter-strip
+
+phases:
+  clarify_scope: { started: "2026-07-13T16:46:00Z", completed: "2026-07-13T16:46:00Z" }
+  specification: { started: "2026-07-13T16:53:00Z", completed: "2026-07-13T16:53:00Z" }
+  test_planning: { started: "2026-07-13T16:54:00Z", completed: "2026-07-13T16:59:00Z" }
+  delivery_planning: { started: "2026-07-13T17:00:00Z", completed: "2026-07-13T17:05:00Z" }
+  dor_check: { started: "2026-07-13T17:06:00Z", completed: "2026-07-13T17:20:00Z" }
+  delivery: { started: "2026-07-13T17:25:00Z", completed: "2026-07-13T17:45:00Z" }
+  system_spec_update: { started: "2026-07-13T17:46:00Z", completed: "2026-07-13T17:52:00Z" }
+  review_fix: { started: "2026-07-13T17:53:00Z", completed: "2026-07-13T18:02:00Z" }
+  quality_gates: { started: "2026-07-13T18:03:00Z", completed: "2026-07-13T18:10:00Z" }
+  dod_check: { started: "2026-07-13T18:11:00Z", completed: "2026-07-13T18:15:00Z" }
+  pr_creation: { started: "2026-07-13T18:16:00Z", completed: "2026-07-13T18:22:00Z", url: "https://github.com/juliusz-cwiakalski/marksync/pull/68" }
+
+decisions:
+  - text: >
+      No package.json version bump for this bug fix. Verified via git history
+      that recent P0 fixes (GH-66 #67, GH-62 #65, GH-25 #60, GH-26 #61) did NOT
+      bump the version; the last version change (0.4.0→0.4.1) was GH-24 #59.
+      Version bumps are milestone/minor-scoped, not per-bug-fix. Removed the
+      version bump the plan-writer added to Phase 7; Phase 7 is now AC
+      reconciliation only.
+    date: "2026-07-13"
+open_questions: []
+blockers: []
+
+notes:
+  - text: >
+      Intake analysis — clean P0 bug, root cause + fix explicit in ticket.
+      parseMarkdown (src/domain/markdown/parse.ts) builds `remark().use(remarkGfm)`
+      without remark-frontmatter, so the `---` front-matter fences are parsed as
+      thematic breaks and the YAML body as headings/paragraphs → leaks into the
+      rendered Confluence Storage XHTML.
+    type: info
+    date: "2026-07-13"
+  - text: >
+      readUuid (src/domain/identity/frontmatter.ts) uses its OWN findFrontMatter
+      parser (pure string scan + yaml.parse) — fully independent of parseMarkdown.
+      Therefore adding remark-frontmatter to parseMarkdown CANNOT affect UUID
+      reads; AC#2 (UUID still read by readUuid) is inherently safe. No regression
+      risk to identity/init flows.
+    type: info
+    date: "2026-07-13"
+  - text: >
+      Golden harness note: tests/golden/markdown/storage-renderer.test.ts asserts
+      fixtures.length===26 and pairs every .md with a .storage.xhtml. Adding a
+      front-matter fixture bumps count to 27 and requires updating the assertion
+      (AC#3 permits golden updates). kitchensink.md has no front-matter. No
+      existing .md fixture starts with `---` front-matter (hr.md uses `---` as a
+      thematic rule mid-document, NOT at column-0 line 0 — remark-frontmatter only
+      treats a `---` at the very start of the document as front-matter, so hr.md
+      is unaffected).
+    type: info
+    date: "2026-07-13"
+  - text: >
+      Spec doc impact: feature-safe-publish.md line ~142 documents the pipeline
+      as `remark + remark-gfm`; doc-syncer should note `remark-frontmatter`
+      addition. No other current-truth doc references parseMarkdown internals.
+    type: info
+    date: "2026-07-13"
+  - text: >
+      No blocking questions — requirements complete and consistent with system
+      spec. Proceeding to artifact generation.
+    type: info
+    date: "2026-07-13"
+  - text: >
+      EDGE CASE flagged during test-plan review: tests/golden/fixtures/markdown/hr.md
+      contains EXACTLY a single document-leading `---` with NO closing fence, and
+      its golden output is `<hr/>`. remark-frontmatter's YAML marker requires an
+      opening + closing `---`/`...`; an unterminated lone `---` is likely treated
+      as a thematic break (so hr.md passes unchanged) — but this is NOT guaranteed
+      and MUST be verified empirically during implementation (now TC-FMS-003
+      guard). If remark-frontmatter consumes the lone `---` → hr.md must be
+      updated to a multi-line mid-document `---` fixture. AC-F2-2/AC-F3-2
+      permit golden updates. Coder must run the golden suite; do NOT assume.
+    type: risk
+    date: "2026-07-13"
+  - text: >
+      Retro — DoR iteration 1 returned NOT_READY (2 critical, 2 major). The
+      readiness-reviewer caught a namespace collision the spec/test-plan
+      authors and I missed: proposed TC-FM-001..005 collided with EXISTING
+      TC-FM-001..009 in tests/unit/domain/identity/frontmatter.test.ts (GH-18
+      identity suite). Also: plan said "Create frontmatter.test.ts" but the
+      file already exists (167 lines) — would have been overwritten by a
+      literal coder. Process miss: when seeding a new test-case ID prefix, I
+      should have grepped the test tree for existing same-prefix IDs first.
+      Lesson: add a "check existing TC-* namespace" step to test-plan intake.
+      Also caught: redundant readUuid regression test (AC-F2-1 already guarded
+      by existing tests since frontmatter.ts is unchanged NG-1) — removed. And
+      spec mischaracterized hr.md as "mid-document" when it is actually a
+      document-leading lone `---` — corrected to empirical-verify framing.
+    type: retro
+    date: "2026-07-13"
+  - text: >
+      Delivery complete (Phases 1-6). Coder wired remark-frontmatter before
+      remark-gfm; empirically verified hr.md (lone `---`) → thematicBreak →
+      `<hr/>` UNCHANGED (no fixture update needed). frontmatter.md golden
+      renders `<h1>...<p>...` with NO front-matter leak. readUuid/frontmatter.ts
+      untouched (NG-1). 1016 pass / 0 fail. Golden suite = 27 fixtures.
+      frontmatter.storage.xhtml has NO trailing newline (matches convention).
+      Note: the count assertion lives in TWO test files (storage-renderer.test.ts
+      AND pipeline-roundtrip.test.ts) — coder caught the roundtrip one in Phase 5.
+    type: info
+    date: "2026-07-13"
+  - text: >
+      Retro — `bun run format:check` is RED on tests/unit/infra/confluence/
+      target.test.ts, but this is PRE-EXISTING (file untouched on this branch;
+      git diff main..HEAD empty for it; main fails identically) AND NOT A CI
+      GATE — CI fast-loop (.github/workflows/ci.yml) runs commitlint + lint +
+      typecheck + test + check:boundaries + BDD, NOT format:check. The local
+      `check` aggregate script includes format:check but CI does not. So this
+      does not block the PR. Out of scope for GH-63 (drive-by biome format fix
+      would be a separate style: commit). All CI-relevant gates pass.
+    type: retro
+    date: "2026-07-13"

@@ -1,12 +1,15 @@
-// Canonical Markdown entry — bytes → MDAST via remark + remark-gfm (ADR-0005, GH-20 F-1).
+// Canonical Markdown entry — bytes → MDAST via remark + remark-frontmatter + remark-gfm (ADR-0005, GH-20 F-1, GH-63).
 
 import type { MarkSyncError } from "#domain/errors";
 import { Result } from "#domain/result";
 import type { Root as MdastRoot } from "mdast";
 import { remark } from "remark";
+import remarkFrontmatter from "remark-frontmatter";
 import remarkGfm from "remark-gfm";
 
-const processor = remark().use(remarkGfm);
+// front-matter first so it claims document-leading `---` blocks before GFM;
+// a lone `---` with no closing fence still parses as a thematic break (GH-63).
+const processor = remark().use(remarkFrontmatter).use(remarkGfm);
 
 export interface ParseOptions {
 	/**

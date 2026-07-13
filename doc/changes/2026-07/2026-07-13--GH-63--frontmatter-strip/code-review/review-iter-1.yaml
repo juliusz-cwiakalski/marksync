@@ -1,0 +1,49 @@
+version: 1
+iteration: 1
+mode: local
+work_item_ref: GH-63
+branch: fix/GH-63/frontmatter-strip
+status: PASS
+summary: >
+  Clean, well-scoped P0 bug fix. The remark-frontmatter plugin is correctly wired before
+  remark-gfm, front-matter is stripped from rendered Storage XHTML (proven byte-exact by the
+  new golden fixture), and the hr.md lone-`---` edge case is preserved as a thematic break.
+  All five acceptance criteria are met (AC-F1-2 adapted per plan v1.4 — the yaml MDAST node is
+  the canonical front-matter representation, dropped at the HAST bridge; user-visible intent
+  fully satisfied by AC-F1-1). NG-1 scope discipline holds: src/domain/identity/frontmatter.ts
+  and its test are byte-identical to main; no version bump. Full suite 1016/0 pass. The only
+  finding is a LOW doc-consistency gap: remark-frontmatter was added to tech-stack.md and
+  package.json but not to the allowed-dependency table in .ai/rules/typescript.md.
+severity_breakdown:
+  critical: 0
+  high: 0
+  medium: 0
+  low: 1
+  info: 0
+spec_compliance: PASS
+plan_compliance: PASS
+findings:
+  - id: F-1
+    severity: low
+    confidence: high
+    category: documentation
+    location: .ai/rules/typescript.md:673
+    message: >
+      remark-frontmatter was added to package.json, bun.lock, and the tech-stack.md system
+      spec, but the "Allowed dependency list → Installed" table in .ai/rules/typescript.md
+      (line 673, the remark/remark-gfm/remark-rehype row) was not updated. The repo code-review
+      checklist (code-review-instructions.md §TypeScript & style) explicitly requires new
+      dependencies to be registered in this list.
+    suggestion: >
+      Add `remark-frontmatter` to the existing remark pipeline row or as a new row in the
+      Installed table — e.g. extend line 673 to read
+      "`remark`, `remark-frontmatter`, `remark-gfm`, `remark-rehype`" with a note that
+      remark-frontmatter strips document-leading YAML front-matter (GH-63). This is a
+      one-line documentation edit; no code or test impact.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+reviewed_at: 2026-07-13T00:00:00Z
+next_step: PROCEED
