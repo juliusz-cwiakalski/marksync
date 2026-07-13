@@ -1,0 +1,141 @@
+version: 1
+iteration: 1
+mode: local
+work_item_ref: GH-62
+branch: fix/GH-62/remote-body-hash-mismatch
+status: FAIL
+summary: >
+  The three-part fix (SharedBase.remoteBodyHash, raw-to-raw classifier comparison,
+  post-write fetch-back) is functionally correct — typecheck passes and the full
+  suite of 996 tests is green, including new GH-62 idempotency and fetch-back-failure
+  tests. Spec/ADR/feature-doc reconciliation is thorough. However the change is not
+  mergeable: Biome `format:check` fails on src/app/push-flow.ts because large code
+  blocks were de-indented during editing (the quality gate `bun run check` cannot
+  pass), and the most bug-relevant scenario — Update-path idempotency (AC-F1-2) —
+  has no integration test despite the test plan marking it "Covered". Five planned
+  test scenarios are absent from the test files, and every one of the 26 plan tasks
+  is still unchecked with an empty execution log.
+severity_breakdown:
+  critical: 0
+  high: 1
+  medium: 2
+  low: 2
+  info: 0
+spec_compliance: PASS
+plan_compliance: FAIL
+findings:
+  - id: F-1
+    severity: high
+    confidence: high
+    category: correctness
+    location: src/app/push-flow.ts:300-315, 912-932, 994-1026, 1058-1087, 1138-1180
+    message: >
+      Biome `format:check` fails on src/app/push-flow.ts (exits code 1, 2 format
+      errors, ~140 lines need reformatting). Large blocks of code were de-indented
+      during the edit (e.g. the computePlan SharedBase/classify block at lines
+      300-315 dropped one indent level; the Update-path finalize block at 1058-1087
+      and the Create-path journal/fetch-back/binding block at 1138-1180 dropped to
+      column 1). This fails the `bun run check` quality gate (Phase 4.2/4.3) which
+      chains `lint && format:check && typecheck && test && check:boundaries`. The
+      code is structurally sound (braces balanced — typecheck + 996 tests pass), so
+      the issue is cosmetic but it blocks all quality gates.
+    suggestion: >
+      Run `bun run format` (biome format --write) on src/app/push-flow.ts to restore
+      canonical indentation, then re-run `bun run format:check` to confirm zero
+      errors. Verify the formatter did not alter logic by re-running the test suite
+      afterwards.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-2
+    severity: medium
+    confidence: high
+    category: testing
+    location: tests/integration/app/gh-62-idempotent-sync.test.ts
+    message: >
+      Five test scenarios claimed "Covered" in chg-GH-62-test-plan.md §3.1 are not
+      implemented in any test file: TC-IDEM-002 (Update-path idempotency — AC-F1-2),
+      TC-FETCH-001 (fetch-back after Create success — AC-F2-1/F5-1), TC-FETCH-002
+      (fetch-back after Update success — AC-F2-2/F5-2), TC-SHARED-001 (SharedBase
+      construction with remoteBodyHash — AC-F3-1), and TC-REAPPLY-001 (fetch-back
+      after 409 reapply — NFR-5). The most important gap is TC-IDEM-002: the Update
+      path (finalizeSuccessfulUpdate) is the primary bug-affected code path and its
+      end-to-end idempotency is unverified — only Create idempotency (TC-IDEM-001)
+      is tested. A `rg` for these TC IDs across tests/ returns zero matches.
+    suggestion: >
+      Add at minimum TC-IDEM-002 (Update → fetch-back → second sync = 0 writes/0
+      blocks with normalization simulation) to directly verify AC-F1-2. Ideally also
+      add TC-FETCH-002 and TC-REAPPLY-001 explicit assertions (the 409 test already
+      asserts getPageCalls===2 which implicitly covers TC-REAPPLY-001, but an
+      explicit remoteBodyHash assertion after reapply would be stronger). Fix the
+      test plan §3.1 status column to reflect reality if any scenario stays deferred.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-3
+    severity: medium
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-07/2026-07-13--GH-62--remote-body-hash-mismatch/chg-GH-62-plan.md
+    message: >
+      All 26 task checkboxes across Phases 1-5 remain unchecked (`- [ ]`, 0 checked)
+      and the Execution Log table is empty ("Populated during execution"), even
+      though the implementation is complete (code committed, tests passing). This is
+      a DONE_BUT_UNCHECKED gap that makes the plan non-auditable: a reviewer or
+      future developer cannot tell which tasks were actually completed vs skipped.
+    suggestion: >
+      Check off every implemented task (`- [x]`), populate the Execution Log table
+      with phase status/commit SHAs, and add a Plan Revision Log entry for the
+      remediation phase appended below.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-4
+    severity: low
+    confidence: high
+    category: correctness
+    location: tests/integration/app/gh-62-idempotent-sync.test.ts:62
+    message: >
+      The confluenceNormalize test helper contains `.replace(/<p>/g, "<p>")` which
+      replaces a string with itself — a no-op. This is misleading: it implies <p>
+      tags are normalized when they are not. It adds noise without simulating any
+      transformation.
+    suggestion: >
+      Remove the no-op replace line, or replace it with a genuine normalization
+      (e.g. `.replace(/<p>/g, "\n<p>")`) if the intent was to show whitespace
+      normalization.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-5
+    severity: low
+    confidence: medium
+    category: testing
+    location: tests/integration/app/gh-62-idempotent-sync.test.ts:204-220
+    message: >
+      TC-FETCH-003 simulates fetch-back failure by overriding target.getPage to fail
+      on the first call (getPageCallCount === 1), with an inline comment explaining
+      the internal call-ordering assumption ("For a new doc (Create), computePlan
+      doesn't call getPage"). This is brittle: if computePlan or processEntry call
+      ordering changes, the test silently tests the wrong call. The test also leaves
+      the monkey-patched getPage in place (no restoration), though the target is
+      local to the test so this is low impact.
+    suggestion: >
+      Prefer a FakeTarget configuration flag (e.g. `failNextGetPage: boolean`) over
+      raw monkey-patching, keyed to the pageId of the just-created page rather than
+      call-count index, so the test is robust to call-ordering changes.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+reviewed_at: 2026-07-13T13:00:00Z
+next_step: CALL_CODER

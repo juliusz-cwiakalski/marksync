@@ -33,5 +33,6 @@ export interface SharedBase {
 	parentPageId: string;
 	pageVersion: number;
 	renderedBodyHash: string;
+	remoteBodyHash: string;
 	attachmentHashes: Record<string, string>;
 }

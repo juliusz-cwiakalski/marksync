@@ -9,7 +9,7 @@ last_updated: 2026-07-13
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: [GH-18, GH-19, GH-20, GH-22, GH-23, GH-24, GH-26]
+  related_changes: [GH-18, GH-19, GH-20, GH-22, GH-23, GH-24, GH-26, GH-62]
   decisions: [ADR-0005, ADR-0006, ADR-0010, ADR-0011]
   contracts: []
 ---
@@ -67,10 +67,15 @@ conflict classification that **refuses to silently overwrite remote work**.
   *(delivered — GH-19)*
 - **Drift detection:** classifies each bound document as `NO_CHANGE` /
   `LOCAL_AHEAD` / `REMOTE_AHEAD` / `DIVERGED` / `REMOTE_MISSING` /
-  `LOCAL_MISSING` via a pure three-way `classify({ local?, base?, remote })`
-  over canonical semantic hashes — the body `canonicalHash` plus the title,
-  parent-page-id, and attachment-set facets (`rawHash` is informational
-  only). *(delivered — GH-22)*
+  `LOCAL_MISSING` via a pure three-way `classify({ local?, base, remote })`.
+  The classifier keeps two hash domains strictly apart: **local drift**
+  compares canonical hashes (`local.canonicalHash !== base.renderedBodyHash`)
+  plus title, parent-page-id, and attachment-set facets; **remote drift**
+  compares raw hashes (`remote.bodyHash !== base.remoteBodyHash`) — the
+  `remoteBodyHash` is the sha256 of the Confluence-stored Storage XHTML,
+  refreshed via a post-write fetch-back so Confluence body normalization
+  never false-triggers remote drift on an idempotent rerun. *(delivered —
+  GH-22; raw-to-raw remote comparison + fetch-back — GH-62)*
 - **Safe publish:** create / update / no-op based on drift classification.
   Unsafe overwrites blocked by default. Realized by `computePlan` (pure dry-run)
   + `applyPlan` (parent-first, isolated, journaled write path) at
@@ -138,7 +143,7 @@ a `TargetSystem` port. The Confluence adapter is the sole implementation.
 | Identity service | UUID v7 assignment, front-matter management |
 | State manager | Committed `marksync.lock.yml` load/save/merge (`loadLock`/`saveLock`/`mergeBindings`, `src/app/lock.ts`), disposable `.marksync/` cache layout (`src/app/cache.ts`), pure content-property cross-check (`src/domain/state/reconcile.ts`), branch gate (`assertBranchAllowed`, `src/app/branch.ts`) *(delivered — GH-19)* |
 | Drift classifier | Pure `classify({ local?, base?, remote }) → Result<SyncState, MarkSyncError>` three-way classifier (`src/domain/state/classifier.ts`); `ContentHash` VO carrying the canonical-body + title + parent + attachment facets (`src/domain/state/hashes.ts`); six-value `SyncState` enum + `RemoteState` union + `SharedBase` view (`src/domain/state/sync-state.ts`); `SyncState → Action` mapping `NoOp`/`Update`/`Block`/`Skip` (`src/domain/state/actions.ts`) *(delivered — GH-22)* |
-| Sync engine | The use-case orchestration that ties the trust wedge together. `computePlan(config, lock, git, target) → Promise<Result<Plan, MarkSyncError>>` is the pure no-writes dry-run: branch gate → discover committed docs via the `Repository` port → duplicate-UUID fatal gate → parse/render/hash via `TargetSystem.renderBody` → resolve cross-page links → **resolve assets** (`AssetResolver`, path-safe, content-addressed) → fetch remote state → classify → emit a reviewable `Plan` (each `PlanEntry` carries `assets?: Artifact[]` and `ContentHash.attachmentHashes`). `applyPlan(plan, target, lock, opts) → Promise<Result<ApplyReport, MarkSyncError>>` is the only write path: parent-first ordering, per-document isolation, journal-before-lock, provenance via `formatVersionMessage`, **per-entry asset upload after Create/Update (reuse-on-exists, `PageBinding.attachmentHashes` merge)**, 409 Conflict surfaced as drift (re-fetch-once policy), atomic lock + `marksync.metadata` per doc. Append-only journal (`.marksync/journal/<run-id>.jsonl`) + `replayJournal` for partial-apply recovery. Modules: `src/app/push-flow.ts`, `src/app/journal.ts`, `src/domain/hierarchy/link-resolver.ts`, `src/domain/git/port.ts`, `src/infra/git/shell-git.ts` *(delivered — GH-23; asset wiring — GH-26)* |
+| Sync engine | The use-case orchestration that ties the trust wedge together. `computePlan(config, lock, git, target) → Promise<Result<Plan, MarkSyncError>>` is the pure no-writes dry-run: branch gate → discover committed docs via the `Repository` port → duplicate-UUID fatal gate → parse/render/hash via `TargetSystem.renderBody` → resolve cross-page links → **resolve assets** (`AssetResolver`, path-safe, content-addressed) → fetch remote state → classify → emit a reviewable `Plan` (each `PlanEntry` carries `assets?: Artifact[]` and `ContentHash.attachmentHashes`). `applyPlan(plan, target, lock, opts) → Promise<Result<ApplyReport, MarkSyncError>>` is the only write path: parent-first ordering, per-document isolation, journal-before-lock, provenance via `formatVersionMessage`, **per-entry asset upload after Create/Update (reuse-on-exists, `PageBinding.attachmentHashes` merge)**, **post-write fetch-back (GET the page, store `rawHash(fetchedBody)` as `remoteBodyHash` so Confluence normalization does not false-trigger remote drift; falls back to `rawHash(renderedBody)` + warning on failure)**, 409 Conflict surfaced as drift (re-fetch-once policy), atomic lock + `marksync.metadata` per doc. Append-only journal (`.marksync/journal/<run-id>.jsonl`) + `replayJournal` for partial-apply recovery. Modules: `src/app/push-flow.ts`, `src/app/journal.ts`, `src/domain/hierarchy/link-resolver.ts`, `src/domain/git/port.ts`, `src/infra/git/shell-git.ts` *(delivered — GH-23; asset wiring — GH-26; fetch-back — GH-62)* |
 | Asset resolver | Path-safe, content-addressed local-image resolution. `AssetResolver` (`src/domain/assets/resolver.ts`, `{ root, readBytes? }` + `resolve(hast, docPath): Promise<Result<AssetSet, MarkSyncError>>`) walks HAST `img` nodes, resolves each local `src` relative to the doc confined to the configured root (`realpath` + prefix check, symlink-aware → `Forbidden(path-traversal)` with 0 bytes read on escape, NFR-SEC-7), sha256-identifies each asset, and rewrites the node to the dedup filename (`assetFilename`, `src/domain/assets/naming.ts` → `marksync-asset-<sha256>.<ext>`); returns an `AssetSet { artifacts, srcMap }`. Remote `http(s)` images are skipped. `computePlan`/`applyPlan` consume it. *(delivered — GH-26)* |
 | Concurrency gates | Decentralized optimistic-concurrency backstop for overlapping CI plans. Pure domain gates under `src/domain/state/`: `assertOperationFresh` (operation-ID freshness via UUID-v7 time-prefix comparison) at `operation-freshness.ts`; `assertPlanNotExpired` (stale-plan expiry window, default 15 min, conservative boundary) at `plan-expiry.ts`; `decideOnConflict` + `Decision` (409 re-fetch-once policy: reapply vs block over the `SyncState` matrix) at `conflict-policy.ts`; `uuidV7Timestamp` timestamp extractor at `src/domain/identity/uuid.ts`. Wired into `applyPlan`/`processEntry` with per-document isolation *(delivered — GH-24)* |
 | Confluence adapter | `TargetSystem` port implementation (v2/v1 API) |

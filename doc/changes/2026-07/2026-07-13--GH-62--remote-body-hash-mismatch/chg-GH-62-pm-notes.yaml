@@ -1,0 +1,111 @@
+change_id: GH-62
+title: "[MS2-E4] Remote body hash mismatch — Confluence XHTML normalization breaks sync (P0)"
+business_id: MS2-E4-bug
+type: bug
+priority: high
+branch: fix/GH-62/remote-body-hash-mismatch
+change_folder: doc/changes/2026-07/2026-07-13--GH-62--remote-body-hash-mismatch
+
+phases:
+  clarify_scope: { started: "2026-07-13T07:30:00Z", completed: "2026-07-13T07:45:00Z" }
+  specification: { started: "2026-07-13T07:45:00Z", completed: "2026-07-13T08:00:00Z" }
+  test_planning: { started: "2026-07-13T08:00:00Z", completed: "2026-07-13T08:15:00Z" }
+  delivery_planning: { started: "2026-07-13T08:15:00Z", completed: "2026-07-13T08:30:00Z" }
+  dor_check: { started: "2026-07-13T08:30:00Z", completed: "2026-07-13T08:45:00Z" }
+  delivery: { started: "2026-07-13T08:45:00Z", completed: "2026-07-13T12:30:00Z" }
+  system_spec_update: { started: "2026-07-13T12:30:00Z", completed: "2026-07-13T12:45:00Z" }
+  review_fix: { started: "2026-07-13T12:45:00Z", completed: "2026-07-13T13:30:00Z" }
+  quality_gates: { started: "2026-07-13T13:30:00Z", completed: "2026-07-13T13:35:00Z" }
+  dod_check: { started: "2026-07-13T13:35:00Z", completed: "2026-07-13T13:40:00Z" }
+  pr_creation: { started: "2026-07-13T13:40:00Z", completed: null, url: null }
+
+decisions:
+  - text: >
+      OQ-1 (fetch-back failure fallback): store `remoteBodyHash = rawHash(renderedBody)`
+      (the raw hash of the body just written). Rationale: same hash domain (raw)
+      so if Confluence didn't normalize, next sync is NoOp; if it did normalize,
+      a rare one-time false-positive block occurs (fetch-back failure is ≤0.1%).
+      Emit a warning. Avoids cross-domain mismatch of storing canonical hash.
+      PM-decided — low-risk, reversible, edge case.
+    date: "2026-07-13"
+  - text: >
+      OQ-2 (fetch-back timing): after asset upload. The rendered body already
+      contains `<ri:attachment>` references; uploading assets doesn't change
+      the body string. Fetch-back after upload captures the final committed
+      state and ensures ordering consistency (all writes done before read-back).
+      PM-decided — follows naturally from write-ordering.
+    date: "2026-07-13"
+
+open_questions: []
+
+blockers: []
+
+notes:
+  - text: >
+      Ticket is a P0 bug with clear root cause, reproduction, and testable AC.
+      No story file (bug ticket MS2-E4-bug); feature-safe-publish.md spec is
+      the authoritative context. Added mandatory `change` + `in-progress`
+      labels (ticket only had bug/MS-0002/priority:high).
+    type: info
+    date: "2026-07-13"
+  - text: >
+      CRITICAL FINDING beyond ticket description: the bug is deeper than
+      "remoteBodyHash set to canonicalHash at create." The classifier
+      (src/domain/state/classifier.ts line 52) compares
+      `remote.bodyHash !== base.renderedBodyHash`, but these are DIFFERENT hash
+      domains: `remote.bodyHash = rawHash(page.body)` = sha256 of Storage XHTML
+      STRING, while `base.renderedBodyHash = canonicalHash` = sha256 of
+      JSON-stringified canonical HAST TREE (contentHash in canonicalize.ts).
+      They can NEVER match regardless of Confluence normalization. Additionally,
+      SharedBase (sync-state.ts) does NOT carry `remoteBodyHash`, so the
+      classifier has no access to the last-known-remote hash even though
+      PageBinding stores it.
+    type: risk
+    date: "2026-07-13"
+  - text: >
+      Fix direction (to confirm in spec): (1) After create/update, fetch-back
+      the page body via target.getPage and store remoteBodyHash = rawHash(body)
+      in the binding — NOT canonicalHash. (2) Add remoteBodyHash to SharedBase
+      so the classifier can use it. (3) Change classifier remote comparison
+      from `remote.bodyHash !== base.renderedBodyHash` to
+      `remote.bodyHash !== base.remoteBodyHash` — correctly separating
+      "did local change?" (canonical vs renderedBodyHash) from "did remote
+      change?" (raw vs remoteBodyHash). This aligns with three-way merge
+      semantics. Costs 1 extra GET per created/updated page (acceptable for
+      MS-0002 MVP; NFR-PERF tolerance).
+    type: decision
+    date: "2026-07-13"
+  - text: >
+      Doc risks: feature-safe-publish.md §3.1 (drift detection) describes
+      "canonical semantic hashes" and says "rawHash is informational only" —
+      but the fix makes rawHash load-bearing for remote comparison. Spec needs
+      reconciliation in phase 7.       ADR-0006 (shared-base state model) may need a
+      note on the remoteBodyHash semantics.
+    type: risk
+    date: "2026-07-13"
+  - text: >
+      Retro — DoR iter-1 NOT_READY (2 blocking, 2 non-blocking). Blocking:
+      (1) duplicate AC ID AC-F5-1 used for two distinct criteria (fetch-back
+      success vs failure); (2) plan Phase 5.2 made doc reconciliation conditional
+      ("if needed") when PM notes already established it's definitely needed.
+      Non-blocking: (3) plan task 2.4 missed second SharedBase site (409 reapply
+      push-flow.ts:881); (4) spec §8.5 vs §19 stale "empty string" migration text.
+      Process improvement: PM should have caught the duplicate AC ID during
+      artifact review before delegating to DoR.
+    type: retro
+    date: "2026-07-13"
+  - text: >
+      Retro — Review iter-1 FAIL (5 findings). F-1 format:check (de-indentation
+      from editing push-flow.ts — one-command fix). F-2 missing TC-IDEM-002
+      (Update idempotency test). F-3 plan unchecked. During F-2 remediation,
+      TC-IDEM-002 revealed a DEEPER bug: finalizeSuccessfulUpdate never refreshed
+      renderedBodyHash in the binding (carried stale value from ...binding spread).
+      This meant after an Update, the next sync would see local.canonicalHash ≠
+      base.renderedBodyHash → false LOCAL_AHEAD. Fixed by passing
+      entry.hashes.canonicalHash to finalizeSuccessfulUpdate and setting it in
+      updatedBinding. Process improvement: the initial spec/plan should have
+      called out renderedBodyHash refresh as part of the fix, not just
+      remoteBodyHash. The fetch-back alone is insufficient if the local-side
+      hash is also stale.
+    type: retro
+    date: "2026-07-13"

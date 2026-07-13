@@ -120,8 +120,8 @@ describe("409 retry policy", () => {
 			expect(result.value.writes).toBe(1);
 			expect(result.value.blocks).toBe(0);
 
-			// Assert: Max 1 re-fetch occurred (count getPageCalls)
-			expect(target.getPageCalls.length).toBe(1);
+			// Assert: 1 re-fetch (409 Conflict) + 1 fetch-back (GH-62 post-reapply)
+			expect(target.getPageCalls.length).toBe(2);
 
 			// Assert: Max 1 reapply occurred (count updatePageCalls)
 			// First call conflicts, second call (reapply) succeeds

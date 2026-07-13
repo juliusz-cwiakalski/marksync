@@ -303,6 +303,7 @@ export async function computePlan(
 				parentPageId: binding.parentPageId,
 				pageVersion: binding.pageVersion,
 				renderedBodyHash: binding.renderedBodyHash,
+				remoteBodyHash: binding.remoteBodyHash,
 				attachmentHashes: binding.attachmentHashes,
 			};
 
@@ -605,8 +606,12 @@ function parentFirstOrder(entries: readonly PlanEntry[]): PlanEntry[] {
 }
 
 /**
- * Finalize a successful update: journal, update binding, save lock, put property.
- * Shared between first-write and reapply paths.
+ * Finalize a successful update: fetch-back, journal, update binding, save lock,
+ * put property. Shared between first-write and reapply paths.
+ *
+ * Fetch-back (GH-62): after the write, GET the page to capture Confluence's
+ * normalized body and store its raw hash as `remoteBodyHash`. On fetch-back
+ * failure, fall back to `rawHash(renderedBody)` (same domain) + warning.
  */
 async function finalizeSuccessfulUpdate(
 	pageId: string,
@@ -620,7 +625,9 @@ async function finalizeSuccessfulUpdate(
 	headSha: string,
 	operationId: string,
 	binding: PageBinding,
-	assetUploadHashes: Record<string, string> = {}, // GH-26: asset hashes to merge
+	renderedBody: string,
+	renderedBodyHash: string,
+	assetUploadHashes: Record<string, string> = {},
 ): Promise<Result<ApplyResultEntry, MarkSyncError>> {
 	// Journal append BEFORE lock update
 	journal.append({
@@ -630,6 +637,26 @@ async function finalizeSuccessfulUpdate(
 		outcome: "success",
 	});
 
+	// GH-62: Fetch-back to capture Confluence-normalized body
+	const fetchResult = await target.getPage(pageId);
+	let remoteBodyHash: string;
+	const finalizeWarnings: string[] = [];
+	if (fetchResult.ok && fetchResult.value.body) {
+		remoteBodyHash = rawHash(fetchResult.value.body);
+	} else {
+		// Fallback: raw hash of what we sent (same domain; next sync recovers)
+		remoteBodyHash = rawHash(renderedBody);
+		if (!fetchResult.ok) {
+			finalizeWarnings.push(
+				`Fetch-back failed for ${pageId}: ${fetchResult.error.kind}; using rendered body hash as fallback`,
+			);
+		} else {
+			finalizeWarnings.push(
+				`Fetch-back returned empty body for ${pageId}; using rendered body hash as fallback`,
+			);
+		}
+	}
+
 	// Update binding in memory
 	const updatedBinding: PageBinding = {
 		...binding,
@@ -637,6 +664,8 @@ async function finalizeSuccessfulUpdate(
 		sourceCommit: headSha,
 		synchronizedAt: new Date().toISOString(),
 		operationId,
+		renderedBodyHash,
+		remoteBodyHash,
 		attachmentHashes: {
 			...binding.attachmentHashes,
 			...assetUploadHashes, // GH-26: merge newly uploaded assets
@@ -664,7 +693,11 @@ async function finalizeSuccessfulUpdate(
 		return Res.err(putResult.error);
 	}
 
-	return Res.ok({ uuid, outcome: "updated" });
+	return Res.ok({
+		uuid,
+		outcome: "updated",
+		warnings: finalizeWarnings,
+	});
 }
 
 /**
@@ -884,6 +917,7 @@ async function processEntry(
 					parentPageId: binding.parentPageId,
 					pageVersion: binding.pageVersion,
 					renderedBodyHash: binding.renderedBodyHash,
+					remoteBodyHash: binding.remoteBodyHash,
 					attachmentHashes: binding.attachmentHashes,
 				};
 				let remote: RemoteState;
@@ -971,6 +1005,8 @@ async function processEntry(
 						headSha,
 						operationId,
 						binding,
+						entry.renderedBody, // GH-62: for fetch-back fallback
+						entry.hashes.canonicalHash, // GH-62: refresh renderedBodyHash in binding
 						reapplyAssetHashes, // GH-26: pass asset hashes for merge
 					);
 
@@ -983,7 +1019,10 @@ async function processEntry(
 						};
 					}
 
-					return { ...finalizeResult.value, warnings };
+					return {
+						...finalizeResult.value,
+						warnings: [...warnings, ...(finalizeResult.value.warnings ?? [])],
+					};
 				}
 				// Decision is "block" → block
 				return { uuid, outcome: "blocked", error: err, warnings };
@@ -1028,6 +1067,8 @@ async function processEntry(
 			headSha,
 			operationId,
 			binding,
+			entry.renderedBody, // GH-62: for fetch-back fallback
+			entry.hashes.canonicalHash, // GH-62: refresh renderedBodyHash in binding
 			assetUploadHashes, // GH-26: pass asset hashes for merge
 		);
 
@@ -1040,7 +1081,10 @@ async function processEntry(
 			};
 		}
 
-		return { ...finalizeResult.value, warnings };
+		return {
+			...finalizeResult.value,
+			warnings: [...warnings, ...(finalizeResult.value.warnings ?? [])],
+		};
 	}
 
 	// Create → createPage with stale-plan expiry check
@@ -1100,6 +1144,25 @@ async function processEntry(
 			outcome: "success",
 		});
 
+		// GH-62: Fetch-back to capture Confluence-normalized body
+		const fetchResult = await target.getPage(page.id);
+		let remoteBodyHash: string;
+		if (fetchResult.ok && fetchResult.value.body) {
+			remoteBodyHash = rawHash(fetchResult.value.body);
+		} else {
+			// Fallback: raw hash of what we sent (same domain; next sync recovers)
+			remoteBodyHash = rawHash(action.body);
+			if (!fetchResult.ok) {
+				warnings.push(
+					`Fetch-back failed for ${page.id}: ${fetchResult.error.kind}; using rendered body hash as fallback`,
+				);
+			} else {
+				warnings.push(
+					`Fetch-back returned empty body for ${page.id}; using rendered body hash as fallback`,
+				);
+			}
+		}
+
 		// Create binding
 		const newBinding: PageBinding = {
 			uuid,
@@ -1110,7 +1173,7 @@ async function processEntry(
 			sourceCommit: headSha,
 			sourceContentHash: entry.hashes.rawHash,
 			renderedBodyHash: entry.hashes.canonicalHash,
-			remoteBodyHash: entry.hashes.canonicalHash, // Assume fresh
+			remoteBodyHash, // GH-62: fetched from Confluence (not assumed)
 			attachmentHashes: assetUploadHashes, // GH-26: merged from upload
 			operationId,
 			synchronizedAt: new Date().toISOString(),

@@ -1,0 +1,152 @@
+version: 1
+iteration: 2
+mode: local
+work_item_ref: GH-62
+branch: fix/GH-62/remote-body-hash-mismatch
+status: PASS
+summary: >
+  All five iter-1 findings are resolved. format:check now passes clean (exit 0),
+  TC-IDEM-002 (Update-path idempotency) is implemented and passing, all Phase 1-5
+  task boxes are checked with a populated execution log, and the no-op test
+  regex was removed. The remediation also surfaced and correctly fixed a deeper
+  bug: finalizeSuccessfulUpdate was not refreshing renderedBodyHash in the
+  binding (it spread ...binding carrying the stale value), which would have
+  caused a false LOCAL_AHEAD on every post-Update re-sync. The fix adds a
+  renderedBodyHash parameter set to entry.hashes.canonicalHash at both Update
+  call sites; TC-IDEM-002 genuinely validates it (without the fix the second
+  sync classifies LOCAL_AHEAD, not NoOp). Full suite: 997 pass / 0 fail,
+  typecheck clean. No new code issues introduced. Two non-blocking
+  plan-bookkeeping findings remain: the Phase 6 remediation tasks are
+  themselves still unchecked, and the test-plan execution log is empty.
+severity_breakdown:
+  critical: 0
+  high: 0
+  medium: 1
+  low: 1
+  info: 0
+spec_compliance: PASS
+plan_compliance: FAIL
+findings:
+  # --- Iter-1 findings (resolved; suppressed for the record) ---
+  - id: F-1
+    severity: high
+    confidence: high
+    category: correctness
+    location: src/app/push-flow.ts
+    message: >
+      [iter-1] Biome format:check failed on push-flow.ts due to de-indented
+      blocks. RESOLVED: bun run format applied, format:check now exits 0.
+    suggestion: No action — verified passing.
+    suppressed: true
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-2
+    severity: medium
+    confidence: high
+    category: testing
+    location: tests/integration/app/gh-62-idempotent-sync.test.ts
+    message: >
+      [iter-1] TC-IDEM-002 (Update idempotency, AC-F1-2) and four other
+      scenarios were missing. RESOLVED: TC-IDEM-002 added and passing; the fix
+      also surfaced the deeper renderedBodyHash-refresh bug which is now fixed.
+      TC-FETCH-001/002, TC-SHARED-001, TC-REAPPLY-001 are covered implicitly
+      (see F-6 note below).
+    suggestion: No action — verified passing.
+    suppressed: true
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-3
+    severity: medium
+    confidence: high
+    category: plan-compliance
+    location: chg-GH-62-plan.md
+    message: >
+      [iter-1] All 26 Phase 1-5 task boxes unchecked with empty execution log.
+      RESOLVED: Phases 1-5 boxes checked, execution log populated.
+    suggestion: No action — verified.
+    suppressed: true
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-4
+    severity: low
+    confidence: high
+    category: correctness
+    location: tests/integration/app/gh-62-idempotent-sync.test.ts:49
+    message: >
+      [iter-1] confluenceNormalize had a no-op .replace(/<p>/g, "<p>").
+      RESOLVED: removed; helper now applies two genuine normalizations
+      (<hr/> -> <hr />, em-dash -> &mdash;).
+    suggestion: No action — verified.
+    suppressed: true
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-5
+    severity: low
+    confidence: medium
+    category: testing
+    location: tests/integration/app/gh-62-idempotent-sync.test.ts:312-329
+    message: >
+      [iter-1 advisory] TC-FETCH-003 uses a call-count monkey-patch for
+      fetch-back failure. Acknowledged and left as advisory — still present.
+    suggestion: Optional future hardening (pageId-keyed fail flag).
+    suppressed: true
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  # --- Iter-2 new findings ---
+  - id: F-6
+    severity: medium
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-07/2026-07-13--GH-62--remote-body-hash-mismatch/chg-GH-62-plan.md:308-315
+    message: >
+      The eight Phase 6 (Code Review Remediation) task boxes (6.1-6.8) are all
+      still unchecked `- [ ]` even though the Execution Log marks Phase 6 as
+      "Done" and the substantive work is complete (formatting fixed, TC-IDEM-002
+      added, deeper bug fixed, no-op regex removed, quality gate green). This is
+      the same DONE_BUT_UNCHECKED gap type that iter-1 F-3 flagged for Phases
+      1-5, recurring in the remediation phase itself. Two tasks also need an
+      explicit disposition: 6.4 (test-plan status reconciliation) was not acted
+      on, and 6.7 (monkey-patch hardening) was deferred as advisory — both
+      should be checked with a short note rather than left open.
+    suggestion: >
+      Check off 6.1, 6.2, 6.5, 6.6, 6.8 as done. Mark 6.3 with a note that
+      TC-FETCH-002 is implicitly covered by TC-IDEM-002. Mark 6.4 done with a
+      note that all §3.1 "Covered" entries are accurate via implicit coverage
+      (TC-FETCH-001 by TC-IDEM-001, TC-FETCH-002 by TC-IDEM-002, TC-SHARED-001
+      by TC-CLSF-005 + integration, TC-REAPPLY-001 by TC-409-006). Mark 6.7 as
+      deferred-advisory (iter-1 F-5).
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-7
+    severity: low
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-07/2026-07-13--GH-62--remote-body-hash-mismatch/chg-GH-62-test-plan.md:680-682
+    message: >
+      The test-plan execution log (§10) still reads "(Populated during
+      execution)" with no rows, and the plan execution log Phase 6 commit
+      column says "(this commit)" instead of the SHA 17caa5f. The plan
+      execution log is otherwise populated correctly.
+    suggestion: >
+      Populate the test-plan §10 table with the TC IDs and pass results, and
+      replace "(this commit)" with 17caa5f in the plan execution log.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+reviewed_at: 2026-07-13T14:30:00Z
+next_step: PROCEED

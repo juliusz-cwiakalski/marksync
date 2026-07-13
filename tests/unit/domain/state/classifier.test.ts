@@ -23,6 +23,7 @@ function mockSharedBase(overrides?: Partial<SharedBase>): SharedBase {
 		parentPageId: "98765",
 		pageVersion: 5,
 		renderedBodyHash: "",
+		remoteBodyHash: "",
 		attachmentHashes: { "img.png": "sha256:img" },
 		...overrides,
 	};
@@ -110,7 +111,10 @@ function buildInput(baseHast: Root, localHast: Root): ClassifyInput {
 
 	return {
 		local,
-		base: mockSharedBase({ renderedBodyHash: baseHash }),
+		base: mockSharedBase({
+			renderedBodyHash: baseHash,
+			remoteBodyHash: baseHash,
+		}),
 		remote: mockRemote({ bodyHash: baseHash }),
 	};
 }
@@ -129,7 +133,7 @@ describe("TC-STATE-001 through TC-STATE-006", () => {
 				title: "Test Title",
 				parentPageId: "98765",
 			}),
-			base: mockSharedBase({ renderedBodyHash: hash }),
+			base: mockSharedBase({ renderedBodyHash: hash, remoteBodyHash: hash }),
 			remote: mockRemote({ bodyHash: hash }),
 		};
 		const result = classify(input);
@@ -160,7 +164,7 @@ describe("TC-STATE-001 through TC-STATE-006", () => {
 				title: "Test Title",
 				parentPageId: "98765",
 			}),
-			base: mockSharedBase({ renderedBodyHash: hash }),
+			base: mockSharedBase({ renderedBodyHash: hash, remoteBodyHash: hash }),
 			remote: mockRemote({ bodyHash: canonicalHash(remoteHast) }),
 		};
 		const result = classify(input);
@@ -182,7 +186,7 @@ describe("TC-STATE-001 through TC-STATE-006", () => {
 				title: "Test Title",
 				parentPageId: "98765",
 			}),
-			base: mockSharedBase({ renderedBodyHash: hash }),
+			base: mockSharedBase({ renderedBodyHash: hash, remoteBodyHash: hash }),
 			remote: mockRemote({ bodyHash: canonicalHash(remoteHast) }),
 		};
 		const result = classify(input);
@@ -472,7 +476,7 @@ describe("TC-METADATA-001, TC-METADATA-002, TC-NO-CHANGE-001", () => {
 				title: "New Title",
 				parentPageId: "98765",
 			}),
-			base: mockSharedBase({ renderedBodyHash: hash }),
+			base: mockSharedBase({ renderedBodyHash: hash, remoteBodyHash: hash }),
 			remote: mockRemote({ bodyHash: hash, title: "Test Title" }),
 		};
 		const result = classify(input);
@@ -492,7 +496,7 @@ describe("TC-METADATA-001, TC-METADATA-002, TC-NO-CHANGE-001", () => {
 				title: "Test Title",
 				parentPageId: "99999",
 			}),
-			base: mockSharedBase({ renderedBodyHash: hash }),
+			base: mockSharedBase({ renderedBodyHash: hash, remoteBodyHash: hash }),
 			remote: mockRemote({ bodyHash: hash, parentPageId: "98765" }),
 		};
 		const result = classify(input);
@@ -512,7 +516,7 @@ describe("TC-METADATA-001, TC-METADATA-002, TC-NO-CHANGE-001", () => {
 				title: "Test Title",
 				parentPageId: "98765",
 			}),
-			base: mockSharedBase({ renderedBodyHash: hash }),
+			base: mockSharedBase({ renderedBodyHash: hash, remoteBodyHash: hash }),
 			remote: {
 				kind: "present",
 				bodyHash: hash,
@@ -543,6 +547,7 @@ describe("TC-UNIT-009", () => {
 			}),
 			base: mockSharedBase({
 				renderedBodyHash: hash,
+				remoteBodyHash: hash,
 				attachmentHashes: { "img.png": "sha256:oldhash" }, // Old hash
 			}),
 			remote: mockRemote({ bodyHash: hash }),

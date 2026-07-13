@@ -48,7 +48,7 @@ revisit_triggers:
   - "Reverse sync (`MS-0005+`) requires a base representation the lock cannot express."
   - "CI concurrency proves unachievable with a committed lock + optimistic 409 concurrency alone."
 links:
-  related_changes: [GH-19, GH-21, GH-22, GH-24]
+  related_changes: [GH-19, GH-21, GH-22, GH-24, GH-62]
   supersedes: []
   superseded_by: []
   spec: ["../inception/system-specification-draft-from-ai-brainstorm.md"]
@@ -220,6 +220,12 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes with accepted cost.
 - A committed, versioned lock file records, per target, the mapping: `UUID → { pageId, parentPageId, pageVersion, sourceCommit, sourceContentHash, renderedBodyHash, remoteBodyHash, synchronizedAt, toolVersion }`.
 - The lock contains **no secrets** and is committed to the repo.
 - Lock updates are staged and written **atomically** after a successful apply.
+- The two body-hash fields record different hash domains, kept strictly apart
+  by the drift classifier: `renderedBodyHash` is the **canonical** hash
+  (JSON-stringified HAST digest of what marksync rendered locally); `remoteBodyHash`
+  is the **raw** hash (sha256 of the Confluence-stored Storage XHTML, refreshed via
+  a post-write fetch-back after each Create/Update). Separating these domains is
+  what makes Confluence body normalization invisible to an idempotent rerun.
 - The remote `marksync.metadata` content property mirrors key lock fields as a cross-check; lock and property agree after success. A lost lock can be rebuilt from Confluence + Git.
 
 ### Cache (disposable, single CI-cacheable dir)
@@ -347,8 +353,12 @@ cross-check is `validated` (A-FEA-4, A-FEA-5).
   INV-SAFE-2 at the decision point, ahead of the write-time 409 backstop
   (E3-S7). Its `ContentHash` snapshot delegates `canonicalHash` to the GH-20
   `contentHash(canonicalize(hast))` digest (a single canonicalization
-  authority), so the false-positive guard tracks that module automatically;
-  `rawHash` stays informational only.
+  authority), so the local-drift false-positive guard tracks that module
+  automatically. Remote drift compares raw-to-raw
+  (`remote.bodyHash !== base.remoteBodyHash`), and after each successful
+  Create/Update the write path fetches the page back and stores
+  `rawHash(fetchedBody)` as `remoteBodyHash`, so Confluence's Storage XHTML
+  normalization is invisible to an idempotent rerun (GH-62).
 - **The decentralized concurrency backstop (GH-24) landed the write-time
   defense-in-depth that completes C-5/C-6.** Three pure domain gates under
   `src/domain/state/` — `assertOperationFresh` (operation-ID freshness via
