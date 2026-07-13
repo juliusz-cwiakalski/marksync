@@ -125,6 +125,37 @@ clarify_scope_findings:
 
 notes:
   - text: >
+      REVIEW iter-1 FAIL (2026-07-13, @reviewer, artifact
+      code-review/review-iter-1.yaml). 11 findings: 1 critical / 5 high / 3
+      medium / 2 low. Release-blocking: F-1 (SVG naming divergence — domain
+      rewrites HAST to marksync-asset-<hash>.svg but infra uploads as
+      marksync-mermaid-<hash>.svg → broken user SVG images + idempotency
+      break); F-3 (TC-UNIT-005 root-prefix trick is a FALSE POSITIVE — evil
+      dir doesn't exist so realpath throws before the prefix check); F-4
+      (TC-UNIT-003 URL-encoded traversal is a FALSE POSITIVE — path.resolve
+      doesn't URL-decode); F-5 (sha256Hex passes bytes.buffer full slab
+      ignoring byteOffset/byteLength → wrong hash for subarray views);
+      F-6 (TC-UNIT-009 asset-drift test absent though P3.5 checked). Phase 7
+      remediation P7.1-P7.15 written into the plan by @reviewer. Delegating to
+      @coder for remediation, then re-review iter-2. F-1/F-3/F-4/F-5 must PASS
+      before DoD.
+    type: blocker
+    workItemRef: GH-26
+    date: "2026-07-13"
+  - text: >
+      Retro — the deferred adversarial DoR critique (recorded override in
+      dor_self_check because @readiness-reviewer was unavailable pre-delivery)
+      WORKED as designed: run post-delivery via @reviewer, it surfaced a real
+      critical bug (F-1 SVG naming) and two false-positive security tests
+      (F-3/F-4) that the green 989-test suite hid. The green gate gave false
+      confidence. Improvement: even when DoR must be deferred, the post-delivery
+      @reviewer MUST run before DoD (it did here) — and security AC tests need
+      adversarial scrutiny for false positives (a passing test that passes for
+      the wrong reason is worse than no test).
+    type: retro
+    workItemRef: GH-26
+    date: "2026-07-13"
+  - text: >
       PM-FALLBACK (2026-07-13): the @spec-writer task delegation was interrupted
       3x in a row (each correlated with a re-issued top-level prompt; tool
       returned "[Tool execution was interrupted]"). To unblock delivery, PM

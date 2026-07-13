@@ -2,9 +2,9 @@
 # Copyright (c) 2025-2026 Juliusz Ćwiąkalski (https://www.cwiakalski.com | https://www.linkedin.com/in/juliusz-cwiakalski/ | https://x.com/cwiakalski)
 # MIT License - see LICENSE file for full terms
 id: chg-GH-26-attachments-images
-status: Delivered
+status: In Review (review_fix iter-1 FAIL)
 created: 2026-07-13T00:00:00Z
-last_updated: 2026-07-13T00:00:00Z
+last_updated: 2026-07-13T08:30:00Z
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 labels: [MS-0002, MS2-E4, safe-publish, attachments, security, path-traversal, idempotency]
@@ -283,9 +283,94 @@ outside the root. This plan delivers a path-safe, content-addressed
 - [x] **P6.4** Final commit if any cleanup: `chore(assets): GH-26 lint/typecheck pass`.
 - [x] **P6.5** Confirm `bun run check` is green; report test counts. ✓ 989 pass, 0 fail
 
-## Phase 7 — (reserved for review remediation)
+## Phase 7 — Code Review Remediation (Iteration 1)
 
-Populated by PM only if `@reviewer`/`@readiness-reviewer` return findings.
+Populated by `@reviewer` iter-1 (`code-review/review-iter-1.yaml`). Status:
+FAIL — 1 critical / 5 high / 3 medium / 2 low. The confinement core, naming
+single-authority (non-SVG), domain purity, error-model reuse, and dep-cruiser
+rules are sound; the blockers below must land before DoR/DoD sign-off.
+
+### F-1 (critical) — SVG naming divergence breaks user-authored SVG images
+- [ ] **P7.1** Reconcile the domain `assetFilename()` and infra
+  `attachmentFilename()` for SVG so the HAST `<ri:attachment>` filename equals
+  the uploaded filename. Preferred: gate the `marksync-mermaid-` infra prefix on
+  an explicit mermaid marker (NOT mime alone) so user `.svg` →
+  `marksync-asset-<hash>.svg` on BOTH sides; OR pass the HAST filename through
+  to upload so the server name matches. Update DEC-1 note + spec F-4 to reflect
+  the functional requirement (filenames MUST agree), not just a "documented
+  divergence".
+- [ ] **P7.2** Add an integration assertion (TC-INTEGRATION-003 svg row +
+  TC-INTEGRATION-005) that the uploaded attachment filename EQUALS the HAST
+  `ri:attachment` filename for svg (drive through the real infra
+  `attachmentFilename`, see P7.5).
+- [ ] **P7.3** Update `tests/unit/domain/assets/naming.test.ts` TC-UNIT-010 SVG
+  case to assert domain === infra for user SVG (not "documented divergence").
+
+### F-2 / F-10 (high/low) — applyPlan upload wiring untested; uploadAssets private
+- [ ] **P7.4** Export `uploadAssets` from `src/app/push-flow.ts` (test seam; no
+  CLI-surface widening).
+- [ ] **P7.5** Rewrite TC-INTEGRATION-001 (reuse) and TC-INTEGRATION-002 (update
+  / no-`/data`) to call the REAL `uploadAssets` with a recording mock target —
+  assert `attachmentExists` is called BEFORE `uploadAttachment`, 0 uploads on
+  exists=true, 1 upload on exists=false. Remove the inline `uploadHelper`.
+- [ ] **P7.6** Add one `applyPlan` integration test carrying `entry.assets`
+  through the Create path; assert `PageBinding.attachmentHashes` is populated
+  and the upload count matches (covers the real Create branch; mirror an Update
+  + a 409-reapply variant if low-cost).
+
+### F-3 (high) — TC-UNIT-005 root-prefix trick is a false positive
+- [ ] **P7.7** Fix TC-UNIT-005: make the evil sibling dir + secret file ACTUALLY
+  exist (drop the timestamp mismatch so realpath succeeds), then assert
+  Forbidden + 0 reads. The rejection must come from the `rootReal + path.sep`
+  prefix check, not a realpath miss.
+
+### F-4 (high) — TC-UNIT-003 URL-encoded traversal is a false positive
+- [ ] **P7.8** Fix TC-UNIT-003: `path.resolve` does not URL-decode — either
+  replace with a genuinely-decoded traversal fixture (target file exists,
+  escapes root after resolution) or, if encoded srcs are reachable from the
+  markdown pipeline, add a decode step in the resolver and test it. Remove the
+  incorrect "path.resolve will decode" comment.
+
+### F-5 (high) — sha256Hex ignores byteOffset/byteLength
+- [ ] **P7.9** Change `sha256Hex` to `crypto.subtle.digest("SHA-256", bytes)`
+  (pass the Uint8Array view, not `bytes.buffer`). Add a unit test hashing a
+  subarray view (`bigBuffer.subarray(4,8)`) and assert it equals the hash of
+  those exact bytes (not the whole slab).
+
+### F-6 (high) — TC-UNIT-009 asset drift missing (P3.5 checked but absent)
+- [ ] **P7.10** Add TC-UNIT-009: two `ContentHash` via `buildContentHash`
+  differing ONLY in `attachmentHashes` → `classify` returns a state !=
+  NO_CHANGE. (CHECKED_BUT_MISSING plan gap for AC-7 / NFR-3.)
+
+### F-7 (medium) — TC-INTEGRATION-006 large-asset + isolation missing
+- [ ] **P7.11** Add TC-INTEGRATION-006: two-doc applyPlan — doc A >25 MB asset
+  (warning emitted, doc applies), doc B upload returns `TooLarge` (413) → doc B
+  blocks, run continues, writes count reflects A only. Requires real
+  `uploadAssets` (P7.4).
+
+### F-8 (medium) — >25 MB warning not surfaced
+- [ ] **P7.12** Wire the >25 MB warning into `ApplyReport.warnings` /
+  `CommandResult.warnings` (thread a warnings sink through `uploadAssets`);
+  remove the `console.warn` + TODO. The asset hash must not leak to stderr
+  outside the redaction contract (ADR-0011).
+
+### F-9 (medium) — dedup lookup misses distinct src → same file
+- [ ] **P7.13** Key the in-doc dedup rewrite lookup by canonical path
+  (`Map<canonicalPath, ResolvedAsset>`) so a second node whose src differs but
+  resolves to an already-processed file still gets the dedup filename. Add a
+  unit test: `image.png` + `./image.png` (or absolute-equivalent) → both nodes
+  rewritten to the same filename, 1 artifact.
+
+### F-11 (low) — mock uploadAttachment hardcodes .png
+- [ ] **P7.14** Make the mock `uploadAttachment` derive the filename via the
+  real `attachmentFilename` (import from `#infra/confluence/attachments`) so the
+  mock mirrors production naming and TC-INTEGRATION-005's per-format filename
+  assertion is meaningful.
+
+### Re-review gate
+- [ ] **P7.15** Run `bun run check` (target 0 fail, no dep violations). Re-run
+  `@reviewer` (iteration 2) — every [x] above must be evidenced in code/tests;
+  F-1, F-3, F-4, F-5 are release-blocking and must be PASS before DoR/DoD.
 
 ---
 
@@ -306,3 +391,13 @@ Populated by PM only if `@reviewer`/`@readiness-reviewer` return findings.
 - **Commit per phase** with Conventional Commit prefixes (`feat(assets):`,
   `feat(safe-publish):`, `test(assets):`, `chore(assets):`). Include `GH-26` in
   each subject. Do NOT commit `.ai/local/pm-context.yaml` (git-ignored).
+
+## Revision Log
+
+- **2026-07-13 — review iter-1 (`@reviewer`):** FAIL. Appended Phase 7
+  remediation (P7.1–P7.15). 11 findings (1c/5h/3m/2l). Release-blocking:
+  F-1 (SVG naming breaks user images + idempotency), F-3/F-4 (two path-traversal
+  AC tests are false positives — pass on non-existent paths, not confinement),
+  F-5 (sha256Hex hashes the wrong byte range for sub-array views), F-6 (TC-UNIT-
+  009 asset-drift test missing though P3.5 checked). See
+  `code-review/review-iter-1.yaml`.

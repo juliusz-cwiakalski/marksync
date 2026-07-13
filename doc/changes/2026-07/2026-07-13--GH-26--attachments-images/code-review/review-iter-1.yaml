@@ -1,0 +1,309 @@
+version: 1
+iteration: 1
+mode: local
+work_item_ref: GH-26
+branch: feat/GH-26/attachments-images
+status: FAIL
+summary: >
+  The AssetResolver confinement core is sound (realpath + root/path.sep prefix,
+  0-bytes-read on escape, single-authority full-sha256 naming for non-SVG) and
+  dep-cruiser/error-model/domain-purity constraints are honoured, but the change
+  carries one release-blocking correctness bug and several test-validity gaps
+  that undermine the security AC it claims to satisfy. CRITICAL: user-authored
+  SVG images are broken on Confluence — the domain rewrites the HAST to
+  `marksync-asset-<hash>.svg` while the infra AttachmentService uploads the same
+  artifact as `marksync-mermaid-<hash>.svg`, so the `<ri:attachment>` references
+  a filename that was never uploaded; the same mismatch also breaks idempotency
+  for SVG-bearing docs. Two of the six path-traversal test cases (TC-UNIT-003
+  URL-encoded, TC-UNIT-005 root-prefix) are FALSE POSITIVES — they pass because
+  the target path does not exist (realpath throws) rather than exercising the
+  confinement logic they claim to prove. The `applyPlan` upload wiring
+  (`uploadAssets` + Create/Update/reapply paths) has NO coverage through the real
+  code; TC-INTEGRATION-001/002 reimplement the helper inline, and the required
+  TC-UNIT-009 (asset drift) and TC-INTEGRATION-006 (large-asset/isolation) tests
+  are missing despite their plan tasks being marked [x].
+severity_breakdown:
+  critical: 1
+  high: 5
+  medium: 3
+  low: 2
+  info: 0
+spec_compliance: FAIL
+plan_compliance: FAIL
+findings:
+  - id: F-1
+    severity: critical
+    confidence: high
+    category: correctness
+    location: src/domain/assets/naming.ts:14
+    message: >
+      User-authored SVG images are broken end-to-end. The domain
+      `assetFilename()` rewrites the HAST node to
+      `marksync-asset-<hash>.svg`, but the infra `AttachmentService.upload`
+      (attachments.ts:142) uploads the SAME artifact as
+      `marksync-mermaid-<hash>.svg`. Confluence therefore stores the attachment
+      under the mermaid name while the rendered body's `<ri:attachment>` points
+      at the asset name — the image cannot resolve. The mismatch also poisons
+      idempotency: `computePlan` keys `ContentHash.attachmentHashes` by the
+      domain filename, while `applyPlan`→`uploadAssets` keys
+      `PageBinding.attachmentHashes` by the server-returned (mermaid) filename,
+      so every reclassify sees `attachmentHash` differ → SVG docs always classify
+      LOCAL_AHEAD and re-upload. AC-4 (svg renders the correct ri:attachment) is
+      not met. The naming test even asserts the divergence and labels it
+      "documented", but the documentation missed the functional impact.
+    suggestion: >
+      Make the two naming authorities agree for SVG. Preferred: change the infra
+      `attachmentFilename` to use `marksync-asset-` for ALL non-mermaid SVGs
+      (gate the `marksync-mermaid-` prefix on an explicit `kind: "mermaid"`
+      artifact marker, not on mime alone), OR have the resolver pass the filename
+      it wrote into the HAST through to the upload so the server name matches the
+      HAST name. Then add an integration assertion that the uploaded filename
+      equals the HAST ri:attachment filename for svg.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-2
+    severity: high
+    confidence: high
+    category: testing
+    location: tests/integration/assets/asset-upload.test.ts:296
+    message: >
+      The `applyPlan`/`uploadAssets` upload-reuse wiring has ZERO coverage
+      through the real code path. TC-INTEGRATION-001 (reuse → 0 uploads) and
+      TC-INTEGRATION-002 (update on change, no /data) each redefine an inline
+      `uploadHelper` that mimics `uploadAssets` instead of invoking the real
+      function or driving `applyPlan` with a mock target. Consequently the
+      load-bearing focus-area guarantee ("applyPlan must call attachmentExists
+      before uploadAttachment and skip on true") is NOT actually verified — a
+      real bug in `uploadAssets` (e.g. swapped order, missing exists-check)
+      would pass these tests. The existing applyPlan integration suite
+      (apply-plan-integration.test.ts etc.) never sets `entry.assets`, so the
+      Create/Update/409-reapply upload branches are entirely unexercised.
+    suggestion: >
+      Export `uploadAssets` (or add a thin test seam) and have TC-INTEGRATION-001
+      /002 call the real function with a recording mock target, asserting
+      exists-call-before-upload and 0 uploads on exists=true. Better: add at
+      least one `applyPlan` integration test that carries `entry.assets` through
+      the Create path and asserts `PageBinding.attachmentHashes` is populated
+      and the upload-call count.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-3
+    severity: high
+    confidence: high
+    category: security
+    location: tests/unit/domain/assets/resolver.test.ts:186
+    message: >
+      TC-UNIT-005 (root-prefix trick — the `/tmp/x` vs `/tmp/x-evil` vector that
+      a raw `startsWith` would wrongly allow) is a FALSE POSITIVE. The test sets
+      `src = "/tmp/test-assets-prefix-evil/secret.txt"` but creates the evil dir
+      at `/tmp/test-assets-prefix-evil-${Date.now()}/` — WITHOUT the timestamp.
+      The referenced file does not exist, so `realpath` throws and the resolver
+      returns Forbidden before the prefix check is ever reached. The release-
+      blocking invariant "prefix check uses root + path.sep, not raw startsWith"
+      is therefore never exercised; the test would pass even if the production
+      code used a broken raw `startsWith`.
+    suggestion: >
+      Make the evil sibling dir actually exist (create a real secret file under
+      it) so realpath succeeds, then assert Forbidden still fires AND that the
+      production check is `rootReal + path.sep` (consider a mutation/property
+      check or at least a case where the raw prefix collides but the path
+      escapes). Keep the 0-bytes-read assertion.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-4
+    severity: high
+    confidence: high
+    category: security
+    location: tests/unit/domain/assets/resolver.test.ts:121
+    message: >
+      TC-UNIT-003 (URL-encoded `%2e%2e%2f` traversal) is a FALSE POSITIVE. The
+      comment claims "path.resolve will decode this as ../", but `path.resolve`
+      does NOT URL-decode — `%2e%2e%2f` is treated as a literal filename, so the
+      resolved path stays inside root. The test only passes because that literal
+      filename does not exist (realpath throws → Forbidden). A resolver that
+      silently allowed traversal via un-decoded paths would still pass this
+      case, and the genuinely dangerous vector (a `src` that decodes to `../`
+      somewhere upstream) is not covered.
+    suggestion: >
+      Either (a) drop the URL-encoding claim and replace with a real decoded-
+      traversal fixture, or (b) if encoded srcs can reach the resolver from the
+      markdown pipeline, add a decode step in the resolver and test a path that
+      genuinely resolves outside root after decoding. At minimum make the target
+      file exist so the prefix check — not a realpath miss — is what rejects it.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-5
+    severity: high
+    confidence: medium
+    category: correctness
+    location: src/domain/assets/resolver.ts:214
+    message: >
+      `sha256Hex` calls `crypto.subtle.digest("SHA-256", bytes.buffer as
+      ArrayBuffer)`. When `bytes` is a subarray view (non-zero byteOffset or
+      byteLength shorter than the backing ArrayBuffer), `bytes.buffer` is the
+      FULL backing slab, so the digest is computed over the wrong byte range.
+      The default `readBytes` implementation explicitly returns such a view
+      (`new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength)`),
+      and Node `Buffer`s from `readFileSync` can be pool-allocated with non-zero
+      byteOffset. A wrong hash means a wrong dedup filename → silent re-uploads
+      and, worse, `attachmentExists(hash)` misses → idempotency leaks and
+      potential cross-content key confusion.
+    suggestion: >
+      Pass the typed-array view directly: `crypto.subtle.digest("SHA-256",
+      bytes)` (BufferSource accepts ArrayBufferView and honours
+      byteOffset/byteLength). Add a unit test that hashes a subarray view
+      (`someBigBuffer.subarray(4, 8)`) and asserts it equals the hash of just
+      those 4 bytes.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-6
+    severity: high
+    confidence: high
+    category: plan-compliance
+    location: chg-GH-26-plan.md:217
+    message: >
+      TC-UNIT-009 (asset drift: two ContentHash snapshots differing ONLY in
+      attachmentHashes must flip SyncState away from NO_CHANGE — proves the
+      wiring is meaningful) does not exist anywhere in the test tree, yet plan
+      task P3.5 is marked [x] and the test-plan lists it as AC-7 coverage. This
+      is a CHECKED_BUT_MISSING plan gap. Without it, AC-7 (NFR-3) is unverified
+      and the whole point of populating `ContentHash.attachmentHashes` (the
+      reason this change exists) is unasserted.
+    suggestion: >
+      Add the test: build two ContentHash via `buildContentHash` with identical
+      source/hast/title but different `attachmentHashes`, run `classify`, assert
+      the second is not NO_CHANGE. Lives in tests/unit/domain/state/ or a new
+      tests/unit/app/push-flow-assets.test.ts.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-7
+    severity: medium
+    confidence: high
+    category: testing
+    location: tests/integration/assets/asset-upload.test.ts
+    message: >
+      TC-INTEGRATION-006 (large-asset >25 MB warning + per-document isolation:
+      doc A >25 MB warns and applies, doc B upload returns TooLarge(413) and
+      blocks while the run continues) is entirely missing. The test-plan §4.2
+      and AC-9 require it. The pm-notes self-flag AC9 as "PARTIAL", but the
+      per-document-isolation-on-TooLarge behaviour — a load-bearing NFR-9
+      property of the new upload step — has no assertion at all.
+    suggestion: >
+      Add a two-doc applyPlan integration test: doc A carries a >25 MB asset
+      (assert warning emitted + doc applies), doc B's mock uploadAttachment
+      returns TooLarge (assert doc B blocks, run continues, writes count
+      reflects A only). Requires exercising the real `uploadAssets` path (see
+      F-2).
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-8
+    severity: medium
+    confidence: high
+    category: observability
+    location: src/app/push-flow.ts:464
+    message: >
+      The >25 MB warning is emitted via `console.warn(...)` with a `// TODO: wire
+      this to CommandResult.warnings (P5.2)` comment, so it never surfaces in the
+      `ApplyReport`/`CommandResult.warnings` envelope the CLI renders. Plan P5.2
+      explicitly required wiring it to the run's warnings. A `console.warn` is
+      invisible to the structured output path (ADR-0011) and to redaction
+      (ADR-0011), and it leaks the asset hash to stderr outside the provenance
+      contract.
+    suggestion: >
+      Thread a warnings sink into `uploadAssets` (return warnings alongside the
+      hash map, or push into the plan/apply warnings array) and surface it in
+      ApplyReport.warnings so the CLI renders it through the standard output
+      strategy. Remove the console.warn.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-9
+    severity: medium
+    confidence: medium
+    category: correctness
+    location: src/domain/assets/resolver.ts:94
+    message: >
+      In-doc dedup keys on the canonical path but the rewrite lookup is
+      `srcMap.get(src)` keyed by the ORIGINAL src string. When two distinct src
+      strings resolve to the same file (e.g. `image.png` and `./image.png`, or
+      `img/x.png` vs an absolute-equivalent), the second node hits the
+      visitedPaths branch, `srcMap.get(<second src>)` returns undefined, and the
+      node is left with its original src — so `imageMacro` emits a
+      `<ri:attachment>` for the raw basename and the image is broken. The
+      spec (F-1) requires "rewrite both nodes to the same filename".
+    suggestion: >
+      Key the rewrite lookup by canonical path (maintain a
+      `Map<canonicalPath, ResolvedAsset>` in addition to or instead of the
+      src-keyed srcMap), so any src resolving to an already-processed canonical
+      path gets the correct filename regardless of the original src spelling.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-10
+    severity: low
+    confidence: high
+    category: testing
+    location: src/app/push-flow.ts:454
+    message: >
+      `uploadAssets` is a non-exported module-private function. This is the root
+      cause of F-2: because it cannot be imported, the integration tests
+      reimplement its logic inline, which both defeats the purpose of the tests
+      and risks the reimplementation drifting from the real logic.
+    suggestion: >
+      Export `uploadAssets` (it is a pure-ish async given an injected target —
+      exporting it does not widen the public CLI surface) so tests can call the
+      real function directly, or introduce a tiny test-only seam.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-11
+    severity: low
+    confidence: high
+    category: testing
+    location: tests/integration/assets/asset-upload.test.ts:72
+    message: >
+      The mock `uploadAttachment` always returns
+      `marksync-asset-${artifact.hash}.png` regardless of the artifact's mime,
+      so TC-INTEGRATION-005's `expect(filename).toMatch(/^marksync-asset-[a-f0-
+      9]+\\.png$/)` is vacuous for any non-png format and cannot detect the
+      infra/domain filename disagreement (it would not catch F-1 even for svg
+      because the mock bypasses `attachmentFilename`).
+    suggestion: >
+      Have the mock compute the filename via the real `attachmentFilename`
+      (import from #infra/confluence/attachments) so the mock mirrors production
+      naming, and assert the returned filename matches the HAST-rewrite filename
+      per format.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+reviewed_at: 2026-07-13T08:30:00Z
+next_step: EXECUTE_REMEDIATION_PHASE
