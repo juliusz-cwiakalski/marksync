@@ -104,7 +104,7 @@ sha256 hash, and produces an `Artifact` with `kind: "mermaid"`.
 
 **Tasks:**
 
-- [ ] **P1.1** Create `src/domain/mermaid/port.ts` exporting the `Renderer` port:
+- [x] **P1.1** Create `src/domain/mermaid/port.ts` exporting the `Renderer` port (done — src/domain/mermaid/port.ts).
   ```ts
   import type { Artifact } from "#domain/target/port";
   import type { MarkSyncError } from "#domain/errors";
@@ -119,7 +119,7 @@ sha256 hash, and produces an `Artifact` with `kind: "mermaid"`.
   }
   ```
 
-- [ ] **P1.2** Create `src/infra/mermaid/kroki.ts` implementing `Renderer`:
+- [x] **P1.2** Create `src/infra/mermaid/kroki.ts` implementing `Renderer` (done — POST text/plain, AbortController timeout, full sha256, kind=mermaid; injectable fetch seam).
   ```ts
   import type { Renderer } from "#domain/mermaid/port";
   import type { Artifact } from "#domain/target/port";
@@ -140,7 +140,7 @@ sha256 hash, and produces an `Artifact` with `kind: "mermaid"`.
   }
   ```
 
-- [ ] **P1.3** Implement `sha256Hash(bytes)` locally (reuse GH-26 pattern):
+- [x] **P1.3** Implement `sha256Hash(bytes)` locally (reuse GH-26 pattern) (done — local sha256Hex in kroki.ts, full 64-char hex).
   ```ts
   async sha256Hash(bytes: Uint8Array): Promise<string> {
     const d = await crypto.subtle.digest("SHA-256", bytes);
@@ -148,15 +148,10 @@ sha256 hash, and produces an `Artifact` with `kind: "mermaid"`.
   }
   ```
 
-- [ ] **P1.4** Write `tests/unit/infra/mermaid/kroki.test.ts` with mocked `fetch`:
-  - **TC-MERM-005** (network fallback): Mock `fetch` to return HTTP 503 → assert
-    `err({ kind: "RemoteUnreachable", status: 503, ... })`.
-  - **TC-MERM-010** (timeout safety): Mock `fetch` to throw `AbortError` → assert
-    `err({ kind: "RemoteUnreachable", cause: "..." })`.
-  - Success path: Mock `fetch` to return SVG bytes → assert `ok(Artifact)` with
-    `bytes: <SVG>`, `mime: "image/svg+xml"`, `hash: <full sha256>`, `kind: "mermaid"`.
+- [x] **P1.4** Write `tests/unit/infra/mermaid/kroki.test.ts` with mocked `fetch`
+  (done — 7 tests: success+hash, POST body/Content-Type, 503/404 fallback, AbortError, short-timeout abort, generic network error; 7 pass, 0 fail).
 
-- [ ] **P1.5** Commit: `feat(mermaid): GH-69 add Renderer port and Kroki HTTP adapter`.
+- [x] **P1.5** Commit: `feat(mermaid): gh-69 add renderer port and kroki http adapter`.
 
 ---
 
@@ -469,7 +464,7 @@ identifies the following docs that will need updating:
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| Phase 1 | Pending | - | - | - | Renderer port + Kroki adapter |
+| Phase 1 | Done | 2026-07-13 | 2026-07-13 | (pending commit) | Renderer port + Kroki adapter; 7 unit tests PASS, typecheck clean |
 | Phase 2 | Pending | - | - | - | Mermaid HAST transform |
 | Phase 3 | Pending | - | - | - | computePlan wiring + privacy warning |
 | Phase 4 | Pending | - | - | - | Golden fixture |
