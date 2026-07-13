@@ -6,13 +6,13 @@ ados_distribution: redistributable
 id: TECH-STACK
 status: Draft
 created: 2026-07-04
-last_updated: 2026-07-04
+last_updated: 2026-07-13
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005, ADR-0006, TDR-0002, TDR-0003, TDR-0004, ADR-0010, ADR-0011]
-  related_changes: []
+  related_changes: [GH-63]
   summary: "Tech stack — TypeScript + Bun single-binary CLI; remark/HAST Markdown pipeline; official Mermaid; Confluence Storage Format; local-first, no DB."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -53,6 +53,7 @@ Confluence contract; ADR-0005 settled Storage over ADF._
 |---|---|---|
 | `@cliffy/command` + `@cliffy/prompt` + `@cliffy/flags` (Cliffy) | stable 1.x (pin post smoke-test per TDR-0002) | CLI framework: commands, flags, help, completions, interactive prompts (init/doctor). TS-native; Bun-compatible (TDR-0002) |
 | `remark` + `remark-gfm` (unified) | latest | Markdown → MDAST parser; GFM table/task-list/strikethrough support |
+| `remark-frontmatter` (unified) | latest | Strips document-leading YAML front-matter (`marksync.uuid`) from the MDAST before rendering (GH-63) |
 | `rehype` + `remark-rehype` | latest | MDAST → HAST (HTML AST); the bridge to Storage rendering |
 | `happy-dom` | latest | Headless DOM for in-process Mermaid `mermaid.render()` (preferred per TDR-0004; spike-gated, ADR-0002). **Output = SVG** (byte-stable); enable `deterministicIds: true` + fixed `fontFamily`. `jsdom` is the documented fallback if happy-dom cannot shim a required Mermaid browser API. |
 | `mermaid` (official npm) | latest | Diagram rendering — the load-bearing dependency justifying TypeScript (ADR-0001/0002) |
