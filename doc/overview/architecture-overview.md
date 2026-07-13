@@ -6,13 +6,13 @@ ados_distribution: redistributable
 id: ARCHITECTURE-OVERVIEW
 status: Draft
 created: 2026-07-04
-last_updated: 2026-07-12
+last_updated: 2026-07-13
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005, ADR-0006, TDR-0003, ADR-0010]
-  related_changes: [GH-18, GH-20, GH-21, GH-22, GH-23]
+  related_changes: [GH-18, GH-20, GH-21, GH-22, GH-23, GH-24]
   summary: "Architecture overview — ports-and-adapters CLI; Markdown→Storage pipeline; Confluence Cloud adapter; UUID+lock state model; no hosted backend."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -93,10 +93,11 @@ section below govern residence and dependency direction._
 | Hierarchy planner | MarkSync binary | domain | Page graph, titles, parents, document-node resolution |
 | Link resolver | MarkSync binary | domain | Resolve local Markdown cross-document links to target-system page IDs/URLs so Confluence internal links work after sync. `resolveLink(sourcePath, target, bindings)` at `src/domain/hierarchy/link-resolver.ts` *(delivered — GH-23)* |
 | State classifier | MarkSync binary | domain | Pure three-way `classify({ local?, base?, remote }) → Result<SyncState, MarkSyncError>` + `SyncState` enum + `RemoteState` union + `SharedBase` view + `SyncState → Action` mapping (`NoOp`/`Update`/`Block`/`Skip`) — `src/domain/state/{classifier,sync-state,hashes,actions}.ts` *(delivered — GH-22)* |
+| Concurrency gates | MarkSync binary | domain | Decentralized optimistic-concurrency backstop for overlapping CI runs (ADR-0006 C-5/C-6): `assertOperationFresh` (operation-ID freshness via UUID-v7 time-prefix comparison), `assertPlanNotExpired` (stale-plan expiry, default 15 min, conservative boundary), `decideOnConflict` + `Decision` (409 re-fetch-once: reapply vs block over the `SyncState` matrix) — `src/domain/state/{operation-freshness,plan-expiry,conflict-policy}.ts`; `uuidV7Timestamp` extractor anchors both expiry and freshness via the `runId`'s embedded UUID-v7 timestamp (`src/domain/identity/uuid.ts`) *(delivered — GH-24)* |
 | Markdown parser | MarkSync binary | domain | Markdown → MDAST/HAST (remark + remark-gfm); canonical subset validation. `parseMarkdown` (`src/domain/markdown/parse.ts`) → `mdastToHast` bridge (`src/domain/markdown/mdast-to-hast.ts`) → unsupported-node classifier emitting `UnsupportedConstruct` (`src/domain/markdown/unsupported.ts`) → canonical HAST + `contentHash` sha256 (`src/domain/render/canonicalize.ts`) *(delivered — GH-20)* |
 | Asset resolver | MarkSync binary | domain | Safe path/hash/dedup prep for images + attachments |
 | Mermaid artifact manager | MarkSync binary | domain | Calculate Mermaid content hash, detect whether a given hash already exists on the target, orchestrate render→upload→reference |
-| Push executor | MarkSync binary | application | Ordered safe writes via `TargetSystem` port; the `computePlan` (pure, no-writes dry-run) + `applyPlan` (parent-first, per-document isolation, journaling, provenance wiring, Conflict-as-drift) use cases at `src/app/push-flow.ts` *(delivered — GH-23)* |
+| Push executor | MarkSync binary | application | Ordered safe writes via `TargetSystem` port; the `computePlan` (pure, no-writes dry-run) + `applyPlan` (parent-first, per-document isolation, journaling, provenance wiring, Conflict-as-drift with re-fetch-once policy) use cases at `src/app/push-flow.ts` *(delivered — GH-23)*. Concurrency gates wired in GH-24 — operation-freshness + stale-plan-expiry before each write, 409 re-fetch-once on `Conflict` (pure gates at `src/domain/state/`) *(delivered — GH-24)* |
 | Pull/conflict service | MarkSync binary | infrastructure | Reverse-sync patches/conflict workspace; never commits |
 | Lock/journal store | MarkSync binary | application | Lock atomic save (`saveLock`, delegating to the infra `writeAtomic` primitive at `src/infra/lock/store.ts`) + append-only journal writer + `replayJournal` for partial-apply recovery (`src/app/journal.ts`) *(delivered — GH-23)* |
 | Git adapter | MarkSync binary | infrastructure | `Repository` port (`src/domain/git/port.ts`) → shell-git adapter (`createShellGit`, `src/infra/git/shell-git.ts`) via Git CLI (TDR-0003); read-only committed snapshots *(delivered — GH-23)* |
@@ -240,7 +241,7 @@ the integration-scenarios docs (`doc/inception/integration-scenarios/`)._
 | app → state classifier | classify | `classify({ local?, base?, remote })` | `Result<SyncState, MarkSyncError>` | `Forbidden` (when `remote.kind === "forbidden"` — not a sync state); `local` optional (absent ⇒ `LOCAL_MISSING`); invoked only for bound documents |
 | app → lock store | commit | `commit(newLock)` | `void` | `LockDirty`, `ConcurrentWrite` |
 | cli → app (push-flow) | computePlan | `computePlan(config, lock, git, target)` | `Promise<Result<Plan, MarkSyncError>>` | `ForbiddenBranch` (branch gate — 0 discovery reads on deny), `DuplicateUuid` (INV-SAFE-3 fatal gate — 0 writes), transport (`RateLimited`/`RemoteUnreachable`). Pure no-writes dry-run; `Plan = { runId, operationId, entries[], provenance }` *(delivered — GH-23)* |
-| cli → app (push-flow) | applyPlan | `applyPlan(plan, target, lock, opts)` | `Promise<Result<ApplyReport, MarkSyncError>>` | per-document errors collected in the report as `blocked` outcomes (Conflict-as-drift, no retry); only transport failures abort the run. `ApplyReport = { runId, results[], writes, skips, blocks }`; parent-first, per-document isolation, journal-before-lock *(delivered — GH-23)* |
+| cli → app (push-flow) | applyPlan | `applyPlan(plan, target, lock, opts)` (`opts` carries `stalePlanMinutes`) | `Promise<Result<ApplyReport, MarkSyncError>>` | per-document errors collected in the report as `blocked` outcomes (Conflict-as-drift; `StalePlan` for stale/expired docs); operation-freshness + stale-plan-expiry gates before each write; on `Conflict`, re-fetch + re-classify ONCE then reapply-or-block (max 1 re-fetch + 1 reapply, no loop); only transport failures abort the run. `ApplyReport = { runId, results[], writes, skips, blocks }`; parent-first, per-document isolation, journal-before-lock *(delivered — GH-23; concurrency gates — GH-24)* |
 
 Scope: signature + return/error shape only. Every `TargetSystem` operation
 returns `Result<T, MarkSyncError>`; any remote call can additionally surface
@@ -259,7 +260,7 @@ converter. The `Renderer` interface mirrors spec §9.11.
 | Document identity (UUID + lock) | identity module, page binding, lock/journal store, Confluence content property manager |
 | Mermaid render + attach | Mermaid renderer, Mermaid artifact manager, Confluence attachment manager |
 | Cross-page link resolution | link resolver, hierarchy planner, Confluence client (page ID lookup) |
-| Concurrency control (CI) | push executor, lock store |
+| Concurrency control (CI) | push executor (wiring), concurrency gates (`src/domain/state/`), lock store |
 | Provenance (page history) | Confluence page-history provenance |
 | `repair-state` | lock/journal store |
 | Reverse sync (later) | Confluence reverse converter, pull/conflict service |
@@ -297,7 +298,7 @@ flowchart TD
 
 - Each step is idempotent; partial-apply rerun uses journal + remote property to avoid duplicates (spec §9.8).
 - The dry-run path (Load → Classify → return `Plan` with 0 writes) is `computePlan`; the apply path (create/update parent-first → upload assets → update bodies + property → journal → lock) is `applyPlan` — both at `src/app/push-flow.ts` *(delivered — GH-23)*. Writes are serialized (bounded concurrency = 1, ADR-0010 C-3); each mutation is journaled (`src/app/journal.ts`) before the lock updates, and a 409 surfaces as drift with no retry.
-- Concurrency control (`A-FEA-7`): decentralized — Confluence 409 on stale `version.number` + operation-ID dedup + stale-plan expiry. No shared service; no pessimistic leasing. CI concurrency-group templates reduce overlap at the source.
+- Concurrency control (`A-FEA-7`): decentralized — Confluence 409 on stale `version.number` + operation-ID dedup + stale-plan expiry. No shared service; no pessimistic leasing. CI concurrency-group templates reduce overlap at the source. *(delivered — GH-24)*
 
 ### Reverse sync flow (later — `MS-0005+`)
 

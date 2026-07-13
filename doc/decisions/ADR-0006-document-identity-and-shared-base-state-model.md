@@ -6,7 +6,7 @@ decision_type: adr
 status: Accepted
 created: 2026-07-04
 decision_date: null
-last_updated: 2026-07-12
+last_updated: 2026-07-13
 summary: "Document identity = immutable source-side UUID v7; shared base = committed versioned lock file; cache = disposable (single CI-cacheable dir); duplicate-UUID is fatal before any write; decentralized coordination via Confluence 409 + operation-ID dedup (no shared service); commit ID recorded per Confluence page version; sync restricted to configured branches. Establishes the safety foundation for drift detection, concurrency control, and reverse sync."
 owners:
   - Juliusz Ćwiąkalski
@@ -48,7 +48,7 @@ revisit_triggers:
   - "Reverse sync (`MS-0005+`) requires a base representation the lock cannot express."
   - "CI concurrency proves unachievable with a committed lock + optimistic 409 concurrency alone."
 links:
-  related_changes: [GH-19, GH-21, GH-22]
+  related_changes: [GH-19, GH-21, GH-22, GH-24]
   supersedes: []
   superseded_by: []
   spec: ["../inception/system-specification-draft-from-ai-brainstorm.md"]
@@ -237,6 +237,7 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes with accepted cost.
   - **stale-plan expiry** — a plan unapplied beyond a configurable window (default 15 min) is treated as stale and must be regenerated;
   - **CI concurrency-group templates** — GitHub Actions `concurrency:` etc. to reduce overlap at the source.
 - This is **optimistic concurrency**, not pessimistic leasing. At MarkSync's target scale (≤500 pages, ≤10 concurrent runners) the 409-retry rate is manageable; pessimistic leasing (git refs / external lease store) adds crash-recovery complexity for no additional safety. Two overlapping CI plans can never let the older overwrite the newer because the 409 rejects the stale-version write.
+- **Delivered (GH-24):** the write-time gates are pure domain functions under `src/domain/state/` — `assertOperationFresh` (operation-ID freshness via UUID-v7 time-prefix comparison), `assertPlanNotExpired` (stale-plan expiry, default 15 min, conservative boundary), and `decideOnConflict` (409 re-fetch-once: reapply vs block over the `SyncState` matrix) — plus the `uuidV7Timestamp` extractor (`src/domain/identity/uuid.ts`, derives the plan timestamp from `runId` with no new `Plan` field). They are wired into `applyPlan`/`processEntry` at `src/app/push-flow.ts` before each document write, with per-document isolation and a max-1-re-fetch + max-1-reapply policy on `Conflict`. The two-runner overlap integration test (separate `FakeTarget` instances sharing a backing map, no shared coordination service) proves NFR-REL-5 (older plan never overwrites newer) and NFR-REL-10 (decentralized).
 
 ### Provenance in Confluence page history
 
@@ -285,7 +286,7 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes with accepted cost.
 
 - [x] **UUID version:** resolved → **UUID v7** (time-sortable; KSUID considered, rejected on TS-library weakness). See Identity section.
 - [x] **Lease backend:** resolved → **optimistic concurrency via Confluence 409 + operation-ID dedup + stale-plan expiry** (no pessimistic lease / no shared service; C-6). See Concurrency control section.
-- [ ] **Stale-plan expiry window:** default 15 min assumed; confirm. (owner: JC)
+- [x] **Stale-plan expiry window:** resolved → **default 15 min** (`sync.stalePlanMinutes`, pre-staged in GH-15), wired and tested in GH-24 with conservative boundary semantics (at/over the window = expired).
 - [x] **Lock-file granularity:** resolved → **a single repo-wide `marksync.lock.yml`** with a per-target `targets:` map (per-target organization inside one committed file). Decided in GH-19 DEC-1; the line-oriented, UUID-ordered, UUID-keyed format keeps cross-branch merges clean (a real `git merge-file` of two branches adding different-UUID documents merges with no manual conflict — AC-MERGE-1).
 - [x] **Default sync granularity:** resolved → **squash by default for `MS-0002`**; commit-by-commit deferred to a future milestone. See ADR-0010 (revised).
 
@@ -294,7 +295,7 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes with accepted cost.
 1. **`marksync init` / first-publish** generates a UUID per document and writes it to front-matter.
 2. **Lock file** — delivered (GH-19): `marksync.lock.yml` schema v1 (`src/domain/config/lock-schema.json`), loader/saver/merger (`loadLock`/`saveLock`/`mergeBindings`, `src/app/lock.ts`), atomic write via temp + `fs.rename` (`src/infra/lock/store.ts`), line-oriented UUID-ordered format for mergeability. The disposable cache layout (`src/app/cache.ts`) and the pure content-property cross-check (`src/domain/state/reconcile.ts`) landed alongside it.
 3. **Content property** `marksync.metadata` written after a successful body update (cross-check).
-4. **Concurrency control** implemented in the push executor: optimistic 409 check, operation-ID dedup, stale-plan expiry.
+4. **Concurrency control** — delivered (GH-24): pure domain gates `assertOperationFresh`/`assertPlanNotExpired`/`decideOnConflict` (`src/domain/state/`) + `uuidV7Timestamp` (`src/domain/identity/uuid.ts`) wired into `applyPlan`/`processEntry` (`src/app/push-flow.ts`); optimistic 409 check, operation-ID dedup, stale-plan expiry, re-fetch-once policy.
 5. **`repair-state`** for stale locks + journal replay (R-USA-3).
 6. **Version-message provenance** implemented per ADR-0010: squash default for `MS-0002`, clear MarkSync/Git prefix, compact included-commit summary, deterministic trimming after verifying Confluence message length.
 7. **Acceptance tests:** clone/CI/concurrency (A-FEA-9), duplicate-UUID fatal (INV-SAFE-3), cache-disposable (C-3), REMOTE_MISSING invariant (INV-SAFE-2), squash history messages (ADR-0010).
@@ -348,6 +349,24 @@ cross-check is `validated` (A-FEA-4, A-FEA-5).
   `contentHash(canonicalize(hast))` digest (a single canonicalization
   authority), so the false-positive guard tracks that module automatically;
   `rawHash` stays informational only.
+- **The decentralized concurrency backstop (GH-24) landed the write-time
+  defense-in-depth that completes C-5/C-6.** Three pure domain gates under
+  `src/domain/state/` — `assertOperationFresh` (operation-ID freshness via
+  UUID-v7 time-prefix comparison), `assertPlanNotExpired` (stale-plan expiry,
+  conservative boundary), and `decideOnConflict` (409 re-fetch-once: reapply vs
+  block over the `SyncState` matrix) — plus the `uuidV7Timestamp` extractor at
+  `src/domain/identity/uuid.ts` (DEC-7: derives the plan timestamp from `runId`,
+  no new `Plan` field) are wired into the existing `applyPlan`/`processEntry`
+  write path at `src/app/push-flow.ts`. The pre-staged `StalePlan` error arm, the
+  `operationId` field, and the `stalePlanMinutes` config meant **no error-model
+  change, no config change, no identity change** — only gates + wiring. The 409
+  policy is re-fetch + re-classify ONCE (max 1 re-fetch + 1 reapply, no loop),
+  with per-document isolation (a `StalePlan` aborts only that document). The
+  two-runner overlap integration test — two separate `FakeTarget` instances
+  sharing a backing map, modeling two runners on separate machines with no
+  shared coordination service — proves NFR-REL-5 (older plan never overwrites
+  newer) and NFR-REL-10 (decentralized). CI concurrency-group templates under
+  `examples/ci/` reduce overlap at the source.
 
 ## References
 

@@ -5,11 +5,11 @@ ados_distribution: project-generated
 id: SPEC-SAFE-PUBLISH
 status: Current
 created: 2026-07-06
-last_updated: 2026-07-12
+last_updated: 2026-07-13
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: [GH-18, GH-19, GH-20, GH-22, GH-23]
+  related_changes: [GH-18, GH-19, GH-20, GH-22, GH-23, GH-24]
   decisions: [ADR-0005, ADR-0006, ADR-0010, ADR-0011]
   contracts: []
 ---
@@ -77,7 +77,13 @@ conflict classification that **refuses to silently overwrite remote work**.
   `src/app/push-flow.ts` *(delivered — GH-23)*.
 - **Concurrency control:** decentralized optimistic concurrency — Confluence 409
   on stale `version.number` + operation-ID dedup + stale-plan expiry + CI
-  concurrency-group templates.
+  concurrency-group templates. Three pure domain gates
+  (`assertOperationFresh`/`assertPlanNotExpired`/`decideOnConflict` at
+  `src/domain/state/`) are wired into the `applyPlan` write path
+  (`src/app/push-flow.ts`): operation-freshness + stale-plan-expiry run before
+  each document write, and a 409 re-fetch-once policy on `Conflict` (max 1
+  re-fetch + 1 reapply, no loop) with per-document isolation. *(delivered —
+  GH-24)*
 - **Minimal repair:** `repair-state` for stale locks and interrupted-apply
   journal replay. The append-only journal writer + `replayJournal`
   (`src/app/journal.ts`) is the partial-apply recovery basis *(delivered — GH-23)*.
@@ -118,14 +124,17 @@ a `TargetSystem` port. The Confluence adapter is the sole implementation.
 | Identity service | UUID v7 assignment, front-matter management |
 | State manager | Committed `marksync.lock.yml` load/save/merge (`loadLock`/`saveLock`/`mergeBindings`, `src/app/lock.ts`), disposable `.marksync/` cache layout (`src/app/cache.ts`), pure content-property cross-check (`src/domain/state/reconcile.ts`), branch gate (`assertBranchAllowed`, `src/app/branch.ts`) *(delivered — GH-19)* |
 | Drift classifier | Pure `classify({ local?, base?, remote }) → Result<SyncState, MarkSyncError>` three-way classifier (`src/domain/state/classifier.ts`); `ContentHash` VO carrying the canonical-body + title + parent + attachment facets (`src/domain/state/hashes.ts`); six-value `SyncState` enum + `RemoteState` union + `SharedBase` view (`src/domain/state/sync-state.ts`); `SyncState → Action` mapping `NoOp`/`Update`/`Block`/`Skip` (`src/domain/state/actions.ts`) *(delivered — GH-22)* |
-| Sync engine | The use-case orchestration that ties the trust wedge together. `computePlan(config, lock, git, target) → Promise<Result<Plan, MarkSyncError>>` is the pure no-writes dry-run: branch gate → discover committed docs via the `Repository` port → duplicate-UUID fatal gate → parse/render/hash via `TargetSystem.renderBody` → resolve cross-page links → fetch remote state → classify → emit a reviewable `Plan`. `applyPlan(plan, target, lock, opts) → Promise<Result<ApplyReport, MarkSyncError>>` is the only write path: parent-first ordering, per-document isolation, journal-before-lock, provenance via `formatVersionMessage`, 409 Conflict surfaced as drift (no retry), atomic lock + `marksync.metadata` per doc. Append-only journal (`.marksync/journal/<run-id>.jsonl`) + `replayJournal` for partial-apply recovery. Modules: `src/app/push-flow.ts`, `src/app/journal.ts`, `src/domain/hierarchy/link-resolver.ts`, `src/domain/git/port.ts`, `src/infra/git/shell-git.ts` *(delivered — GH-23)* |
+| Sync engine | The use-case orchestration that ties the trust wedge together. `computePlan(config, lock, git, target) → Promise<Result<Plan, MarkSyncError>>` is the pure no-writes dry-run: branch gate → discover committed docs via the `Repository` port → duplicate-UUID fatal gate → parse/render/hash via `TargetSystem.renderBody` → resolve cross-page links → fetch remote state → classify → emit a reviewable `Plan`. `applyPlan(plan, target, lock, opts) → Promise<Result<ApplyReport, MarkSyncError>>` is the only write path: parent-first ordering, per-document isolation, journal-before-lock, provenance via `formatVersionMessage`, 409 Conflict surfaced as drift (re-fetch-once policy), atomic lock + `marksync.metadata` per doc. Append-only journal (`.marksync/journal/<run-id>.jsonl`) + `replayJournal` for partial-apply recovery. Modules: `src/app/push-flow.ts`, `src/app/journal.ts`, `src/domain/hierarchy/link-resolver.ts`, `src/domain/git/port.ts`, `src/infra/git/shell-git.ts` *(delivered — GH-23)* |
+| Concurrency gates | Decentralized optimistic-concurrency backstop for overlapping CI plans. Pure domain gates under `src/domain/state/`: `assertOperationFresh` (operation-ID freshness via UUID-v7 time-prefix comparison) at `operation-freshness.ts`; `assertPlanNotExpired` (stale-plan expiry window, default 15 min, conservative boundary) at `plan-expiry.ts`; `decideOnConflict` + `Decision` (409 re-fetch-once policy: reapply vs block over the `SyncState` matrix) at `conflict-policy.ts`; `uuidV7Timestamp` timestamp extractor at `src/domain/identity/uuid.ts`. Wired into `applyPlan`/`processEntry` with per-document isolation *(delivered — GH-24)* |
 | Confluence adapter | `TargetSystem` port implementation (v2/v1 API) |
 
 ### 4.3 Key decisions
 
 - **ADR-0005:** Storage Format write target (not ADF).
 - **ADR-0006:** UUID v7 + committed lock + disposable cache + decentralized 409
-  concurrency.
+  concurrency (C-5: two overlapping plans never let the older overwrite the
+  newer; C-6: no shared coordination service — all exchange lives in Git lock +
+  Confluence 409/content properties).
 - **ADR-0010:** Squash provenance via `version.message` (compact Git summary).
 - **ADR-0011:** `CommandResult<T>` structured output + centralized redaction.
 

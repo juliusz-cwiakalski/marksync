@@ -76,6 +76,7 @@ export async function syncCommand(): Promise<CommandResult<ApplyReport>> {
 		cwd: currentCwd,
 		cacheDir,
 		targetId: "default",
+		stalePlanMinutes: config.sync.stalePlanMinutes,
 	});
 	if (!applyResult.ok) {
 		const mapped = mapMarkSyncErrorToCommandError(applyResult.error);

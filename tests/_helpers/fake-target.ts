@@ -32,14 +32,32 @@ export class FakeTarget implements TargetSystem {
 	}> = [];
 
 	// Fixture pages (pageId -> Page)
-	private pages: Map<string, Page> = new Map();
+	private pages: Map<string, Page>;
 	// Version counter for simulate advancement
-	private versionCounter: Map<string, number> = new Map();
+	private versionCounter: Map<string, number>;
 	// Optional write counter for idempotency tests
 	private writeCounter: number = 0;
+	// Stored properties (pageId::key -> value)
+	private properties: Map<string, string>;
+	// Configurable 409-then-refreshed sequence (pageId -> config)
+	private conflictSequences: Map<
+		string,
+		{ afterGetPageVersion: number; reapplyOutcome: "success" | "conflict" }
+	>;
+	// Call tracker for reapply attempts
+	private updatePageAttemptCounts: Map<string, number>;
 
-	constructor() {
-		// Initialize with empty state
+	constructor(sharedState?: {
+		pages: Map<string, Page>;
+		versionCounter: Map<string, number>;
+		properties: Map<string, string>;
+	}) {
+		// Use shared backing map if provided (NFR-REL-10)
+		this.pages = sharedState?.pages ?? new Map();
+		this.versionCounter = sharedState?.versionCounter ?? new Map();
+		this.properties = sharedState?.properties ?? new Map();
+		this.conflictSequences = new Map();
+		this.updatePageAttemptCounts = new Map();
 	}
 
 	/**
@@ -77,6 +95,38 @@ export class FakeTarget implements TargetSystem {
 		}
 	}
 
+	/**
+	 * Test helper: set a stored property value directly.
+	 */
+	setMetadataProperty(pageId: string, json: string): void {
+		const key = `${pageId}::marksync.metadata`;
+		this.properties.set(key, json);
+	}
+
+	/**
+	 * Configure a 409-then-refreshed sequence for a page.
+	 *
+	 * @param pageId - The page to configure
+	 * @param afterGetPageVersion - The version to return after getPage (refreshed state)
+	 * @param reapplyOutcome - Whether the second updatePage succeeds or conflicts again
+	 */
+	setConflictThenRefreshed(
+		pageId: string,
+		config: {
+			afterGetPageVersion: number;
+			reapplyOutcome: "success" | "conflict";
+		},
+	): void {
+		this.conflictSequences.set(pageId, config);
+	}
+
+	/**
+	 * Get the number of updatePage attempts for a page.
+	 */
+	getUpdatePageAttempts(pageId: string): number {
+		return this.updatePageAttemptCounts.get(pageId) ?? 0;
+	}
+
 	renderBody(
 		_hast: unknown,
 		_opts: RenderBodyOptions,
@@ -92,6 +142,18 @@ export class FakeTarget implements TargetSystem {
 	getPage(id: string): Promise<Result<Page, MarkSyncError>> {
 		this.getPageCalls.push(id);
 		const page = this.pages.get(id);
+
+		// Check if this is a re-fetch after conflict
+		const conflictConfig = this.conflictSequences.get(id);
+		if (page && conflictConfig) {
+			// Return the refreshed version for 409 policy test
+			const refreshedPage: Page = {
+				...page,
+				version: conflictConfig.afterGetPageVersion,
+			};
+			return Promise.resolve(Res.ok(refreshedPage));
+		}
+
 		if (!page) {
 			return Promise.resolve(
 				Res.err({
@@ -107,10 +169,20 @@ export class FakeTarget implements TargetSystem {
 		this.createPageCalls.push(req);
 		this.writeCounter++;
 
-		// Simulate 409 Conflict if page exists
+		// Track parent IDs for duplicate detection
+		const parentMap = new Map<string, string[]>();
+		for (const page of this.pages.values()) {
+			const existingParents = parentMap.get(req.parentId) ?? [];
+			existingParents.push(page.id);
+			parentMap.set(req.parentId, existingParents);
+		}
+
+		// Check for duplicate by parent ID and title (no spaceId per port)
 		const existingPage = Array.from(this.pages.values()).find(
-			(p) => p.title === req.title && p.spaceId === req.parentId,
+			(p) =>
+				parentMap.get(req.parentId)?.includes(p.id) && p.title === req.title,
 		);
+
 		if (existingPage) {
 			return Promise.resolve(
 				Res.err({
@@ -127,7 +199,6 @@ export class FakeTarget implements TargetSystem {
 			title: req.title,
 			version: 1,
 			body: req.body,
-			spaceId: req.parentId,
 		};
 		this.pages.set(newPage.id, newPage);
 		this.versionCounter.set(newPage.id, 1);
@@ -137,6 +208,10 @@ export class FakeTarget implements TargetSystem {
 	updatePage(req: UpdatePageRequest): Promise<Result<Page, MarkSyncError>> {
 		this.updatePageCalls.push(req);
 		this.writeCounter++;
+
+		// Track attempt count for testing
+		const attempts = (this.updatePageAttemptCounts.get(req.pageId) ?? 0) + 1;
+		this.updatePageAttemptCounts.set(req.pageId, attempts);
 
 		const page = this.pages.get(req.pageId);
 		if (!page) {
@@ -150,6 +225,28 @@ export class FakeTarget implements TargetSystem {
 
 		// Simulate 409 Conflict if version is stale
 		if (req.baseVersion !== page.version) {
+			const conflictConfig = this.conflictSequences.get(req.pageId);
+			// If this is a configured conflict sequence and it's the second attempt
+			if (conflictConfig && attempts > 1) {
+				if (conflictConfig.reapplyOutcome === "success") {
+					// Reapply succeeds after re-fetch
+					page.title = req.title;
+					page.body = req.body;
+					page.version = page.version + 1;
+					this.versionCounter.set(req.pageId, page.version);
+					return Promise.resolve(Res.ok({ ...page }));
+				}
+				// Reapply conflicts again
+				return Promise.resolve(
+					Res.err({
+						kind: "Conflict",
+						pageId: req.pageId,
+						baseVersion: req.baseVersion,
+						remoteVersion: page.version,
+					}),
+				);
+			}
+			// First conflict
 			return Promise.resolve(
 				Res.err({
 					kind: "Conflict",
@@ -183,8 +280,10 @@ export class FakeTarget implements TargetSystem {
 		pageId: string,
 		key: string,
 	): Promise<Result<string | undefined, MarkSyncError>> {
-		// Return undefined for missing properties
-		return Promise.resolve(Res.ok(undefined));
+		// Serve stored properties (keyed by `${pageId}::${key}`)
+		const storedKey = `${pageId}::${key}`;
+		const value = this.properties.get(storedKey);
+		return Promise.resolve(Res.ok(value));
 	}
 
 	putProperty(
@@ -193,6 +292,9 @@ export class FakeTarget implements TargetSystem {
 		value: string,
 	): Promise<Result<void, MarkSyncError>> {
 		this.putPropertyCalls.push({ pageId, key, value });
+		// Persist the property (keyed by `${pageId}::${key}`)
+		const storedKey = `${pageId}::${key}`;
+		this.properties.set(storedKey, value);
 		return Promise.resolve(Res.ok(undefined));
 	}
 
@@ -230,11 +332,12 @@ export class FakeTarget implements TargetSystem {
 	getRestrictions(
 		_pageId: string,
 	): Promise<Result<PageRestrictions, MarkSyncError>> {
+		// Port drift reconciliation: return correct PageRestrictions shape
+		// ({ pageId: string; restricted: boolean }) per port.ts line 88-93
 		return Promise.resolve(
 			Res.ok({
-				read: { users: [], groups: [] },
-				update: { users: [], groups: [] },
-				delete: { users: [], groups: [] },
+				pageId: _pageId,
+				restricted: false,
 			}),
 		);
 	}
