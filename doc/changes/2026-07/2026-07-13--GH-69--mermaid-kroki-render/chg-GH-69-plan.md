@@ -216,27 +216,14 @@ determinism in CI.
 
 **Tasks:**
 
-- [ ] **P4.1** Extend `tests/golden/markdown/storage-renderer.test.ts` (or create a
-  new focused test file) with a `describe` block for mermaid render policy:
-  ```ts
-  describe("mermaid render policy", () => {
-    it("renders mermaid fence as <ac:image><ri:attachment> with mocked renderer", async () => {
-      // Parse a markdown doc with a mermaid fence
-      // Stub renderer to return fixed SVG bytes
-      // Run transform with policy = "render"
-      // Render to Storage format
-      // Assert matches committed golden fixture
-    });
-  });
-  ```
+  - [x] **P4.1** Golden test for mermaid render policy (done — new focused file
+    `tests/golden/markdown/mermaid-render-golden.test.ts` with 2 tests: byte-exact
+    match against committed fixture + snapshot byte-stability across 3 runs; 2 pass).
 
-- [ ] **P4.2** Create the golden fixture file
-  `tests/golden/fixtures/markdown/mermaid-render-policy.storage.xhtml` with the
-  expected XHTML structure containing
-  `<ac:image><ri:attachment ri:filename="marksync-mermaid-<hash>.svg"/></ac:image>`
-  (where `<hash>` is the full sha256 of the mocked SVG bytes).
+  - [x] **P4.2** Create golden fixture `tests/golden/fixtures/markdown/mermaid-render-policy.storage.xhtml`
+    (done — contains `<ac:image ac:alt="Mermaid diagram"><ri:attachment ri:filename="marksync-mermaid-<fullsha256>.svg"/></ac:image>`).
 
-- [ ] **P4.3** Commit: `test(mermaid): GH-69 add golden fixture for mermaid render policy`.
+  - [x] **P4.3** Commit: `test(mermaid): gh-69 add golden fixture for mermaid render policy`.
 
 ---
 
@@ -355,7 +342,7 @@ identifies the following docs that will need updating:
 | Phase 1 | Done | 2026-07-13 | 2026-07-13 | 5884ecf | Renderer port + Kroki adapter; 7 unit tests PASS, typecheck clean |
 | Phase 2 | Done | 2026-07-13 | 2026-07-13 | 2a5953e | Mermaid HAST transform; 8 unit tests PASS, typecheck + depcruise clean |
 | Phase 3 | Done | 2026-07-13 | 2026-07-13 | 50b01a0 | computePlan wiring; 9 integration tests PASS, full suite 1040 pass |
-| Phase 4 | Pending | - | - | - | Golden fixture |
+| Phase 4 | Done | 2026-07-13 | 2026-07-13 | (pending commit) | Golden fixture; 2 golden tests PASS, existing 33 golden tests unaffected |
 | Phase 5 | Pending | - | - | - | Quality gate & cleanup |
 | Remediation | Pending | - | - | - | Populated by `@reviewer` if needed |
 
