@@ -4,7 +4,7 @@
 id: chg-GH-69-mermaid-kroki-render
 status: Updated
 created: 2026-07-13T00:00:00Z
-last_updated: 2026-07-13T20:45:00Z
+last_updated: 2026-07-13T22:30:00Z
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 labels: [MS-0002, MS2-E4, mermaid, kroki, remote-rendering, attachments]
@@ -277,7 +277,7 @@ against silent naming drift and cleans up style nits flagged by the reviewer.
 
 **Tasks:**
 
-- [ ] **P6.1** Add a filename-sync test (review F-1). In
+- [x] **P6.1** Add a filename-sync test (review F-1). In
   `tests/integration/app/mermaid/mermaid-render.test.ts` (TC-MERM-001), replace
   the hardcoded `marksync-mermaid-${expectedHash}.svg` expectation with one
   derived from `attachmentFilename(artifact)` so a future change to the infra
@@ -286,33 +286,59 @@ against silent naming drift and cleans up style nits flagged by the reviewer.
   Rationale: `transform.ts` `imgNode()` independently hardcodes the format
   (domain cannot import infra); without a sync test, naming drift silently
   breaks mermaid image references.
+  (done — `const expectedFilename = attachmentFilename(entry.assets![0]!);` now
+  drives the `<ri:attachment ri:filename="${expectedFilename}"/>` assertion in
+  TC-MERM-001; attachmentFilename import already present. Naming drift now fails
+  the test.)
 
-- [ ] **P6.2** Trim `src/domain/mermaid/transform.ts` header to ≤ 3 lines
+- [x] **P6.2** Trim `src/domain/mermaid/transform.ts` header to ≤ 3 lines
   (review F-2). Merge the fallback note into the opening lines or drop the
   bare `ADR-0002 C-2` tag (the ADR is already cited at the call site in
   push-flow.ts).
+  (done — header condensed to 3 lines; bare `ADR-0002 C-2` tag dropped; fallback
+  note merged inline.)
 
-- [ ] **P6.3** Hoist the KrokiClient construction above the per-doc loop
+- [x] **P6.3** Hoist the KrokiClient construction above the per-doc loop
   (review F-3). Move `const renderer = mermaidRenderer ?? new KrokiClient();`
   in `src/app/push-flow.ts` to alongside `privacyWarningEmitted` / `resolver`
   (before the `for (const { path, uuid } of docsWithUuid)` loop), so a single
   production instance serves the whole run.
+  (done — `const renderer = mermaidRenderer ?? new KrokiClient();` hoisted next
+  to the AssetResolver construction, above the doc loop; per-doc `const renderer:
+  Renderer = ...` removed.)
 
-- [ ] **P6.4** Correct the Phase 5 commit hash in the Execution Log
+- [x] **P6.4** Correct the Phase 5 commit hash in the Execution Log
   (review F-4): `34f9675` → `e117014` (the actual quality-gate commit per
   `git log main..HEAD`).
+  (verified — Execution Log Phase 5 row already records `e117014`, matching
+  `e117014 chore(mermaid): gh-69 quality gate — format + tier checks` in
+  `git log`. The only `34f9675` references remaining are the review artifact
+  (describing the finding) and this task description. No change needed.)
 
-- [ ] **P6.5** (optional) Drop the redundant `as unknown as ArrayBuffer` cast
+- [x] **P6.5** (optional) Drop the redundant `as unknown as ArrayBuffer` cast
   in `src/infra/mermaid/kroki.ts:76` `sha256Hex` (review F-5 — `Uint8Array`
   already satisfies `BufferSource`).
+  (done — finding premise did NOT hold for this toolchain: full removal broke
+  typecheck (`Uint8Array<ArrayBufferLike>` is not assignable to `BufferSource`
+  under TS 6.0.3 / lib ESNext). Resolved the underlying double-cast smell by
+  replacing `bytes as unknown as ArrayBuffer` with a single targeted assertion
+  `bytes as Uint8Array<ArrayBuffer>` (the exact subtype `digest` accepts),
+  with a comment explaining the lib-type constraint. Typecheck PASS.)
 
-- [ ] **P6.6** (optional) Decide on `transform()` return type (review F-6):
+- [x] **P6.6** (optional) Decide on `transform()` return type (review F-6):
   either add a one-line comment noting the error channel is reserved for
   future fatal transform failures, or simplify to `Promise<TransformResult>`
   and drop the dead `if (!mermaidResult.ok)` guard in push-flow.ts:244.
+  (done — kept the `Result<…, MarkSyncError>` channel and added a JSDoc note:
+  "The error channel is currently unused (per-fence failures fall back to the
+  code block + warning) but reserved for future fatal transform failures."
+  Verified the `if (!mermaidResult.ok)` guard in push-flow.ts is NOT dead — it
+  handles future `err` returns, so it stays.)
 
-- [ ] **P6.7** Re-run `bun run check`; confirm 0 failures, 0 dep violations.
+- [x] **P6.7** Re-run `bun run check`; confirm 0 failures, 0 dep violations.
   Commit: `chore(mermaid): gh-69 review iter-1 remediation`.
+  (done — bun run check green: lint exit 0 [warnings only], format:check exit 0,
+  typecheck exit 0, 1042 pass / 0 fail, depcruise 0 violations.)
 
 ---
 
@@ -405,7 +431,7 @@ identifies the following docs that will need updating:
 | Phase 3 | Done | 2026-07-13 | 2026-07-13 | 50b01a0 | computePlan wiring; 9 integration tests PASS, full suite 1040 pass |
 | Phase 4 | Done | 2026-07-13 | 2026-07-13 | 44616b7 | Golden fixture; 2 golden tests PASS, existing 33 golden tests unaffected |
 | Phase 5 | Done | 2026-07-13 | 2026-07-13 | e117014 | Quality gate green: 1042 pass / 0 fail, depcruise 0 violations, errors.ts unchanged, tier rules verified |
-| Remediation | In Progress | 2026-07-13 | - | - | Phase 6 populated by @reviewer iter-1: 6 findings (0 blocker, 2 minor, 2 low, 2 info) |
+| Remediation | Done | 2026-07-13 | 2026-07-13 | (see P6.7 commit) | Phase 6 complete: P6.1–P6.6 applied (F-5 adapted — full cast removal broke typecheck, single-cast fix used instead); bun run check green 1042 pass / 0 fail |
 
 ---
 

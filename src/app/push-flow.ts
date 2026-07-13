@@ -184,6 +184,9 @@ export async function computePlan(
 	// GH-26: Construct AssetResolver once, rooted at config.root
 	const resolver = new AssetResolver({ root: config.root });
 
+	// GH-69: One renderer per run (production KrokiClient; tests inject a stub).
+	const renderer = mermaidRenderer ?? new KrokiClient();
+
 	// Collect all bindings for link resolution
 	for (const targetId of Object.keys(lock.targets)) {
 		const targetLock = lock.targets[targetId];
@@ -234,7 +237,6 @@ export async function computePlan(
 				privacyWarningEmitted = true;
 			}
 
-			const renderer: Renderer = mermaidRenderer ?? new KrokiClient();
 			const mermaidResult = await transform(
 				hast,
 				config.render.mermaid,

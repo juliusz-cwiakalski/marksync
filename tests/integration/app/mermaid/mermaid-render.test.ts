@@ -237,9 +237,13 @@ describe("TC-MERM-001 render activation (AC-1 / F-1 / F-2 / F-3)", () => {
 		const entry = planResult.value.entries[0]!;
 		const expectedHash = await sha256Hex(SVG);
 
+		// Derive from attachmentFilename (infra source of truth) so naming drift
+		// between transform.ts imgNode() and attachments.ts fails the test.
+		const expectedFilename = attachmentFilename(entry.assets![0]!);
+
 		// Body contains the attachment image macro with full sha256 filename
 		expect(entry.renderedBody).toContain(
-			`<ac:image ac:alt="Mermaid diagram"><ri:attachment ri:filename="marksync-mermaid-${expectedHash}.svg"/></ac:image>`,
+			`<ac:image ac:alt="Mermaid diagram"><ri:attachment ri:filename="${expectedFilename}"/></ac:image>`,
 		);
 		// Does NOT contain a code macro for the mermaid fence
 		expect(entry.renderedBody).not.toContain('language">mermaid<');

@@ -72,9 +72,12 @@ export class KrokiClient implements Renderer {
 }
 
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
+	// Uint8Array<ArrayBufferLike> isn't assignable to BufferSource under the
+	// current lib types (TS 6, lib ESNext); assert to the backed-by-ArrayBuffer
+	// subtype — runtime is always a real ArrayBuffer (response.arrayBuffer()).
 	const d = await crypto.subtle.digest(
 		"SHA-256",
-		bytes as unknown as ArrayBuffer,
+		bytes as Uint8Array<ArrayBuffer>,
 	);
 	return [...new Uint8Array(d)]
 		.map((b) => b.toString(16).padStart(2, "0"))

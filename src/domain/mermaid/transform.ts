@@ -1,7 +1,6 @@
-// Mermaid HAST transform — walks the tree for `pre>code.language-mermaid`,
-// renders each fence via the {@linkcode Renderer} port, and replaces the `pre`
-// with an `img` node (so the Storage renderer emits `<ac:image><ri:attachment>`).
-// On render failure the `pre` is kept and a warning is collected (ADR-0002 C-2).
+// Mermaid HAST transform — renders each `pre>code.language-mermaid` fence via
+// the {@linkcode Renderer} port, replacing `pre` with an `img` node (so Storage
+// emits `<ac:image><ri:attachment>`); falls back to the code block on failure.
 
 import type { Element, Root } from "hast";
 import type { Renderer } from "#domain/mermaid/port";
@@ -24,6 +23,9 @@ export interface TransformResult {
  * The transform runs AFTER asset resolution and BEFORE body rendering in
  * `computePlan` — the synthetic `marksync-mermaid-<hash>.svg` img nodes must
  * bypass the path-safe resolver (see plan P3.1 load-bearing ordering note).
+ *
+ * The error channel is currently unused (per-fence failures fall back to the
+ * code block + warning) but reserved for future fatal transform failures.
  */
 export async function transform(
 	hast: Root,
