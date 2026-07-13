@@ -46,6 +46,8 @@ export class FakeTarget implements TargetSystem {
 	>;
 	// Call tracker for reapply attempts
 	private updatePageAttemptCounts: Map<string, number>;
+	// GH-62: optional body normalizer (simulates Confluence XHTML normalization)
+	bodyNormalizer: ((body: string) => string) | null = null;
 
 	constructor(sharedState?: {
 		pages: Map<string, Page>;
@@ -198,7 +200,7 @@ export class FakeTarget implements TargetSystem {
 			id: `page-${Math.random().toString(36).substring(7)}`,
 			title: req.title,
 			version: 1,
-			body: req.body,
+			body: this.bodyNormalizer ? this.bodyNormalizer(req.body) : req.body,
 		};
 		this.pages.set(newPage.id, newPage);
 		this.versionCounter.set(newPage.id, 1);
@@ -259,7 +261,7 @@ export class FakeTarget implements TargetSystem {
 
 		// Update the page
 		page.title = req.title;
-		page.body = req.body;
+		page.body = this.bodyNormalizer ? this.bodyNormalizer(req.body) : req.body;
 		page.version = page.version + 1;
 		this.versionCounter.set(req.pageId, page.version);
 		return Promise.resolve(Res.ok({ ...page })); // Clone
