@@ -4,7 +4,7 @@
 id: chg-GH-63-test-plan
 status: Proposed
 created: 2026-07-13T00:00:00.000Z
-last_updated: 2026-07-13T00:00:00.000Z
+last_updated: 2026-07-13T12:00:00.000Z
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 labels: [bug, MS-0002, priority:high]
@@ -64,31 +64,30 @@ The fix wires `remark-frontmatter` into the remark processor, which must:
 
 | AC ID | Description | TC ID(s) | Status |
 |-------|-------------|----------|--------|
-| AC-F1-1 | Front-matter source → Storage XHTML with no front-matter leak; only post-front-matter body renders | TC-FM-001 | Proposed |
-| AC-F1-2 | Front-matter source → MDAST tree excludes the front-matter block (no YAML/thematic-break nodes for the fences) | TC-FM-002 | Proposed |
-| AC-F2-1 | `readUuid()` returns the same UUID before/after fix (regression guard) | TC-FM-003 | Proposed |
-| AC-F2-2 | Full test suite passes; golden fixture count updated to 27; `hr.md` still renders `<hr/>` | TC-FM-004, TC-FM-005 | Proposed |
+| AC-F1-1 | Front-matter source → Storage XHTML with no front-matter leak; only post-front-matter body renders | TC-FMS-001 | Proposed |
+| AC-F1-2 | Front-matter source → MDAST tree excludes the front-matter block (no YAML/thematic-break nodes for the fences) | TC-FMS-002 | Proposed |
+| AC-F2-1 | `readUuid()` returns the same UUID before/after fix (regression guard) | existing TC-FM-001, TC-FM-002 in `tests/unit/domain/identity/frontmatter.test.ts` (no new test; guarded by GH-18 identity suite) | Proposed |
+| AC-F2-2 | Full test suite passes; golden fixture count updated to 27; `hr.md` still renders `<hr/>` | TC-FMS-003, TC-FMS-004 | Proposed |
 
 ### 3.2 Interface Coverage (API-#, EVT-#, DM-#)
 
 | DM ID | Description | TC ID(s) | Status |
 |-------|-------------|----------|--------|
-| DM-1 | MDAST output from parseMarkdown no longer includes front-matter nodes | TC-FM-002 | Proposed |
+| DM-1 | MDAST output from parseMarkdown no longer includes front-matter nodes | TC-FMS-002 | Proposed |
 
 ### 3.3 Non-Functional Coverage (NFR-#)
 
 | NFR ID | Description | TC ID(s) | Status |
 |--------|-------------|----------|--------|
-| NFR-REL-4 | Conversion fidelity — canonical GFM fixtures survive round-trip (this fix IMPROVES fidelity) | TC-FM-004, TC-FM-005 | Proposed |
+| NFR-REL-4 | Conversion fidelity — canonical GFM fixtures survive round-trip (this fix IMPROVES fidelity) | TC-FMS-003, TC-FMS-004 | Proposed |
 | NFR-PERF-5 | Conversion latency — no measurable impact (one plugin addition is negligible) | N/A | Covered by existing benchmark gate; no new test needed |
 
 ## 4. Test Types and Layers
 
 | Test Type | Framework | Root Directory | Target Layer | Relevance to GH-63 |
 |-----------|-----------|----------------|--------------|-------------------|
-| **Unit** | `bun:test` | `tests/unit/domain/markdown/` | Domain logic: `parseMarkdown` function | TC-FM-002 (MDAST tree validation) |
-| **Golden fixture** | `bun:test` + `toMatchSnapshot` | `tests/golden/markdown/` + `tests/golden/fixtures/markdown/` | End-to-end rendering: `parseMarkdown` → `mdastToHast` → `renderStorage` | TC-FM-001, TC-FM-004, TC-FM-005 (Storage XHTML output) |
-| **Unit** | `bun:test` | `tests/unit/domain/identity/` (or `tests/unit/domain/markdown/`) | Domain logic: `readUuid` function | TC-FM-003 (regression guard) |
+| **Unit** | `bun:test` | `tests/unit/domain/markdown/` | Domain logic: `parseMarkdown` function | TC-FMS-002 (MDAST tree validation) |
+| **Golden fixture** | `bun:test` + `toMatchSnapshot` | `tests/golden/markdown/` + `tests/golden/fixtures/markdown/` | End-to-end rendering: `parseMarkdown` → `mdastToHast` → `renderStorage` | TC-FMS-001, TC-FMS-003, TC-FMS-004 (Storage XHTML output) |
 
 **Per testing strategy:**
 - **Unit tests** validate domain logic in isolation (no mocks for `parseMarkdown`; real remark processor)
@@ -101,15 +100,14 @@ The fix wires `remark-frontmatter` into the remark processor, which must:
 
 | TC ID | Title | Type | Level | Priority | AC Coverage |
 |-------|-------|------|-------|----------|-------------|
-| TC-FM-001 | Front-matter stripped from Storage XHTML | Happy Path | Critical | High | AC-F1-1 |
-| TC-FM-002 | MDAST tree excludes front-matter nodes | Happy Path | Critical | High | AC-F1-2, DM-1 |
-| TC-FM-003 | readUuid() returns UUID unchanged | Regression | Important | High | AC-F2-1 |
-| TC-FM-004 | hr.md mid-document break preserved | Regression | Important | High | AC-F2-2 |
-| TC-FM-005 | Golden fixture count updated to 27 | Regression | Minor | Medium | AC-F2-2 |
+| TC-FMS-001 | Front-matter stripped from Storage XHTML | Happy Path | Critical | High | AC-F1-1 |
+| TC-FMS-002 | MDAST tree excludes front-matter nodes | Happy Path | Critical | High | AC-F1-2, DM-1 |
+| TC-FMS-003 | hr.md edge case verified | Regression | Important | High | AC-F2-2 |
+| TC-FMS-004 | Golden fixture count updated to 27 | Regression | Minor | Medium | AC-F2-2 |
 
 ### 5.2 Scenario Details
 
-#### TC-FM-001 - Front-matter stripped from Storage XHTML
+#### TC-FMS-001 - Front-matter stripped from Storage XHTML
 
 **Scenario Type**: Happy Path
 **Impact Level**: Critical
@@ -159,7 +157,7 @@ The fix wires `remark-frontmatter` into the remark processor, which must:
 
 ---
 
-#### TC-FM-002 - MDAST tree excludes front-matter nodes
+#### TC-FMS-002 - MDAST tree excludes front-matter nodes
 
 **Scenario Type**: Happy Path
 **Impact Level**: Critical
@@ -175,9 +173,9 @@ The fix wires `remark-frontmatter` into the remark processor, which must:
 
 **Steps**:
 
-1. Create a unit test in `tests/unit/domain/markdown/parse.test.ts`:
+1. Add a unit test block to `tests/unit/domain/markdown/parse.test.ts`:
    ```typescript
-   describe("TC-FM-002 — front-matter is excluded from MDAST", () => {
+   describe("TC-FMS-002 — front-matter is excluded from MDAST", () => {
      const src = `---
    marksync:
      uuid: 019f5a2c-4a59-77aa-96ad-70f3719c2d1e
@@ -220,71 +218,7 @@ The fix wires `remark-frontmatter` into the remark processor, which must:
 
 ---
 
-#### TC-FM-003 - readUuid() returns UUID unchanged
-
-**Scenario Type**: Regression
-**Impact Level**: Important
-**Priority**: High
-**Related IDs**: F-3, AC-F2-1
-**Test Type(s)**: Unit
-**Automation Level**: Automated
-**Target Layer / Location**: `tests/unit/domain/identity/frontmatter.test.ts` (new file) OR `tests/unit/domain/markdown/parse.test.ts` (if colocated)
-**Tags**: @backend, @unit
-
-**Preconditions**:
-- `readUuid()` function exists in `src/domain/identity/frontmatter.ts` (uses independent parser)
-
-**Steps**:
-
-1. Create a unit test in `tests/unit/domain/identity/frontmatter.test.ts`:
-   ```typescript
-   import { describe, expect, test } from "bun:test";
-   import { readUuid } from "#domain/identity/frontmatter";
-
-   describe("TC-FM-003 — readUuid() returns UUID unchanged by front-matter stripping fix", () => {
-     const src = `---
-   marksync:
-     uuid: 019f5a2c-4a59-77aa-96ad-70f3719c2d1e
-   ---
-   # Hello World`;
-
-     test("extracts UUID from front-matter source", () => {
-       const uuid = readUuid(src);
-       expect(uuid).toBe("019f5a2c-4a59-77aa-96ad-70f3719c2d1e");
-     });
-
-     test("returns undefined for source without front-matter", () => {
-       const noFm = "# Hello World";
-       const uuid = readUuid(noFm);
-       expect(uuid).toBeUndefined();
-     });
-
-     test("returns undefined for malformed front-matter", () => {
-       const malformed = `---
-   marksync: bad: yaml
-   ---`;
-       const uuid = readUuid(malformed);
-       expect(uuid).toBeUndefined();
-     });
-   });
-   ```
-2. Run `bun test tests/unit/domain/identity/frontmatter.test.ts`
-
-**Expected Outcome**:
-- `readUuid(src)` returns `"019f5a2c-4a59-77aa-96ad-70f3719c2d1e"` for the front-matter source
-- `readUuid()` returns `undefined` for sources without valid front-matter
-- All tests pass, confirming `readUuid()` behavior is unchanged (regression guard)
-
-**Postconditions**:
-- Unit test passes, validating that the independent parser in `frontmatter.ts` is unaffected by changes to `parseMarkdown`
-
-**Notes / Clarifications**:
-- This is a regression guard to ensure the fix (which changes `parseMarkdown`) does not break `readUuid()`
-- `readUuid()` uses its own `findFrontMatter()` parser (line 92 of `frontmatter.ts`) and is independent of remark
-
----
-
-#### TC-FM-004 - hr.md mid-document break preserved
+#### TC-FMS-003 - hr.md edge case verified
 
 **Scenario Type**: Regression
 **Impact Level**: Important
@@ -297,37 +231,38 @@ The fix wires `remark-frontmatter` into the remark processor, which must:
 
 **Preconditions**:
 - `remark-frontmatter` is installed and wired into the remark processor
-- Existing `hr.md` fixture exists with content `---` (thematic break mid-document)
+- Existing `hr.md` fixture exists with content `---` (document-leading lone `---` with no closing fence)
 
 **Steps**:
 
 1. Verify `tests/golden/fixtures/markdown/hr.md` contains:
-   ```markdown
-   ---
-   ```
+    ```markdown
+    ---
+    ```
 2. Verify `tests/golden/fixtures/markdown/hr.storage.xhtml` contains:
-   ```xml
-   <hr/>
-   ```
+    ```xml
+    <hr/>
+    ```
 3. Run `bun test tests/golden/markdown/storage-renderer.test.ts`
 4. Verify the `hr` fixture test passes (byte-exact match to `<hr/>`)
 
 **Expected Outcome**:
 - The `hr` golden test passes without modification to `hr.storage.xhtml`
-- The mid-document `---` is rendered as `<hr/>` (unchanged from before)
-- This proves `remark-frontmatter` only consumes document-leading fences, not mid-document fences
+- The document-leading lone `---` is rendered as `<hr/>` (unchanged from before)
+- The fixture's behavior under `remark-frontmatter` is verified empirically during implementation; the fixture may be updated if `remark-frontmatter` changes its output
+- This proves the edge case is handled correctly
 
 **Postconditions**:
 - Existing golden fixture passes without changes, confirming no regression in thematic break handling
 
 **Notes / Clarifications**:
 - This is an EXISTING golden fixture; we verify it still passes after the fix
-- The `hr.md` fixture contains ONLY `---` (no front-matter), so it should render as a thematic break
+- The `hr.md` fixture contains ONLY `---` (document-leading lone `---` with no closing fence), which `remark-frontmatter` does NOT treat as front-matter; it renders as a thematic break
 - This validates AC-F2-2 (part of "Full test suite passes")
 
 ---
 
-#### TC-FM-005 - Golden fixture count updated to 27
+#### TC-FMS-004 - Golden fixture count updated to 27
 
 **Scenario Type**: Regression
 **Impact Level**: Minor
@@ -391,17 +326,16 @@ The fix wires `remark-frontmatter` into the remark processor, which must:
 
 | TC ID | Test File to Create/Update | Execution Command | Mocking Requirements | Implementation Status |
 |-------|---------------------------|-------------------|---------------------|----------------------|
-| TC-FM-001 | NEW: `tests/golden/fixtures/markdown/frontmatter.md` + `frontmatter.storage.xhtml` | `bun test tests/golden/markdown/storage-renderer.test.ts` | None (real parser/renderer) | To Implement |
-| TC-FM-002 | NEW: Test block in `tests/unit/domain/markdown/parse.test.ts` (or new file) | `bun test tests/unit/domain/markdown/parse.test.ts` | None (real remark processor) | To Implement |
-| TC-FM-003 | NEW: `tests/unit/domain/identity/frontmatter.test.ts` | `bun test tests/unit/domain/identity/frontmatter.test.ts` | None (pure function) | To Implement |
-| TC-FM-004 | EXISTING – No Change: `tests/golden/markdown/storage-renderer.test.ts`, `hr.md` + `hr.storage.xhtml` | `bun test tests/golden/markdown/storage-renderer.test.ts` | None | Existing – No Change |
-| TC-FM-005 | UPDATE: `tests/golden/markdown/storage-renderer.test.ts` (line 46) | `bun test tests/golden/markdown/storage-renderer.test.ts` | None | Existing – Update |
+| TC-FMS-001 | NEW: `tests/golden/fixtures/markdown/frontmatter.md` + `frontmatter.storage.xhtml` | `bun test tests/golden/markdown/storage-renderer.test.ts` | None (real parser/renderer) | To Implement |
+| TC-FMS-002 | UPDATE: Test block added to `tests/unit/domain/markdown/parse.test.ts` | `bun test tests/unit/domain/markdown/parse.test.ts` | None (real remark processor) | To Implement |
+| TC-FMS-003 | EXISTING – No Change: `tests/golden/markdown/storage-renderer.test.ts`, `hr.md` + `hr.storage.xhtml` | `bun test tests/golden/markdown/storage-renderer.test.ts` | None | Existing – No Change |
+| TC-FMS-004 | UPDATE: `tests/golden/markdown/storage-renderer.test.ts` (line 46) | `bun test tests/golden/markdown/storage-renderer.test.ts` | None | Existing – Update |
 
 **Test Implementation Notes**:
 
-- **TC-FM-002**: Reuse existing `nodeTypes()` helper from `parse.test.ts` for MDAST node type collection
-- **TC-FM-003**: Create dedicated test file `tests/unit/domain/identity/frontmatter.test.ts` for `readUuid()` coverage
-- **TC-FM-001**: Golden fixture snapshot will be auto-generated on first run via `toMatchSnapshot()`, but file-based comparison (`expect(result.value.body).toBe(fixture.expected)`) is the primary assertion (per testing strategy)
+- **TC-FMS-002**: Reuse existing `nodeTypes()` helper from `parse.test.ts` for MDAST node type collection; add test block to EXISTING file
+- **TC-FMS-001**: Golden fixture snapshot will be auto-generated on first run via `toMatchSnapshot()`, but file-based comparison (`expect(result.value.body).toBe(fixture.expected)`) is the primary assertion (per testing strategy)
+- **AC-F2-1**: No new test required; guarded by existing TC-FM-001 and TC-FM-002 in `tests/unit/domain/identity/frontmatter.test.ts` (GH-18 identity suite), which already assert `readUuid()` returns the UUID for a front-matter source and undefined otherwise. Since `src/domain/identity/frontmatter.ts` is unchanged (NG-1), no regression test needed.
 - **All tests**: No mocking allowed (TDR-0004 over-mocking guardrail); use real remark processor and storage renderer
 
 ## 8. Risks, Assumptions, and Open Questions
@@ -410,9 +344,8 @@ The fix wires `remark-frontmatter` into the remark processor, which must:
 
 | Risk | Impact | Probability | Mitigation | Residual Risk |
 |------|--------|-------------|------------|---------------|
-| `remark-frontmatter` incorrectly consumes mid-document `---` fences (RSK-1 from spec) | High | Low | TC-FM-004 validates `hr.md` fixture still renders `<hr/>`; unit test TC-FM-002 validates MDAST structure | Low |
+| `remark-frontmatter` incorrectly consumes document-leading lone `---` fences without closing fence (RSK-1 from spec) | High | Low | TC-FMS-003 validates `hr.md` fixture still renders `<hr/>`; unit test TC-FMS-002 validates MDAST structure | Low |
 | Dependency compatibility issue with remark 15 (RSK-2 from spec) | High | Low | Verified via compatibility matrix: `remark-frontmatter` v5 targets unified 11 / remark 15 | Low |
-| Regression in `readUuid()` behavior (RSK-3 from spec) | Medium | Low | TC-FM-003 regression test ensures UUID read returns same value before/after fix | Low |
 | Golden fixture snapshot drift (silent regeneration) | Medium | Low | Per testing strategy: snapshot updates are explicit (`bun test --update-snapshots` must be reviewed); CI runs without update flag | Low |
 
 ### 8.2 Assumptions
@@ -431,16 +364,16 @@ None — all questions resolved through spec analysis and code inspection. The t
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-13 | Test Plan Writer (via agent) | Initial test plan for GH-63 front-matter stripping bug fix |
+| 1.1 | 2026-07-13 | Test Plan Writer (via agent) | DoR remediation: renamed TC-FM→TC-FMS to avoid collision with existing GH-18 identity tests (TC-FM-001..009); removed redundant readUuid regression test (AC-F2-1 guarded by existing identity suite); corrected hr.md description (document-leading lone `---`, not mid-document). |
 
 ## 10. Test Execution Log
 
 | TC ID | Run Date | Result | Notes |
 |-------|----------|--------|-------|
-| TC-FM-001 | TBD | TBD | Pending implementation |
-| TC-FM-002 | TBD | TBD | Pending implementation |
-| TC-FM-003 | TBD | TBD | Pending implementation |
-| TC-FM-004 | TBD | TBD | Pending implementation |
-| TC-FM-005 | TBD | TBD | Pending implementation |
+| TC-FMS-001 | TBD | TBD | Pending implementation |
+| TC-FMS-002 | TBD | TBD | Pending implementation |
+| TC-FMS-003 | TBD | TBD | Pending implementation |
+| TC-FMS-004 | TBD | TBD | Pending implementation |
 
 ---
 
@@ -455,11 +388,14 @@ This test plan was authored following the template at `doc/templates/test-plan-t
 - [x] `created` and `last_updated` are ISO8601 UTC timestamps
 - [x] `owners` has at least one entry (Juliusz Ćwiąkalski)
 - [x] All sections present in order (1-10 + guidelines + checklist)
-- [x] TC IDs follow pattern `TC-<FEATURE>-<NNN>` (TC-FM-001 through TC-FM-005)
+- [x] TC IDs follow pattern `TC-<FEATURE>-<NNN>` (TC-FMS-001 through TC-FMS-004)
 - [x] All AC-# from spec are covered in Coverage Overview (AC-F1-1, AC-F1-2, AC-F2-1, AC-F2-2)
+- [x] AC-F2-1 is mapped to existing TC-FM-001/002 in `tests/unit/domain/identity/frontmatter.test.ts` (no new test)
 - [x] Each scenario has test type, automation level, target layer, and related IDs
 - [x] No placeholders remain (`<...>` replaced with actual values)
 - [x] Front matter validates per front_matter_rules
 - [x] Test types align with 6-tier testing strategy (unit + golden only for this change)
 - [x] No over-mocking (all tests use real parser/renderer; TDR-0004 guardrail respected)
 - [x] Golden fixture count update explicitly called out (26 → 27)
+- [x] No namespace collision: TC-FMS prefix avoids collision with existing GH-18 identity tests (TC-FM-001..009)
+- [x] Redundant readUuid test removed (AC-F2-1 guarded by existing identity suite)

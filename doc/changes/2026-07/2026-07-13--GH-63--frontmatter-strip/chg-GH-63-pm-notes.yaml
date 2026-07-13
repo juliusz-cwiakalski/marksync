@@ -73,10 +73,25 @@ notes:
       its golden output is `<hr/>`. remark-frontmatter's YAML marker requires an
       opening + closing `---`/`...`; an unterminated lone `---` is likely treated
       as a thematic break (so hr.md passes unchanged) — but this is NOT guaranteed
-      and MUST be verified empirically during implementation (TC-FM-004 guard).
-      If remark-frontmatter consumes the lone `---` as front-matter → hr.md renders
-      empty → hr.md must be updated to a multi-line fixture with a mid-document
-      `---` (e.g. `text\n\n---\n`). AC-F2-2 permits golden updates. Coder must run
-      the golden suite and resolve hr.md behavior; do NOT assume.
+      and MUST be verified empirically during implementation (now TC-FMS-003
+      guard). If remark-frontmatter consumes the lone `---` → hr.md must be
+      updated to a multi-line mid-document `---` fixture. AC-F2-2/AC-F3-2
+      permit golden updates. Coder must run the golden suite; do NOT assume.
     type: risk
+    date: "2026-07-13"
+  - text: >
+      Retro — DoR iteration 1 returned NOT_READY (2 critical, 2 major). The
+      readiness-reviewer caught a namespace collision the spec/test-plan
+      authors and I missed: proposed TC-FM-001..005 collided with EXISTING
+      TC-FM-001..009 in tests/unit/domain/identity/frontmatter.test.ts (GH-18
+      identity suite). Also: plan said "Create frontmatter.test.ts" but the
+      file already exists (167 lines) — would have been overwritten by a
+      literal coder. Process miss: when seeding a new test-case ID prefix, I
+      should have grepped the test tree for existing same-prefix IDs first.
+      Lesson: add a "check existing TC-* namespace" step to test-plan intake.
+      Also caught: redundant readUuid regression test (AC-F2-1 already guarded
+      by existing tests since frontmatter.ts is unchanged NG-1) — removed. And
+      spec mischaracterized hr.md as "mid-document" when it is actually a
+      document-leading lone `---` — corrected to empirical-verify framing.
+    type: retro
     date: "2026-07-13"

@@ -82,7 +82,7 @@ Because the markdown parser does not recognize YAML front-matter blocks, the `ma
 | ID | Capability | Rationale |
 |----|------------|-----------|
 | F-1 | Front-matter stripping in markdown parser | Ensures document-leading YAML front-matter is excluded from MDAST before rendering |
-| F-2 | Preserve mid-document thematic breaks | Ensures `remark-frontmatter` only consumes document-leading fences, not mid-document `---` (e.g., `hr.md` fixture) |
+| F-2 | Thematic-break (`---`) behavior preserved | Ensures `remark-frontmatter` only consumes a valid front-matter block (opening `---` + closing `---`/`...`); a lone document-leading `---` with no closing fence (the `hr.md` fixture) and any mid-document `---` are handled deterministically (verified empirically) |
 | F-3 | UUID read continuity | Ensures `readUuid()` behavior is unchanged (regression guard) |
 
 ### 5.1 Capability Details
@@ -90,8 +90,8 @@ Because the markdown parser does not recognize YAML front-matter blocks, the `ma
 **F-1: Front-matter stripping in markdown parser**
 The markdown processor recognizes YAML front-matter blocks delimited by `---` at the very start of the document and excludes them from the MDAST tree. The front-matter content is never passed to the MDAST→HAST bridge or Storage renderer, so it does not appear in the Confluence page body.
 
-**F-2: Preserve mid-document thematic breaks**
-The front-matter recognition is strict: only a `---` fence at line 0 (document start) is treated as front-matter. Mid-document `---` fences (e.g., used for thematic breaks in the `hr.md` golden fixture) are interpreted as thematic breaks and rendered as `<hr/>` as before. This prevents regressions in existing content.
+**F-2: Thematic-break (`---`) behavior preserved**
+`remark-frontmatter` recognizes a front-matter block only when an opening `---` at document start is followed by a closing `---` or `...` fence. The `hr.md` golden fixture contains exactly a single document-leading `---` with **no** closing fence — an edge case whose rendered output under `remark-frontmatter` (thematic break vs. consumed front-matter) is **verified empirically** during implementation. If `remark-frontmatter` consumes the lone `---`, the fixture is updated (per AC-F3-2's golden-update clause) so the test still proves deterministic `---` handling. Any genuinely mid-document `---` continues to render as `<hr/>`.
 
 **F-3: UUID read continuity**
 The identity service reads UUIDs via `readUuid()` in `src/domain/identity/frontmatter.ts`, which uses an independent front-matter parser (`findFrontMatter`). This behavior is unchanged; the fix only affects rendering, not identity reads.
@@ -214,8 +214,9 @@ None — the problem, root cause, and fix path are clear.
 |----|-----------|--------|
 | AC-F1-1 | **Given** a Markdown source beginning with `---\nmarksync:\n  uuid: <uuid>\n---\n` followed by content, **when** parsed and rendered to Storage XHTML, **then** the rendered body contains NO front-matter content (no `<hr/>` immediately following the open, no YAML-as-heading text, no leading whitespace leak). The body renders only the Markdown content after the closing `---`. | F-1 |
 | AC-F1-2 | **Given** a Markdown source with `---` at line 0 followed by content, **when** parsed, **then** the MDAST tree excludes the front-matter block (no nodes for YAML or the opening/closing `---` fences). | F-1 |
-| AC-F2-1 | **Given** a Markdown source with `marksync.uuid` front-matter, **when** `readUuid()` is called, **then** it returns the same UUID before and after the fix (regression guard). | F-3 |
-| AC-F2-2 | **Given** the full existing test suite, **when** run, **then** all tests pass with golden snapshots/fixture counts updated to reflect the fix. The `hr.md` fixture (which uses `---` as a mid-document thematic rule) must continue to render its `<hr/>` unchanged — proving `remark-frontmatter` only consumes document-leading fences. | F-2 |
+| AC-F2-1 | **Given** a Markdown source with `marksync.uuid` front-matter, **when** `readUuid()` is called, **then** it returns the same UUID before and after the fix (regression guard — `src/domain/identity/frontmatter.ts` is unchanged per NG-1; existing identity tests TC-FM-001/002 in `tests/unit/domain/identity/frontmatter.test.ts` already cover this and continue to pass). | F-3 |
+| AC-F2-2 | **Given** the full existing test suite, **when** run, **then** all tests pass with golden snapshots/fixture counts updated to reflect the fix. The `hr.md` fixture (a document-leading **lone** `---` with no closing fence — an edge case, NOT a mid-document rule) must produce a deterministic, verified result; if `remark-frontmatter` changes its output, the fixture is updated per the golden-update clause below. | F-2 |
+| AC-F3-2 | Golden snapshots/fixture counts may be updated to reflect the corrected behavior; any fixture change must be reviewed and intentional (no silent snapshot regeneration). | F-1, F-2 |
 
 ## 18. ROLLOUT & CHANGE MANAGEMENT (HIGH-LEVEL)
 
