@@ -340,7 +340,7 @@ This plan fixes a P0 bug where the MarkSync update flow fails with HTTP 400 on e
 | TC-PROP-V1-PATH-002 | Unit test asserts v1 POST create path | 3, 4 | AC-T1-1 |
 | TC-PROP-V1-PATH-003 | Unit test asserts v1 PUT update path | 3, 4 | AC-T1-1 |
 | TC-PROP-V1-ERR-001 | v1 GET 403 → Forbidden | 3, 4 | AC-F1-1, G-3 |
-| TC-PROP-V1-ERR-002 | v1 put POST 413 → TooLarge | 3, 4 | AC-F1-1, G-3 |
+| TC-PROP-V1-ERR-002 | v1 put POST 413 → TooLarge | 3, 4 | AC-F2-1, G-3 |
 | TC-PROP-V1-SCHEMA-001 | v1 response schema validation failure → RemoteUnreachable | 3, 4 | F-4, DM-1, G-3 |
 | TC-INT-PROP-V1-001 | Integration test verifies v1 GET/POST/PUT paths | 3, 4 | AC-T2-1 |
 | TC-INT-PROP-V1-002 | Integration test verifies no 400 errors in update flow | 3, 4 | AC-T2-1, AC-F2-2, NFR-2 |
