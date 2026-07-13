@@ -6,13 +6,13 @@ ados_distribution: redistributable
 id: GLOSSARY
 status: Draft
 created: 2026-07-05
-last_updated: 2026-07-12
+last_updated: 2026-07-13
 owners: [Juliusz Ćwiąkalski]
 area: domain
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0005, ADR-0006, ADR-0010, ADR-0011, PDR-0001]
-  related_changes: [GH-15, GH-17, GH-18, GH-22]
+  related_changes: [GH-15, GH-17, GH-18, GH-22, GH-66]
   summary: "Reader-friendly glossary of terms and acronyms used across the MarkSync repository."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -46,7 +46,7 @@ Documentation Handbook §9 for the glossary-vs-UL distinction._
 | **AuthError** | The auth-failure arm of the `MarkSyncError` union (`kind: "Auth"`), discriminated on `authKind`: `MissingCredentials`, `InvalidBaseUrl`, `InvalidCredentials`, `AuthUnreachable`. Emitted by the credential provider (`resolveCredentials`/`validateCredentials`); maps to four stable `AUTH_*` codes → exit 20 (`EXIT_AUTH`). | Domain | AuthError |
 | **ConfluenceCredentials** | The resolved Confluence credential (`src/domain/credentials.ts`): `{ baseUrl, authHeader (opaque), email (masked), mode: "api-token" }`. The raw API token is not a field — only the opaque `Basic` header survives resolution (INV-SEC-1). | Auth | ConfluenceCredentials |
 | **Conflict** | A state where local and remote have diverged from the shared base and cannot be safely auto-resolved. Surfaced explicitly, never auto-resolved. | Process | Sync State |
-| **Content property** | A key-value pair attached to a Confluence page via the v2 API. MarkSync uses `marksync.metadata` for lock cross-check data. | Confluence | — |
+| **Content property** | A key-value pair attached to a Confluence page. MarkSync reads/writes `marksync.metadata` via the v1 REST API using key-based access (the v2 path expects a property ID, not a key); the value holds lock cross-check data. | Confluence | — |
 | **Credential** | Authentication material: API token or OAuth refresh token. Stored in OS keyring or env, never in project files. | Security | — |
 | **Data Center** | Atlassian's self-hosted Confluence offering. Deferred to `MS-0009`. | Confluence | — |
 | **Determinism** | The property that the same input always produces the same output. Required for the Storage renderer (ADR-0002 C-1) and Mermaid rendering. | Quality | — |

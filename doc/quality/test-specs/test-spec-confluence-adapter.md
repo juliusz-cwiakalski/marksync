@@ -5,11 +5,11 @@ ados_distribution: project-generated
 id: TEST-SPEC-CONFLUENCE-ADAPTER
 status: Current
 created: 2026-07-10
-last_updated: 2026-07-10
+last_updated: 2026-07-13
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: [GH-21]
+  related_changes: [GH-21, GH-66]
   feature_spec: doc/spec/features/feature-confluence-adapter.md
   decisions: [ADR-0005, ADR-0006, ADR-0010]
 ---
@@ -45,7 +45,7 @@ guardrail in `.ai/rules/testing-strategy.md`:
   `mapMarkSyncErrorToCommandError`, `CODE_TO_EXIT`).
 - `src/infra/confluence/client.ts` — `ConfluenceClient` transport.
 - `src/infra/confluence/pages.ts` — `PageService` (v2) + the 409-conflict parse.
-- `src/infra/confluence/properties.ts` — `PropertyService` (v2).
+- `src/infra/confluence/properties.ts` — `PropertyService` (v1, key-based).
 - `src/infra/confluence/attachments.ts` — `AttachmentService` (v1).
 - `src/infra/confluence/search.ts` / `restrictions.ts` — minimal v1 services.
 - `src/infra/confluence/provenance.ts` — the `version.message` formatter.
@@ -206,7 +206,7 @@ MS-0003+.
 - Thrown `fetch` (network failure) → `RemoteUnreachable` (no retry).
 - 401/403 → 0 retries (surfaced immediately — spike rule).
 - Missing property key → `ok(undefined)` (not an error).
-- 409 key-conflict on content property → handled (not a crash).
+- POST-create 409 (key exists) → GET current `version.number` → versioned PUT (recovered); a property-PUT 409 (rare concurrent race) → `RemoteUnreachable`, not `Conflict` (DEC-6 / GH-66).
 
 ## Automation Strategy
 

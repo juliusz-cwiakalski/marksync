@@ -9,7 +9,7 @@ last_updated: 2026-07-13
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: [GH-21, GH-26]
+  related_changes: [GH-21, GH-26, GH-66]
   decisions: [ADR-0005, ADR-0006, ADR-0010]
   contracts: []
 ---
@@ -53,8 +53,15 @@ transport surface — client, per-surface services, and the provenance formatter
   canonical HAST (not MDAST) — the app layer runs `parseMarkdown` → `mdastToHast`
   → `target.renderBody(hast, opts)`.
 - **Content properties:** read/write the `marksync.metadata` content property
-  (v2) for machine-readable state. `getProperty` returns `string | undefined` (a
-  missing key is not an error).
+  via the v1 REST API (key-based GET/POST/PUT) for machine-readable state. The
+  v2 path parameter expects a property ID, not a key, so key-based access uses
+  v1. `getProperty` returns `string | undefined` (a missing key is not an
+  error). `putProperty` is create-or-update: POST create, and on a 409 (key
+  exists) it GETs the current `version.number` then PUTs with
+  `version.number = current + 1` (v1 optimistic concurrency). A property-PUT
+  409 (a rare concurrent race after the version GET) maps to
+  `RemoteUnreachable`, not `Conflict` — the `Conflict` kind is page-shaped
+  (DEC-6 / GH-66).
 - **Attachments:** upload, existence check, list (v1-only). Hash-named
   files dedup on the filename; a duplicate-filename 400 is the idempotency
   signal (mapped to an "already exists" result, not an error). Changed bytes
@@ -75,7 +82,7 @@ transport surface — client, per-surface services, and the provenance formatter
 | Operation | API | Notes |
 |---|---|---|
 | Page create/read/update/move | v2 | Primary surface |
-| Content properties | v2 | `marksync.metadata` key; v1 deprecated |
+| Content properties | v1 | `marksync.metadata` key-based GET/POST/PUT; the v2 path expects a property ID, not a key |
 | Attachments upload/update/list | v1-only | Not in v2 |
 | Search (CQL) | v1-only | Not in v2 |
 | Restrictions read | v1-only | Not in v2 |
@@ -124,7 +131,7 @@ adapter-agnostic value types (`Page`, `CreatePageRequest`, `UpdatePageRequest`
 |---|---|---|
 | ConfluenceClient | `src/infra/confluence/client.ts` | Native-`fetch` HTTP transport; `v1`/`v2` URL builders rooted at `baseUrl`; `authHeader` injection; redacted logging; 429 backoff → `RateLimited`; 5xx retry → `RemoteUnreachable`; 401/403 never retried |
 | PageService | `src/infra/confluence/pages.ts` | Page create/read/update/move via v2; the 409-conflict parse → typed `Conflict`; 403 → `Forbidden`; 404 → `RemoteMissing` |
-| PropertyService | `src/infra/confluence/properties.ts` | `marksync.metadata` string content-property read/write via v2 (lock cross-check) |
+| PropertyService | `src/infra/confluence/properties.ts` | `marksync.metadata` string content-property read/write via v1 (key-based GET/POST/PUT with `version.number` handling; lock cross-check) |
 | AttachmentService | `src/infra/confluence/attachments.ts` | Multipart upload (v1); 400-duplicate-filename idempotency signal → "already exists"; existence + list. `/data` update removed (hash-naming makes it unnecessary: changed bytes → new filename → fresh create) |
 | SearchService | `src/infra/confluence/search.ts` | CQL page discovery via v1 (minimal) |
 | RestrictionsService | `src/infra/confluence/restrictions.ts` | Page restrictions read via v1 (minimal) |
@@ -151,8 +158,8 @@ adapter-agnostic value types (`Page`, `CreatePageRequest`, `UpdatePageRequest`
 - [x] No Confluence-specific types leak into domain or CLI layers (enforced by
       dependency-cruiser — `domain-may-not-import-infra` /
       `presentation-may-not-import-infra`).
-- [x] v2 used for content/properties; v1 only for attachments/search/
-      restrictions.
+- [x] v2 used for page CRUD/hierarchy; v1 used for content properties
+      (key-based access), attachments, search, and restrictions.
 - [x] 409 optimistic concurrency correctly parsed and surfaced as `Conflict`.
 - [x] 403 on locked page: warn + skip (not delete + recreate).
 - [x] Rate-limit retry: exponential backoff with documented policy; exhausted →

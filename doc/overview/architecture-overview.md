@@ -12,7 +12,7 @@ area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005, ADR-0006, TDR-0003, ADR-0010]
-  related_changes: [GH-18, GH-20, GH-21, GH-22, GH-23, GH-24, GH-26]
+  related_changes: [GH-18, GH-20, GH-21, GH-22, GH-23, GH-24, GH-26, GH-66]
   summary: "Architecture overview — ports-and-adapters CLI; Markdown→Storage pipeline; Confluence Cloud adapter; UUID+lock state model; no hosted backend."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -109,7 +109,7 @@ section below govern residence and dependency direction._
 |---|---|---|---|
 | Confluence client | MarkSync binary | infrastructure | `ConfluenceClient` → Cloud REST v2/v1; native `fetch`, `v1`/`v2` URL builders rooted at `baseUrl`, `authHeader` injection, redacted logging, 429 backoff → `RateLimited`, 5xx retry → `RemoteUnreachable`; 401/403 never retried *(delivered — GH-21)* |
 | Confluence page service | MarkSync binary | infrastructure (adapter) | `PageService` (v2): page create/read/update/move + the brand-defining 409-conflict parse → typed `Conflict`; 403 → `Forbidden`; 404 → `RemoteMissing` *(delivered — GH-21)* |
-| Confluence content property manager | MarkSync binary | infrastructure (adapter) | `PropertyService` (v2): `marksync.metadata` string property read/write (lock cross-check data); `getProperty` → `string | undefined` *(delivered — GH-21)* |
+| Confluence content property manager | MarkSync binary | infrastructure (adapter) | `PropertyService` (v1, key-based): `marksync.metadata` string property read/write (lock cross-check data); `getProperty` → `string | undefined`; `putProperty` create-or-update (POST, and on 409 GET `version.number` → PUT with incremented version) *(delivered — GH-21; switched to v1 — GH-66)* |
 | Confluence attachment manager | MarkSync binary | infrastructure | `AttachmentService` (v1-only): multipart upload, hash-named dedup, 400-duplicate idempotency signal → "already exists", existence + list. Changed bytes → new hash-named file → fresh create (no in-place `/data` update by design) *(delivered — GH-21)* |
 | Confluence Storage renderer | MarkSync binary | infrastructure (adapter) | HAST → Confluence Storage XHTML string-builder visitor (ADR-0005); `renderStorage(hast, opts) → { body, hash, warnings }` (`src/infra/confluence/render/storage.ts`); CDATA code bodies, omitted `ac:schema-version`/`ac:macro-id`, `<ac:task-list>` as its own block *(delivered — GH-20)* |
 | Confluence search + restrictions | MarkSync binary | infrastructure (adapter) | `SearchService` (CQL, v1-only) + `RestrictionsService` (v1-only) — minimal for MS-0002 *(delivered — GH-21)* |
@@ -230,7 +230,7 @@ the integration-scenarios docs (`doc/inception/integration-scenarios/`)._
 | app → target system port | updatePage | `updatePage(req)` (`req` carries `pageId`, `title`, `body`, `baseVersion`; v2 PUT requires `title`) | `Result<Page, MarkSyncError>` | `Conflict` (409 → drift), `Forbidden`, `RateLimited`, `RemoteUnreachable` |
 | app → target system port | movePage | `movePage(req)` | `Result<Page, MarkSyncError>` | `Forbidden`, `RateLimited`, `RemoteUnreachable` |
 | app → target system port | getProperty | `getProperty(pageId, key)` | `Result<string \| undefined, MarkSyncError>` | `Forbidden`, `RateLimited`, `RemoteUnreachable` (missing key → `ok(undefined)`) |
-| app → target system port | putProperty | `putProperty(pageId, key, value)` | `Result<void, MarkSyncError>` | `Conflict`, `TooLarge`, `Forbidden`, `RateLimited`, `RemoteUnreachable` |
+| app → target system port | putProperty | `putProperty(pageId, key, value)` | `Result<void, MarkSyncError>` | `TooLarge`, `Forbidden`, `RateLimited`, `RemoteUnreachable` (create-or-update over v1; a property-PUT 409 is the rare concurrent race → `RemoteUnreachable`, not `Conflict` — GH-66 DEC-6) |
 | app → target system port | uploadAttachment | `uploadAttachment(pageId, artifact)` | `Result<AttachmentRef, MarkSyncError>` | `TooLarge`, `Forbidden`, `RateLimited`, `RemoteUnreachable` (duplicate filename → "already exists" result) |
 | app → target system port | attachmentExists | `attachmentExists(pageId, hash)` | `Result<boolean, MarkSyncError>` | `Forbidden`, `RateLimited`, `RemoteUnreachable` |
 | app → target system port | listAttachments | `listAttachments(pageId)` | `Result<AttachmentRef[], MarkSyncError>` | `Forbidden`, `RateLimited`, `RemoteUnreachable` |
@@ -309,14 +309,16 @@ flowchart TD
 
 | System / API / provider | Purpose | Ownership | Criticality |
 |---|---|---|---|
-| Confluence Cloud REST API (v2 + v1-only endpoints) | Page CRUD, content properties, attachments, labels, search, restrictions | Atlassian | **High** — the only remote system |
+| Confluence Cloud REST API (v2 + v1; version split below) | Page CRUD, content properties, attachments, labels, search, restrictions | Atlassian | **High** — the only remote system |
 | Git CLI | Read committed snapshots, worktree status, renames | local install | High — source of truth reader |
 | OS keyring | API token / OAuth token storage | OS | Medium — env fallback exists |
 | official `mermaid` npm package | Diagram rendering | open source (Mermaid) | High — load-bearing for ADR-0001 |
 | Atlassian auth (API token / OAuth 3LO) | Identity | Atlassian | High |
 
-> **Confluence API version split** (proven by `MS-0001` spike): pages, content
-> properties, hierarchy = **v2**; attachment upload/update, labels add/delete,
+> **Confluence API version split** (informed by the `MS-0001` spike, refined by
+> GH-66): pages, hierarchy = **v2**; content properties (key-based
+> `marksync.metadata` GET/POST/PUT) = **v1** — the v2 path parameter expects a
+> property ID, not a key; attachment upload/update, labels add/delete,
 > search/CQL, restrictions = **V1-ONLY**. All distinctions are isolated behind
 > the `ConfluenceClient` adapter (A-FEA-6).
 

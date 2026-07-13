@@ -44,7 +44,7 @@ references. Sequencing follows the failure-premortem's central conclusion:
 
 | ID | Milestone | Shipped | Outcome achieved | Links |
 |---|---|---|---|---|
-| `MS-0001` | Confluence API validation spike | 2026-07-03 | Proved the Confluence Cloud contract: Storage round-trip (27/27 GFM constructs), v2 content properties, drift 409 detection, attachments, labels, search, restrictions. De-risked `MS-0002` feasibility. | TDR-0001, ADR-0005; `doc/inception/integration-scenarios/` |
+| `MS-0001` | Confluence API validation spike | 2026-07-03 | Proved the Confluence Cloud contract: Storage round-trip (27/27 GFM constructs), content properties, drift 409 detection, attachments, labels, search, restrictions. De-risked `MS-0002` feasibility. | TDR-0001, ADR-0005; `doc/inception/integration-scenarios/` |
 
 _(Only the spike has shipped; no product milestone has shipped yet.)_
 
