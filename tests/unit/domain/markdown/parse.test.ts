@@ -137,3 +137,32 @@ describe("TC-PARSE-004 (PD-8) — parseMarkdown is effectively total; never Unsu
 		}
 	});
 });
+
+describe("TC-FMS-002 — front-matter is claimed as a yaml node, not misparsed as content (GH-63)", () => {
+	const src = `---
+marksync:
+  uuid: 019f5a2c-4a59-77aa-96ad-70f3719c2d1e
+---
+# Hello World`;
+	const result = parseMarkdown(src);
+
+	test("returns ok", () => {
+		expect(result.ok).toBe(true);
+	});
+
+	test("no thematic-break nodes (the --- fences are not parsed as <hr/>)", () => {
+		if (!result.ok) throw new Error("expected ok");
+		expect(nodeTypes(result.value)).not.toContain("thematicBreak");
+	});
+
+	test("front-matter is recognized as a yaml node (dropped at the HAST bridge, never rendered)", () => {
+		if (!result.ok) throw new Error("expected ok");
+		expect(nodeTypes(result.value)).toContain("yaml");
+	});
+
+	test("first content node (after the front-matter) is the heading", () => {
+		if (!result.ok) throw new Error("expected ok");
+		const content = result.value.children.filter((c) => c.type !== "yaml");
+		expect(content[0]?.type).toBe("heading");
+	});
+});

@@ -155,21 +155,16 @@ The `doc/spec/features/feature-safe-publish.md` markdown-pipeline row will be re
 
 **Tasks**:
 
-- [ ] **3.1** Add test block to `tests/unit/domain/markdown/parse.test.ts` for TC-FMS-002:
-  - Use markdown source with front-matter: `---\nmarksync:\n  uuid: 019f5a2c-4a59-77aa-96ad-70f3719c2d1e\n---\n# Hello World`
-  - Verify `parseMarkdown` returns `ok: true`
-  - Verify MDAST tree contains no `thematicBreak` nodes
-  - Verify MDAST tree contains no `yaml` nodes
-  - Verify first child is `heading` (not `thematicBreak`)
-- [ ] **3.2** Reuse existing `nodeTypes()` helper from `parse.test.ts` for type collection
-- [ ] **3.3** Follow code style rules: minimal comments, self-documenting, no spec restatements
+- [x] **3.1** Add test block to `tests/unit/domain/markdown/parse.test.ts` for TC-FMS-002 (ADAPTED — see Plan Revision Log v1.4): asserts no `thematicBreak` nodes, front-matter recognized as `yaml` node, first content node is `heading`. Original `not.toContain("yaml")`/first-child-heading assertions were premised on remark-frontmatter removing the node from MDAST; that premise is incorrect — the `yaml` node is the canonical front-matter representation, dropped at the HAST bridge.
+- [x] **3.2** Reuse existing `nodeTypes()` helper from `parse.test.ts` for type collection
+- [x] **3.3** Follow code style rules: minimal comments, self-documenting, no spec restatements
 
 **Acceptance Criteria**:
 
-- Must: Unit test `TC-FMS-002` passes with all three assertions
-- Must: MDAST tree contains no `thematicBreak` or `yaml` nodes
-- Must: First child is `heading` node for `# Hello World`
-- Should: Test uses existing `nodeTypes()` helper for DRY
+- Must: Unit test `TC-FMS-002` passes with all three assertions — PASSED (4 tests, 13/13 total in file)
+- Must: MDAST tree contains no `thematicBreak` or `yaml` nodes — ADAPTED (see v1.4): no `thematicBreak` (PASSED); `yaml` node IS present by remark-frontmatter design (canonical front-matter representation, dropped at HAST bridge). AC-F1-2 intent (no fence/hr nodes, no YAML-as-content) satisfied.
+- Must: First child is `heading` node for `# Hello World` — ADAPTED: first CONTENT node (excluding the recognized front-matter) is `heading` (PASSED)
+- Should: Test uses existing `nodeTypes()` helper for DRY — PASSED
 
 **Affected code areas**:
 
@@ -365,8 +360,8 @@ The `doc/spec/features/feature-safe-publish.md` markdown-pipeline row will be re
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
 | Phase 1: Dependency Installation | Complete | 2026-07-13 | 2026-07-13 | 9d91081 | remark-frontmatter@5.0.0 installed; ^5.0.0 in package.json; bun.lock resolves unified ^11.0.0 |
-| Phase 2: Wire remark-frontmatter Plugin | Complete | 2026-07-13 | 2026-07-13 | TBD | parse.ts wired `remark().use(remarkFrontmatter).use(remarkGfm)`; hr.md unchanged (lone `---` → thematicBreak → `<hr/>`); front-matter → yaml node dropped at HAST bridge; 32 golden + 9 unit tests pass; typecheck clean |
-| Phase 3: Unit Test (TC-FMS-002) | Pending | TBD | TBD | TBD | |
+| Phase 2: Wire remark-frontmatter Plugin | Complete | 2026-07-13 | 2026-07-13 | a77d609 | parse.ts wired `remark().use(remarkFrontmatter).use(remarkGfm)`; hr.md unchanged (lone `---` → thematicBreak → `<hr/>`); front-matter → yaml node dropped at HAST bridge; 32 golden + 9 unit tests pass; typecheck clean |
+| Phase 3: Unit Test (TC-FMS-002) | Complete | 2026-07-13 | 2026-07-13 | TBD | TC-FMS-002 added (adapted per v1.4 — validates no thematicBreak, yaml node recognized, first content node heading); 13/13 unit tests pass |
 | Phase 3: Unit Test (TC-FMS-002) | Pending | TBD | TBD | TBD | |
 | Phase 4: Golden Fixture (TC-FMS-001, TC-FMS-004) | Pending | TBD | TBD | TBD | |
 | Phase 5: Verify All Tests | Pending | TBD | TBD | TBD | |
