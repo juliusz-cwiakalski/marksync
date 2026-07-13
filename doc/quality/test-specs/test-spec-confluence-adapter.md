@@ -9,7 +9,7 @@ last_updated: 2026-07-13
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: [GH-21, GH-66]
+  related_changes: [GH-21, GH-66, GH-71]
   feature_spec: doc/spec/features/feature-confluence-adapter.md
   decisions: [ADR-0005, ADR-0006, ADR-0010]
 ---
@@ -67,7 +67,7 @@ guardrail in `.ai/rules/testing-strategy.md`:
 **Purpose:** Validate individual components — error-arm round-trips, URL
 builders, retry/backoff timing, the 409-conflict parse, the 403/404 mapping,
 schema-drift mapping, the property round-trip, the attachment 400-dup
-idempotency signal + `/data` update, search/restrictions, the provenance
+idempotency signal + create-response unwrap (GH-71), search/restrictions, the provenance
 formatter, the port interface, and the `ConfluenceTarget` wiring.
 
 **Tools:** `bun:test`; the client/service constructors accept an **injected
@@ -93,7 +93,7 @@ where the critical-safety properties are proven over captured real HTTP traffic.
 - 403 on `getPage` → `Forbidden`; assert 0 delete/recreate requests issued.
 - `putProperty` string → `getProperty` byte-equal; ~8 KB round-trips.
 - Duplicate-filename upload → 400 "same file name" → "already exists" (not an
-  error); changed bytes → `/data` version bump.
+  error); changed bytes → new hash-named file → fresh create (no `/data` update).
 - 429 + `Retry-After` → bounded backoff (max 3) → ok; sustained → `RateLimited`.
 - Transient 5xx → retried (max 3); sustained → `RemoteUnreachable`.
 - Grep captured artifacts for the token → 0 occurrences.
@@ -174,7 +174,8 @@ attachments) is wired by E5-S1 against a sandbox tenant.
   `"Cannot add a new attachment with the same file name"`.
 - **When:** the adapter processes the duplicate.
 - **Then:** returns an "already exists" result (NOT an error); idempotent rerun
-  performs 0 writes. Changed bytes → `/data` update bumps the version.
+  performs 0 writes. Changed bytes → new hash → new filename → fresh create (no
+  in-place `/data` update by design).
 
 ### Scenario 8: Schema-drift maps to RemoteUnreachable
 
@@ -182,6 +183,23 @@ attachments) is wired by E5-S1 against a sandbox tenant.
 - **When:** the adapter processes the response.
 - **Then:** returns `err({ kind: "RemoteUnreachable"; cause })` — never a silent
   misparse.
+
+### Scenario 9: Attachment create unwraps the v1 `{ results: [...] }` response
+
+- **Given:** a POST create returns 200 with
+  `{ results: [{ id, title, version }] }` — the Confluence v1 API wraps even
+  single creates in a `results` array (spike evidence `F-01-upload.json`,
+  `doc/inception/integration-scenarios/11-attachments.md`).
+- **When:** `AttachmentService.upload()` processes the 200 response.
+- **Then:** `mapCreate` unwraps `results[0]` before zod validation and returns
+  `ok(AttachmentRef)` with the correct id/title/hash/version — not
+  `RemoteUnreachable { cause: "schema validation failed: AttachmentCreateResponse" }`.
+  A flat response (no `results` wrapper) falls back to body-as-is (defensive,
+  DEC-2). Mermaid SVG artifacts produce the `marksync-mermaid-<hash>.svg`
+  prefix.
+- **And:** an empty `{ results: [] }` or a result missing required fields (e.g.
+  no `title`) → schema validation fails → `RemoteUnreachable` (never a fabricated
+  ref). *(GH-71; TC-ATTACH-001 through TC-ATTACH-006.)*
 
 ## Performance & Load Tests
 
