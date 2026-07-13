@@ -18,7 +18,7 @@ phases:
   review_fix: { started: "2026-07-13T08:00:00Z", completed: "2026-07-13T08:40:00Z" }
   quality_gates: { started: "2026-07-13T08:40:00Z", completed: "2026-07-13T08:50:00Z" }
   dod_check: { started: "2026-07-13T08:50:00Z", completed: "2026-07-13T09:00:00Z" }
-  pr_creation: { started: "2026-07-13T09:00:00Z", completed: null, url: null }
+  pr_creation: { started: "2026-07-13T09:00:00Z", completed: "2026-07-13T09:10:00Z", url: "https://github.com/juliusz-cwiakalski/marksync/pull/61" }
 
 dod_check:
   verdict: PASS
