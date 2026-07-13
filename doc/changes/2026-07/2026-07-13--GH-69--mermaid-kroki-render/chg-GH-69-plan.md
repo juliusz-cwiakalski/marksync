@@ -4,7 +4,7 @@
 id: chg-GH-69-mermaid-kroki-render
 status: Updated
 created: 2026-07-13T00:00:00Z
-last_updated: 2026-07-13T16:30:00Z
+last_updated: 2026-07-13T17:00:00Z
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 labels: [MS-0002, MS2-E4, mermaid, kroki, remote-rendering, attachments]
@@ -209,15 +209,16 @@ block on failure, and dedups within-doc by source.
    }
    ```
 
-- [ ] **P2.2** Write `tests/unit/domain/mermaid/transform.test.ts` with stubbed renderer:
-  - **TC-MERM-004** (policy activation): Test `policy = "render"` → pre replaced
-    with img; `policy = "code"/"skip"` → pre unchanged.
-  - **TC-MERM-007** (determinism): Call transform 3× with same source → assert
-    all hashes identical (full sha256), all filenames identical.
-  - **TC-MERM-009** (in-doc dedup): Two identical mermaid fences → one Artifact,
-    both `pre` replaced with `img` nodes pointing to same filename.
-  - Success path: Stub renderer returns fixed SVG bytes → assert HAST has `img`
-    node with correct src/filename, artifacts array populated.
+ - [ ] **P2.2** Write `tests/unit/domain/mermaid/transform.test.ts` with stubbed renderer:
+   - **TC-MERM-004** (policy activation): Test `policy = "render"` → pre replaced
+     with img; `policy = "code"/"skip"` → pre unchanged.
+   - **TC-MERM-007** (determinism): Call transform 3× with same source → assert
+     all hashes identical (full sha256), all filenames identical.
+   - **TC-MERM-009** (in-doc dedup): Two identical mermaid fences → one Artifact,
+     both `pre` replaced with `img` nodes pointing to same filename.
+   - **TC-MERM-012** (empty source): stub Renderer returns error for empty/whitespace source → transform keeps pre + emits warning (fallback path).
+   - Success path: Stub renderer returns fixed SVG bytes → assert HAST has `img`
+     node with correct src/filename, artifacts array populated.
 
 - [ ] **P2.3** Commit: `feat(mermaid): GH-69 add Mermaid HAST transform`.
 
@@ -233,58 +234,56 @@ warning.
 
 **Tasks:**
 
- - [ ] **P3.1** In `src/app/push-flow.ts`, after `mdastToHast` (line ~207) and **after**
-   `resolver.resolve()` (line ~210-211), but **before `target.renderBody`** (line ~226):
-   ```ts
-   // GH-69: Mermaid rendering (when policy === "render")
-   // IMPORTANT: This transform MUST run AFTER resolver.resolve() and BEFORE target.renderBody()
-   // Rationale: The AssetResolver walks every <img> element and treats non-http src as local file paths.
-   // If this transform ran before the resolver, the synthetic <img src="marksync-mermaid-<hash>.svg"> nodes
-   // injected by the transform would be seen by the resolver, which would try to resolve them as file paths,
-   // fail with Forbidden(path-traversal), and abort the entire plan. By running after the resolver,
-   // the synthetic mermaid img nodes bypass the resolver and flow directly to renderBody → imageMacro,
-   // which checks src.startsWith("http") → false → emits <ac:image><ri:attachment ri:filename="..."/>.
-   let mermaidArtifacts: Artifact[] = [];
-   if (config.render.mermaid.policy === "render") {
-     // Emit one-time privacy warning
-     if (!privacyWarningEmitted) {
-       allWarnings.push(
-         "Mermaid rendering sends diagram content to Kroki API (https://kroki.io) — review privacy policy before use"
-       );
-       privacyWarningEmitted = true;
-     }
+  - [ ] **P3.1** In `src/app/push-flow.ts`, after `mdastToHast` (line ~207) and **after**
+    `resolver.resolve()` (line ~210-211), but **before `target.renderBody`** (line ~226):
+    ```ts
+    // GH-26: Resolve assets FIRST (path-safe, content-addressed) — processes real
+    // local <img> paths. MUST run before the mermaid transform so the resolver never
+    // sees the synthetic marksync-mermaid-<hash>.svg img nodes.
+    const assetResult = await resolver.resolve(hast, path);
+    if (!assetResult.ok) return assetResult; // Forbidden(path-traversal) aborts the plan
+    const assetSet = assetResult.value;
 
-     // Construct Kroki renderer (or accept injected Renderer for tests)
-     const renderer: Renderer = new KrokiClient(); // or injected
+    // GH-69: Mermaid rendering (ONLY when policy === "render").
+    // IMPORTANT: This transform MUST run AFTER resolver.resolve() and BEFORE
+    // target.renderBody(). Rationale: the transform injects synthetic
+    // <img src="marksync-mermaid-<hash>.svg"> nodes. If it ran BEFORE the resolver,
+    // the resolver would treat those filenames as local file paths → realpathSync
+    // fails → Forbidden(path-traversal) → plan aborts. Running after the resolver,
+    // the synthetic nodes bypass it and flow to renderBody → imageMacro →
+    // <ac:image><ri:attachment ri:filename="..."/>.
+    let mermaidArtifacts: Artifact[] = [];
+    if (config.render.mermaid.policy === "render") {
+      // Emit one-time privacy warning (once per run, not per doc)
+      if (!privacyWarningEmitted) {
+        allWarnings.push(
+          "Mermaid rendering sends diagram content to Kroki API (https://kroki.io) — review privacy policy before use"
+        );
+        privacyWarningEmitted = true;
+      }
 
-     // Run mermaid transform (after resolver.resolve() has processed all real local images)
-     const mermaidResult = await transform(hast, config.render.mermaid, renderer);
-     if (!mermaidResult.ok) {
-       // RemoteUnreachable is a per-document warning, not a plan abort
-       const err = mermaidResult.error;
-       if (err.kind === "RemoteUnreachable") {
-         allWarnings.push(
-           `Mermaid render failed for diagram at ${path}: ${err.cause ?? "Unknown error"} — falling back to code block`
-         );
-       } else {
-         return mermaidResult; // Other errors abort the plan
-       }
-     } else {
-       // Success: merge artifacts, use transformed HAST
-       mermaidArtifacts = mermaidResult.value.artifacts;
-       hast = mermaidResult.value.transformedHast;
-       allWarnings.push(...mermaidResult.value.warnings);
-     }
-   }
+      const renderer: Renderer = new KrokiClient(); // or injected for tests
+      const mermaidResult = await transform(hast, config.render.mermaid, renderer);
+      if (!mermaidResult.ok) {
+        // RemoteUnreachable is a per-document warning, not a plan abort
+        const err = mermaidResult.error;
+        if (err.kind === "RemoteUnreachable") {
+          allWarnings.push(
+            `Mermaid render failed for diagram at ${path}: ${err.cause ?? "Unknown error"} — falling back to code block`
+          );
+        } else {
+          return mermaidResult; // Other errors abort the plan
+        }
+      } else {
+        mermaidArtifacts = mermaidResult.value.artifacts;
+        hast = mermaidResult.value.transformedHast; // use transformed tree for renderBody
+        allWarnings.push(...mermaidResult.value.warnings);
+      }
+    }
 
-   // GH-26: Resolve assets (path-safe, content-addressed) — unchanged
-   // This runs BEFORE the mermaid transform to process real local <img> paths
-   const assetResult = await resolver.resolve(hast, path);
-   // ... existing asset resolution code ...
-
-   // Merge mermaid artifacts into entry.assets (append to local assets)
-   // Populate ContentHash.attachmentHashes from both local + mermaid artifacts
-   ```
+    // Render the (possibly mermaid-transformed) HAST to Storage XHTML
+    const renderResult = target.renderBody(hast, { sourcePath: path });
+    ```
 
 - [ ] **P3.2** Add `privacyWarningEmitted` flag at the top of `computePlan` (outside
   the per-doc loop) to ensure the warning is emitted once per run.
@@ -434,6 +433,7 @@ identifies the following docs that will need updating:
 | TC-MERM-009 | In-doc dedup — same mermaid twice → one Artifact | P2 (unit) | F-2 |
 | TC-MERM-010 | Timeout safety — Kroki timeout → `RemoteUnreachable` | P1 (unit) | NFR-7, AC-4 |
 | TC-MERM-011 | No secrets in filenames/output (INV-SEC-1) | P3 (integration) | NFR-8, AC-1 |
+| TC-MERM-012 | Empty mermaid source — renderer error → code block + warning | P2 (unit) | AC-4, F-6, NFR-5 |
 
 ---
 
@@ -461,6 +461,7 @@ identifies the following docs that will need updating:
 |---------|------|--------|---------|
 | 1.0 | 2026-07-13 | plan-writer (AI-assisted) | Initial plan |
 | 1.1 | 2026-07-13 | plan-writer (AI-assisted) | DoR iter-1 fixes: (1) Fixed BLOCKER - mermaid transform now explicitly runs AFTER resolver.resolve() with load-bearing invariant rationale; (2) Added documentation impact section for phase 7; (3) Added recursive HAST walk requirement to P2.1 |
+| 1.2 | 2026-07-13 | plan-writer (AI-assisted) | DoR iter-1 fixes: (1) Fixed CRITICAL BLOCKER in P3.1 code sketch - statement order now correct: resolver.resolve() runs FIRST, then mermaid transform, then target.renderBody(); removed duplicate resolver.resolve() call; (2) Added TC-MERM-012 (empty source) to test scenarios coverage table and P2.2 task |
 
 ---
 
