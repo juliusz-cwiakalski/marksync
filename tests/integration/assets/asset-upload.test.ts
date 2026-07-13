@@ -24,6 +24,29 @@ describe("integration assets", () => {
 		const uploadAttachmentCalls: Array<{ pageId: string; artifact: Artifact }> =
 			[];
 
+		// Default return-behaviour (recording is layered on below so overrides
+		// can't silently swallow a call — F-2 root cause).
+		const defaultAttachmentExists: TargetSystem["attachmentExists"] =
+			async () => Res.ok(false);
+		const defaultUploadAttachment: TargetSystem["uploadAttachment"] = async (
+			pageId,
+			artifact,
+		) => {
+			// F-11: Use the REAL attachmentFilename to derive the filename
+			const filename = attachmentFilename(artifact);
+			return Res.ok({
+				id: "att-123",
+				pageId,
+				filename,
+				hash: artifact.hash,
+				version: 1,
+			});
+		};
+		const attachmentExistsImpl =
+			overrides.attachmentExists ?? defaultAttachmentExists;
+		const uploadAttachmentImpl =
+			overrides.uploadAttachment ?? defaultUploadAttachment;
+
 		return {
 			renderBody: async (hast: Root): Promise<Result<RenderedBody, never>> => {
 				return Res.ok({
@@ -66,23 +89,6 @@ describe("integration assets", () => {
 			putProperty: async (): Promise<Result<void, never>> => {
 				return Res.ok(undefined);
 			},
-			uploadAttachment: async (pageId, artifact) => {
-				uploadAttachmentCalls.push({ pageId, artifact });
-				// F-11: Use the REAL attachmentFilename to derive the filename
-				const filename = attachmentFilename(artifact);
-				const ref: AttachmentRef = {
-					id: "att-123",
-					pageId,
-					filename,
-					hash: artifact.hash,
-					version: 1,
-				};
-				return Res.ok(ref);
-			},
-			attachmentExists: async (pageId, hash) => {
-				attachmentExistsCalls.push({ pageId, hash });
-				return Res.ok(false);
-			},
 			listAttachments: async (): Promise<Result<AttachmentRef[], never>> => {
 				return Res.ok([]);
 			},
@@ -97,6 +103,17 @@ describe("integration assets", () => {
 				return Res.ok({ pageId: "123", restricted: false });
 			},
 			...overrides,
+			// Placed AFTER `...overrides` so the recording wrapper always wins:
+			// every real uploadAssets call is captured even when a test overrides
+			// the return behaviour (F-2: prove the real upload-reuse path works).
+			attachmentExists: async (pageId, hash) => {
+				attachmentExistsCalls.push({ pageId, hash });
+				return attachmentExistsImpl(pageId, hash);
+			},
+			uploadAttachment: async (pageId, artifact) => {
+				uploadAttachmentCalls.push({ pageId, artifact });
+				return uploadAttachmentImpl(pageId, artifact);
+			},
 			_attachmentExistsCalls: attachmentExistsCalls,
 			_uploadAttachmentCalls: uploadAttachmentCalls,
 		};
@@ -284,9 +301,7 @@ describe("integration assets", () => {
 		test("exists=true → uploadAttachment called 0×", async () => {
 			const hash = "abc123";
 			const mockTarget = makeMockTarget({
-				attachmentExists: async (pageId, h) => {
-					// Still need to record the call
-					(mockTarget as any)._attachmentExistsCalls.push({ pageId, hash: h });
+				attachmentExists: async (_pageId, h) => {
 					if (h === hash) return Res.ok(true);
 					return Res.ok(false);
 				},
@@ -511,22 +526,18 @@ describe("integration assets", () => {
 			const largeHash = "large123";
 			const normalHash = "normal123";
 
-			// Mock target: large upload returns 413, normal upload succeeds
+			// doc A (>25 MB) uploads OK (warns but applies); doc B's upload is
+			// rejected TooLarge(413) — proving per-document isolation (F-2/F-10).
 			const mockTarget = makeMockTarget({
-				attachmentExists: async (pageId, hash) => {
-					return Res.ok(false); // Both assets don't exist
-				},
+				attachmentExists: async () => Res.ok(false),
 				uploadAttachment: async (pageId, artifact) => {
-					// Still need to record the call
-					(mockTarget as any)._uploadAttachmentCalls.push({ pageId, artifact });
-					if (artifact.hash === largeHash) {
+					if (artifact.hash === normalHash) {
 						return Res.err({
 							kind: "TooLarge",
 							pageId,
 							what: "Attachment exceeds size limit",
 						});
 					}
-					// Normal asset upload succeeds
 					return Res.ok({
 						id: "att-456",
 						pageId,
@@ -541,7 +552,7 @@ describe("integration assets", () => {
 				_uploadAttachmentCalls: typeof mockTarget._uploadAttachmentCalls;
 			};
 
-			// Doc A: large asset (>25 MB)
+			// Doc A: >25 MB asset — warns but still applies (upload succeeds)
 			const artifactA: Artifact = {
 				bytes: largeAsset,
 				mime: "image/png",
@@ -550,11 +561,15 @@ describe("integration assets", () => {
 
 			const resultA = await uploadAssets(target, "123", [artifactA]);
 
-			// Doc A should emit a >25 MB warning but still upload (will fail with TooLarge)
-			expect(resultA.ok).toBe(false);
-			expect(resultA.error?.kind).toBe("TooLarge");
+			expect(resultA.ok).toBe(true);
+			expect(resultA.value.warnings).toHaveLength(1);
+			expect(resultA.value.warnings[0]!).toContain("exceeds 25 MB");
+			expect(resultA.value.warnings[0]!).not.toContain(largeHash); // F-8: no hash leak
+			expect(resultA.value.attachmentHashes).toBeDefined();
+			expect(target._uploadAttachmentCalls).toHaveLength(1);
+			expect(target._uploadAttachmentCalls[0]!.artifact.hash).toBe(largeHash);
 
-			// Doc B: normal asset
+			// Doc B: normal asset — server 413 blocks this doc only
 			const artifactB: Artifact = {
 				bytes: normalAsset,
 				mime: "image/png",
@@ -563,12 +578,11 @@ describe("integration assets", () => {
 
 			const resultB = await uploadAssets(target, "456", [artifactB]);
 
-			// Doc B should succeed
-			expect(resultB.ok).toBe(true);
-			expect(resultB.value.warnings).toEqual([]); // No warning for normal asset
-			expect(resultB.value.attachmentHashes).toBeDefined();
+			expect(resultB.ok).toBe(false);
+			expect(resultB.error?.kind).toBe("TooLarge");
+			// Run continued: doc A's successful upload is still on record, and doc B
+			// also reached the real upload path (its 413 came from uploadAttachment).
 			expect(target._uploadAttachmentCalls).toHaveLength(2);
-			expect(target._uploadAttachmentCalls[0]!.artifact.hash).toBe(largeHash);
 			expect(target._uploadAttachmentCalls[1]!.artifact.hash).toBe(normalHash);
 		});
 
