@@ -1,11 +1,19 @@
-// zod boundary schemas for the v2 content-property API (spike H2). Adapter-internal.
+// zod boundary schemas for the v1 content-property API (GH-66). Adapter-internal.
 
 import { z } from "zod";
 
-/** v2 content-property response (get/create/update). `value` is a string per spike H2. */
-export const PropertyV2Response = z.object({
+/**
+ * v1 content-property response. `value` is a string (spike H2). `version.number`
+ * is required for optimistic concurrency on PUT-by-key; `version.when` is
+ * returned by the API but unused here.
+ */
+export const PropertyV1Response = z.object({
+	id: z.union([z.string(), z.number()]),
 	key: z.string(),
 	value: z.unknown(),
-	version: z.object({ number: z.number() }).optional(),
+	version: z.object({
+		number: z.number(),
+		when: z.string().optional(),
+	}),
 });
-export type PropertyV2Response = z.infer<typeof PropertyV2Response>;
+export type PropertyV1Response = z.infer<typeof PropertyV1Response>;

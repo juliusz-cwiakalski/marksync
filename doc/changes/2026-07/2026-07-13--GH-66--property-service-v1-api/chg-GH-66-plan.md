@@ -83,20 +83,20 @@ This plan fixes a P0 bug where the MarkSync update flow fails with HTTP 400 on e
 
 **Tasks**:
 
-- [ ] **1.1** Replace `PropertyV2Response` with `PropertyV1Response` in `src/infra/confluence/schemas/property.ts`:
+- [x] **1.1** Replace `PropertyV2Response` with `PropertyV1Response` in `src/infra/confluence/schemas/property.ts`:
   - Schema shape: `{id, key, value, version: {number, when?}}` (number required, when optional per DM-1)
   - Update comment from "v2 content-property API" to "v1 content-property API"
-  - Export `PropertyV1Response` type (F-4, DM-1, AC-F4-1)
-- [ ] **1.2** Update import in `src/infra/confluence/properties.ts` line 9 from `PropertyV2Response` to `PropertyV1Response`
-- [ ] **1.3** Update line 40 in `properties.ts` to use `PropertyV1Response.safeParse(response.value.json)` and line 44 error message to "schema validation failed: PropertyV1Response"
-- [ ] **1.4** Update file comment in `properties.ts` lines 1-3 from "v2 content-property surface" to "v1 content-property surface"
+  - Export `PropertyV1Response` type (F-4, DM-1, AC-F4-1) — DONE
+- [x] **1.2** Update import in `src/infra/confluence/properties.ts` line 9 from `PropertyV2Response` to `PropertyV1Response` — DONE
+- [x] **1.3** Update line 40 in `properties.ts` to use `PropertyV1Response.safeParse(response.value.json)` and line 44 error message to "schema validation failed: PropertyV1Response" — DONE
+- [x] **1.4** Update file comment in `properties.ts` lines 1-3 from "v2 content-property surface" to "v1 content-property surface" — DONE
 
 **Acceptance Criteria**:
 
-- Must: `PropertyV1Response` schema exists in `src/infra/confluence/schemas/property.ts` with correct shape `{id, key, value, version: {number, when?}}` (number required, when optional per DM-1)
-- Must: `properties.ts` imports and uses `PropertyV1Response`
-- Must: Schema validation error message updated to reference `PropertyV1Response`
-- Should: No TypeScript compilation errors
+- Must: `PropertyV1Response` schema exists in `src/infra/confluence/schemas/property.ts` with correct shape `{id, key, value, version: {number, when?}}` (number required, when optional per DM-1) — PASSED (schema written; `version.number` required, `when` optional)
+- Must: `properties.ts` imports and uses `PropertyV1Response` — PASSED (import + safeParse updated)
+- Must: Schema validation error message updated to reference `PropertyV1Response` — PASSED (error string "schema validation failed: PropertyV1Response")
+- Should: No TypeScript compilation errors — PASSED (`bun run typecheck` clean)
 
 **Affected code areas**:
 
@@ -371,3 +371,4 @@ This plan fixes a P0 bug where the MarkSync update flow fails with HTTP 400 on e
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
 | (Populated during execution) | | | | | |
+| 1 — Schema | COMPLETE | 2026-07-13 | 2026-07-13 | (see below) | PropertyV1Response schema ({id,key,value,version:{number,when?}}); import/usage/header updated; typecheck clean |

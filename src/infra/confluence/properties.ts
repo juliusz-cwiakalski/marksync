@@ -1,12 +1,12 @@
-// PropertyService — the v2 content-property surface (`marksync.metadata`
-// string cross-check). v2 accepts string values (~8 KB, spike H2); v1 is
-// deprecated. A missing key is `ok(undefined)`, not an error.
+// PropertyService — the v1 content-property surface (`marksync.metadata`
+// string cross-check, ~8 KB per spike H2). A missing key is `ok(undefined)`,
+// not an error.
 
 import {
 	type ConfluenceClient,
 	unreachableCause,
 } from "#infra/confluence/client";
-import { PropertyV2Response } from "#infra/confluence/schemas/property";
+import { PropertyV1Response } from "#infra/confluence/schemas/property";
 import type { MarkSyncError } from "#domain/errors";
 import { Result } from "#domain/result";
 
@@ -37,11 +37,11 @@ export class PropertyService {
 				cause: unreachableCause(response.value.status, "property get"),
 			});
 		}
-		const parsed = PropertyV2Response.safeParse(response.value.json);
+		const parsed = PropertyV1Response.safeParse(response.value.json);
 		if (!parsed.success) {
 			return Result.err({
 				kind: "RemoteUnreachable",
-				cause: "schema validation failed: PropertyV2Response",
+				cause: "schema validation failed: PropertyV1Response",
 			});
 		}
 		if (typeof parsed.data.value !== "string") {
