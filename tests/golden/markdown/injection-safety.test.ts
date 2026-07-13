@@ -122,3 +122,42 @@ describe("TC-TASKMIX-001 (DEC-5 / NFR-9) — task-list + regular-list mixing emi
 		expect(clean.warnings).toEqual([]);
 	});
 });
+
+describe("TC-MERM-INJECT (GH-25 AC-F3-1 / NFR-SEC-5) — adversarial mermaid payloads are inert in code macro", () => {
+	test("TC-MERM-003: script payload — 0 <script> tags outside CDATA", () => {
+		const src = "```mermaid\ngraph TD; A[<script>alert(1)</script>];\n```\n";
+		const body = render(src).body;
+		expect(countOutsideCdata(body, "<script")).toBe(0);
+		expect(body).toContain("<script>alert(1)</script>");
+	});
+
+	test("TC-MERM-004: onerror payload — 0 live on* handlers outside CDATA", () => {
+		const src = "```mermaid\ngraph TD; A[<img src=x onerror=alert(1)>];\n```\n";
+		const body = render(src).body;
+		// Count onerror, onclick, onload — all must be 0 outside CDATA.
+		expect(countOutsideCdata(body, "onerror=")).toBe(0);
+		expect(countOutsideCdata(body, "onclick=")).toBe(0);
+		expect(countOutsideCdata(body, "onload=")).toBe(0);
+		expect(body).toContain("onerror=alert(1)");
+	});
+
+	test("TC-MERM-005: javascript: URI payload — 0 javascript: URIs outside CDATA", () => {
+		const src = '```mermaid\ngraph TD; A["<a href=javascript:alert(1)>click</a>"];\n```\n';
+		const body = render(src).body;
+		expect(countOutsideCdata(body, "javascript:")).toBe(0);
+		expect(body).toContain('javascript:alert(1)');
+	});
+
+	test("TC-MERM-006: CDATA breakout sequence ]]> is split, no actual termination", () => {
+		const src = '```mermaid\ngraph TD; A["Hello]]>World"];\n```\n';
+		const body = render(src).body;
+
+		// The ]]> sequence is split by the cdata() helper into ]] ]]>.
+		// This prevents actual CDATA termination and keeps the output well-formed.
+		expect(body).toContain("Hello]]]]><![CDATA[>World");
+
+		// Verify the original text appears somewhere (the sequence is split but preserved).
+		expect(body).toContain("Hello");
+		expect(body).toContain("World");
+	});
+});
