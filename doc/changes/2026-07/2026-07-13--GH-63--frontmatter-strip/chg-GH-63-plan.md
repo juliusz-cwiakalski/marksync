@@ -15,7 +15,7 @@ links:
 summary: >
   Fix P0 bug where YAML front-matter (marksync.uuid identity block) leaks into rendered Confluence Storage XHTML.
   Install remark-frontmatter plugin and wire it into the markdown processor to strip document-leading front-matter
-  from the MDAST tree before rendering, while preserving mid-document thematic breaks.
+  from the MDAST tree before rendering, with deterministic `---` handling (the document-leading lone `---` in hr.md is verified empirically).
 version_impact: patch
 ---
 
@@ -25,7 +25,7 @@ version_impact: patch
 
 This plan delivers a P0 bug fix for YAML front-matter leaking into rendered Confluence pages. The current markdown parser (`src/domain/markdown/parse.ts`) does not recognize document-leading YAML front-matter blocks, so remark interprets the `---` delimiters as thematic breaks and the YAML body as headings/paragraphs. This produces `<hr/>` + YAML-as-heading nodes at the top of every managed page, polluting the Confluence page body and exposing internal UUID metadata.
 
-The fix installs the `remark-frontmatter` plugin and wires it into the remark processor before `remark-gfm`. This causes remark to recognize and exclude document-leading YAML front-matter from the MDAST tree before rendering, while preserving mid-document `---` fences as thematic breaks (validated via the `hr.md` golden fixture).
+The fix installs the `remark-frontmatter` plugin and wires it into the remark processor before `remark-gfm`. This causes remark to recognize and exclude document-leading YAML front-matter from the MDAST tree before rendering. The `hr.md` golden fixture (a document-leading lone `---` with no closing fence) is an edge case whose behavior under `remark-frontmatter` is verified empirically in Phase 2.
 
 All requirements are derived from `chg-GH-63-spec.md` and `chg-GH-63-test-plan.md`. No open questions remain.
 
@@ -252,13 +252,13 @@ The `doc/spec/features/feature-safe-publish.md` markdown-pipeline row will be re
 
 **Tasks**:
 
-- [ ] **6.1** Run `bun run lint` and verify no lint errors
-- [ ] **6.2** Run `bun run format:check` and verify code is formatted
-- [ ] **6.3** Run `bun run typecheck` and verify no type errors
-- [ ] **6.4** Run `bun run test` and verify all tests pass (unit + integration + golden)
-- [ ] **6.5** Run `bun run check:boundaries` and verify no tier violations
-- [ ] **6.6** Run `bun run check` (full quality gate) and verify all gates pass
-- [ ] **6.7** If any golden snapshots require explicit update, run `bun test --update-snapshots` and review changes
+- [ ] **5.1** Run `bun run lint` and verify no lint errors
+- [ ] **5.2** Run `bun run format:check` and verify code is formatted
+- [ ] **5.3** Run `bun run typecheck` and verify no type errors
+- [ ] **5.4** Run `bun run test` and verify all tests pass (unit + integration + golden)
+- [ ] **5.5** Run `bun run check:boundaries` and verify no tier violations
+- [ ] **5.6** Run `bun run check` (full quality gate) and verify all gates pass
+- [ ] **5.7** If any golden snapshots require explicit update, run `bun test --update-snapshots` and review changes
 
 **Acceptance Criteria**:
 

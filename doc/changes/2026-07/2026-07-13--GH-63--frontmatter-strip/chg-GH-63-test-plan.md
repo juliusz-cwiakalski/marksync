@@ -9,7 +9,7 @@ owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 labels: [bug, MS-0002, priority:high]
 version_impact: patch
-summary: "Test plan for YAML front-matter stripping bug fix (GH-63) — ensures front-matter is excluded from rendered Confluence pages while preserving UUID read functionality and mid-document thematic breaks."
+summary: "Test plan for YAML front-matter stripping bug fix (GH-63) — ensures front-matter is excluded from rendered Confluence pages while preserving UUID read functionality and deterministic `---` handling (including the document-leading lone `---` in hr.md)."
 links:
   change_spec: ./chg-GH-63-spec.md
   implementation_plan: ./chg-GH-63-plan.md
@@ -25,7 +25,7 @@ This test plan validates the P0 bug fix for YAML front-matter leaking into rende
 The fix wires `remark-frontmatter` into the remark processor, which must:
 
 1. **Strip document-leading front-matter** from the MDAST tree before rendering, ensuring no front-matter content appears in Storage XHTML
-2. **Preserve mid-document thematic breaks** (e.g., `hr.md` fixture), proving `remark-frontmatter` only consumes document-leading fences
+2. **Verify deterministic `---` handling** (e.g., `hr.md` fixture — a document-leading lone `---`), proving `remark-frontmatter` behavior is empirically confirmed
 3. **Maintain UUID read continuity** through `readUuid()`, which uses an independent parser and must not regress
 4. **Pass all existing golden tests** after adding a new `frontmatter.md` fixture and updating the fixture count assertion
 
@@ -34,7 +34,7 @@ The fix wires `remark-frontmatter` into the remark processor, which must:
 - Unit tests for `parseMarkdown` front-matter stripping behavior (MDAST tree validation)
 - Golden fixture test for front-matter → Storage XHTML rendering (byte-exact match)
 - Regression test for `readUuid()` function behavior (before/after fix equivalence)
-- Verification that mid-document `---` fences still render as `<hr/>` (via existing `hr.md` fixture)
+- Verification that the `hr.md` fixture (document-leading lone `---`) produces a deterministic, verified result under `remark-frontmatter`
 - Golden fixture count update from 26 to 27 in `storage-renderer.test.ts`
 
 ### 1.2 Out of Scope & Known Gaps
@@ -313,7 +313,7 @@ The fix wires `remark-frontmatter` into the remark processor, which must:
 
 - **Golden fixtures**: Located in `tests/golden/fixtures/markdown/`
   - NEW: `frontmatter.md` + `frontmatter.storage.xhtml` (source and expected Storage XHTML)
-  - EXISTING: `hr.md` + `hr.storage.xhtml` (regression guard for mid-document `---`)
+  - EXISTING: `hr.md` + `hr.storage.xhtml` (regression guard — document-leading lone `---`, verified empirically)
 - **Unit test data**: Inline markdown strings in test files (no external fixture dependencies)
 
 ### 6.3 Isolation Strategy
@@ -351,7 +351,7 @@ The fix wires `remark-frontmatter` into the remark processor, which must:
 ### 8.2 Assumptions
 
 - `remark-frontmatter` v5 is compatible with remark ^15.0.1 and remark-gfm ^4.0.1 (confirmed by compatibility matrix in spec Appendix B)
-- The `hr.md` golden fixture uses `---` as a mid-document thematic rule, which is the regression guard case (verified via file read)
+- The `hr.md` golden fixture contains exactly a document-leading lone `---` (no closing fence) — an edge case verified empirically during implementation (verified via file read)
 - `readUuid()` uses its own parser (`findFrontMatter`) and is unaffected by changes to the markdown processor (verified via code read)
 - Golden fixture file naming convention (`<name>.md` + `<name>.storage.xhtml`) is consistent across the repo (verified via directory listing)
 

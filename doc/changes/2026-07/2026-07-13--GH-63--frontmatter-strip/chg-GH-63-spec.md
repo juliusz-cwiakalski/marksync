@@ -173,14 +173,14 @@ N/A — no new telemetry or observability requirements. This is a correctness fi
 
 | ID | Risk | Impact | Probability | Mitigation | Residual Risk |
 |----|------|--------|-------------|------------|---------------|
-| RSK-1 | `remark-frontmatter` incorrectly consumes mid-document `---` fences | H | L | Test with `hr.md` golden fixture (thematic break mid-document) | L |
+| RSK-1 | `remark-frontmatter` consumes the `hr.md` document-leading lone `---` (changing its output) | H | L | Empirically verify in Phase 2; if consumed, update the fixture per AC-F3-2 | L |
 | RSK-2 | Dependency compatibility issue with remark 15 | H | L | Verify `remark-frontmatter` v5 targets unified 11 / remark 15 | L |
 | RSK-3 | Regression in `readUuid()` behavior | M | L | Add regression test verifying UUID read returns same value before/after fix | L |
 
 ## 12. ASSUMPTIONS
 
 - `remark-frontmatter` v5 is compatible with remark ^15.0.1 and remark-gfm ^4.0.1 (confirmed by compatibility matrix).
-- The `hr.md` golden fixture uses `---` as a mid-document thematic rule, which is the regression guard case.
+- The `hr.md` golden fixture contains exactly a document-leading lone `---` (no closing fence) — the edge-case regression guard, verified empirically during implementation.
 - `readUuid()` uses its own parser and is unaffected by changes to the markdown processor.
 
 ## 13. DEPENDENCIES
