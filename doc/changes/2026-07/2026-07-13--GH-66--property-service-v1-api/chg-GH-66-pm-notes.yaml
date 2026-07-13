@@ -9,9 +9,9 @@ phases:
   test_planning: { started: "2026-07-13T13:53:00Z", completed: "2026-07-13T14:40:00Z" }
   delivery_planning: { started: "2026-07-13T13:59:00Z", completed: "2026-07-13T14:40:00Z" }
   dor_check: { started: "2026-07-13T14:05:00Z", completed: "2026-07-13T14:42:00Z" }
-  delivery: { started: "2026-07-13T14:43:00Z", completed: null }
-  system_spec_update: { started: null, completed: null }
-  review_fix: { started: null, completed: null }
+  delivery: { started: "2026-07-13T14:43:00Z", completed: "2026-07-13T15:25:00Z" }
+  system_spec_update: { started: "2026-07-13T15:26:00Z", completed: "2026-07-13T15:40:00Z" }
+  review_fix: { started: "2026-07-13T15:41:00Z", completed: null }
   quality_gates: { started: null, completed: null }
   dod_check: { started: null, completed: null }
   pr_creation: { started: null, completed: null, url: null }
@@ -97,9 +97,26 @@ notes:
       improvement: the version-extraction mechanism and the 409-error-mapping
       table should have been cross-checked between spec and plan during authoring;
       the test-plan ERR-002 should have been validated against the actual get()
-      error branches. DoR gate earned its keep here. Reopening specification
-      (PM-DEC-1 re-resolution + schema `when` optional), test_planning,
-      delivery_planning.
+      error branches. DoR gate earned its keep here. PM-DEC-1 (defer property
+      Conflict→RemoteUnreachable) resolved finding 1. Took 3 DoR iterations.
+    type: retro
+    workItemRef: GH-66
+    date: "2026-07-13"
+  - text: >
+      RETRO — quality-gate run after resume found 1 failure: the coder's Phase 3
+      updated tests/unit/infra/confluence/properties.test.ts and
+      tests/integration/confluence/confluence-target.test.ts but MISSED a third
+      test file, tests/unit/infra/confluence/target.test.ts (the
+      getProperty/putProperty delegation test at L161-177), whose mock returns
+      a v2-shaped {key,value} response with no `version` field — fails the new
+      PropertyV1Response schema → RemoteUnreachable → get.ok=false. Root cause:
+      the plan/test-plan listed only the two test files, missing this third one
+      (a wiring/delegation unit test that also mocks PropertyService responses).
+      Process improvement: when a schema changes, grep ALL test files that
+      construct the affected response shape, not just the ones named in the plan.
+      Delegating to @fixer. (Also: coder task was interrupted mid-Phase-3-commit
+      last session — resume correctly detected the in-progress uncommitted tests
+      as complete, verified them, and proceeded to gates.)
     type: retro
     workItemRef: GH-66
     date: "2026-07-13"
