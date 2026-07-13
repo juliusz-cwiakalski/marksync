@@ -297,21 +297,22 @@ export async function computePlan(
 				};
 			}
 
-			const base: SharedBase = {
-				uuid: binding.uuid,
-				pageId: binding.pageId,
-				parentPageId: binding.parentPageId,
-				pageVersion: binding.pageVersion,
-				renderedBodyHash: binding.renderedBodyHash,
-				attachmentHashes: binding.attachmentHashes,
-			};
+		const base: SharedBase = {
+			uuid: binding.uuid,
+			pageId: binding.pageId,
+			parentPageId: binding.parentPageId,
+			pageVersion: binding.pageVersion,
+			renderedBodyHash: binding.renderedBodyHash,
+			remoteBodyHash: binding.remoteBodyHash,
+			attachmentHashes: binding.attachmentHashes,
+		};
 
-			const classifyResult = classify({
-				local: contentHash,
-				base,
-				remote,
-			});
-			if (!classifyResult.ok) return classifyResult;
+		const classifyResult = classify({
+			local: contentHash,
+			base,
+			remote,
+		});
+		if (!classifyResult.ok) return classifyResult;
 
 			const syncState = classifyResult.value;
 			const action = actionFor(syncState, { base, remote });
@@ -605,8 +606,12 @@ function parentFirstOrder(entries: readonly PlanEntry[]): PlanEntry[] {
 }
 
 /**
- * Finalize a successful update: journal, update binding, save lock, put property.
- * Shared between first-write and reapply paths.
+ * Finalize a successful update: fetch-back, journal, update binding, save lock,
+ * put property. Shared between first-write and reapply paths.
+ *
+ * Fetch-back (GH-62): after the write, GET the page to capture Confluence's
+ * normalized body and store its raw hash as `remoteBodyHash`. On fetch-back
+ * failure, fall back to `rawHash(renderedBody)` (same domain) + warning.
  */
 async function finalizeSuccessfulUpdate(
 	pageId: string,
@@ -620,7 +625,8 @@ async function finalizeSuccessfulUpdate(
 	headSha: string,
 	operationId: string,
 	binding: PageBinding,
-	assetUploadHashes: Record<string, string> = {}, // GH-26: asset hashes to merge
+	renderedBody: string,
+	assetUploadHashes: Record<string, string> = {},
 ): Promise<Result<ApplyResultEntry, MarkSyncError>> {
 	// Journal append BEFORE lock update
 	journal.append({
@@ -630,6 +636,26 @@ async function finalizeSuccessfulUpdate(
 		outcome: "success",
 	});
 
+	// GH-62: Fetch-back to capture Confluence-normalized body
+	const fetchResult = await target.getPage(pageId);
+	let remoteBodyHash: string;
+	const finalizeWarnings: string[] = [];
+	if (fetchResult.ok && fetchResult.value.body) {
+		remoteBodyHash = rawHash(fetchResult.value.body);
+	} else {
+		// Fallback: raw hash of what we sent (same domain; next sync recovers)
+		remoteBodyHash = rawHash(renderedBody);
+		if (!fetchResult.ok) {
+			finalizeWarnings.push(
+				`Fetch-back failed for ${pageId}: ${fetchResult.error.kind}; using rendered body hash as fallback`,
+			);
+		} else {
+			finalizeWarnings.push(
+				`Fetch-back returned empty body for ${pageId}; using rendered body hash as fallback`,
+			);
+		}
+	}
+
 	// Update binding in memory
 	const updatedBinding: PageBinding = {
 		...binding,
@@ -637,6 +663,7 @@ async function finalizeSuccessfulUpdate(
 		sourceCommit: headSha,
 		synchronizedAt: new Date().toISOString(),
 		operationId,
+		remoteBodyHash,
 		attachmentHashes: {
 			...binding.attachmentHashes,
 			...assetUploadHashes, // GH-26: merge newly uploaded assets
@@ -664,7 +691,11 @@ async function finalizeSuccessfulUpdate(
 		return Res.err(putResult.error);
 	}
 
-	return Res.ok({ uuid, outcome: "updated" });
+	return Res.ok({
+		uuid,
+		outcome: "updated",
+		warnings: finalizeWarnings,
+	});
 }
 
 /**
@@ -878,19 +909,20 @@ async function processEntry(
 
 				const page = pageResult.value;
 				// Re-classify with refreshed remote
-				const base: SharedBase = {
-					uuid: binding.uuid,
-					pageId: binding.pageId,
-					parentPageId: binding.parentPageId,
-					pageVersion: binding.pageVersion,
-					renderedBodyHash: binding.renderedBodyHash,
-					attachmentHashes: binding.attachmentHashes,
-				};
-				let remote: RemoteState;
-				if (page.body) {
-					remote = {
-						kind: "present",
-						bodyHash: rawHash(page.body),
+			const base: SharedBase = {
+				uuid: binding.uuid,
+				pageId: binding.pageId,
+				parentPageId: binding.parentPageId,
+				pageVersion: binding.pageVersion,
+				renderedBodyHash: binding.renderedBodyHash,
+				remoteBodyHash: binding.remoteBodyHash,
+				attachmentHashes: binding.attachmentHashes,
+			};
+			let remote: RemoteState;
+			if (page.body) {
+				remote = {
+					kind: "present",
+					bodyHash: rawHash(page.body),
 						version: page.version,
 						title: page.title,
 						parentPageId: binding.parentPageId,
@@ -959,31 +991,38 @@ async function processEntry(
 						warnings.push(...uploadResult.value.warnings);
 					}
 
-					const finalizeResult = await finalizeSuccessfulUpdate(
-						updatedPage.id,
+				const finalizeResult = await finalizeSuccessfulUpdate(
+					updatedPage.id,
+					uuid,
+					updatedPage.version,
+					journal,
+					lock,
+					targetId,
+					cwd,
+					target,
+					headSha,
+					operationId,
+					binding,
+					entry.renderedBody, // GH-62: for fetch-back fallback
+					reapplyAssetHashes, // GH-26: pass asset hashes for merge
+				);
+
+				if (!finalizeResult.ok) {
+					return {
 						uuid,
-						updatedPage.version,
-						journal,
-						lock,
-						targetId,
-						cwd,
-						target,
-						headSha,
-						operationId,
-						binding,
-						reapplyAssetHashes, // GH-26: pass asset hashes for merge
-					);
+						outcome: "blocked",
+						error: finalizeResult.error,
+						warnings,
+					};
+				}
 
-					if (!finalizeResult.ok) {
-						return {
-							uuid,
-							outcome: "blocked",
-							error: finalizeResult.error,
-							warnings,
-						};
-					}
-
-					return { ...finalizeResult.value, warnings };
+				return {
+					...finalizeResult.value,
+					warnings: [
+						...warnings,
+						...(finalizeResult.value.warnings ?? []),
+					],
+				};
 				}
 				// Decision is "block" → block
 				return { uuid, outcome: "blocked", error: err, warnings };
@@ -1016,32 +1055,36 @@ async function processEntry(
 			warnings.push(...uploadResult.value.warnings);
 		}
 
-		const finalizeResult = await finalizeSuccessfulUpdate(
-			page.id,
+	const finalizeResult = await finalizeSuccessfulUpdate(
+		page.id,
+		uuid,
+		page.version,
+		journal,
+		lock,
+		targetId,
+		cwd,
+		target,
+		headSha,
+		operationId,
+		binding,
+		entry.renderedBody, // GH-62: for fetch-back fallback
+		assetUploadHashes, // GH-26: pass asset hashes for merge
+	);
+
+	if (!finalizeResult.ok) {
+		return {
 			uuid,
-			page.version,
-			journal,
-			lock,
-			targetId,
-			cwd,
-			target,
-			headSha,
-			operationId,
-			binding,
-			assetUploadHashes, // GH-26: pass asset hashes for merge
-		);
-
-		if (!finalizeResult.ok) {
-			return {
-				uuid,
-				outcome: "blocked",
-				error: finalizeResult.error,
-				warnings,
-			};
-		}
-
-		return { ...finalizeResult.value, warnings };
+			outcome: "blocked",
+			error: finalizeResult.error,
+			warnings,
+		};
 	}
+
+	return {
+		...finalizeResult.value,
+		warnings: [...warnings, ...(finalizeResult.value.warnings ?? [])],
+	};
+}
 
 	// Create → createPage with stale-plan expiry check
 	if (action.kind === "Create") {
@@ -1092,30 +1135,49 @@ async function processEntry(
 			warnings.push(...uploadResult.value.warnings);
 		}
 
-		// Journal append
-		journal.append({
-			op: "create",
-			pageId: page.id,
-			uuid,
-			outcome: "success",
-		});
+	// Journal append
+	journal.append({
+		op: "create",
+		pageId: page.id,
+		uuid,
+		outcome: "success",
+	});
 
-		// Create binding
-		const newBinding: PageBinding = {
-			uuid,
-			sourcePath: entry.sourcePath,
-			pageId: page.id,
-			parentPageId: action.parentId,
-			pageVersion: page.version,
-			sourceCommit: headSha,
-			sourceContentHash: entry.hashes.rawHash,
-			renderedBodyHash: entry.hashes.canonicalHash,
-			remoteBodyHash: entry.hashes.canonicalHash, // Assume fresh
-			attachmentHashes: assetUploadHashes, // GH-26: merged from upload
-			operationId,
-			synchronizedAt: new Date().toISOString(),
-			toolVersion: pkg.version,
-		};
+	// GH-62: Fetch-back to capture Confluence-normalized body
+	const fetchResult = await target.getPage(page.id);
+	let remoteBodyHash: string;
+	if (fetchResult.ok && fetchResult.value.body) {
+		remoteBodyHash = rawHash(fetchResult.value.body);
+	} else {
+		// Fallback: raw hash of what we sent (same domain; next sync recovers)
+		remoteBodyHash = rawHash(action.body);
+		if (!fetchResult.ok) {
+			warnings.push(
+				`Fetch-back failed for ${page.id}: ${fetchResult.error.kind}; using rendered body hash as fallback`,
+			);
+		} else {
+			warnings.push(
+				`Fetch-back returned empty body for ${page.id}; using rendered body hash as fallback`,
+			);
+		}
+	}
+
+	// Create binding
+	const newBinding: PageBinding = {
+		uuid,
+		sourcePath: entry.sourcePath,
+		pageId: page.id,
+		parentPageId: action.parentId,
+		pageVersion: page.version,
+		sourceCommit: headSha,
+		sourceContentHash: entry.hashes.rawHash,
+		renderedBodyHash: entry.hashes.canonicalHash,
+		remoteBodyHash, // GH-62: fetched from Confluence (not assumed)
+		attachmentHashes: assetUploadHashes, // GH-26: merged from upload
+		operationId,
+		synchronizedAt: new Date().toISOString(),
+		toolVersion: pkg.version,
+	};
 
 		// Add to lock in memory
 		const lockTarget = lock.targets[targetId] ?? { documents: {} };
