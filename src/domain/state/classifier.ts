@@ -49,7 +49,7 @@ export function classify(
 		remoteTitleChanged;
 
 	const remoteChanged =
-		remote.bodyHash !== base.renderedBodyHash ||
+		remote.bodyHash !== base.remoteBodyHash ||
 		(remote.parentPageId !== undefined &&
 			remote.parentPageId !== base.parentPageId);
 
