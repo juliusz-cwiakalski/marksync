@@ -17,7 +17,7 @@ phases:
   review_fix: { started: "2026-07-13T20:10:00Z", completed: "2026-07-13T22:30:00Z", iter: 1, verdict: "PASS", findings: "0 BLOCKER / 0 MAJOR / 2 MINOR / 2 LOW / 2 INFO", remediation: "P6.1-P6.6 applied (F-5 adapted: full cast removal broke typecheck, single-cast fix used); bun run check 1042 pass / 0 fail" }
   quality_gates: { started: "2026-07-13T22:35:00Z", completed: "2026-07-13T22:42:00Z", result: "all green", detail: "lint exit 0 (117 pre-existing warnings, 0 from GH-69); format:check exit 0; typecheck exit 0; test 1042 pass / 0 fail; check:boundaries 0 violations; YAML valid; commitlint exit 0" }
   dod_check: { started: "2026-07-13T22:44:00Z", completed: "2026-07-13T22:48:00Z", result: "PASS", detail: "7/7 ACs satisfied; 0 unchecked plan tasks; 24 mermaid tests + 1042 total pass/0 fail; docs reconciled; review PASS; quality gates green" }
-  pr_creation: { started: "2026-07-13T22:49:00Z", completed: null, url: null }
+  pr_creation: { started: "2026-07-13T22:49:00Z", completed: "2026-07-13T22:55:00Z", url: "https://github.com/juliusz-cwiakalski/marksync/pull/70", pr_number: 70 }
 
 decisions:
   - text: >
