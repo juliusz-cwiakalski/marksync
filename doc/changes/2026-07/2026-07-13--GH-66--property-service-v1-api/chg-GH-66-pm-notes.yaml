@@ -5,9 +5,9 @@ slug: property-service-v1-api
 
 phases:
   clarify_scope: { started: "2026-07-13T13:35:00Z", completed: "2026-07-13T13:45:00Z" }
-  specification: { started: "2026-07-13T13:46:00Z", completed: "2026-07-13T13:52:00Z" }
-  test_planning: { started: "2026-07-13T13:53:00Z", completed: "2026-07-13T13:58:00Z" }
-  delivery_planning: { started: "2026-07-13T13:59:00Z", completed: "2026-07-13T14:04:00Z" }
+  specification: { started: "2026-07-13T13:46:00Z", completed: "2026-07-13T13:52:00Z", reopened: "2026-07-13T14:15:00Z" }
+  test_planning: { started: "2026-07-13T13:53:00Z", completed: "2026-07-13T13:58:00Z", reopened: "2026-07-13T14:15:00Z" }
+  delivery_planning: { started: "2026-07-13T13:59:00Z", completed: "2026-07-13T14:04:00Z", reopened: "2026-07-13T14:15:00Z" }
   dor_check: { started: "2026-07-13T14:05:00Z", completed: null }
   delivery: { started: null, completed: null }
   system_spec_update: { started: null, completed: null }
@@ -16,7 +16,21 @@ phases:
   dod_check: { started: null, completed: null }
   pr_creation: { started: null, completed: null, url: null }
 
-decisions: []
+decisions:
+  - text: >
+      PM-DEC-1 (DoR iter-1, finding 1): DEFER property-PUT-409→Conflict to
+      post-MS-0002. Map property-PUT-409 → RemoteUnreachable (the existing
+      catch-all). Rationale: (a) the GET-version-then-PUT flow makes 409 rare
+      (only a concurrent-write race in the GET→PUT window); (b) operationId
+      dedup + per-doc isolation (GH-24) prevents self-racing within one sync;
+      (c) the putProperty consumer (push-flow.ts L1201) blocks on ANY error
+      without special Conflict handling — the re-fetch-once dance is gated on
+      updatePage only (L900) — so a Conflict provides no retry benefit; (d) the
+      Conflict error kind is page-shaped (pageId/baseVersion/remoteVersion) and
+      would mislead the error mapper + user for a property conflict. Recovery
+      for the rare race = RemoteUnreachable → blocked → user re-runs sync →
+      re-GETs current version. Spec OQ-2/RSK-4/Appendix B re-resolved to match.
+    date: "2026-07-13"
 open_questions: []
 blockers: []
 
@@ -69,5 +83,23 @@ notes:
       (root cause, evidence, fix, AC all present and consistent with code). AC
       are testable. Proceeding to artifact generation.
     type: resolved
+    workItemRef: GH-66
+    date: "2026-07-13"
+  - text: >
+      RETRO — DoR iter-1 returned NOT_READY (3 blocking findings). Finding 1:
+      spec resolved property-PUT-409→Conflict but plan+test-plan dropped it.
+      Finding 2: test TC-PROP-V1-ERR-002 tests GET 413→TooLarge, but get() has
+      no 413 branch (413→TooLarge is put()-only) — wrong code path tested, and
+      the real put() POST-413 path untested. Finding 3: plan Phase 2 version-
+      extraction mechanism ambiguous (public get() returns string|undefined,
+      discards version — can't supply currentVersion to updateByKey). Gap
+      discovered at DoR, not caught by spec/test-plan/plan authors. Process
+      improvement: the version-extraction mechanism and the 409-error-mapping
+      table should have been cross-checked between spec and plan during authoring;
+      the test-plan ERR-002 should have been validated against the actual get()
+      error branches. DoR gate earned its keep here. Reopening specification
+      (PM-DEC-1 re-resolution + schema `when` optional), test_planning,
+      delivery_planning.
+    type: retro
     workItemRef: GH-66
     date: "2026-07-13"
