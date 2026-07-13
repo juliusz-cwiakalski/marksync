@@ -142,10 +142,11 @@ describe("TC-MERM-INJECT (GH-25 AC-F3-1 / NFR-SEC-5) — adversarial mermaid pay
 	});
 
 	test("TC-MERM-005: javascript: URI payload — 0 javascript: URIs outside CDATA", () => {
-		const src = '```mermaid\ngraph TD; A["<a href=javascript:alert(1)>click</a>"];\n```\n';
+		const src =
+			'```mermaid\ngraph TD; A["<a href=javascript:alert(1)>click</a>"];\n```\n';
 		const body = render(src).body;
 		expect(countOutsideCdata(body, "javascript:")).toBe(0);
-		expect(body).toContain('javascript:alert(1)');
+		expect(body).toContain("javascript:alert(1)");
 	});
 
 	test("TC-MERM-006: CDATA breakout sequence ]]> is split, no actual termination", () => {

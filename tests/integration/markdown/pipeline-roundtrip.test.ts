@@ -44,8 +44,8 @@ function pipeline(src: string, sourcePath: string) {
 }
 
 describe("TC-ROUNDTRIP-001 — full pipeline round-trips every fixture (F-1..F-4)", () => {
-	test("the fixture set covers all 25 golden constructs", () => {
-		expect(fixtures.length).toBe(25);
+	test("the fixture set covers all 26 golden constructs (GH-25 +1 mermaid-code-policy)", () => {
+		expect(fixtures.length).toBe(26);
 	});
 
 	for (const fixture of fixtures) {

@@ -99,9 +99,11 @@ describe("TC-MERM-001/002 (GH-25 AC-F2-1/AC-F2-2 / NFR-2) — mermaid fence pres
 		const mermaid = fixtures.find((f) => f.name === "mermaid-code-policy");
 		expect(mermaid).toBeDefined();
 		expect(mermaid?.expected).toContain('<ac:structured-macro ac:name="code">');
-		expect(mermaid?.expected).toContain('<ac:parameter ac:name="language">mermaid</ac:parameter>');
-		expect(mermaid?.expected).toContain('<ac:plain-text-body><![CDATA[');
-		expect(mermaid?.expected).toContain(']]></ac:plain-text-body>');
+		expect(mermaid?.expected).toContain(
+			'<ac:parameter ac:name="language">mermaid</ac:parameter>',
+		);
+		expect(mermaid?.expected).toContain("<ac:plain-text-body><![CDATA[");
+		expect(mermaid?.expected).toContain("]]></ac:plain-text-body>");
 	});
 
 	test("TC-MERM-002: same mermaid input N=3 renders → byte-identical (0 bytes diff)", () => {
@@ -111,10 +113,13 @@ describe("TC-MERM-001/002 (GH-25 AC-F2-1/AC-F2-2 / NFR-2) — mermaid fence pres
 		const outputs: string[] = [];
 		for (let i = 0; i < 3; i++) {
 			const hast = mdastToHast(
-				parseMarkdown(mermaid!.markdown, { sourcePath: "mermaid-code-policy.md" })
-					.value as never,
+				parseMarkdown(mermaid!.markdown, {
+					sourcePath: "mermaid-code-policy.md",
+				}).value as never,
 			);
-			const result = renderStorage(hast, { sourcePath: "mermaid-code-policy.md" });
+			const result = renderStorage(hast, {
+				sourcePath: "mermaid-code-policy.md",
+			});
 			expect(result.ok).toBe(true);
 			if (!result.ok) throw new Error("render failed");
 			outputs.push(result.value.body);
