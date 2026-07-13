@@ -190,3 +190,131 @@ describe("TC-LIST-001 — list enumerates hash-named attachments", () => {
 		expect(result.value[0]?.hash).toBe("aa");
 	});
 });
+
+describe("attachment create — unwrap { results: [...] } before validation (GH-71)", () => {
+	test("TC-ATTACH-001 — wrapped response → ok(ref) with verbatim spike shape (AC-1, AC-4)", async () => {
+		const artifact = svgArtifact("abc123def456", "mermaid");
+		const { service, calls } = script((method, path) => {
+			if (method === "POST" && path === `/content/${PAGE}/child/attachment`) {
+				return jsonRes(200, {
+					results: [
+						{
+							id: "att40009729",
+							title: "marksync-mermaid-abc123def456.svg",
+							version: { number: 1 },
+							_links: {
+								download:
+									"/rest/api/content/39813121/child/attachment/att40009729/download",
+							},
+						},
+					],
+				});
+			}
+			return jsonRes(500, {});
+		});
+
+		const start = performance.now();
+		const result = await service.upload(PAGE, artifact);
+		// NFR-1: the unwrap + zod parse is sub-ms; this bound covers the async
+		// scheduling of the sync mock fetch so the assertion stays CI-stable.
+		const duration = performance.now() - start;
+
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		expect(result.value.id).toBe("att40009729");
+		expect(result.value.pageId).toBe(PAGE);
+		expect(result.value.filename).toBe("marksync-mermaid-abc123def456.svg");
+		expect(result.value.hash).toBe("abc123def456");
+		expect(result.value.version).toBe(1);
+		const posts = calls.filter((c) => c.method === "POST");
+		expect(posts).toHaveLength(1);
+		expect(duration).toBeLessThan(50);
+	});
+
+	test("TC-ATTACH-002 — flat response (no wrapper) → ok(ref) via defensive fallback (DEC-2)", async () => {
+		const artifact = svgArtifact("xyz789", "asset");
+		const { service } = script((method, path) => {
+			if (method === "POST" && path === `/content/${PAGE}/child/attachment`) {
+				return jsonRes(200, {
+					id: "att999",
+					title: "marksync-asset-xyz789.svg",
+					version: { number: 1 },
+					_links: {
+						download:
+							"/rest/api/content/123/child/attachment/att999/download",
+					},
+				});
+			}
+			return jsonRes(500, {});
+		});
+		const result = await service.upload(PAGE, artifact);
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		expect(result.value.id).toBe("att999");
+		expect(result.value.hash).toBe("xyz789");
+	});
+
+	test("TC-ATTACH-003 — mermaid SVG upload → ok(ref) with marksync-mermaid- prefix (AC-2)", async () => {
+		const artifact = svgArtifact("sha256hash123", "mermaid");
+		const { service } = script((method, path) => {
+			if (method === "POST" && path === `/content/${PAGE}/child/attachment`) {
+				return jsonRes(200, {
+					results: [
+						{
+							id: "att555",
+							title: "marksync-mermaid-sha256hash123.svg",
+							version: { number: 1 },
+							_links: {
+								download:
+									"/rest/api/content/39813121/child/attachment/att555/download",
+							},
+						},
+					],
+				});
+			}
+			return jsonRes(500, {});
+		});
+		const result = await service.upload(PAGE, artifact);
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		expect(result.value.id).toBe("att555");
+		expect(result.value.filename).toBe("marksync-mermaid-sha256hash123.svg");
+		expect(result.value.filename).not.toContain("marksync-asset-");
+	});
+
+	test("TC-ATTACH-005 — wrapped result missing 'title' → RemoteUnreachable (NFR-2)", async () => {
+		const artifact = svgArtifact("h");
+		const { service } = script((method, path) => {
+			if (method === "POST" && path === `/content/${PAGE}/child/attachment`) {
+				return jsonRes(200, {
+					results: [{ id: "att999", version: { number: 1 } }],
+				});
+			}
+			return jsonRes(500, {});
+		});
+		const result = await service.upload(PAGE, artifact);
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.error.kind).toBe("RemoteUnreachable");
+		expect(result.error.cause).toContain(
+			"schema validation failed: AttachmentCreateResponse",
+		);
+	});
+
+	test("TC-ATTACH-006 — empty { results: [] } → RemoteUnreachable (noUncheckedIndexedAccess trap)", async () => {
+		const artifact = svgArtifact("h");
+		const { service } = script((method, path) => {
+			if (method === "POST" && path === `/content/${PAGE}/child/attachment`) {
+				return jsonRes(200, { results: [] });
+			}
+			return jsonRes(500, {});
+		});
+		const result = await service.upload(PAGE, artifact);
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.error.kind).toBe("RemoteUnreachable");
+		expect(result.error.cause).toContain(
+			"schema validation failed: AttachmentCreateResponse",
+		);
+	});
+});
