@@ -444,6 +444,50 @@ function _resolveLinksInDoc(
 }
 
 /**
+ * Upload assets for a page, skipping those that already exist (NFR-PERF-4).
+ * Returns a map of filename → hash for the uploaded assets.
+ * On error, returns the error (caller blocks per-document).
+ *
+ * This is a sub-operation of the page create/update mutation — it does NOT
+ * get its own journal op (consistent with DM-4).
+ */
+async function uploadAssets(
+	target: TargetSystem,
+	pageId: string,
+	artifacts: Artifact[],
+): Promise<Result<Record<string, string>, MarkSyncError>> {
+	const attachmentHashes: Record<string, string> = {};
+
+	for (const artifact of artifacts) {
+		// Warn on large assets (>25 MB, story Q1)
+		if (artifact.bytes.byteLength > 25 * 1024 * 1024) {
+			// TODO: wire this to CommandResult.warnings (P5.2)
+			console.warn(
+				`Asset ${artifact.hash} exceeds 25 MB (${artifact.bytes.byteLength} bytes)`,
+			);
+		}
+
+		// Check if already exists (0 writes on reuse)
+		const existsResult = await target.attachmentExists(pageId, artifact.hash);
+		if (!existsResult.ok) return existsResult;
+		if (existsResult.value === true) {
+			// Already exists — skip (0 writes)
+			continue;
+		}
+
+		// Upload the artifact
+		const uploadResult = await target.uploadAttachment(pageId, artifact);
+		if (!uploadResult.ok) return uploadResult;
+
+		// Record the filename → hash mapping
+		// Note: uploadResult.value.filename is the dedup filename from the server
+		attachmentHashes[uploadResult.value.filename] = artifact.hash;
+	}
+
+	return Res.ok(attachmentHashes);
+}
+
+/**
  * Serialize a PageBinding to MetadataProperty for putProperty.
  */
 function bindingToProperty(
@@ -569,6 +613,7 @@ async function finalizeSuccessfulUpdate(
 	headSha: string,
 	operationId: string,
 	binding: PageBinding,
+	assetUploadHashes: Record<string, string> = {}, // GH-26: asset hashes to merge
 ): Promise<Result<ApplyResultEntry, MarkSyncError>> {
 	// Journal append BEFORE lock update
 	journal.append({
@@ -585,6 +630,10 @@ async function finalizeSuccessfulUpdate(
 		sourceCommit: headSha,
 		synchronizedAt: new Date().toISOString(),
 		operationId,
+		attachmentHashes: {
+			...binding.attachmentHashes,
+			...assetUploadHashes, // GH-26: merge newly uploaded assets
+		},
 	};
 
 	const lockTarget = lock.targets[targetId] ?? { documents: {} };
@@ -849,6 +898,21 @@ async function processEntry(
 					// Reapply succeeded
 					const updatedPage = reapplyResult.value;
 
+					// GH-26: Upload assets (if any) after page reapply
+					let reapplyAssetHashes: Record<string, string> = {};
+					if (entry.assets?.length) {
+						const uploadResult = await uploadAssets(
+							target,
+							updatedPage.id,
+							entry.assets,
+						);
+						if (!uploadResult.ok) {
+							// Asset upload failed — per-document block
+							return { uuid, outcome: "blocked", error: uploadResult.error };
+						}
+						reapplyAssetHashes = uploadResult.value;
+					}
+
 					const finalizeResult = await finalizeSuccessfulUpdate(
 						updatedPage.id,
 						uuid,
@@ -861,6 +925,7 @@ async function processEntry(
 						headSha,
 						operationId,
 						binding,
+						reapplyAssetHashes, // GH-26: pass asset hashes for merge
 					);
 
 					if (!finalizeResult.ok) {
@@ -883,6 +948,17 @@ async function processEntry(
 
 		const page = result.value;
 
+		// GH-26: Upload assets (if any) after page update
+		let assetUploadHashes: Record<string, string> = {};
+		if (entry.assets?.length) {
+			const uploadResult = await uploadAssets(target, page.id, entry.assets);
+			if (!uploadResult.ok) {
+				// Asset upload failed — per-document block
+				return { uuid, outcome: "blocked", error: uploadResult.error };
+			}
+			assetUploadHashes = uploadResult.value;
+		}
+
 		const finalizeResult = await finalizeSuccessfulUpdate(
 			page.id,
 			uuid,
@@ -895,6 +971,7 @@ async function processEntry(
 			headSha,
 			operationId,
 			binding,
+			assetUploadHashes, // GH-26: pass asset hashes for merge
 		);
 
 		if (!finalizeResult.ok) {
@@ -931,6 +1008,17 @@ async function processEntry(
 
 		const page = result.value;
 
+		// GH-26: Upload assets (if any) after page create
+		let assetUploadHashes: Record<string, string> = {};
+		if (entry.assets?.length) {
+			const uploadResult = await uploadAssets(target, page.id, entry.assets);
+			if (!uploadResult.ok) {
+				// Asset upload failed — per-document block
+				return { uuid, outcome: "blocked", error: uploadResult.error };
+			}
+			assetUploadHashes = uploadResult.value;
+		}
+
 		// Journal append
 		journal.append({
 			op: "create",
@@ -950,7 +1038,7 @@ async function processEntry(
 			sourceContentHash: entry.hashes.rawHash,
 			renderedBodyHash: entry.hashes.canonicalHash,
 			remoteBodyHash: entry.hashes.canonicalHash, // Assume fresh
-			attachmentHashes: {},
+			attachmentHashes: assetUploadHashes, // GH-26: merged from upload
 			operationId,
 			synchronizedAt: new Date().toISOString(),
 			toolVersion: pkg.version,
