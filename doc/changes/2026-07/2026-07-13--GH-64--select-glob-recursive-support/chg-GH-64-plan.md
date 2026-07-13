@@ -237,25 +237,16 @@ All requirements are derived from the change specification ([chg-GH-64-spec.md](
 
 **Tasks**:
 
-- [ ] **5.1** Create new test file `tests/integration/app/starter-config-discovery.test.ts`
-- [ ] **5.2** Implement TC-GLOB-012: "Integration test: Starter config produces non-empty plan"
-  - Create temp git repo with nested structure simulating typical MS-0002 corpus (~500 files)
-  - Repo contains nested `docs/` directory with markdown files at multiple depths
-  - Initialize shell-git adapter with temp repo path
-  - Call `repo.readCommitted("HEAD", ["docs/**/*.md"])` (default starter config pattern)
-  - Measure execution time (for performance verification)
-  - Verify result is `Ok`
-  - Verify non-empty set of files returned (at least 1 file)
-  - Verify all returned files are under `docs/` and end with `.md`
-  - Verify execution time is acceptable (no measurable degradation vs. baseline)
-- [ ] **5.3** Run the new integration test: `bun test tests/integration/app/starter-config-discovery.test.ts`
+- [x] **5.1** Create new test file `tests/integration/app/starter-config-discovery.test.ts`
+- [x] **5.2** Implement TC-GLOB-012: "Integration test: Starter config produces non-empty plan" — PASS (500 nested docs/**/*.md files discovered; distractors excluded; elapsed < 2000ms)
+- [x] **5.3** Run the new integration test: `bun test tests/integration/app/starter-config-discovery.test.ts` — 1 pass / 0 fail
 
 **Acceptance Criteria**:
 
-- Must: TC-GLOB-012 passes (AC-G2-1, NFR-PERF-5)
-- Must: Non-empty set of files returned with starter config pattern
-- Must: All returned files are under `docs/` and end with `.md`
-- Should: Execution time acceptable (no measurable degradation)
+- Must: TC-GLOB-012 passes (AC-G2-1, NFR-PERF-5) — PASSED
+- Must: Non-empty set of files returned with starter config pattern — PASSED (500 files)
+- Must: All returned files are under `docs/` and end with `.md` — PASSED
+- Should: Execution time acceptable (no measurable degradation) — PASSED (< 2000ms)
 
 **Affected code areas**:
 
