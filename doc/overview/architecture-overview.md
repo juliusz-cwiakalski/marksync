@@ -12,7 +12,7 @@ area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005, ADR-0006, TDR-0003, ADR-0010]
-  related_changes: [GH-18, GH-20, GH-21, GH-22, GH-23, GH-24, GH-26, GH-63, GH-66, GH-69]
+  related_changes: [GH-18, GH-20, GH-21, GH-22, GH-23, GH-24, GH-26, GH-63, GH-64, GH-66, GH-69]
   summary: "Architecture overview — ports-and-adapters CLI; Markdown→Storage pipeline; Confluence Cloud adapter; UUID+lock state model; no hosted backend."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -220,7 +220,7 @@ the integration-scenarios docs (`doc/inception/integration-scenarios/`)._
 
 | Boundary (A → B) | Operation | Signature | Returns | Errors |
 |---|---|---|---|---|
-| app → git port | readCommitted | `readCommitted(ref, patterns)` | `Result<Map<path, Uint8Array>, MarkSyncError>` | throws on malformed path/ref (invariant guard, TDR-0003 C-4 — no `BadPath`/`BadRef` `Result` arm per DM-8); `RemoteUnreachable` on git runtime failure. Empty map if no matches |
+| app → git port | readCommitted | `readCommitted(ref, patterns)` | `Result<Map<path, Uint8Array>, MarkSyncError>` | throws on malformed path/ref (invariant guard, TDR-0003 C-4 — no `BadPath`/`BadRef` `Result` arm per DM-8); `RemoteUnreachable` on git runtime failure. `patterns` are micromatch-style globs (`**` matches any path depth, e.g. `docs/**/*.md`); a file is included if **any** pattern matches (union), and empty `patterns` → empty map. The shell-git adapter lists all committed files and filters in-memory via `src/shared/glob.ts` (GH-64) — git pathspec is not used because it does not support recursive `**`. |
 | app → git port | headSha | `headSha()` | `Result<string, MarkSyncError>` | `RemoteUnreachable` on git runtime failure |
 | app → git port | currentBranch | `currentBranch()` | `Result<string, MarkSyncError>` | `RemoteUnreachable` on git runtime failure; falls back to `GITHUB_REF_NAME` on detached HEAD |
 | app → git port | listCommitSubjects | `listCommitSubjects(range?)` | `Result<readonly string[], MarkSyncError>` | throws on malformed range (invariant); `RemoteUnreachable` on git runtime failure |
