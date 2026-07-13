@@ -131,34 +131,21 @@ All requirements are derived from the change specification ([chg-GH-64-spec.md](
 
 **Tasks**:
 
-- [ ] **2.1** Read existing test file `tests/unit/infra/git/shell-git.test.ts` to understand temp repo pattern (lines 95-198)
-- [ ] **2.2** Implement TC-GLOB-001: "Recursive `**` matches nested markdown files"
-  - Create temp git repo with nested structure: `docs/a.md`, `docs/b/c.md`, `docs/b/d/e.md`, `docs/image.png`, `README.md`, `src/d.md`
-  - Call `repo.readCommitted("HEAD", ["docs/**/*.md"])`
-  - Verify exactly 3 files returned: `docs/a.md`, `docs/b/c.md`, `docs/b/d/e.md`
-  - Verify `docs/image.png`, `README.md`, `src/d.md` are NOT in results
-- [ ] **2.3** Implement TC-GLOB-002: "Extension filter excludes non-markdown files"
-  - Create temp git repo with mixed file types: `docs/a.md`, `docs/b/c.md`, `docs/image.png`, `docs/data.json`
-  - Call `repo.readCommitted("HEAD", ["docs/**/*.md"])`
-  - Verify only `.md` files returned
-- [ ] **2.4** Implement TC-GLOB-003: "`**/test.md` matches root and nested files"
-  - Create temp git repo with `test.md` at multiple depths: `test.md`, `docs/test.md`, `docs/b/test.md`, `other.md`
-  - Call `repo.readCommitted("HEAD", ["**/test.md"])`
-  - Verify exactly 3 files returned: `test.md`, `docs/test.md`, `docs/b/test.md`
-- [ ] **2.5** Implement TC-GLOB-009: "Empty patterns list returns empty map"
-  - Create temp git repo with test files
-  - Call `repo.readCommitted("HEAD", [])`
-  - Verify result is `Ok` with empty map (0 files)
-- [ ] **2.6** Run all unit tests for shell-git to verify new tests pass and existing tests still pass: `bun test tests/unit/infra/git/shell-git.test.ts`
+- [x] **2.1** Read existing test file `tests/unit/infra/git/shell-git.test.ts` to understand temp repo pattern (lines 95-198)
+- [x] **2.2** Implement TC-GLOB-001: "Recursive `**` matches nested markdown files" — PASS (3 files: docs/a.md, docs/b/c.md, docs/b/d/e.md)
+- [x] **2.3** Implement TC-GLOB-002: "Extension filter excludes non-markdown files" — PASS (only .md files)
+- [x] **2.4** Implement TC-GLOB-003: "`**/test.md` matches root and nested files" — PASS (3 files: test.md, docs/test.md, docs/b/test.md)
+- [x] **2.5** Implement TC-GLOB-009: "Empty patterns list returns empty map" — PASS (size 0)
+- [x] **2.6** Run all unit tests for shell-git to verify new tests pass and existing tests still pass: `bun test tests/unit/infra/git/shell-git.test.ts` — 18 pass / 0 fail
 
 **Acceptance Criteria**:
 
-- Must: TC-GLOB-001 passes (AC-F1-1)
-- Must: TC-GLOB-002 passes (AC-F1-2)
-- Must: TC-GLOB-003 passes (AC-F1-3)
-- Must: TC-GLOB-009 passes (edge case coverage)
-- Must: All existing unit tests in `shell-git.test.ts` still pass (no regressions)
-- Should: Tests follow existing temp repo pattern (mkdtempSync, afterEach cleanup)
+- Must: TC-GLOB-001 passes (AC-F1-1) — PASSED
+- Must: TC-GLOB-002 passes (AC-F1-2) — PASSED
+- Must: TC-GLOB-003 passes (AC-F1-3) — PASSED
+- Must: TC-GLOB-009 passes (edge case coverage) — PASSED
+- Must: All existing unit tests in `shell-git.test.ts` still pass (no regressions) — PASSED (18/18)
+- Should: Tests follow existing temp repo pattern (mkdtempSync, afterEach cleanup) — PASSED (dedicated describe block with buildRepo helper)
 
 **Affected code areas**:
 

@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { tmpdir } from "node:os";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { validateRepoRelative, validateRef } from "#domain/git/paths";
 
 describe("shell-git path validation (via test stubs)", () => {
@@ -253,5 +253,124 @@ describe("shell-git happy path", () => {
 		} finally {
 			process.env.GITHUB_REF_NAME = originalEnv;
 		}
+	});
+});
+
+describe("shell-git glob pattern matching (GH-64)", () => {
+	let tmp: string;
+
+	beforeEach(() => {
+		tmp = mkdtempSync(join(tmpdir(), "marksync-glob-"));
+	});
+
+	afterEach(() => {
+		rmSync(tmp, { recursive: true, force: true });
+	});
+
+	const git = (args: string[]) => {
+		const result = Bun.spawnSync({
+			cmd: ["git", ...args],
+			cwd: tmp,
+			env: { ...process.env, HUSKY: "0" },
+		});
+		if (!result.success || result.exitCode !== 0) {
+			throw new Error(`git ${args[0]} failed: ${result.stderr?.toString()}`);
+		}
+		return result.stdout?.toString() || "";
+	};
+
+	// Build a committed repo from a map of relative-path → content.
+	const buildRepo = async (files: Record<string, string>) => {
+		const { createShellGit } = await import("#infra/git/shell-git");
+		git(["init"]);
+		git(["config", "user.name", "Test User"]);
+		git(["config", "user.email", "test@example.com"]);
+		for (const [rel, content] of Object.entries(files)) {
+			const abs = join(tmp, rel);
+			mkdirSync(dirname(abs), { recursive: true });
+			writeFileSync(abs, content);
+		}
+		git(["add", "."]);
+		git(["commit", "-m", "init"]);
+		return createShellGit(tmp);
+	};
+
+	const keys = (map: Map<string, Uint8Array>) =>
+		Array.from(map.keys()).sort();
+
+	// TC-GLOB-001: Recursive `**` matches nested markdown files (AC-F1-1)
+	test("TC-GLOB-001: recursive ** matches nested markdown files", async () => {
+		const repo = await buildRepo({
+			"docs/a.md": "# A\n",
+			"docs/b/c.md": "# C\n",
+			"docs/b/d/e.md": "# E\n",
+			"docs/image.png": "PNG",
+			"README.md": "# README\n",
+			"src/d.md": "# D\n",
+		});
+
+		const result = repo.readCommitted("HEAD", ["docs/**/*.md"]);
+
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+
+		expect(keys(result.value)).toEqual([
+			"docs/a.md",
+			"docs/b/c.md",
+			"docs/b/d/e.md",
+		]);
+	});
+
+	// TC-GLOB-002: Extension filter excludes non-markdown files (AC-F1-2)
+	test("TC-GLOB-002: extension filter excludes non-markdown files", async () => {
+		const repo = await buildRepo({
+			"docs/a.md": "# A\n",
+			"docs/b/c.md": "# C\n",
+			"docs/image.png": "PNG",
+			"docs/data.json": "{}",
+		});
+
+		const result = repo.readCommitted("HEAD", ["docs/**/*.md"]);
+
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+
+		expect(keys(result.value)).toEqual(["docs/a.md", "docs/b/c.md"]);
+	});
+
+	// TC-GLOB-003: `**/test.md` matches root and nested files (AC-F1-3)
+	test("TC-GLOB-003: **/test.md matches root and nested files", async () => {
+		const repo = await buildRepo({
+			"test.md": "# root\n",
+			"docs/test.md": "# docs\n",
+			"docs/b/test.md": "# nested\n",
+			"other.md": "# other\n",
+		});
+
+		const result = repo.readCommitted("HEAD", ["**/test.md"]);
+
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+
+		expect(keys(result.value)).toEqual([
+			"docs/b/test.md",
+			"docs/test.md",
+			"test.md",
+		]);
+	});
+
+	// TC-GLOB-009: Empty patterns list returns empty map (DEC-4)
+	test("TC-GLOB-009: empty patterns list returns empty map", async () => {
+		const repo = await buildRepo({
+			"docs/a.md": "# A\n",
+			"README.md": "# README\n",
+		});
+
+		const result = repo.readCommitted("HEAD", []);
+
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+
+		expect(result.value.size).toBe(0);
 	});
 });
