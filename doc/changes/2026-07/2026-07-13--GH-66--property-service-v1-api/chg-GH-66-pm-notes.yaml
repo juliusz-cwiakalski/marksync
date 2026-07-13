@@ -1,0 +1,73 @@
+change_id: GH-66
+title: "[MS2-E4] PropertyService uses v2 API for key-based access — returns 400 (P0)"
+branch: fix/GH-66/property-service-v1-api
+slug: property-service-v1-api
+
+phases:
+  clarify_scope: { started: "2026-07-13T13:35:00Z", completed: "2026-07-13T13:45:00Z" }
+  specification: { started: "2026-07-13T13:46:00Z", completed: "2026-07-13T13:52:00Z" }
+  test_planning: { started: "2026-07-13T13:53:00Z", completed: "2026-07-13T13:58:00Z" }
+  delivery_planning: { started: "2026-07-13T13:59:00Z", completed: "2026-07-13T14:04:00Z" }
+  dor_check: { started: "2026-07-13T14:05:00Z", completed: null }
+  delivery: { started: null, completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+
+decisions: []
+open_questions: []
+blockers: []
+
+notes:
+  - text: >
+      Intake (2026-07-13): P0 bug. State detection: OPEN, no PR, on main, clean
+      tree → fresh delivery. Labels applied: change, in-progress.
+    type: info
+    workItemRef: GH-66
+    date: "2026-07-13"
+  - text: >
+      Root cause confirmed in src/infra/confluence/properties.ts: get() (L22) and
+      updateByKey() (L103) build v2 paths `/pages/{id}/properties/{key}` but the
+      v2 API path param is a property ID (UUID/numeric), not a key. Result: 400
+      on every GET/PUT by key. POST create (L65, v2 `/pages/{id}/properties`)
+      passes key in the body, which v2 accepts. The ticket's evidence is
+      consistent with the code: v2 GET by key → 400; v1 GET by key → 200; v2
+      list → 200.
+    type: info
+    workItemRef: GH-66
+    date: "2026-07-13"
+  - text: >
+      Spec cross-check vs doc/spec/features/feature-confluence-adapter.md: §3.1
+      (L55-57), §3.2 table (L78 "Content properties | v2 | marksync.metadata
+      key; v1 deprecated"), §4.2 (L127 PropertyService "via v2") all assert
+      content properties use v2. This is precisely the bug — the spec claims v2
+      works for key-based access but it does not. Doc-syncer (phase 7) must
+      reconcile these to v1 for key-based GET/PUT. No contradiction with ticket;
+      the spec is simply wrong on this point and this change corrects both code
+      and spec.
+    type: info
+    workItemRef: GH-66
+    date: "2026-07-13"
+  - text: >
+      RISK/consideration for spec-writer: v1 content-property PUT-by-key
+      (`PUT /rest/api/content/{id}/property/{key}`) may require a
+      `version.number` in the body for optimistic concurrency on UPDATE (Confluence
+      returns 409/400 if the version is omitted/stale when the property exists).
+      The current v2 updateByKey path sends only `{key, value}`. The spec MUST
+      define how the update path resolves the version: (a) GET-by-key first to
+      learn the current version, then PUT with version+1; or (b) POST create,
+      on key-exists conflict GET version then PUT with version. This is the one
+      non-trivial scope detail — the fix is NOT a one-line path swap for the PUT
+      arm. Flag for DoR attention.
+    type: risk
+    workItemRef: GH-66
+    date: "2026-07-13"
+  - text: >
+      clarify_scope COMPLETE. No blocking questions. Ticket is detailed
+      (root cause, evidence, fix, AC all present and consistent with code). AC
+      are testable. Proceeding to artifact generation.
+    type: resolved
+    workItemRef: GH-66
+    date: "2026-07-13"

@@ -226,7 +226,7 @@ N/A — this change does not introduce new telemetry. Existing logging via `Conf
 
 | ID | Risk | Impact | Probability | Mitigation | Residual Risk |
 |----|------|--------|-------------|------------|---------------|
-| RSK-1 | Version-number handling causes 409 loops | H | M | Spec明确的 update mechanism: POST create → on 409 → GET current version → PUT with `number: currentVersion + 1`. Test coverage for this flow. | Low |
+| RSK-1 | Version-number handling causes 409 loops | H | M | Explicit update mechanism: POST create → on 409 → GET current version → PUT with `number: currentVersion + 1`. Test coverage for this flow. | Low |
 | RSK-2 | v1 response shape differs from v2 | M | L | Update zod schema to match v1 `{id, key, value, version: {number, when}}`. Byte-equality test validates `value` round-trip. | Low |
 | RSK-3 | Existing test suite fails on v2 path assertions | L | H | Update all property tests to assert v1 paths. | Low |
 | RSK-4 | Concurrent updates cause 409 after GET | M | L | 409 after GET is rare (racy window). Acceptable: surface as `Conflict` to caller (same as page 409). | Low |
