@@ -15,10 +15,27 @@ phases:
   dor_check: { started: "2026-07-13T07:00:00Z", completed: "2026-07-13T07:05:00Z" }
   delivery: { started: "2026-07-13T07:10:00Z", completed: "2026-07-13T07:40:00Z" }
   system_spec_update: { started: "2026-07-13T07:40:00Z", completed: "2026-07-13T07:55:00Z" }
-  review_fix: { started: "2026-07-13T08:00:00Z", completed: null }
-  quality_gates: { started: null, completed: null }
-  dod_check: { started: null, completed: null }
+  review_fix: { started: "2026-07-13T08:00:00Z", completed: "2026-07-13T08:40:00Z" }
+  quality_gates: { started: "2026-07-13T08:40:00Z", completed: "2026-07-13T08:50:00Z" }
+  dod_check: { started: "2026-07-13T08:50:00Z", completed: null }
   pr_creation: { started: null, completed: null, url: null }
+
+review_summary:
+  iter_1: "FAIL — 11 findings (1c/5h/3m/2l). Release-blocking: F-1 SVG naming, F-3/F-4 path-traversal false-positive tests, F-5 sha256Hex bytes.buffer, F-6 asset-drift test absent. Phase 7 remediation (P7.1-P7.15) added to plan."
+  remediation_commits: ["7395991 (F-1 kind field)", "84f6626 (F-1..F-11 fixes)", "9af1c1e (mock-target call recording)"]
+  iter_2: >
+    PASS — all 11 iter-1 findings RESOLVED with evidence (artifact
+    code-review/review-iter-2.yaml). 3 advisory LOW (non-blocking): NF-1 no
+    applyPlan-level integration test for uploadAssets wiring (P7.6 skipped);
+    NF-2 F-5 subarray test can't detect regression under Bun's non-pooling
+    readFileSync (fix is correct, test is weak); NF-3 '// F-5:' review-tag noise
+    + duplicate TC-UNIT-009 ID across files. Reviewer: proceed to DoD + PR.
+
+quality_gates:
+  bun_run_check: "GREEN — 993 pass / 0 fail / 28 snapshots / 3695 expect() / 95 files; lint+format+typecheck+depcruise(0 violations)"
+  commitlint_origin_main_to_head: "EXIT 0 (all 13 commits Conventional-Commit compliant, lowercase gh-26 subjects)"
+  yaml_validation: "PASS — all repo YAML valid; only 'failure' is tests/unit/app/fixtures/invalid-malformed-yaml.yml, an INTENTIONAL test fixture"
+  test_placement: "ALL GH-26 tests under tests/unit|integration (CI runs tests/unit|integration|golden) — no relocation needed"
 
 decisions:
   - text: >

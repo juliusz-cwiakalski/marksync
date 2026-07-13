@@ -2,9 +2,9 @@
 # Copyright (c) 2025-2026 Juliusz Ćwiąkalski (https://www.cwiakalski.com | https://www.linkedin.com/in/juliusz-cwiakalski/ | https://x.com/cwiakalski)
 # MIT License - see LICENSE file for full terms
 id: chg-GH-26-attachments-images
-status: In Review (review_fix iter-1 FAIL)
+status: Review PASS (iter-2; 3 advisory LOW findings)
 created: 2026-07-13T00:00:00Z
-last_updated: 2026-07-13T08:30:00Z
+last_updated: 2026-07-13T12:00:00Z
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 labels: [MS-0002, MS2-E4, safe-publish, attachments, security, path-traversal, idempotency]
@@ -368,9 +368,34 @@ rules are sound; the blockers below must land before DoR/DoD sign-off.
   assertion is meaningful. ✓ DONE
 
 ### Re-review gate
-- [ ] **P7.15** Run `bun run check` (target 0 fail, no dep violations). Re-run
+- [x] **P7.15** Run `bun run check` (target 0 fail, no dep violations). Re-run
   `@reviewer` (iteration 2) — every [x] above must be evidenced in code/tests;
   F-1, F-3, F-4, F-5 are release-blocking and must be PASS before DoR/DoD.
+  ✓ DONE: 993 pass / 0 fail / 0 dep violations. iter-2 PASS — all 11 iter-1
+  findings resolved incl. every release-blocking item. 4 new NON-BLOCKING
+  findings (1M / 2L / 1I). See `code-review/review-iter-2.yaml` and Phase 8.
+
+---
+
+## Phase 8 — Code Review Polish (Iteration 2, non-blocking)
+
+Populated by `@reviewer` iter-2 (`code-review/review-iter-2.yaml`). Status:
+PASS — all 11 iter-1 findings resolved incl. every release-blocking item. The
+tasks below are NON-BLOCKING polish; PM may proceed to DoD + PR regardless.
+
+- [ ] **P8.1** (medium, residual F-8) Map `ApplyReport.warnings` → top-level
+  `CommandResult.warnings` in `syncCommand` (`ok(report, { warnings: ... })`) so
+  the >25 MB asset warning surfaces via the human renderer's dedicated `warning:`
+  line instead of being buried in the `data:` JSON blob. (src/cli/commands/sync.ts:87)
+- [ ] **P8.2** (low, test validity) Fix TC-UNIT-003 (relative) timestamp
+  mismatch: capture one `Date.now()` into a variable and reuse it for both
+  `outsideDir` and the img `src` so realpath succeeds and the prefix check is the
+  actual rejection path. (tests/unit/domain/assets/resolver.test.ts:28 vs :49)
+- [ ] **P8.3** (low, style) `sha256Hex`: drop the `bytes as any` cast in favour
+  of a typed expression, and reword the `// F-5:` comment to state the invariant
+  without the review-finding ID. (src/domain/assets/resolver.ts:179-180)
+- [ ] **P8.4** (info, plan hygiene) Update the P7.11 note from "SKIPPED" to
+  "DONE" — TC-INTEGRATION-006 is implemented and genuine.
 
 ---
 
@@ -412,3 +437,15 @@ rules are sound; the blockers below must land before DoR/DoD sign-off.
   rewrote integration tests), F-9 (canonical path dedup), F-11 (mock uses real
   attachmentFilename), F-12 (code style). P7.6/P7.11 skipped (low-cost benefit).
   See commits below.
+- **2026-07-13 — review iter-2 (`@reviewer`):** PASS. All 11 iter-1 findings
+  resolved. Release-blocking fixes verified genuine: F-1 (SVG naming — kind
+  gating on both domain and infra, format-matrix invariant test), F-3 (root-
+  prefix test — evil file exists, prefix check is the rejecter, raw startsWith
+  would fail), F-4 (URL-encoded false positive removed, genuine traversal
+  replaces it), F-5 (sha256Hex passes view — code fix correct), F-6 (asset-drift
+  test flips SyncState). 3 new LOW findings (advisory, non-blocking): NF-1
+  (applyPlan→uploadAssets wiring untested at applyPlan level — P7.6/P7.11
+  transparently skipped), NF-2 (F-5 subarray test doesn't inject a view through
+  readBytes — Bun doesn't pool-allocate so test is a no-op for the bug),
+  NF-3 (`// F-5:` review tag + TC-UNIT-009 ID collision). No remediation phase
+  appended. See `code-review/review-iter-2.yaml`.
