@@ -4,7 +4,7 @@
 source: https://github.com/juliusz/cwiakalski-agentic-delivery-os/blob/main/doc/templates/implementation-plan-template.md
 ados_distribution: redistributable
 id: chg-GH-66-property-service-v1-api
-status: Proposed
+status: Updated
 created: 2026-07-13T00:00:00Z
 last_updated: 2026-07-13T00:00:00Z
 owners: [Juliusz Ćwiąkalski]
@@ -23,7 +23,7 @@ version_impact: patch
 
 This plan fixes a P0 bug where the MarkSync update flow fails with HTTP 400 on every page that needs updating. The root cause is that `PropertyService` uses the v2 API path `/pages/{id}/properties/{key}` for key-based GET and PUT operations, but the v2 path parameter expects a property ID (UUID/numeric), not a string key. The fix switches key-based GET and PUT operations to the v1 API, which correctly handles key-based access (`/content/{id}/property/{key}`). The update mechanism is enhanced to handle v1's optimistic concurrency requirement: when a 409 conflict occurs on POST create, the service GETs the current version number and PUTs with `{value, version: {number: currentVersion + 1}}`.
 
-**Open questions**: None (all resolved in spec §14 — OQ-1: Use v1 throughout; OQ-2: Surface 409 as Conflict to caller).
+**Open questions**: None (all resolved in spec §14 — OQ-1: Use v1 throughout; OQ-2: Property-PUT 409 → RemoteUnreachable per PM-DEC-1/DEC-6).
 
 ## Scope
 
@@ -129,21 +129,28 @@ This plan fixes a P0 bug where the MarkSync update flow fails with HTTP 400 on e
 - [ ] **2.2** Rewrite `put()` in `properties.ts` (lines 56-94):
   - Change line 65 from `this.client.v2(\`/pages/${pageId}/properties\`)` to `this.client.v1(\`/content/${pageId}/property\`)` (F-3, AC-F2-1)
   - Change line 63 comment from "POST creates; a 409 (key exists, v1+v2 share one namespace) falls back to PUT-by-key" to "POST creates; a 409 (key exists) falls back to GET version → PUT with incremented version"
-  - Change line 73 `return this.updateByKey(pageId, key, value);` to: GET current version via v1, then PUT with `{key, value, version: {number: currentVersion + 1}}` (F-2, F-3, AC-F2-2, DEC-3)
+  - Replace line 73 `return this.updateByKey(pageId, key, value);` with version-extraction logic:
+    - On POST-create 409, issue a raw v1 GET: `this.client.request("GET", this.client.v1(\`/content/${pageId}/property/${encodeURIComponent(key)}\`))`
+    - Validate response with `PropertyV1Response` schema (extract `version.number` as `currentVersion`)
+    - On fallback GET non-200: 404 → `RemoteUnreachable` (key vanished between POST-409 and GET), 403 → `Forbidden` (consistent with `get()`), other non-2xx → `RemoteUnreachable` (catch-all)
+    - Call `updateByKey(pageId, key, value, currentVersion)` (F-2, F-3, AC-F2-2, DEC-3)
   - Preserve error mappings (403→Forbidden, 413→TooLarge, schema-fail→RemoteUnreachable) (G-3)
+  - **Note**: A 409 on the property PUT (rare concurrent-write race in the GET→PUT window) maps to `RemoteUnreachable` (the catch-all), NOT `Conflict`, for MS-0002 MVP (PM-DEC-1 / spec DEC-6). The putProperty consumer does not special-case Conflict, and the Conflict error kind is page-shaped.
 - [ ] **2.3** Rewrite `updateByKey()` in `properties.ts` (lines 96-122):
   - Change line 103 from `this.client.v2(\`/pages/${pageId}/properties/${encodeURIComponent(key)}\`)` to `this.client.v1(\`/content/${pageId}/property/${encodeURIComponent(key)}\`)`
-  - Change line 104 body from `{json: {key, value}}` to `{json: {key, value, version: {number: currentVersion + 1}}}` (version number passed in from put())
-  - Change signature to accept `currentVersion: number` parameter (extracted from GET response in put())
+  - Change line 104 body from `{json: {key, value}}` to `{json: {key, value, version: {number: currentVersion + 1}}}` (version number passed in from `put()`)
+  - Change signature to `updateByKey(pageId, key, value, currentVersion: number)` (explicit parameter type)
   - Update `unreachableCause` messages to reference v1 (line 120: "property update") (F-2, AC-F2-2)
+  - **Note**: A 409 on this PUT (rare concurrent-write race in the GET→PUT window) maps to `RemoteUnreachable` (the catch-all), NOT `Conflict`, for MS-0002 MVP (PM-DEC-1 / spec DEC-6). The putProperty consumer does not special-case Conflict, and the Conflict error kind is page-shaped.
 
 **Acceptance Criteria**:
 
 - Must: `get()` uses v1 path `GET /wiki/rest/api/content/{pageId}/property/{key}`
 - Must: `put()` uses v1 POST create path `POST /wiki/rest/api/content/{pageId}/property`
-- Must: `put()` on 409 GETs current version and PUTs with incremented version number
-- Must: `updateByKey()` uses v1 path `PUT /wiki/rest/api/content/{pageId}/property/{key}` with `{key, value, version: {number: n+1}}`
+- Must: `put()` on 409 issues its own raw v1 GET to extract current version via `PropertyV1Response` schema, handles non-200 (404→RemoteUnreachable, 403→Forbidden, other→RemoteUnreachable), then PUTs with incremented version number
+- Must: `updateByKey()` signature is `updateByKey(pageId, key, value, currentVersion: number)` and uses v1 path `PUT /wiki/rest/api/content/{pageId}/property/{key}` with `{key, value, version: {number: n+1}}`
 - Must: Error semantics preserved: 403→Forbidden, 404(GET)→ok(undefined), 413→TooLarge, schema-fail→RemoteUnreachable
+- Must: Property-PUT 409 (rare concurrent-write race) maps to RemoteUnreachable, NOT Conflict, per PM-DEC-1/DEC-6
 - Should: No TypeScript compilation errors
 
 **Affected code areas**:
@@ -284,7 +291,10 @@ This plan fixes a P0 bug where the MarkSync update flow fails with HTTP 400 on e
 **Tasks**:
 
 - [ ] **5.1** Review implementation against spec and test plan — ensure all AC covered
-- [ ] **5.2** Reconcile `doc/spec/features/feature-confluence-adapter.md` §3.1 (L55-57), §3.2 table (L78), §4.2 (L127) — these incorrectly claim v2 for content properties. Update to state that key-based property access uses v1 API (handled in lifecycle phase 7 `system_spec_update` via `@doc-syncer`, but noted here for awareness)
+- [ ] **5.2** Reconcile `doc/spec/features/feature-confluence-adapter.md` — these incorrectly claim v2 for content properties:
+  - §3.1 (L55-57), §3.2 table (L78), §4.2 (L127): Update to state that key-based property access uses v1 API
+  - §5 (L154-155): The checked system-spec AC asserting "v2 used for content/properties; v1 only for attachments/search/restrictions" becomes FALSE after this change and must be reconciled
+  - (Handled in lifecycle phase 7 `system_spec_update` via `@doc-syncer`, but noted here for awareness)
 - [ ] **5.3** Version bump per repo conventions (patch version for bug fix)
 - [ ] **5.4** Final commit with all changes staged
 
@@ -351,6 +361,7 @@ This plan fixes a P0 bug where the MarkSync update flow fails with HTTP 400 on e
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.1 | 2026-07-13 | plan-writer | DoR iter-1 fixes: (1) Phase 2 task 2.2: Specify version-extraction mechanism (raw v1 GET, schema validation, error handling for 404/403/non-2xx), (2) Phase 2 tasks 2.2/2.3: Clarify property-PUT 409 → RemoteUnreachable (not Conflict) per PM-DEC-1/DEC-6, (3) Phase 5 task 5.2: Add §5 (L154-155) to doc-update list |
 | 1.0 | 2026-07-13 | plan-writer | Initial plan for GH-66 |
 
 ## Execution Log
