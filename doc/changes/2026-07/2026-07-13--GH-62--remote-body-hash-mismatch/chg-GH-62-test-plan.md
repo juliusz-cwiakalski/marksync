@@ -70,7 +70,7 @@ This test plan validates the fix for the P0 bug where every sync after the first
 | AC-F5-2 | PageBinding.remoteBodyHash after Update | TC-FETCH-002 | Covered |
 | AC-T1-1 | Classifier unit tests updated | TC-CLSF-001 through TC-CLSF-005 | Covered |
 | AC-T2-1 | Integration test for normalization simulation | TC-IDEM-001, TC-IDEM-002 | Covered |
-| AC-F5-1 (duplicate) | Fetch-back failure handling | TC-FETCH-003 | Covered |
+| AC-F5-3 | Fetch-back failure handling | TC-FETCH-003 | Covered |
 
 ### 3.2 Interface Coverage (API-#, EVT-#, DM-#)
 
@@ -114,7 +114,7 @@ This test plan validates the fix for the P0 bug where every sync after the first
 | TC-CLSF-005 | Classifier: SharedBase requires remoteBodyHash | Regression | Important | High | AC-F3-1, AC-T1-1 |
 | TC-FETCH-001 | Fetch-back after Create success | Happy Path | Critical | High | AC-F2-1, AC-F5-1 |
 | TC-FETCH-002 | Fetch-back after Update success | Happy Path | Critical | High | AC-F2-2, AC-F5-2 |
-| TC-FETCH-003 | Fetch-back failure handling (network error) | Negative | Important | High | AC-F5-1 (duplicate) |
+| TC-FETCH-003 | Fetch-back failure handling (network error) | Negative | Important | High | AC-F5-3 |
 | TC-SHARED-001 | SharedBase construction with remoteBodyHash | Happy Path | Important | Medium | AC-F3-1 |
 | TC-IDEM-001 | Idempotent sync after Create (normalization simulation) | Happy Path | Critical | High | AC-F1-1, AC-T2-1 |
 | TC-IDEM-002 | Idempotent sync after Update (normalization simulation) | Happy Path | Critical | High | AC-F1-2, AC-T2-1 |
@@ -389,7 +389,7 @@ This test plan validates the fix for the P0 bug where every sync after the first
 **Scenario Type**: Negative
 **Impact Level**: Important
 **Priority**: High
-**Related IDs**: AC-F5-1 (duplicate), F-5, RSK-2, NFR-2
+**Related IDs**: AC-F5-3, F-5, RSK-2, NFR-2
 **Test Type(s)**: Integration
 **Automation Level**: Automated
 **Target Layer / Location**: `src/app/push-flow.ts` → `tests/integration/app/push-flow.test.ts`

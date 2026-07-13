@@ -194,7 +194,7 @@ N/A — this change emits no new events.
 
 ### 8.5 Backward Compatibility
 
-- **Lock files with missing `remoteBodyHash`**: The `SharedBase` field is new; existing lock files without `remoteBodyHash` will cause compile-time errors. Since MS-0002 is in development and the field already exists in `PageBinding`, this is acceptable. Migration strategy: treat missing `remoteBodyHash` as empty string (first sync will populate).
+- **Lock files with missing `remoteBodyHash`**: The `SharedBase` field is new; existing lock files without `remoteBodyHash` will cause compile-time errors. Since MS-0002 is in development and the field already exists in `PageBinding`, this is acceptable. First sync after this change will populate `remoteBodyHash` via fetch-back.
 - **Classifier behavior change**: Existing tests that assumed raw-to-canonical comparison will fail. This is the desired behavior change — false positives were the bug.
 
 ## 9. NON-FUNCTIONAL REQUIREMENTS (NFRs)
@@ -242,8 +242,8 @@ N/A — this change does not introduce new telemetry. Existing logs cover Create
 
 | ID | Question | Context | Status |
 |----|----------|---------|--------|
-| OQ-1 | Fallback remoteBodyHash on fetch-back failure: use canonical hash or empty string? | If fetch-back fails after successful Create/Update, what `remoteBodyHash` do we store in the binding? Canonical hash causes one false-positive block; empty string forces re-fetch on next sync. | Decision needed: consult `@decision-advisor` |
-| OQ-2 | Should fetch-back happen after asset upload or before? | Asset upload changes page body (attachment references). Fetch-back after upload captures the final body. Fetch-back before upload captures pre-upload body. | Decision needed: confirm "after asset upload" (assumed in spec) |
+| OQ-1 | Fallback remoteBodyHash on fetch-back failure: use canonical hash or empty string? | If fetch-back fails after successful Create/Update, what `remoteBodyHash` do we store in the binding? | **RESOLVED (PM):** Store `rawHash(renderedBody)` — the raw hash of the body just written. Same hash domain (raw); if Confluence didn't normalize, next sync is NoOp. If it normalized, rare one-time false-positive block. Emit warning. |
+| OQ-2 | Should fetch-back happen after asset upload or before? | Asset upload changes page body (attachment references). Fetch-back after upload captures the final body. | **RESOLVED (PM):** After asset upload. The rendered body already contains `<ri:attachment>` references; uploading assets doesn't change the body string. After-upload captures the final committed state with consistent write-ordering. |
 
 ## 15. DECISION LOG
 
@@ -280,7 +280,7 @@ N/A — this change does not introduce new telemetry. Existing logs cover Create
 | AC-F5-2 | **Given** a sync updates a page, **when** fetch-back succeeds, **then** the `PageBinding.remoteBodyHash` in the lock is refreshed to `rawHash(fetchedBody)`. | F-4 |
 | AC-T1-1 | **Given** a classifier unit test with remote and base hashes, **when** the test previously compared `remote.bodyHash !== base.renderedBodyHash`, **then** the test is updated to compare `remote.bodyHash !== base.remoteBodyHash`. | F-3, RSK-3 |
 | AC-T2-1 | **Given** an integration test that simulates Confluence normalization (body stored ≠ body sent), **when** a second sync runs with no changes, **then** the test verifies 0 writes, 0 blocks. | F-1, F-3, NFR-3, NFR-4 |
-| AC-F5-1 | **Given** a sync creates a new page, **when** fetch-back fails (network error), **then** the operation continues with a fallback hash (see OQ-1) and emits a warning. | F-5, RSK-2 |
+| AC-F5-3 | **Given** a sync creates a new page, **when** fetch-back fails (network error), **then** the operation continues with a fallback hash (see OQ-1) and emits a warning. | F-5, RSK-2 |
 
 ## 18. ROLLOUT & CHANGE MANAGEMENT (HIGH-LEVEL)
 

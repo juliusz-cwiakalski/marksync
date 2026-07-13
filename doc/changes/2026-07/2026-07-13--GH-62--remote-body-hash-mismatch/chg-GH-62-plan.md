@@ -45,7 +45,7 @@ The fix has three coordinated parts:
 - Test updates:
   - Update classifier unit tests to use `remoteBodyHash` in comparison (TC-CLSF-001 through TC-CLSF-005, AC-T1-1)
   - Add integration tests for idempotent sync with Confluence normalization simulation (TC-IDEM-001, TC-IDEM-002, AC-T2-1)
-  - Add fetch-back failure handling test (TC-FETCH-003, AC-F5-1 duplicate)
+  - Add fetch-back failure handling test (TC-FETCH-003, AC-F5-3)
 
 ### Out of Scope
 
@@ -122,8 +122,8 @@ The fix has three coordinated parts:
 - [ ] **2.1** Update `finalizeSuccessfulUpdate` in `src/app/push-flow.ts` to add fetch-back after successful update (after asset upload per OQ-2), refresh `remoteBodyHash` in binding (F-1, F-4, AC-F2-2, AC-F5-2)
 - [ ] **2.2** Update Create path in `processEntry` in `src/app/push-flow.ts` to replace `remoteBodyHash: entry.hashes.canonicalHash` with fetch-back raw hash (F-1, F-4, AC-F2-1, AC-F5-1)
 - [ ] **2.3** Update 409 reapply path in `src/app/push-flow.ts` to add fetch-back after reapply (F-1, NFR-5, TC-REAPPLY-001)
-- [ ] **2.4** Update `computePlan` in `src/app/push-flow.ts` (~lines 300-307) to construct `SharedBase` with `remoteBodyHash` from binding (AC-F3-1)
-- [ ] **2.5** Add fetch-back failure handling: on `target.getPage()` failure, store `remoteBodyHash = rawHash(renderedBody)` + emit warning (F-5, OQ-1 resolved, AC-F5-1 duplicate)
+- [ ] **2.4** Update ALL `SharedBase` construction sites in `src/app/push-flow.ts` to include `remoteBodyHash` from binding: (a) `computePlan` (~lines 300-307) and (b) the 409 re-fetch re-classify path (~line 881) (AC-F3-1)
+- [ ] **2.5** Add fetch-back failure handling: on `target.getPage()` failure, store `remoteBodyHash = rawHash(renderedBody)` + emit warning (F-5, OQ-1 resolved, AC-F5-3)
 
 **Acceptance Criteria**:
 
@@ -158,7 +158,7 @@ The fix has three coordinated parts:
 
 - [ ] **3.1** Create or update `tests/integration/app/push-flow.test.ts` with fetch-back success test after Create (TC-FETCH-001, AC-F2-1, AC-F5-1)
 - [ ] **3.2** Add fetch-back success test after Update (TC-FETCH-002, AC-F2-2, AC-F5-2)
-- [ ] **3.3** Add fetch-back failure handling test (network error, fallback hash + warning) (TC-FETCH-003, AC-F5-1 duplicate)
+- [ ] **3.3** Add fetch-back failure handling test (network error, fallback hash + warning) (TC-FETCH-003, AC-F5-3)
 - [ ] **3.4** Add SharedBase construction with remoteBodyHash test (TC-SHARED-001, AC-F3-1)
 - [ ] **3.5** Add idempotent sync after Create test with Confluence normalization simulation (TC-IDEM-001, AC-F1-1, AC-T2-1, NFR-3, NFR-4)
 - [ ] **3.6** Add idempotent sync after Update test with Confluence normalization simulation (TC-IDEM-002, AC-F1-2, AC-T2-1, NFR-3, NFR-4)
@@ -207,7 +207,7 @@ The fix has three coordinated parts:
 - Must: Lint passes with no errors
 - Must: All tests pass (unit + integration)
 - Must: No regressions in existing test suites
-- Should: All acceptance criteria from spec verified (AC-F1-1, AC-F1-2, AC-F2-1, AC-F2-2, AC-F3-1, AC-F4-1, AC-F4-2, AC-F5-1, AC-F5-2, AC-T1-1, AC-T2-1)
+- Should: All acceptance criteria from spec verified (AC-F1-1, AC-F1-2, AC-F2-1, AC-F2-2, AC-F3-1, AC-F4-1, AC-F4-2, AC-F5-1, AC-F5-2, AC-F5-3, AC-T1-1, AC-T2-1)
 
 **Affected code areas**:
 
@@ -232,7 +232,7 @@ The fix has three coordinated parts:
 **Tasks**:
 
 - [ ] **5.1** Review implementation against spec and test plan — ensure all AC covered
-- [ ] **5.2** Reconcile `doc/spec/nonfunctional.md` if needed (PM notes §4: doc risks — feature-safe-publish.md §3.1 may need update)
+- [ ] **5.2** Reconcile `doc/spec/features/feature-safe-publish.md` §3.1 — PM notes establish that rawHash becomes load-bearing for remote comparison while the spec currently says "rawHash is informational only." This is a definite doc update, handled in lifecycle phase 7 (`system_spec_update`) via `@doc-syncer`.
 - [ ] **5.3** Update ADR-0006 if needed (PM notes §4: shared-base state model may need note on remoteBodyHash semantics)
 - [ ] **5.4** Version bump per repo conventions (patch version for bug fix)
 - [ ] **5.5** Final commit with all changes staged
@@ -252,7 +252,7 @@ The fix has three coordinated parts:
 
 **System docs to update**:
 
-- `doc/spec/nonfunctional.md` (if needed — feature-safe-publish.md §3.1 drift detection may need update)
+- `doc/spec/features/feature-safe-publish.md` §3.1 (definite — rawHash becomes load-bearing for remote comparison; currently says "informational only")
 - `doc/decisions/adr-0006-*.md` (if needed — shared-base state model may need note on remoteBodyHash semantics)
 
 **Tests**:
@@ -276,7 +276,7 @@ The fix has three coordinated parts:
 | TC-CLSF-005 | Classifier: SharedBase requires remoteBodyHash | 1, 4 | AC-F3-1, AC-T1-1 |
 | TC-FETCH-001 | Fetch-back after Create success | 2, 3, 4 | AC-F2-1, AC-F5-1 |
 | TC-FETCH-002 | Fetch-back after Update success | 2, 3, 4 | AC-F2-2, AC-F5-2 |
-| TC-FETCH-003 | Fetch-back failure handling (network error) | 2, 3, 4 | AC-F5-1 (duplicate) |
+| TC-FETCH-003 | Fetch-back failure handling (network error) | 2, 3, 4 | AC-F5-3 |
 | TC-SHARED-001 | SharedBase construction with remoteBodyHash | 2, 3, 4 | AC-F3-1 |
 | TC-IDEM-001 | Idempotent sync after Create (normalization simulation) | 2, 3, 4 | AC-F1-1, AC-T2-1 |
 | TC-IDEM-002 | Idempotent sync after Update (normalization simulation) | 2, 3, 4 | AC-F1-2, AC-T2-1 |
