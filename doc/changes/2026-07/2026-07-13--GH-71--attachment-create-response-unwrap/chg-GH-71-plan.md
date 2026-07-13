@@ -31,7 +31,7 @@ No open questions — the fix is fully specified in the ticket and spike evidenc
 ### In Scope
 
 - Fix `mapCreate` in `src/infra/confluence/attachments.ts` (lines 184-196) to unwrap `body.results[0]` before zod validation (F-1, AC-1, AC-2, AC-4)
-- Add unit tests for the happy-path attachment create using the verbatim spike-evidence response shape (TC-ATTACH-001, TC-ATTACH-002, TC-ATTACH-003, TC-ATTACH-005)
+- Add unit tests for the happy-path attachment create using the verbatim spike-evidence response shape (TC-ATTACH-001, TC-ATTACH-002, TC-ATTACH-003, TC-ATTACH-005, TC-ATTACH-006)
 - Verify all existing attachment tests pass unchanged (TC-DUP-001/002, TC-EXISTS-001, TC-LIST-001) (AC-3, TC-ATTACH-004)
 
 ### Out of Scope
@@ -110,6 +110,7 @@ No open questions — the fix is fully specified in the ticket and spike evidenc
   - TC-ATTACH-002: Defensive fallback for flat response (no `results` wrapper)
   - TC-ATTACH-003: Mermaid SVG artifact upload (validates GH-69 unblocking)
   - TC-ATTACH-005: Schema validation error message clarity (invalid response structure)
+  - TC-ATTACH-006: Empty results array `{ results: [] }` → RemoteUnreachable (noUncheckedIndexedAccess trap path)
 - [ ] **2.2** Use existing test helpers: `script()`, `jsonRes()`, `svgArtifact()` from `attachments.test.ts`
 - [ ] **2.3** Include performance timing assertion in TC-ATTACH-001 for NFR-1 (≤ 1ms for unwrapping + validation)
 
@@ -144,7 +145,7 @@ No open questions — the fix is fully specified in the ticket and spike evidenc
 
 - [ ] **3.1** Run the full attachment test suite: `bun test tests/unit/infra/confluence/attachments.test.ts`
 - [ ] **3.2** Verify all existing tests pass unchanged: TC-DUP-001, TC-DUP-002, TC-EXISTS-001, TC-LIST-001
-- [ ] **3.3** Verify all new tests pass: TC-ATTACH-001, TC-ATTACH-002, TC-ATTACH-003, TC-ATTACH-005
+- [ ] **3.3** Verify all new tests pass: TC-ATTACH-001, TC-ATTACH-002, TC-ATTACH-003, TC-ATTACH-005, TC-ATTACH-006
 - [ ] **3.4** Run typecheck: `bun run typecheck` — must pass
 - [ ] **3.5** Run lint: `bun run lint` — must pass
 
@@ -181,6 +182,7 @@ No open questions — the fix is fully specified in the ticket and spike evidenc
 | TC-ATTACH-003 | Mermaid SVG artifact upload through upload pipeline | Phase 2 | AC-2 |
 | TC-ATTACH-004 | Existing attachment tests unchanged (regression confirmation) | Phase 3 | AC-3 |
 | TC-ATTACH-005 | Schema validation error message clarity (invalid response structure) | Phase 2 | NFR-2 |
+| TC-ATTACH-006 | Empty results array `{ results: [] }` → RemoteUnreachable (noUncheckedIndexedAccess trap path) | Phase 2 | AC-1, NFR-2 |
 
 ## Artifacts and Links
 

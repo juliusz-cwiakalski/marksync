@@ -116,6 +116,7 @@ This test plan validates the fix for a P0 bug where the `mapCreate` function in 
 | TC-ATTACH-003 | Mermaid SVG artifact upload through upload pipeline | Happy Path | Critical | High | AC-2 |
 | TC-ATTACH-004 | Existing attachment tests unchanged (regression confirmation) | Regression | Important | High | AC-3 |
 | TC-ATTACH-005 | Schema validation error message clarity (invalid response structure) | Negative | Minor | Low | NFR-2 |
+| TC-ATTACH-006 | Empty results array `{ results: [] }` → RemoteUnreachable (noUncheckedIndexedAccess trap path) | Negative | Important | High | AC-1, NFR-2 |
 
 ### 5.2 Scenario Details
 
@@ -351,6 +352,47 @@ This test plan validates the fix for a P0 bug where the `mapCreate` function in 
 
 ---
 
+#### TC-ATTACH-006 - Empty results array → RemoteUnreachable (noUncheckedIndexedAccess trap path)
+
+**Scenario Type**: Negative
+**Impact Level**: Important
+**Priority**: High
+**Related IDs**: AC-1, NFR-2, DEC-2
+**Test Type(s)**: Unit
+**Automation Level**: Automated
+**Target Layer / Location**: `tests/unit/infra/confluence/attachments.test.ts`
+**Tags**: @backend, @api, @attachment, @edge-case
+
+**Preconditions**:
+- `AttachmentService` is instantiated with a mock `ConfluenceClient` that returns a scripted response
+
+**Steps**:
+1. Create a mock response with an **empty** results array (truthy wrapper, no element to unwrap):
+   ```typescript
+   const emptyResultsResponse = { results: [] };
+   ```
+2. Use the `script()` helper to create a service that returns `jsonRes(200, emptyResultsResponse)` for `POST /content/${PAGE}/child/attachment`
+3. Call `service.upload(PAGE, artifact)`
+4. Assert the result is an error:
+   ```typescript
+   expect(result.ok).toBe(false);
+   if (result.ok) return;
+   expect(result.error.kind).toBe("RemoteUnreachable");
+   expect(result.error.cause).toContain("schema validation failed: AttachmentCreateResponse");
+   ```
+
+**Expected Outcome**:
+- `{ results: [] }` is truthy → the unwrap branch is taken → `results[0]` is `undefined` under `noUncheckedIndexedAccess`
+- `AttachmentCreateResponse.safeParse(undefined)` fails → returns `RemoteUnreachable { cause: "schema validation failed: AttachmentCreateResponse" }`
+- The error is surfaced cleanly (not a crash); the caller handles it as a transport/schema-drift failure
+
+**Notes / Clarifications**:
+- This is the one "trap path" through the unwrap logic identified by DoR iter-1: `{ results: [] }` enters the unwrap branch (truthy), but `results[0]` is `undefined`.
+- The test confirms that empty-results degrades to `RemoteUnreachable` rather than crashing or returning a fabricated ref.
+- This case is unexpected from Confluence (a successful create always returns one result) but the code must handle it defensively.
+
+---
+
 ## 6. Environments and Test Data
 
 ### 6.1 Required Environments
@@ -380,6 +422,7 @@ This test plan validates the fix for a P0 bug where the `mapCreate` function in 
 | TC-ATTACH-003 | `tests/unit/infra/confluence/attachments.test.ts` | `bun test tests/unit/infra/confluence/attachments.test.ts` | Mock `ConfluenceClient.fetch` returning `jsonRes(200, mermaidUploadResponse)` | To Implement |
 | TC-ATTACH-004 | `tests/unit/infra/confluence/attachments.test.ts` | `bun test tests/unit/infra/confluence/attachments.test.ts` | No new mocks; run existing tests as-is | Existing – No Change |
 | TC-ATTACH-005 | `tests/unit/infra/confluence/attachments.test.ts` | `bun test tests/unit/infra/confluence/attachments.test.ts` | Mock `ConfluenceClient.fetch` returning `jsonRes(200, invalidResponse)` | To Implement |
+| TC-ATTACH-006 | `tests/unit/infra/confluence/attachments.test.ts` | `bun test tests/unit/infra/confluence/attachments.test.ts` | Mock `ConfluenceClient.fetch` returning `jsonRes(200, { results: [] })` | To Implement |
 
 **Execution in CI**:
 - Fast loop: `bun test tests/unit/ tests/integration/` (every push)
