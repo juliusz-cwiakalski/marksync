@@ -236,7 +236,7 @@ the integration-scenarios docs (`doc/inception/integration-scenarios/`)._
 | app → target system port | searchPages | `searchPages(cql)` | `Result<PageRef[], MarkSyncError>` | `RateLimited`, `RemoteUnreachable` |
 | app → target system port | getRestrictions | `getRestrictions(pageId)` | `Result<PageRestrictions, MarkSyncError>` | `Forbidden`, `RateLimited`, `RemoteUnreachable` |
 | app → target system port | reverseConvert | `reverseConvert(bodyRepr)` | `MdastRoot` | `UnsupportedConstruct` (`MS-0005+`) |
-| app → mermaid port | render | `render(source, opts)` | `Artifact{ bytes, mime, hash }` | `RenderUnavailable` (→ fallback ladder) |
+| app → mermaid port | render | `render(source, opts)` | `Artifact{ bytes, mime, hash }` | `RenderUnavailable` (→ fallback ladder) *(deferred to MS-0003+; MS-0002 ships the `code` policy — mermaid fences preserved as code macros, GH-25 / CEO-DEC-1)* |
 | app → link resolver | resolveLink | `resolveLink(sourcePath, target, bindings)` | `Result<PageRef \| string, MarkSyncError>` | `UnresolvedLink` for an unresolvable `.md` target; external/anchor/non-`.md` targets pass through as the original string *(delivered — GH-23)* |
 | app → state classifier | classify | `classify({ local?, base?, remote })` | `Result<SyncState, MarkSyncError>` | `Forbidden` (when `remote.kind === "forbidden"` — not a sync state); `local` optional (absent ⇒ `LOCAL_MISSING`); invoked only for bound documents |
 | app → lock store | commit | `commit(newLock)` | `void` | `LockDirty`, `ConcurrentWrite` |

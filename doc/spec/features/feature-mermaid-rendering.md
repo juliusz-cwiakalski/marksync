@@ -5,18 +5,18 @@ ados_distribution: project-generated
 id: SPEC-MERMAID-RENDERING
 status: Current
 created: 2026-07-06
-last_updated: 2026-07-06
+last_updated: 2026-07-13
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: ["GH-11"]
+  related_changes: ["GH-11", "GH-25"]
   decisions: [ADR-0001, ADR-0002, TDR-0004]
   contracts: []
 ---
 
 # Feature Specification: Mermaid Diagram Rendering
 
-> Deterministic in-process Mermaid rendering — no external service dependency (design target). MS-0002 ships the ADR-0002 fallback `code` policy as the default; the in-process renderer is deferred pending a faithful-render path.
+> Deterministic in-process Mermaid rendering — no external service dependency (design target). MS-0002 ships the ADR-0002 fallback `code` policy as the default — **implemented, tested, and correctly defaulted (GH-25)**; the in-process renderer is deferred to MS-0003+ pending a faithful-render path.
 
 ## 1. Overview
 
@@ -34,9 +34,19 @@ fidelity **FAILS (H4 0/5)** — happy-dom and jsdom have no SVG layout engine
 (sequence/class/state) throw and flowchart/gantt produce degenerate output.
 Accordingly, **MS-0002 descends ADR-0002's fallback ladder to rung 7 — the
 `code` policy** (preserve the raw Mermaid code block instead of rendering). This
-does not block MS-0002. The in-process renderer is deferred to MS2-E4-S1 pending
+does not block MS-0002. The in-process renderer is deferred to MS-0003+ pending
 a faithful-render path (Chromium-based, or a validated SVG-layout shim such as
 `svgdom`/canvas-measured `getBBox`).
+
+> **Implemented state (GH-25, 2026-07-13).** The `code` policy is the implemented,
+> tested, and correctly-defaulted MS-0002 operating behavior. The config
+> `MermaidPolicy` enum is `"code" | "render" | "skip"` with `"code"` as the
+> default (aligned with ADR-0002 rung-7 terminology). Because no renderer exists
+> in MS-0002, all three policy values produce the same observable output — the
+> Mermaid source is emitted as a code macro with `language=mermaid`. Golden
+> fixtures prove mermaid fences are preserved byte-stable; adversarial fixtures
+> prove XSS/`<script>`/`onerror`/`javascript:` payloads are inert inside the
+> CDATA code body (NFR-SEC-5).
 
 ## 2. Business Context
 
@@ -55,11 +65,15 @@ a faithful-render path (Chromium-based, or a validated SVG-layout shim such as
 ### 3.1 Capabilities
 
 - **Render Mermaid → SVG (design target):** in-process via official `mermaid`
-  library. Deferred to MS2-E4-S1 pending a faithful-render path (GH-11 H4 FAIL).
-- **MS-0002 default — `code` policy (ADR-0002 rung 7):** preserve the raw
-  Mermaid code block instead of rendering. Safe, deterministic, and does not
-  block MS-0002. A `render` policy that attempts in-process render is the
-  intended default once a faithful path exists.
+  library. Deferred to MS-0003+ pending a faithful-render path (GH-11 H4 FAIL).
+- **MS-0002 default — `code` policy (ADR-0002 rung 7), implemented + tested
+  (GH-25):** the `MermaidPolicy` config enum is `"code" | "render" | "skip"`
+  with `"code"` as the default. Preserve the raw Mermaid code block instead of
+  rendering. Safe, deterministic, and does not block MS-0002. Because no
+  renderer exists in MS-0002, all three policy values produce the same
+  observable output (the code macro with `language=mermaid`); the values differ
+  in documented intent for MS-0003+. `"render"` is a forward-compatible
+  placeholder that descends to `code` until the renderer lands.
 - **Deterministic output (when rendering):** `deterministicIds: true` plus the
   digest-normalization rules (§3.4) ensure stable element IDs; same logical
   input → same SVG bytes on a given OS (after normalization) and same attachment
@@ -69,7 +83,7 @@ a faithful-render path (Chromium-based, or a validated SVG-layout shim such as
 - **Content hashing:** render output is content-hashed for attachment reuse
   (unchanged diagram → reused attachment, no re-upload).
 - **Fallback ladder:** `render` → … → `code` policy (preserve block) as the
-  last resort. MS-0002 ships `code` as the effective default.
+  last resort. MS-0002 ships `code` as the implemented default (GH-25).
 
 ### 3.2 Attachment identity
 
@@ -87,7 +101,7 @@ Unchanged logical render input → same hash → same attachment → no re-uploa
 The renderer's **digest** form (the bytes used for golden-fixture comparison and
 as the cache/determinism check) is produced by a pure, dependency-free
 normalizer. The rules — recorded verbatim from the GH-11 spike
-(`spikes/mermaid-render/normalize.ts`) for MS2-E4-S1 reuse — applied **in order**:
+(`spikes/mermaid-render/normalize.ts`) for MS-0003+ reuse — applied **in order**:
 
 1. **XML comments stripped** — remove all `<!-- … -->`.
 2. **Attributes sorted deterministically per element** — sort each element's
@@ -106,7 +120,7 @@ normalizer. The rules — recorded verbatim from the GH-11 spike
    (inner `<line class="today" x1=… x2=…>` whose coordinates are a function of
    the current date/time).
 
-> **Rule 5 is load-bearing for MS2-E4-S1.** The GH-11 spike observed that the
+> **Rule 5 is load-bearing for MS-0003+.** The GH-11 spike observed that the
 > gantt golden drifted across process runs (`x1="-27937"` → `x1="-27938"`)
 > because the `today` line depends on the wall clock; within-window N=5 repeats
 > miss this. Stripping `<g class="today">…</g>` from the **digest** form (the
@@ -136,7 +150,7 @@ The design target is a renderer that runs in a headless DOM environment
 sanitized, and content-hashed. The GH-11 spike established that happy-dom/jsdom
 run the library but cannot produce faithful output (no SVG layout engine), so
 this design is **not yet implemented** and the production renderer choice is
-deferred to MS2-E4-S1 (Chromium-based, or a validated SVG-layout shim). For
+deferred to MS-0003+ (Chromium-based, or a validated SVG-layout shim). For
 MS-0002 the pipeline emits the raw Mermaid block under the `code` policy.
 
 ### 4.2 Core components
@@ -163,17 +177,21 @@ MS-0002 the pipeline emits the raw Mermaid block under the `code` policy.
       the renderable fixtures by GH-11 (H1 PASS-caveat).*
 - [ ] **Security:** `securityLevel: strict`; SVG sanitized; no external resource
       loading; adversarial fixtures pass. *Default-config XSS/script safety
-      evidenced by GH-11 (H5 PASS); full SVG sanitization is MS2-E4-S1
-      (`SVGSanitizer`).*
+      evidenced by GH-11 (H5 PASS); full SVG sanitization is MS-0003+
+      (`SVGSanitizer`). Code-policy injection safety proven by GH-25 adversarial
+      fixtures (NFR-SEC-5).*
 - [x] **Spike-gated (GH-11, 2026-07-06) — PARTIAL:** the headless render spike
       returned H1/H2/H3/H5 PASS but **H4 (fidelity) FAIL (0/5)** (happy-dom/jsdom
       have no SVG layout engine). Part B does **not** advance to `spike-validated`;
       **MS-0002 falls back to the `code` policy (preserve code block, ADR-0002
       rung 7)** — this does not block MS-0002. The in-process renderer is deferred
-      to MS2-E4-S1 pending a faithful-render path.
+      to MS-0003+ pending a faithful-render path. **The `code` policy is
+      implemented, tested, and correctly defaulted under GH-25 (CEO-DEC-1).**
 - [ ] **Attachment reuse:** unchanged diagram → same hash → no re-upload.
-- [ ] **Fallback:** render failure → `code` policy; warning emitted. (MS-0002
-      ships `code` as the effective default.)
+- [x] **Fallback (MS-0002, implemented GH-25):** the `code` policy is the
+      implemented default — a mermaid fence is preserved as a code macro with
+      `language=mermaid`, byte-stable across runs. (Render-failure → `code`
+      descent activates with a renderer in MS-0003+.)
 
 ## 6. References
 

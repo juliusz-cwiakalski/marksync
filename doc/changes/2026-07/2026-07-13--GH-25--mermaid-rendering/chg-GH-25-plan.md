@@ -488,4 +488,7 @@ unchanged.
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| (Populated during `/run-plan GH-25` execution) | | | | | |
+| Phase 1 | COMPLETED | 2026-07-13 | 2026-07-13 | 40717f2 | Added "code" to MermaidPolicy enum, flipped default from "render" to "code", updated schema description, updated joint config tests |
+| Phase 2 | COMPLETED | 2026-07-13 | 2026-07-13 | a0f22c3 | Created mermaid-code-policy golden fixture pair, bumped count from 25→26, added TC-MERM-001/TC-MERM-002 tests |
+| Phase 3 | COMPLETED | 2026-07-13 | 2026-07-13 | c1e2d9a | Added TC-MERM-INJECT describe block with 4 adversarial payload tests (script, onerror, javascript:, CDATA breakout) |
+| Phase 4 | COMPLETED | 2026-07-13 | 2026-07-13 | 5b790a1 | Quality gate passed (bun run check green), fixed pipeline-roundtrip test fixture count, spec reconciliation complete | |

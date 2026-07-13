@@ -24,11 +24,18 @@ cross_cutting: [R-FEA-1, NFR-SEC-5, NFR-PRIV-2]
 > `getBBox` returns zeros). This story must be re-scoped before delivery to choose
 > one of: (1) **Chromium-based render** (`mmdc`/Puppeteer) — faithful but violates
 > ADR-0001's single-binary/no-Chromium promise (owner decision); (2) **validated
-> SVG-layout shim** (`svgdom` / canvas-measured `getBBox`) — could preserve the
+> SVG-layout shim** (`svgdom` / canvas measured `getBBox`) — could preserve the
 > no-Chromium path but is unvalidated and **needs a follow-up spike**; or
 > (3) **accept the `code` policy as the MS-0002 default** and defer full rendering
 > to a later milestone. The ADR-0001 revisit trigger is activated — an owner
 > (CEO) decision is pending. Do not start delivery against the current scope.
+>
+> **✅ RESOLVED by CEO-DEC-1 (2026-07-13) — Option 3 chosen.** MS-0002 ships the
+> `code` policy as the default per ADR-0002 rung 7; full in-process rendering
+> deferred to MS-0003+. TypeScript/Bun locked in (ADR-0001 NOT revisited). The
+> re-scoped delivery is **GH-25** (implemented, tested, `bun run check` green).
+> This banner is preserved for history; see `chg-GH-25-spec.md` for the active
+> scope.
 
 ## Goal
 Production Mermaid rendering wired into the Markdown pipeline: detect ```` ```mermaid ```` fences, render to **deterministic SVG** via the official library in-process, sanitize, content-hash, attach to the page, and reuse unchanged diagrams (no re-upload). Fallback ladder with `code` policy as the MS-0002 floor. *(The "in-process via happy-dom" mechanism is blocked by the GH-11 spike outcome — see the re-planning banner above; the renderer path must be re-chosen.)*

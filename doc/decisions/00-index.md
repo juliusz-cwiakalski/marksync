@@ -25,6 +25,16 @@ All decision records for this repository, ordered by number.
 > runs but is insufficient for faithful rendering. Governance statuses remain
 > `Accepted`; the spike changed the substantive Part B / revisit-trigger state,
 > recorded in each record's body and Revision History.
+>
+> **Update 2026-07-13 (GH-25, lifecycle phase 7).** **CEO-DEC-1** resolved the
+> owner-level decision left open by the GH-11 spike: MS-0002 ships the `code`
+> policy (ADR-0002 rung 7) as the default; full in-process Mermaid SVG rendering
+> deferred to MS-0003+; TypeScript/Bun locked in — ADR-0001 NOT revisited (the
+> revisit trigger is resolved without fundamental reconsideration; catastrophic-FAIL
+> escalation never triggered). The `code` policy is implemented, tested, and
+> correctly defaulted under GH-25. ADR-0001/ADR-0002 governance statuses remain
+> `Accepted`; the open-question/resolution state is recorded in each record's body
+> and Revision History.
 
 | ID | Type | Title | Status | Date | Owners |
 |----|------|-------|--------|------|--------|

@@ -6,7 +6,7 @@ decision_type: adr
 status: Accepted
 created: 2026-07-03
 decision_date: null
-last_updated: 2026-07-06
+last_updated: 2026-07-13
 summary: "Reuse the official Mermaid library with content-hash attachment naming; defer the exact headless-rendering mechanism to a spike with a documented fallback ladder."
 owners:
   - Juliusz Ćwiąkalski
@@ -47,7 +47,7 @@ revisit_triggers:
   - "Mermaid upstream changes break headless/jdom rendering in a way that forces a container dependency."
   - "A higher-fidelity or lower-dependency rendering path becomes available (e.g., a maintained WASM build of Mermaid)."
 links:
-  related_changes: ["GH-11"]
+  related_changes: ["GH-11", "GH-25"]
   supersedes: []
   superseded_by: []
   spec: ["../inception/system-specification-draft-from-ai-brainstorm.md"]
@@ -232,9 +232,9 @@ The GH-11 spike ([findings](../../findings/mermaid-render-spike-findings.md)) pr
 | 2 | No hidden Chromium dependency | **PASS** | `bun pm ls --all` (transitive) → 0 `puppeteer`/`playwright`/`chromium`; runtime process delta 0. |
 | 3 | Bun single-binary compatibility | **PASS** | Full pipeline runs under Bun 1.1.34, no Node-only fallback. |
 | 4 | Acceptable rendering fidelity | **FAIL (0/5)** | happy-dom has **no SVG layout engine** — `SVGElement.prototype.getBBox` returns `{0,0,0,0}`. Sequence/class/state throw during render; flowchart/gantt produce degenerate output (no `<svg>` root, default 60×30 boxes, gantt negative widths). jsdom (next escalation rung) would also fail — no layout engine either. |
-| 5 | Safe Mermaid defaults | **PASS** | `securityLevel:"strict"` active; 0 `<script>`/event-handler/`javascript:` in adversarial output. Scope: validates Mermaid default-config XSS/script safety only; full SVG sanitization is deferred to MS2-E4-S1. |
+| 5 | Safe Mermaid defaults | **PASS** | `securityLevel:"strict"` active; 0 `<script>`/event-handler/`javascript:` in adversarial output. Scope: validates Mermaid default-config XSS/script safety only; full SVG sanitization is deferred to MS-0003+. |
 
-**Consequence:** stop criterion #4 (fidelity) FAILS, so **Part B does NOT advance to `spike-validated`**. For **MS-0002**, MarkSync descends the fallback ladder to **rung 7 — the `code` policy** (preserve the raw Mermaid code block instead of rendering). This **does not block MS-0002**. The catastrophic-FAIL escalation (no deterministic path at all) is **not** triggered — a deterministic path exists for the renderable fixtures; however, the finding that *faithful* no-Chromium rendering is not achievable with happy-dom or jsdom activates the ADR-0001 revisit trigger for owner review (see ADR-0001). A faithful in-process render would require either a Chromium-based path (violates ADR-0001's single-binary/no-Chromium promise — owner decision) or a validated SVG-layout shim (`svgdom` / canvas-measured `getBBox` polyfill — needs a follow-up spike).
+**Consequence:** stop criterion #4 (fidelity) FAILS, so **Part B does NOT advance to `spike-validated`**. For **MS-0002**, MarkSync descends the fallback ladder to **rung 7 — the `code` policy** (preserve the raw Mermaid code block instead of rendering). This **does not block MS-0002**. The catastrophic-FAIL escalation (no deterministic path at all) is **not** triggered — a deterministic path exists for the renderable fixtures; the finding that *faithful* no-Chromium rendering is not achievable with happy-dom or jsdom **activated** the ADR-0001 revisit trigger for owner review, which is **resolved by CEO-DEC-1 (2026-07-13)** — MS-0002 ships rung 7, full rendering deferred to MS-0003+, ADR-0001 stands (see ADR-0001 and the Revision History). A faithful in-process render would require either a Chromium-based path (violates ADR-0001's single-binary/no-Chromium promise — owner decision) or a validated SVG-layout shim (`svgdom` / canvas-measured `getBBox` polyfill — needs a follow-up spike).
 
 ### Fallback ladder (ordered, from preferred to last resort)
 
@@ -306,8 +306,8 @@ Because C-1 is conditional on the spike, **accepted-risk exceptions may be requi
 
 - [x] Can `mermaid.render()` produce deterministic SVG headless via happy-dom/jsdom without Chromium? — **Resolved by GH-11 (2026-07-06):** the in-process path runs and is same-OS byte-stable (H1/H2/H3 PASS), but it does **not** produce faithful output (H4 FAIL 0/5) because happy-dom and jsdom lack an SVG layout engine (`getBBox` returns zeros). Faithful rendering requires Chromium or a validated SVG-layout shim.
 - [ ] Which output format is the v1 default (SVG vs PNG) considering Confluence attachment fidelity + determinism? (owner: Juliusz Ćwiąkalski)
-- [ ] How to normalize Mermaid source for a stable hash without altering semantics? (owner: Juliusz Ćwiąkalski) — partial: the spike's digest-normalization rules (incl. the gantt `today`-line strip) are recorded in the GH-11 findings §5 for MS2-E4-S1 reuse.
-- [ ] **Owner decision (CEO-level):** given the H4 FAIL, is a faithful no-Chromium in-process render still viable for ADR-0001/ADR-0002 (via a validated SVG-layout shim such as `svgdom`/canvas `getBBox`), or does MS2-E4-S1 require a Chromium-based path that breaks ADR-0001's single-binary promise? Surfaced by GH-11; tracked in ADR-0001's revisit-trigger note.
+- [ ] How to normalize Mermaid source for a stable hash without altering semantics? (owner: Juliusz Ćwiąkalski) — partial: the spike's digest-normalization rules (incl. the gantt `today`-line strip) are recorded in the GH-11 findings §5 for MS-0003+ reuse.
+- [x] **Owner decision (CEO-level):** given the H4 FAIL, is a faithful no-Chromium in-process render still viable for ADR-0001/ADR-0002 (via a validated SVG-layout shim such as `svgdom`/canvas `getBBox`), or does MS2-E4-S1 require a Chromium-based path that breaks ADR-0001's single-binary promise? — **Resolved by CEO-DEC-1 (2026-07-13):** MS-0002 ships the `code` policy (rung 7) as the default; full in-process rendering deferred to MS-0003+; ADR-0001 NOT revisited. The `code` policy is implemented, tested, and correctly defaulted under GH-25.
 
 ## Implementation Plan
 
@@ -370,3 +370,7 @@ TODO: Populate after implementation.
   - Resolved the first Unresolved Question (deterministic headless SVG) per the spike; `last_updated` bumped to 2026-07-06; `links.related_changes` extended with `GH-11`.
   - The catastrophic-FAIL ADR-0001 escalation is **not** triggered, but the ADR-0001 revisit trigger **is** activated (see ADR-0001).
 - **2026-07-06** — Headless-DOM library clarified: **happy-dom is the preferred headless DOM for the in-process renderer and the Mermaid-DOM test tier** (per TDR-0004 and `.ai/rules/testing-strategy.md`, which post-date this ADR and chose happy-dom for Bun compatibility); **jsdom is the documented fallback/escalation** if happy-dom cannot shim a required Mermaid browser API. The ADR's earlier "jsdom" wording described the consideration space at authoring time; this amendment aligns the decision with the later tooling decisions without changing Part A/B semantics. The MS-0002 spike (E1-S1) and the production renderer (E4-S1) target happy-dom. (CEO-agent authorized under user-delegated autonomous authority; reconciles an inconsistency the owner already resolved in TDR-0004.)
+- **2026-07-13 (GH-25, lifecycle phase 7 reconciliation)** — Resolved the CEO-level owner decision left open by GH-11:
+  - **CEO-DEC-1 (2026-07-13, CEO-agent under user-delegated autonomous authority) chose Option 3:** MS-0002 ships the `code` policy (rung 7) as the default; full in-process Mermaid SVG rendering deferred to MS-0003+; ADR-0001 NOT revisited. Rationale: GH-11 proved happy-dom/jsdom lack an SVG layout engine (H4 FAIL 0/5); Chromium violates ADR-0001 single-binary; SVG-layout shim unvalidated; MS-0002 value is the safe publish, not rendering; code policy is deterministic + safe + reversible.
+  - The `code` policy is now the **implemented, tested, and correctly-defaulted** MS-0002 operating behavior under GH-25: the `MermaidPolicy` enum is `"code" | "render" | "skip"` with `"code"` as the config default; golden fixtures + adversarial injection-safety tests prove mermaid fences are preserved byte-stable as code macros.
+  - Resolved the last Unresolved Question (CEO-level owner decision) per CEO-DEC-1; updated the Spike-outcome consequence paragraph to record the decision authority. Governance status remains `Accepted`. `last_updated` bumped to 2026-07-13; `links.related_changes` extended with `GH-25`.
