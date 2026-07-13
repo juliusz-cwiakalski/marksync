@@ -12,7 +12,7 @@ area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005, ADR-0006, TDR-0003, ADR-0010]
-  related_changes: [GH-18, GH-20, GH-21, GH-22, GH-23, GH-24, GH-26, GH-63, GH-66]
+  related_changes: [GH-18, GH-20, GH-21, GH-22, GH-23, GH-24, GH-26, GH-63, GH-66, GH-69]
   summary: "Architecture overview — ports-and-adapters CLI; Markdown→Storage pipeline; Confluence Cloud adapter; UUID+lock state model; no hosted backend."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -36,7 +36,7 @@ flowchart LR
   MS -->|reads committed Markdown| Git[(Git repository)]
   MS -->|publishes pages/assets/properties| Conf[(Confluence Cloud)]
   MS -->|reads/writes secrets| Keyring[(OS keyring)]
-  MS -->|renders diagrams| Mermaid[official mermaid lib in-process]
+  MS -->|renders diagrams (opt-in)| Kroki[(Kroki API public endpoint)]
 ```
 
 - **MarkSync CLI** — a single self-contained binary that synchronizes Git-authored Markdown to Confluence pages (the system under description).
@@ -44,6 +44,7 @@ flowchart LR
 - **Git repository** — the authoritative engineering workspace; MarkSync reads committed snapshots (never pushes/pulls).
 - **Confluence Cloud** — the publication surface; MarkSync creates/updates pages, attachments, and content properties.
 - **OS keyring** — stores API tokens / OAuth refresh tokens; never written to project files.
+- **Kroki API** — an optional (opt-in `render` policy) public HTTP service (`https://kroki.io/mermaid/svg`) that renders Mermaid source to SVG; diagram content leaves the environment only when this policy is active (NFR-PRIV-2). On failure the pipeline falls back to the code block (ADR-0002 C-2).
 
 ## Container diagram (C4 L2)
 
@@ -96,12 +97,12 @@ section below govern residence and dependency direction._
 | Concurrency gates | MarkSync binary | domain | Decentralized optimistic-concurrency backstop for overlapping CI runs (ADR-0006 C-5/C-6): `assertOperationFresh` (operation-ID freshness via UUID-v7 time-prefix comparison), `assertPlanNotExpired` (stale-plan expiry, default 15 min, conservative boundary), `decideOnConflict` + `Decision` (409 re-fetch-once: reapply vs block over the `SyncState` matrix) — `src/domain/state/{operation-freshness,plan-expiry,conflict-policy}.ts`; `uuidV7Timestamp` extractor anchors both expiry and freshness via the `runId`'s embedded UUID-v7 timestamp (`src/domain/identity/uuid.ts`) *(delivered — GH-24)* |
 | Markdown parser | MarkSync binary | domain | Markdown → MDAST/HAST (remark + remark-frontmatter + remark-gfm); canonical subset validation. `parseMarkdown` (`src/domain/markdown/parse.ts`) → `mdastToHast` bridge (`src/domain/markdown/mdast-to-hast.ts`) → unsupported-node classifier emitting `UnsupportedConstruct` (`src/domain/markdown/unsupported.ts`) → canonical HAST + `contentHash` sha256 (`src/domain/render/canonicalize.ts`) *(delivered — GH-20; front-matter stripping — GH-63)* |
 | Asset resolver | MarkSync binary | domain | Path-safe, content-addressed local-image resolution. `AssetResolver` (`src/domain/assets/resolver.ts`) walks HAST `img` nodes, resolves each local `src` relative to the doc confined to the configured root (`realpath` + prefix check, symlink-aware → `Forbidden(path-traversal)`, NFR-SEC-7), sha256-identifies each asset, and rewrites the node to the dedup filename `marksync-asset-<sha256>.<ext>` (`src/domain/assets/naming.ts`); remote `http(s)` images skipped *(delivered — GH-26)* |
-| Mermaid artifact manager | MarkSync binary | domain | Calculate Mermaid content hash, detect whether a given hash already exists on the target, orchestrate render→upload→reference |
-| Push executor | MarkSync binary | application | Ordered safe writes via `TargetSystem` port; the `computePlan` (pure, no-writes dry-run) + `applyPlan` (parent-first, per-document isolation, journaling, provenance wiring, Conflict-as-drift with re-fetch-once policy) use cases at `src/app/push-flow.ts` *(delivered — GH-23)*. Concurrency gates wired in GH-24 — operation-freshness + stale-plan-expiry before each write, 409 re-fetch-once on `Conflict` (pure gates at `src/domain/state/`) *(delivered — GH-24)*. Asset resolution in `computePlan` + per-entry asset upload/reuse in `applyPlan` (reuse-on-exists → 0 writes; `PageBinding.attachmentHashes` merge) wired via `AssetResolver` (`src/domain/assets/`) *(delivered — GH-26)* |
+| Mermaid transform + port | MarkSync binary | domain | `Renderer` port (`src/domain/mermaid/port.ts`, `render(source): Promise<Result<Artifact, MarkSyncError>>`) + HAST transform (`src/domain/mermaid/transform.ts`): when `render.mermaid.policy === "render"`, walks HAST for `pre>code.language-mermaid`, renders each fence via the injected `Renderer`, dedups by source within-doc, and replaces the fence with an `img` node (→ `imageMacro` emits `<ac:image><ri:attachment>`); on `RemoteUnreachable` keeps the `pre` and collects a warning *(delivered — GH-69)* |
+| Push executor | MarkSync binary | application | Ordered safe writes via `TargetSystem` port; the `computePlan` (pure, no-writes dry-run) + `applyPlan` (parent-first, per-document isolation, journaling, provenance wiring, Conflict-as-drift with re-fetch-once policy) use cases at `src/app/push-flow.ts` *(delivered — GH-23)*. Concurrency gates wired in GH-24 — operation-freshness + stale-plan-expiry before each write, 409 re-fetch-once on `Conflict` (pure gates at `src/domain/state/`) *(delivered — GH-24)*. Asset resolution in `computePlan` + per-entry asset upload/reuse in `applyPlan` (reuse-on-exists → 0 writes; `PageBinding.attachmentHashes` merge) wired via `AssetResolver` (`src/domain/assets/`) *(delivered — GH-26)*. Mermaid transform wired into `computePlan` after asset resolution and before `renderBody` when `policy === "render"` — merges mermaid artifacts into `PlanEntry.assets`, populates `ContentHash.attachmentHashes`, and emits the one-time privacy warning *(delivered — GH-69)* |
 | Pull/conflict service | MarkSync binary | infrastructure | Reverse-sync patches/conflict workspace; never commits |
 | Lock/journal store | MarkSync binary | application | Lock atomic save (`saveLock`, delegating to the infra `writeAtomic` primitive at `src/infra/lock/store.ts`) + append-only journal writer + `replayJournal` for partial-apply recovery (`src/app/journal.ts`) *(delivered — GH-23)* |
 | Git adapter | MarkSync binary | infrastructure | `Repository` port (`src/domain/git/port.ts`) → shell-git adapter (`createShellGit`, `src/infra/git/shell-git.ts`) via Git CLI (TDR-0003); read-only committed snapshots *(delivered — GH-23)* |
-| Mermaid renderer | MarkSync binary | infrastructure | `Renderer` interface → official `mermaid` + jsdom (ADR-0002); produces image bytes + hash |
+| Mermaid renderer (Kroki) | MarkSync binary | infrastructure | `KrokiClient` (`src/infra/mermaid/kroki.ts`) implements the `Renderer` port: `POST https://kroki.io/mermaid/svg` with the diagram source as `text/plain`, 30 s `AbortController` timeout, HTTP 4xx/5xx + network/timeout → `RemoteUnreachable`; on 200 reads SVG bytes, computes full sha256, and returns `Artifact { bytes, mime: "image/svg+xml", hash, kind: "mermaid" }` (ADR-0002 rung 6) *(delivered — GH-69)* |
 
 ### Confluence adapter components (target-system-specific, behind `TargetSystem` port)
 
@@ -139,12 +140,12 @@ flowchart TB
     State["State classifier"]
     MD["Markdown parser\n(remark)"]
     Asset["Asset resolver"]
-    MermaidMgr["Mermaid artifact manager\n(hash + dedup)"]
+    Mermaid["Mermaid transform\n(Renderer port + HAST walk)"]
   end
 
   subgraph infra [Infrastructure tier]
     Git["Git adapter\n(shell-git → Repository port)"]
-    Render["Mermaid renderer\n(Renderer port)"]
+    Kroki["Kroki renderer\n(Renderer port impl)"]
     subgraph confadapter [Confluence adapter — TargetSystem port]
       ConfClient["Confluence client\n(REST v2/v1)"]
       ConfRender["Storage renderer\n(HAST → Storage)"]
@@ -157,12 +158,12 @@ flowchart TB
 
   CLI --> App
   Out --> App
-  App --> Hierarchy & Link & State & MD & Asset & MermaidMgr
+  App --> Hierarchy & Link & State & MD & Asset & Mermaid
   App --> Lock
-  App -.->|"via ports"| Git & Render & ConfClient
+  App -.->|"via ports"| Git & Kroki & ConfClient
   App -.->|"via TargetSystem port"| ConfClient & ConfAttach
-  MermaidMgr --> Render
-  Render --> ConfAttach
+  Mermaid --> Kroki
+  Kroki --> ConfAttach
   Hierarchy --> Link
   MD --> ConfRender
   ConfRender -.->|"renderBody via port"| App
@@ -237,7 +238,7 @@ the integration-scenarios docs (`doc/inception/integration-scenarios/`)._
 | app → target system port | searchPages | `searchPages(cql)` | `Result<PageRef[], MarkSyncError>` | `RateLimited`, `RemoteUnreachable` |
 | app → target system port | getRestrictions | `getRestrictions(pageId)` | `Result<PageRestrictions, MarkSyncError>` | `Forbidden`, `RateLimited`, `RemoteUnreachable` |
 | app → target system port | reverseConvert | `reverseConvert(bodyRepr)` | `MdastRoot` | `UnsupportedConstruct` (`MS-0005+`) |
-| app → mermaid port | render | `render(source, opts)` | `Artifact{ bytes, mime, hash }` | `RenderUnavailable` (→ fallback ladder) *(deferred to MS-0003+; MS-0002 ships the `code` policy — mermaid fences preserved as code macros, GH-25 / CEO-DEC-1)* |
+| app → mermaid port | render | `render(source)` → `Promise<Result<Artifact, MarkSyncError>>` | `Artifact{ bytes, mime: "image/svg+xml", hash, kind: "mermaid" }` | `RemoteUnreachable` (HTTP 4xx/5xx, DNS, timeout) → per-fence fallback to `code` block + warning (ADR-0002 C-2). Port at `src/domain/mermaid/port.ts`; implemented by `KrokiClient` (`src/infra/mermaid/kroki.ts`, public Kroki — rung 6, opt-in `render` policy with a one-time privacy warning). The in-process rung-1 adapter (Part B) is deferred to MS-0003+ *(delivered — GH-69; code-policy default — GH-25)* |
 | app → link resolver | resolveLink | `resolveLink(sourcePath, target, bindings)` | `Result<PageRef \| string, MarkSyncError>` | `UnresolvedLink` for an unresolvable `.md` target; external/anchor/non-`.md` targets pass through as the original string *(delivered — GH-23)* |
 | app → state classifier | classify | `classify({ local?, base?, remote })` | `Result<SyncState, MarkSyncError>` | `Forbidden` (when `remote.kind === "forbidden"` — not a sync state); `local` optional (absent ⇒ `LOCAL_MISSING`); invoked only for bound documents |
 | app → lock store | commit | `commit(newLock)` | `void` | `LockDirty`, `ConcurrentWrite` |
@@ -259,7 +260,7 @@ converter. The `Renderer` interface mirrors spec §9.11.
 | Safe publish (create/update/no-op) | app, hierarchy planner, Confluence Storage renderer, push executor |
 | Drift detection + conflict block | state classifier, push executor |
 | Document identity (UUID + lock) | identity module, page binding, lock/journal store, Confluence content property manager |
-| Mermaid render + attach | Mermaid renderer, Mermaid artifact manager, Confluence attachment manager |
+| Mermaid render + attach | mermaid transform + Renderer port (`src/domain/mermaid/`), Kroki renderer (`src/infra/mermaid/`), push executor (wiring), Confluence attachment manager |
 | Cross-page link resolution | link resolver, hierarchy planner, Confluence client (page ID lookup) |
 | Concurrency control (CI) | push executor (wiring), concurrency gates (`src/domain/state/`), lock store |
 | Provenance (page history) | Confluence page-history provenance |
@@ -312,7 +313,8 @@ flowchart TD
 | Confluence Cloud REST API (v2 + v1; version split below) | Page CRUD, content properties, attachments, labels, search, restrictions | Atlassian | **High** — the only remote system |
 | Git CLI | Read committed snapshots, worktree status, renames | local install | High — source of truth reader |
 | OS keyring | API token / OAuth token storage | OS | Medium — env fallback exists |
-| official `mermaid` npm package | Diagram rendering | open source (Mermaid) | High — load-bearing for ADR-0001 |
+| Kroki public API (`https://kroki.io/mermaid/svg`) | Mermaid diagram rendering (opt-in `render` policy, ADR-0002 rung 6) | Yuzutech (open source) | Medium — opt-in only; network failure falls back to `code` block (ADR-0002 C-2); reached via built-in `fetch` (no dependency) *(delivered — GH-69)* |
+| official `mermaid` npm package | In-process diagram rendering (design target, Part B — MS-0003+) | open source (Mermaid) | High — load-bearing for ADR-0001; not yet installed (in-process renderer deferred per GH-11 / CEO-DEC-1) |
 | Atlassian auth (API token / OAuth 3LO) | Identity | Atlassian | High |
 
 > **Confluence API version split** (informed by the `MS-0001` spike, refined by

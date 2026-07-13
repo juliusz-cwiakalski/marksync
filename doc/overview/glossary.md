@@ -66,13 +66,14 @@ Documentation Handbook §9 for the glossary-vs-UL distinction._
 | **Journal** | A per-run log (`<run-id>.jsonl`) recording each mutation immediately, enabling partial-apply recovery via `repair-state`. | State | Journal Entry |
 | **JSON Schema** | A JSON-based schema language used to validate MarkSync config and lock files (via `ajv`). | Tooling | — |
 | **Keyring** | The OS-managed credential store (macOS Keychain, Windows Credential Manager, Linux Secret Service). Optional for `MS-0002`; env-token is the guaranteed path. | Security | — |
+| **Kroki** | A public HTTP diagram-rendering service (`https://kroki.io`). MarkSync's opt-in `render` policy POSTs Mermaid source to `https://kroki.io/mermaid/svg` and receives SVG (ADR-0002 rung 6); a one-time privacy warning is emitted because diagram content leaves the environment (NFR-PRIV-2). Network failure falls back to the `code` block (ADR-0002 C-2). Reached via built-in `fetch` (no dependency). | Tooling | — |
 | **Lifecycle invariant** | A release-blocking property enforced via Gherkin/BDD: INV-SAFE-1 (no silent overwrite), INV-SAFE-2 (no silent re-create of REMOTE_MISSING), INV-SAFE-3 (duplicate-UUID fatal), INV-SEC-1 (no secrets in output). | Safety | — |
 | **Lock file** | A committed, versioned file recording per-document bindings: UUID → page ID, parent, version, hashes, shared base. Like `package-lock.json` for npm. | State | Shared Base |
 | **Managed page** | A Confluence page tracked by MarkSync (has a UUID + lock entry + content property). | Domain | Managed Document |
 | **marksync init** | CLI command that writes a valid starter `marksync.yml` (round-trips through `loadConfig`, refuses to overwrite an existing file), then assigns a UUID v7 to each discovered managed document's front-matter (`marksync.uuid`). UUID injection is idempotent — a document that already carries an identity is left unchanged. | CLI | — |
 | **marksync.yml** | The repository-owned YAML configuration file consumed by every MarkSync use-case. Shape defined by the v1 JSON Schema (`src/domain/config/schema.json`); holds no secrets. | State | — |
 | **MDAST** | Markdown Abstract Syntax Tree — the parsed tree format produced by `remark`. | Domain | — |
-| **Mermaid** | A diagram-as-code language (flowcharts, sequence diagrams, etc.). MarkSync renders it via the official library in-process (ADR-0002). | Domain | — |
+| **Mermaid** | A diagram-as-code language (flowcharts, sequence diagrams, etc.). MS-0002 preserves it as a code block by default (`code` policy); the opt-in `render` policy renders it to SVG via the public Kroki API (ADR-0002 rung 6); the in-process official-library renderer (rung 1) is the design target for MS-0003+. | Domain | — |
 | **NDJSON** | Newline-Delimited JSON — one JSON object per line. A machine-readable output format. | Operability | — |
 | **NSM** | North Star Metric — the primary success measure. MarkSync's NSM is "automation coverage of documentation publishing." | Strategy | — |
 | **OAuth 3LO** | OAuth 2.0 three-legged authorization — Atlassian's modern auth flow. Deferred beyond `MS-0002`; API token is the `MS-0002` path. | Auth | — |

@@ -12,7 +12,7 @@ area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005, ADR-0006, TDR-0002, TDR-0003, TDR-0004, ADR-0010, ADR-0011]
-  related_changes: [GH-63]
+  related_changes: [GH-63, GH-69]
   summary: "Tech stack — TypeScript + Bun single-binary CLI; remark/HAST Markdown pipeline; official Mermaid; Confluence Storage Format; local-first, no DB."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -25,12 +25,14 @@ self-contained binary per OS/arch with no mandatory language runtime; (3) cross-
 compile to Linux/macOS/Windows × amd64/arm64. The spike (`MS-0001`) proved the
 Confluence contract; ADR-0005 settled Storage over ADF._
 
-> **Spike-gated items.** Two entries are explicitly contingent on the ADR-0002
-> headless-render spike (`A-FEA-1`, `testing`): the Mermaid in-process render
-> path and, transitively, the full justification for TypeScript over Go. If the
-> spike fails late, the `MS-0002` fallback is render-failure policy `code`
-> (preserve the code block) and full in-process render moves to `MS-0003`
-> (`02-roadmap.md`).
+> **Spike-gated items — resolved.** The ADR-0002 headless-render spike (`A-FEA-1`,
+> GH-11) returned a PARTIAL verdict: the in-process path runs but lacks an SVG
+> layout engine (H4 FAIL). `MS-0002` therefore ships the `code` policy as the
+> default (GH-25) and the opt-in `render` policy via the **public Kroki API**
+> (ADR-0002 rung 6, reached with built-in `fetch` — no new dependency; GH-69); the
+> deterministic **in-process** renderer (`mermaid` + `happy-dom`) and its
+> load-bearing justification for TypeScript over Go move to `MS-0003+`
+> (`02-roadmap.md`). TypeScript/Bun is locked in (CEO-DEC-1).
 
 ## Languages and runtimes
 
@@ -55,8 +57,8 @@ Confluence contract; ADR-0005 settled Storage over ADF._
 | `remark` + `remark-gfm` (unified) | latest | Markdown → MDAST parser; GFM table/task-list/strikethrough support |
 | `remark-frontmatter` (unified) | latest | Strips document-leading YAML front-matter (`marksync.uuid`) from the MDAST before rendering (GH-63) |
 | `rehype` + `remark-rehype` | latest | MDAST → HAST (HTML AST); the bridge to Storage rendering |
-| `happy-dom` | latest | Headless DOM for in-process Mermaid `mermaid.render()` (preferred per TDR-0004; spike-gated, ADR-0002). **Output = SVG** (byte-stable); enable `deterministicIds: true` + fixed `fontFamily`. `jsdom` is the documented fallback if happy-dom cannot shim a required Mermaid browser API. |
-| `mermaid` (official npm) | latest | Diagram rendering — the load-bearing dependency justifying TypeScript (ADR-0001/0002) |
+| `happy-dom` | latest | Headless DOM for in-process Mermaid `mermaid.render()` (preferred per TDR-0004). **Deferred to MS-0003+** (GH-11 H4 FAIL — no SVG layout engine; `jsdom` is the documented fallback if a shim path emerges) |
+| `mermaid` (official npm) | latest | Diagram rendering — the load-bearing dependency justifying TypeScript (ADR-0001/0002). **Deferred to MS-0003+** (GH-11 H4 FAIL; MS-0002 renders via Kroki HTTP API using built-in `fetch` — no `mermaid` npm dependency, GH-69) |
 | `uuid` (v9+) | latest | UUID v7 generation for document identity (ADR-0006). `crypto.randomUUID()` fallback where v7 is available |
 | `ajv` (JSON Schema) | latest | YAML config + lock file schema validation |
 | `zod` | latest | Runtime typing for IO boundaries (config, plan, diagnostics) |
@@ -109,7 +111,7 @@ Confluence contract; ADR-0005 settled Storage over ADF._
 
 - **TypeScript + Bun** — the only stack that runs the official Mermaid library in-process **and** ships a no-runtime single binary (ADR-0001).
 - **`remark`/`unified`** — mature AST pipeline; deterministic; the HAST→Storage transform is thin (ADR-0005).
-- **`jsdom` + `mermaid`** — official-library fidelity without Chromium (spike-gated; ADR-0002).
+- **`jsdom` + `mermaid`** — official-library fidelity without Chromium; the GH-11 spike proved the path runs but lacks an SVG layout engine (H4 FAIL). MS-0002 renders via Kroki HTTP instead (ADR-0002 rung 6); the in-process path re-evaluates in MS-0003+ (SVG-layout shim or Chromium).
 - **Native `fetch`/`WebCrypto`** — zero HTTP/crypto dependencies; standards-compliant across runtimes.
 - **`ajv`/`zod`** — config/lock schema validation catches user errors before any write.
 - **`pino`** — structured, redactable, low-overhead logging.
@@ -140,5 +142,5 @@ Confluence contract; ADR-0005 settled Storage over ADF._
 
 - **Value** — the stack delivers the trust wedge (safe publish + drift + Mermaid fidelity); no stack choice compromises the wedge.
 - **Usability** — single binary = low setup friction (A-USA-1); Bun binary size (~50–90 MB) is an accepted tradeoff (ADR-0001).
-- **Feasibility** — **spike-gated**: ADR-0002 Mermaid headless render (`A-FEA-1`, `testing`) and Bun signing (`A-FEA-2`, `unvalidated`) are the load-bearing unknowns.
+- **Feasibility** — ADR-0002 Mermaid headless render (`A-FEA-1`) is **resolved** (GH-11 PARTIAL — in-process renderer deferred to MS-0003+; MS-0002 ships `code` + Kroki `render`); Bun signing (`A-FEA-2`) remains the load-bearing unknown.
 - **Viability** — TS + OSS ecosystem is sustainable for a single maintainer; deliberately narrow `MS-0002` matrix (Cloud, one auth path) controls combinatorial support load (A-VIA-2).

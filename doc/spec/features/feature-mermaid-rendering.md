@@ -9,14 +9,14 @@ last_updated: 2026-07-13
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: ["GH-11", "GH-25"]
+  related_changes: ["GH-11", "GH-25", "GH-69"]
   decisions: [ADR-0001, ADR-0002, TDR-0004]
   contracts: []
 ---
 
 # Feature Specification: Mermaid Diagram Rendering
 
-> Deterministic in-process Mermaid rendering — no external service dependency (design target). MS-0002 ships the ADR-0002 fallback `code` policy as the default — **implemented, tested, and correctly defaulted (GH-25)**; the in-process renderer is deferred to MS-0003+ pending a faithful-render path.
+> Mermaid diagrams render as SVG image attachments. MS-0002 ships the `code` policy as the default (GH-25) and the opt-in `render` policy via the public Kroki API — ADR-0002 fallback-ladder rung 6 (GH-69). The deterministic **in-process** renderer (Part B) remains the design target, deferred to MS-0003+ pending a faithful-render path (GH-11 H4 FAIL).
 
 ## 1. Overview
 
@@ -38,15 +38,21 @@ does not block MS-0002. The in-process renderer is deferred to MS-0003+ pending
 a faithful-render path (Chromium-based, or a validated SVG-layout shim such as
 `svgdom`/canvas-measured `getBBox`).
 
-> **Implemented state (GH-25, 2026-07-13).** The `code` policy is the implemented,
-> tested, and correctly-defaulted MS-0002 operating behavior. The config
-> `MermaidPolicy` enum is `"code" | "render" | "skip"` with `"code"` as the
-> default (aligned with ADR-0002 rung-7 terminology). Because no renderer exists
-> in MS-0002, all three policy values produce the same observable output — the
-> Mermaid source is emitted as a code macro with `language=mermaid`. Golden
-> fixtures prove mermaid fences are preserved byte-stable; adversarial fixtures
-> prove XSS/`<script>`/`onerror`/`javascript:` payloads are inert inside the
-> CDATA code body (NFR-SEC-5).
+> **Implemented state (GH-25 + GH-69, 2026-07-13).** The `MermaidPolicy` config
+> enum is `"code" | "render" | "skip"` with `"code"` as the default. The `code`
+> and `skip` policies emit the Mermaid source as a code macro with
+> `language=mermaid` (GH-25) — golden fixtures prove byte-stability and
+> adversarial fixtures prove XSS/`<script>`/`onerror`/`javascript:` payloads are
+> inert inside the CDATA code body (NFR-SEC-5). The `render` policy is
+> **implemented** (GH-69) via the public Kroki API (ADR-0002 rung 6): each
+> `language-mermaid` fence is POSTed to `https://kroki.io/mermaid/svg`, the
+> returned SVG is content-hashed (full sha256) and uploaded as the attachment
+> `marksync-mermaid-<fullhash>.svg` via the GH-26 asset pipeline, and the fence is
+> replaced by an `<ac:image><ri:attachment>` reference. A one-time privacy warning
+> is emitted per run because diagram content leaves the user's environment
+> (NFR-PRIV-2); network failures fall back to the code block with a warning
+> (ADR-0002 C-2). The deterministic **in-process** renderer (Part B) is still
+> deferred to MS-0003+ pending a faithful-render path (GH-11 H4 FAIL).
 
 ## 2. Business Context
 
@@ -64,16 +70,25 @@ a faithful-render path (Chromium-based, or a validated SVG-layout shim such as
 
 ### 3.1 Capabilities
 
-- **Render Mermaid → SVG (design target):** in-process via official `mermaid`
-  library. Deferred to MS-0003+ pending a faithful-render path (GH-11 H4 FAIL).
-- **MS-0002 default — `code` policy (ADR-0002 rung 7), implemented + tested
-  (GH-25):** the `MermaidPolicy` config enum is `"code" | "render" | "skip"`
-  with `"code"` as the default. Preserve the raw Mermaid code block instead of
-  rendering. Safe, deterministic, and does not block MS-0002. Because no
-  renderer exists in MS-0002, all three policy values produce the same
-  observable output (the code macro with `language=mermaid`); the values differ
-  in documented intent for MS-0003+. `"render"` is a forward-compatible
-  placeholder that descends to `code` until the renderer lands.
+- **`render` policy — remote SVG via Kroki (implemented, GH-69):** when
+  `render.mermaid.policy === "render"`, each `language-mermaid` fence is rendered
+  to SVG via `POST https://kroki.io/mermaid/svg` (ADR-0002 fallback-ladder rung 6,
+  public Kroki — opt-in). The SVG bytes are content-hashed (full sha256) and
+  uploaded as `marksync-mermaid-<fullhash>.svg` via the GH-26 asset pipeline
+  (`Renderer` port → `KrokiClient` adapter; `src/domain/mermaid/transform.ts`
+  replaces the fence with an `<img>` node so the Storage renderer emits
+  `<ac:image><ri:attachment>`). This is **remote** rendering, not the in-process
+  path: the one-time-per-run privacy warning (NFR-PRIV-2) reflects that diagram
+  content is sent to a third-party endpoint.
+- **`code` policy — default (ADR-0002 rung 7, implemented GH-25):** the
+  `MermaidPolicy` config enum is `"code" | "render" | "skip"` with `"code"` as the
+  default. Preserve the raw Mermaid source as a code macro with
+  `language=mermaid`. Safe, deterministic, and sends no content remotely.
+- **In-process render via official `mermaid` library (design target, Part B):**
+  the deterministic in-process renderer remains the design target but is
+  **deferred to MS-0003+** pending a faithful-render path (GH-11 H4 FAIL —
+  happy-dom/jsdom lack an SVG layout engine). When it lands, it occupies rung 1
+  of the ADR-0002 fallback ladder.
 - **Deterministic output (when rendering):** `deterministicIds: true` plus the
   digest-normalization rules (§3.4) ensure stable element IDs; same logical
   input → same SVG bytes on a given OS (after normalization) and same attachment
@@ -82,8 +97,10 @@ a faithful-render path (Chromium-based, or a validated SVG-layout shim such as
   `htmlLabels: false`; SVG sanitized; no external resource loading.
 - **Content hashing:** render output is content-hashed for attachment reuse
   (unchanged diagram → reused attachment, no re-upload).
-- **Fallback ladder:** `render` → … → `code` policy (preserve block) as the
-  last resort. MS-0002 ships `code` as the implemented default (GH-25).
+- **Fallback ladder (ADR-0002):** in-process (rung 1, deferred to MS-0003+) → … →
+  public Kroki (rung 6, opt-in `render` policy — GH-69) → `code` policy (rung 7,
+  the default — GH-25). On a Kroki network failure the `render` policy descends
+  per-fence to the `code` block with a warning (ADR-0002 C-2).
 
 ### 3.2 Attachment identity
 
@@ -95,6 +112,12 @@ output-format + theme + security-config + font-policy + scale + background
 ```
 
 Unchanged logical render input → same hash → same attachment → no re-upload.
+
+> **Implemented Kroki path (GH-69).** The remote render path hashes the SVG bytes
+> returned by Kroki (full sha256) rather than the logical-input formula above —
+> Kroki's output is the artifact content, so hashing it directly drives both
+> dedup (`attachmentExists`) and the `marksync-mermaid-<fullhash>.svg` filename.
+> The logical-input formula applies to the in-process renderer (Part B, MS-0003+).
 
 ### 3.3 Normalization rules (digest stability)
 
@@ -137,6 +160,13 @@ semantics.
 
 - **Malformed Mermaid source:** render fails → fallback to `code` policy
   (preserve block); emit warning.
+- **Kroki network failure / timeout (GH-69):** a `RemoteUnreachable` (HTTP 4xx/5xx,
+  DNS failure, or 30 s timeout) on the Kroki endpoint leaves the fence unchanged
+  so it renders as a code macro; a per-fence warning is surfaced (ADR-0002 C-2).
+  The run continues (per-document isolation).
+- **Privacy (NFR-PRIV-2):** the `render` policy sends diagram content to
+  `https://kroki.io`; a one-time warning is emitted per run. The `code`/`skip`
+  policies send no content remotely.
 - **Mermaid security advisory:** `securityLevel: strict` + SVG sanitization;
   adversarial input fixture suite (NFR-SEC-5).
 - **Large diagrams:** size guard; warn if render output exceeds threshold.
@@ -150,28 +180,45 @@ The design target is a renderer that runs in a headless DOM environment
 sanitized, and content-hashed. The GH-11 spike established that happy-dom/jsdom
 run the library but cannot produce faithful output (no SVG layout engine), so
 this design is **not yet implemented** and the production renderer choice is
-deferred to MS-0003+ (Chromium-based, or a validated SVG-layout shim). For
-MS-0002 the pipeline emits the raw Mermaid block under the `code` policy.
+deferred to MS-0003+ (Chromium-based, or a validated SVG-layout shim). For the
+remote render path, MS-0002 wires the `render` policy to the public Kroki API
+(GH-69) — an HTTP adapter (`src/infra/mermaid/kroki.ts`) behind the domain
+`Renderer` port; the default `code` policy emits the raw Mermaid block.
 
 ### 4.2 Core components
 
-| Component | Responsibility |
-|---|---|
-| MermaidRenderer | Loads official Mermaid, renders source → SVG |
-| DOMEnvironment | happy-dom headless environment (TDR-0004) |
-| SVGSanitizer | Strips unsafe elements/attributes |
-| AttachmentHasher | Deterministic hash for attachment identity |
+| Component | Responsibility | Status |
+|---|---|---|
+| `Renderer` port (`src/domain/mermaid/port.ts`) | Domain interface: `render(source): Promise<Result<Artifact, MarkSyncError>>` | Implemented (GH-69) |
+| `KrokiClient` (`src/infra/mermaid/kroki.ts`) | HTTP adapter: POSTs source to `https://kroki.io/mermaid/svg`, 30 s timeout, maps HTTP/network errors → `RemoteUnreachable`, hashes SVG bytes → `Artifact` | Implemented (GH-69) |
+| HAST transform (`src/domain/mermaid/transform.ts`) | Discovers `language-mermaid` fences, calls `Renderer.render()` under `render` policy, replaces `pre` with synthetic `img` node, in-doc dedup, per-fence fallback on error | Implemented (GH-69) |
+| `AttachmentService` (`src/infra/confluence/attachments.ts`) | `attachmentFilename()` → `marksync-mermaid-<fullhash>.svg`; `uploadAssets` / `attachmentExists` reuse path (GH-26) | Implemented (GH-26) |
+| `MermaidRenderer` (in-process) | Loads official Mermaid, renders source → SVG in headless DOM | Deferred — MS-0003+ (GH-11 H4 FAIL) |
+| `DOMEnvironment` | happy-dom headless environment (TDR-0004) | Deferred — MS-0003+ |
+| `SVGSanitizer` | Strips unsafe elements/attributes | Deferred — MS-0003+ |
 
 ### 4.3 Key decisions
 
 - **ADR-0001:** TypeScript chosen partly because Mermaid ecosystem is TS-native.
 - **ADR-0002:** Official library in-process; `securityLevel: strict`;
-  `deterministicIds: true`; fallback ladder (`strict` → `loose` → `code`).
-- **TDR-0004:** bun:test + happy-dom for Mermaid-DOM rendering tests.
+  `deterministicIds: true`; ordered fallback ladder (in-process → mmdc CLI →
+  container → Kroki remote → `code` block). MS-0002 implements rung 6 (Kroki
+  via `render` policy, GH-69) and rung 7 (`code` default, GH-25); rungs 1–5
+  are deferred to MS-0003+.
+- **TDR-0004:** bun:test + happy-dom for Mermaid-DOM rendering tests
+  (applicable when the in-process renderer lands in MS-0003+; the Kroki path
+  is tested with a mocked renderer — see the test spec).
 
 ## 5. Acceptance criteria
 
-- [ ] **Determinism (when rendering):** same Mermaid source + config →
+- [x] **Render policy (Kroki, implemented GH-69):** `render.mermaid.policy:
+      render` → each mermaid fence renders as
+      `<ac:image><ri:attachment ri:filename="marksync-mermaid-<fullhash>.svg"/>`;
+      the attachment exists on the page after apply. The `code` policy preserves
+      the raw code as `<ac:structured-macro ac:name="code">` with
+      `language=mermaid`. *(ADR-0002 rung 6; evidenced by GH-69 integration +
+      golden fixtures.)*
+- [ ] **Determinism (when rendering in-process):** same Mermaid source + config →
       byte-identical normalized SVG across runs on a given OS (cross-OS
       hash-stable via per-OS cache key, ADR-0002 C-1 / DEC-3). *Evidenced for
       the renderable fixtures by GH-11 (H1 PASS-caveat).*
@@ -187,11 +234,17 @@ MS-0002 the pipeline emits the raw Mermaid block under the `code` policy.
       rung 7)** — this does not block MS-0002. The in-process renderer is deferred
       to MS-0003+ pending a faithful-render path. **The `code` policy is
       implemented, tested, and correctly defaulted under GH-25 (CEO-DEC-1).**
-- [ ] **Attachment reuse:** unchanged diagram → same hash → no re-upload.
-- [x] **Fallback (MS-0002, implemented GH-25):** the `code` policy is the
+- [x] **Attachment reuse:** unchanged diagram → same full-sha256 hash → same
+      `marksync-mermaid-<hash>.svg` → 0 re-uploads on the second run
+      (`attachmentExists` short-circuits). *Render-policy dedup evidenced by
+      GH-69; the in-process renderer's cross-OS hash formula applies when Part B
+      lands (MS-0003+).*
+- [x] **Fallback (MS-0002, implemented GH-25 + GH-69):** the `code` policy is the
       implemented default — a mermaid fence is preserved as a code macro with
-      `language=mermaid`, byte-stable across runs. (Render-failure → `code`
-      descent activates with a renderer in MS-0003+.)
+      `language=mermaid`, byte-stable across runs. Under the `render` policy, a
+      Kroki failure descends per-fence to the code block with a warning
+      (ADR-0002 C-2). (In-process render-failure → `code` descent activates with
+      a renderer in MS-0003+.)
 
 ## 6. References
 

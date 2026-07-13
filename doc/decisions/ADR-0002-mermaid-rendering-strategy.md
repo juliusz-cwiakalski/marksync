@@ -47,7 +47,7 @@ revisit_triggers:
   - "Mermaid upstream changes break headless/jdom rendering in a way that forces a container dependency."
   - "A higher-fidelity or lower-dependency rendering path becomes available (e.g., a maintained WASM build of Mermaid)."
 links:
-  related_changes: ["GH-11", "GH-25"]
+  related_changes: ["GH-11", "GH-25", "GH-69"]
   supersedes: []
   superseded_by: []
   spec: ["../inception/system-specification-draft-from-ai-brainstorm.md"]
@@ -374,3 +374,4 @@ TODO: Populate after implementation.
   - **CEO-DEC-1 (2026-07-13, CEO-agent under user-delegated autonomous authority) chose Option 3:** MS-0002 ships the `code` policy (rung 7) as the default; full in-process Mermaid SVG rendering deferred to MS-0003+; ADR-0001 NOT revisited. Rationale: GH-11 proved happy-dom/jsdom lack an SVG layout engine (H4 FAIL 0/5); Chromium violates ADR-0001 single-binary; SVG-layout shim unvalidated; MS-0002 value is the safe publish, not rendering; code policy is deterministic + safe + reversible.
   - The `code` policy is now the **implemented, tested, and correctly-defaulted** MS-0002 operating behavior under GH-25: the `MermaidPolicy` enum is `"code" | "render" | "skip"` with `"code"` as the config default; golden fixtures + adversarial injection-safety tests prove mermaid fences are preserved byte-stable as code macros.
   - Resolved the last Unresolved Question (CEO-level owner decision) per CEO-DEC-1; updated the Spike-outcome consequence paragraph to record the decision authority. Governance status remains `Accepted`. `last_updated` bumped to 2026-07-13; `links.related_changes` extended with `GH-25`.
+- **2026-07-13 (GH-69, lifecycle phase 7 reconciliation)** — Rung 6 (public Kroki) is now wired as the `render` policy implementation. The `render` policy activates `POST https://kroki.io/mermaid/svg` → SVG → content-hashed attachment (`marksync-mermaid-<fullhash>.svg`) via the GH-26 pipeline; the domain `Renderer` port (`src/domain/mermaid/port.ts`) is implemented by the `KrokiClient` HTTP adapter (`src/infra/mermaid/kroki.ts`), and `src/domain/mermaid/transform.ts` replaces each mermaid fence with an `<img>` node. Privacy warning emitted once per run when `render` is active (NFR-PRIV-2 / C-3); network failures descend per-fence to the `code` block with a warning (C-2). `code` remains the default. This **does not** change the decision status, the fallback-ladder ordering, or the in-process Part B spike-gating — Part B remains deferred to MS-0003+. The hash for the Kroki path is the full sha256 of the SVG bytes (not the logical-input formula, which applies to Part B). `links.related_changes` extended with `GH-69`.
