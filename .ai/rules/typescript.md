@@ -133,10 +133,10 @@ export const EXIT_USAGE = 2;
 | Use-case orchestration | `src/app/` | `src/app/push-flow.ts` |
 | Config/lock loading | `src/app/config.ts` | |
 | Domain rule | `src/domain/<context>/` | `src/domain/state/classifier.ts` |
-| Port interface | `src/domain/<context>/port.ts` | `src/domain/target/port.ts` (defines `TargetSystem`); `src/domain/git/port.ts` (defines `Repository`); `src/domain/render/port.ts` (defines `Renderer`) |
+| Port interface | `src/domain/<context>/port.ts` | `src/domain/target/port.ts` (defines `TargetSystem`); `src/domain/git/port.ts` (defines `Repository`); `src/domain/mermaid/port.ts` (defines `Renderer`) |
 | Confluence adapter | `src/infra/confluence/` | `src/infra/confluence/client.ts` |
 | Git adapter | `src/infra/git/` | `src/infra/git/shell-git.ts` |
-| Mermaid renderer | `src/infra/mermaid/` | `src/infra/mermaid/renderer.ts` |
+| Mermaid renderer | `src/infra/mermaid/` | `src/infra/mermaid/kroki.ts` (Kroki HTTP adapter; `src/domain/mermaid/transform.ts` is the domain HAST transform) |
 | Test | `tests/` mirroring `src/` | `tests/domain/state/classifier.test.ts` |
 | Golden fixture | `tests/golden/fixtures/` | `tests/golden/fixtures/headings.storage.xhtml` |
 
@@ -681,8 +681,8 @@ export interface ResultError { code: string; message: string; retryable: boolean
 
 | Dependency | Role | Milestone |
 |---|---|---|
-| `mermaid` | Diagram rendering (ADR-0002) | MS-0002 E4-S1 |
-| `jsdom` / `happy-dom` | Headless DOM for Mermaid tests | MS-0002 E4-S1 |
+| `mermaid` | In-process diagram rendering (ADR-0002 Part B) | MS-0003+ (Kroki remote path shipped in MS-0002 via GH-69, no `mermaid` dep) |
+| `jsdom` / `happy-dom` | Headless DOM for in-process Mermaid tests | MS-0003+ (Kroki path needs no headless DOM) |
 | `pino` | Structured logging | MS-0002 |
 | `keytar` | OS keyring (fallback: env) | Spike-gated |
 
