@@ -199,9 +199,7 @@ function mapCreate(
 	return Result.ok(toRef(pageId, parsed.data));
 }
 
-function hasWrappedResults(
-	body: unknown,
-): body is { results: unknown[] } {
+function hasWrappedResults(body: unknown): body is { results: unknown[] } {
 	return (
 		typeof body === "object" &&
 		body !== null &&

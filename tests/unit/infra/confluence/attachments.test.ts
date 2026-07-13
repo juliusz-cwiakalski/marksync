@@ -240,8 +240,7 @@ describe("attachment create — unwrap { results: [...] } before validation (GH-
 					title: "marksync-asset-xyz789.svg",
 					version: { number: 1 },
 					_links: {
-						download:
-							"/rest/api/content/123/child/attachment/att999/download",
+						download: "/rest/api/content/123/child/attachment/att999/download",
 					},
 				});
 			}
