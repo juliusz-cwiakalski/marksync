@@ -77,6 +77,8 @@ export interface Artifact {
 	bytes: Uint8Array;
 	mime: string;
 	hash: string;
+	/** Optional marker to distinguish mermaid SVGs from user-authored assets. */
+	kind?: "asset" | "mermaid";
 }
 
 /** A discovered page via CQL search (id + title only — minimal). */

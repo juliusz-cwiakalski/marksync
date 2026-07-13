@@ -29,7 +29,7 @@ GH-26 makes local images render on Confluence by resolving them path-safely, con
 6. **Format coverage** — png/jpg/gif/svg/webp upload + reference correctly.
 7. **Remote image pass-through** — `http(s)` → `<ri:url>`, 0 uploads.
 8. **Pipeline integration** — a doc with a local image → Storage body references `marksync-asset-<hash>.<ext>`; attachment exists after apply.
-9. **Naming-agreement invariant (DEC-1)** — domain `assetFilename()` === infra `attachmentFilename()` for non-SVG.
+9. **Naming-agreement invariant (DEC-1)** — domain `assetFilename()` === infra `attachmentFilename()` for ALL user assets (including SVG). Mermaid artifacts (future) use `kind="mermaid"` to gate the `marksync-mermaid-` prefix.
 10. **Large-asset handling (story Q1)** — >25 MB warning; HTTP 413 → `TooLarge` per-document block; run continues (per-document isolation).
 11. **No secrets in output (INV-SEC-1/NFR-SEC-1)** — 0 credential/token occurrences in any output path; filenames carry only the content hash + extension.
 
@@ -75,7 +75,7 @@ GH-26 makes local images render on Confluence by resolving them path-safely, con
 | AC-5 | Remote image → `<ri:url>`; 0 uploads | TC-UNIT-008, TC-INTEGRATION-004 | Unit + Integration | To Implement |
 | AC-6 | Pipeline integration — doc with local image → `<ri:attachment>` with hash filename; exists after apply | TC-INTEGRATION-005 | Integration | To Implement |
 | AC-7 | Asset drift — changing only an image flips `SyncState` from `NO_CHANGE` | TC-UNIT-009 | Unit | To Implement |
-| AC-8 | Naming-agreement invariant — domain === infra for non-SVG | TC-UNIT-010 | Unit | To Implement |
+| AC-8 | Naming-agreement invariant — domain === infra for ALL user assets (mermaid gated on `kind`) | TC-UNIT-010 | Unit | To Implement |
 | AC-9 | Large asset — >25 MB warning; 413 → `TooLarge` per-doc block; run continues | TC-INTEGRATION-006 | Integration | To Implement |
 | AC-10 | No secrets in output — 0 tokens in body/filenames/plan/report/version.message | TC-UNIT-011 | Unit | To Implement |
 | AC-11 | `bun run check` exits 0 | (quality gate) | All | To Implement |
@@ -114,7 +114,7 @@ The `AssetResolver` is tested with a **real temp directory** (image fixtures wri
 | TC-UNIT-007 | MIME map | Given fixtures `.png/.jpg/.jpeg/.gif/.svg/.webp`; When resolve; Then each `Artifact.mime` is the correct `image/*`; And the filename extension matches. |
 | TC-UNIT-008 | Remote image skipped | Given an `img` with `https://cdn/x.png`; When resolve; Then `AssetSet.artifacts` is empty; And the HAST node `src` is **unchanged** (rendered later as `<ri:url>`). |
 | TC-UNIT-009 | Asset hash feeds drift | Given two `ContentHash` snapshots differing only in `attachmentHashes`; When classified; Then `SyncState !== NO_CHANGE`. (Pure classifier assertion; proves the wiring is meaningful.) |
-| TC-UNIT-010 | Naming-agreement invariant (DEC-1) | For each non-SVG MIME, `assetFilename({hash, mime})` === infra `attachmentFilename({bytes, mime, hash})`. |
+| TC-UNIT-010 | Naming-agreement invariant (DEC-1) | For each user asset MIME (including SVG), `assetFilename({hash, mime})` === infra `attachmentFilename({bytes, mime, hash})`. Mermaid artifacts (future) use `kind="mermaid"` → `marksync-mermaid-` prefix (asserted separately). |
 | TC-UNIT-011 | No secrets in filenames/output | Given an image whose bytes happen to contain a fake token; When resolve + render; Then the filename is `marksync-asset-<sha256>.<ext>` (sha256 of bytes, not the token string); And the rendered body + `AssetSet` JSON contain 0 token occurrences. |
 | TC-UNIT-012 | Determinism | Same HAST + same bytes → identical `AssetSet` (same hashes, same filenames, same node rewrites) across repeated calls. |
 | TC-UNIT-013 | In-doc dedup | A doc referencing the same image twice → one `Artifact`, both HAST nodes rewritten to the same filename. |
