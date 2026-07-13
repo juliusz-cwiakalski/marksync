@@ -10,6 +10,7 @@ import { describe, expect, test } from "bun:test";
 import { mdastToHast } from "#domain/markdown/mdast-to-hast";
 import { parseMarkdown } from "#domain/markdown/parse";
 import { renderStorage } from "#infra/confluence/render/storage";
+import { assertWellFormedXml } from "../../_helpers/assert-well-formed-xml.ts";
 
 /** Run the full parse → bridge → render pipeline; throws if it does not return ok. */
 function render(src: string): {
@@ -160,5 +161,8 @@ describe("TC-MERM-INJECT (GH-25 AC-F3-1 / NFR-SEC-5) — adversarial mermaid pay
 		// Verify the original text appears somewhere (the sequence is split but preserved).
 		expect(body).toContain("Hello");
 		expect(body).toContain("World");
+
+		// Verify the output is well-formed XML (test-plan §5.2 / Phase-3 AC-F3-1).
+		expect(() => assertWellFormedXml(body)).not.toThrow();
 	});
 });

@@ -166,34 +166,34 @@ reality. Covers F-1, F-4, AC-F1-1, AC-F1-2, AC-F1-3, AC-F4-1, NFR-3, NFR-4.
 
 **Tasks**:
 
-- [ ] **1.1** Add `"code"` (as the primary/first member) to the `MermaidPolicy`
+- [x] **1.1** Add `"code"` (as the primary/first member) to the `MermaidPolicy`
       type — `src/domain/config/types.ts:31` →
       `export type MermaidPolicy = "code" | "render" | "skip";`.
-- [ ] **1.2** Update the JSON schema enum and description —
+- [x] **1.2** Update the JSON schema enum and description —
       `src/domain/config/schema.json` `render.mermaid.policy` (lines ~94–98):
       `"enum": ["code", "render", "skip"]` and a description stating the MS-0002
       default is `code` (preserve-as-code; `render` is a forward-compatible
       placeholder descending to `code` until the MS-0003+ renderer lands).
-- [ ] **1.3** Flip the loader default — `src/app/config.ts:147`:
+- [x] **1.3** Flip the loader default — `src/app/config.ts:147`:
       `policy: input.render?.mermaid?.policy ?? "render"` → `?? "code"`.
-- [ ] **1.4** Flip the starter template — `src/app/config-template.ts:75`:
+- [x] **1.4** Flip the starter template — `src/app/config-template.ts:75`:
       `policy: render` → `policy: code`.
-- [ ] **1.5** Update the joint config tests **in the same commit** (lock-step so
+- [x] **1.5** Update the joint config tests **in the same commit** (lock-step so
       CI stays green):
-  - `tests/unit/app/config.test.ts:97` — the minimal-config default assertion
-    `expect(cfg.render.mermaid.policy).toBe("render")` → `toBe("code")`
-    (TC-CONF-001 / AC-F1-1). Optionally also assert a config with
-    `render.mermaid` present but `policy` omitted still defaults to `"code"`.
-  - `tests/unit/domain/config/schema.test.ts` — extend the valid-fixtures
-    `describe` with a `policy: "code"` acceptance case and an enum-rejection
-    case (`policy: "svg"` / `"png"` / `null` / `123` → `validate(...) === false`
-    with an `enum` keyword error at `instancePath` `/render/mermaid/policy`)
-    (TC-CONF-002 / TC-CONF-003 / AC-F1-3 / NFR-4). The existing `validFull`
-    fixture (`policy: "render"`, line 43) STAYS — it proves `render` remains
-    accepted (AC-F1-2).
-  - `tests/unit/app/config-template.test.ts` — add
-    `expect(loaded.value.render.mermaid.policy).toBe("code")` to the existing
-    `STARTER_CONFIG` round-trip test (TC-CONF-004 / AC-F4-1).
+   - `tests/unit/app/config.test.ts:97` — the minimal-config default assertion
+     `expect(cfg.render.mermaid.policy).toBe("render")` → `toBe("code")`
+     (TC-CONF-001 / AC-F1-1). Optionally also assert a config with
+     `render.mermaid` present but `policy` omitted still defaults to `"code"`.
+   - `tests/unit/domain/config/schema.test.ts` — extend the valid-fixtures
+     `describe` with a `policy: "code"` acceptance case and an enum-rejection
+     case (`policy: "svg"` / `"png"` / `null` / `123` → `validate(...) === false`
+     with an `enum` keyword error at `instancePath` `/render/mermaid/policy`)
+     (TC-CONF-002 / TC-CONF-003 / AC-F1-3 / NFR-4). The existing `validFull`
+     fixture (`policy: "render"`, line 43) STAYS — it proves `render` remains
+     accepted (AC-F1-2).
+   - `tests/unit/app/config-template.test.ts` — add
+     `expect(loaded.value.render.mermaid.policy).toBe("code")` to the existing
+     `STARTER_CONFIG` round-trip test (TC-CONF-004 / AC-F4-1).
 
 **Acceptance Criteria**:
 
@@ -249,33 +249,33 @@ tested.
 
 **Tasks**:
 
-- [ ] **2.1** Add the golden fixture pair (mermaid-policy-named, distinct from
+- [x] **2.1** Add the golden fixture pair (mermaid-policy-named, distinct from
       the generic `code-block-mermaid` fixture which stays):
-  - `tests/golden/fixtures/markdown/mermaid-code-policy.md` — a ```` ```mermaid ````
-    fence with a representative diagram (e.g. a small `graph TD` flowchart).
-  - `tests/golden/fixtures/markdown/mermaid-code-policy.storage.xhtml` — the
-    expected output:
-    `<ac:structured-macro ac:name="code"><ac:parameter ac:name="language">mermaid</ac:parameter><ac:plain-text-body><![CDATA[…source…]]></ac:plain-text-body></ac:structured-macro>`
-    (derive the exact bytes by rendering the input once; commit the file).
-- [ ] **2.2** Bump the golden-fidelity count assertion in
+   - `tests/golden/fixtures/markdown/mermaid-code-policy.md` — a ```` ```mermaid ````
+     fence with a representative diagram (e.g. a small `graph TD` flowchart).
+   - `tests/golden/fixtures/markdown/mermaid-code-policy.storage.xhtml` — the
+     expected output:
+     `<ac:structured-macro ac:name="code"><ac:parameter ac:name="language">mermaid</ac:parameter><ac:plain-text-body><![CDATA[…source…]]></ac:plain-text-body></ac:structured-macro>`
+     (derive the exact bytes by rendering the input once; commit the file).
+- [x] **2.2** Bump the golden-fidelity count assertion in
       `tests/golden/markdown/storage-renderer.test.ts:46` from
       `expect(fixtures.length).toBe(25)` → `toBe(26)` (the new pair is picked up
       automatically by `loadFixtures()`, which globs all `.md` in the fixtures
       dir and matches each against its `.storage.xhtml`). Keep the `kitchensink`
       membership assertion.
-- [ ] **2.3** Add a mermaid-policy describe block in
+- [x] **2.3** Add a mermaid-policy describe block in
       `tests/golden/markdown/storage-renderer.test.ts` covering TC-MERM-001 /
       TC-MERM-002:
-  - **TC-MERM-001 (AC-F2-1)** — render `mermaid-code-policy.md` through the real
-    pipeline (`parseMarkdown` → `mdastToHast` → `renderStorage`), assert `ok`,
-    byte-match against `mermaid-code-policy.storage.xhtml`, and assert the body
-    contains `<ac:structured-macro ac:name="code">`,
-    `<ac:parameter ac:name="language">mermaid</ac:parameter>`, and a
-    `<ac:plain-text-body><![CDATA[…]]></ac:plain-text-body>` wrapping the source
-    verbatim.
-  - **TC-MERM-002 (AC-F2-2 / NFR-2)** — render the same input N=3 (optionally 5)
-    times and assert all outputs are byte-identical (`output1 === output2 ===
-    output3`, 0 bytes diff) — purity/determinism at mermaid granularity.
+   - **TC-MERM-001 (AC-F2-1)** — render `mermaid-code-policy.md` through the real
+     pipeline (`parseMarkdown` → `mdastToHast` → `renderStorage`), assert `ok`,
+     byte-match against `mermaid-code-policy.storage.xhtml`, and assert the body
+     contains `<ac:structured-macro ac:name="code">`,
+     `<ac:parameter ac:name="language">mermaid</ac:parameter>`, and a
+     `<ac:plain-text-body><![CDATA[…]]></ac:plain-text-body>` wrapping the source
+     verbatim.
+   - **TC-MERM-002 (AC-F2-2 / NFR-2)** — render the same input N=3 (optionally 5)
+     times and assert all outputs are byte-identical (`output1 === output2 ===
+     output3`, 0 bytes diff) — purity/determinism at mermaid granularity.
 
 **Acceptance Criteria**:
 
@@ -330,27 +330,27 @@ fence are inert in the Storage output. Covers F-3, AC-F3-1, NFR-1 / NFR-SEC-5.
 
 **Tasks**:
 
-- [ ] **3.1** Add a `TC-MERM-INJECT` describe block to
+- [x] **3.1** Add a `TC-MERM-INJECT` describe block to
       `tests/golden/markdown/injection-safety.test.ts` with four inline cases
       (each renders a ```` ```mermaid ```` fence through the real pipeline and
       asserts counts **outside CDATA** via the existing `countOutsideCdata`
       helper):
-  - **TC-MERM-003 (script)** — source
-    ```` ```mermaid\ngraph TD; A[<script>alert(1)</script>];\n``` ```` → assert
-    `countOutsideCdata(body, "<script") === 0` and the payload appears as inert
-    text inside CDATA.
-  - **TC-MERM-004 (onerror)** — source
-    ```` ```mermaid\ngraph TD; A[<img src=x onerror=alert(1)>];\n``` ```` →
-    assert 0 live `on*` handlers outside CDATA (e.g. `onerror`, `onclick`,
-    `onload`).
-  - **TC-MERM-005 (javascript: URI)** — source
-    ```` ```mermaid\ngraph TD; A["<a href=javascript:alert(1)>click</a>"];\n``` ````
-    → assert `countOutsideCdata(body, "javascript:") === 0`.
-  - **TC-MERM-006 (CDATA breakout)** — source
-    ```` ```mermaid\ngraph TD; A["Hello]]>World"];\n``` ```` → assert the output
-    is well-formed XML (parseable), the `]]>` sequence is split by the existing
-    `cdata()` helper (GH-20 spike-H6 rule) so no real CDATA termination occurs,
-    and no content injection is possible.
+   - **TC-MERM-003 (script)** — source
+     ```` ```mermaid\ngraph TD; A[<script>alert(1)</script>];\n``` ```` → assert
+     `countOutsideCdata(body, "<script") === 0` and the payload appears as inert
+     text inside CDATA.
+   - **TC-MERM-004 (onerror)** — source
+     ```` ```mermaid\ngraph TD; A[<img src=x onerror=alert(1)>];\n``` ```` →
+     assert 0 live `on*` handlers outside CDATA (e.g. `onerror`, `onclick`,
+     `onload`).
+   - **TC-MERM-005 (javascript: URI)** — source
+     ```` ```mermaid\ngraph TD; A["<a href=javascript:alert(1)>click</a>"];\n``` ````
+     → assert `countOutsideCdata(body, "javascript:") === 0`.
+   - **TC-MERM-006 (CDATA breakout)** — source
+     ```` ```mermaid\ngraph TD; A["Hello]]>World"];\n``` ```` → assert the output
+     is well-formed XML (parseable), the `]]>` sequence is split by the existing
+     `cdata()` helper (GH-20 spike-H6 rule) so no real CDATA termination occurs,
+     and no content injection is possible.
 
 **Acceptance Criteria**:
 
@@ -391,21 +391,21 @@ re-run.
 
 **Tasks**:
 
-- [ ] **4.1** Run the full quality gate:
+- [x] **4.1** Run the full quality gate:
       `bun run check` (= `lint` && `format:check` && `typecheck` && `test` &&
       `check:boundaries`). Confirm exit 0 (AC-CHECK).
-- [ ] **4.2** If the gate fails, fix only the reported issue(s) (formatting,
+- [x] **4.2** If the gate fails, fix only the reported issue(s) (formatting,
       lint, a missed lock-step site, a boundary rule) and re-run until green.
       Commit only if changes were required.
-- [ ] **4.3** Spec reconciliation (record only — no doc edits in this plan):
-  - This change is internally consistent with its spec; no spec field requires
-    correction.
-  - The **ADR-0001 / ADR-0002 open-question amendments** (citing CEO-DEC-1) are
-    explicitly deferred to lifecycle **phase 7 (`@doc-syncer`)** per spec NG-7 —
-    they are NOT performed by this plan.
-  - `version_impact: patch` (current `0.4.1` → `0.4.2`) is applied at the
-    release/PR step per repo convention (per-feature commits in this repo do not
-    bump `package.json`), not as a separate commit here.
+- [x] **4.3** Spec reconciliation (record only — no doc edits in this plan):
+   - This change is internally consistent with its spec; no spec field requires
+     correction.
+   - The **ADR-0001 / ADR-0002 open-question amendments** (citing CEO-DEC-1) are
+     explicitly deferred to lifecycle **phase 7 (`@doc-syncer`)** per spec NG-7 —
+     they are NOT performed by this plan.
+   - `version_impact: patch` (current `0.4.1` → `0.4.2`) is applied at the
+     release/PR step per repo convention (per-feature commits in this repo do not
+     bump `package.json`), not as a separate commit here.
 
 **Acceptance Criteria**:
 
