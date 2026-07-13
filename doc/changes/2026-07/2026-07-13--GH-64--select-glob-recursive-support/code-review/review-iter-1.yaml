@@ -1,0 +1,66 @@
+version: 1
+iteration: 1
+mode: local
+work_item_ref: GH-64
+branch: fix/GH-64/select-glob-recursive-support
+status: PASS
+summary: >
+  The GH-64 fix is correct, secure, well-tested, and spec/plan compliant.
+  `readCommitted` now lists all committed files via `git ls-tree -r --name-only`
+  (no pathspec) and filters in-memory using `globToRegExp` with union semantics
+  (`.some()`), which correctly supports recursive `**`. The empty-patterns
+  early-return (DEC-4) aligns infra with app-layer `selectFiles` semantics.
+  `validateRepoRelative` is retained on both patterns (before any git spawn) and
+  per-filename (in the read loop) — TC-INTEGRATION-009 (safety fuzz) passes, and
+  the infra→shared import is tier-compliant (dependency-cruiser clean). All 10
+  spec ACs are covered by TC-GLOB-001…012; all 7 plan phases are complete with
+  matching evidence in the diff. No remediation required.
+severity_breakdown:
+  critical: 0
+  high: 0
+  medium: 0
+  low: 0
+  info: 2
+spec_compliance: PASS
+plan_compliance: PASS
+findings:
+  - id: F-1
+    severity: info
+    confidence: high
+    category: testing
+    location: tests/unit/infra/git/shell-git.test.ts:424
+    message: >
+      TC-GLOB-007/008 assert that malicious patterns throw, but do not
+      independently assert that zero git spawns occur (no shell-execution-surface
+      check). The safety-fuzz integration test TC-INTEGRATION-009 covers this
+      invariant comprehensively, so coverage is adequate — this is a note on test
+      scope separation, not a gap.
+    suggestion: >
+      No action required. If stronger unit-level isolation is desired in the
+      future, a spawn-count spy could be injected, but this would add test
+      complexity for marginal benefit given TC-INTEGRATION-009 already guards the
+      invariant.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-2
+    severity: info
+    confidence: high
+    category: security
+    location: src/infra/git/shell-git.ts:18
+    message: >
+      `validateRepoRelative(pattern)` is now defense-in-depth only — patterns
+      are consumed by the in-memory `globToRegExp` matcher, never passed to git.
+      This is explicitly documented as DEC-2 and is the correct design choice
+      (maintains the "malicious patterns caught before git spawn" invariant).
+    suggestion: >
+      No action required. The guard is intentional and correctly retained.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+reviewed_at: 2026-07-13T12:00:00Z
+next_step: PROCEED

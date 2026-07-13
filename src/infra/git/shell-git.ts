@@ -1,9 +1,10 @@
 // Shell-git adapter implementing Repository port (TDR-0003).
 
 import type { MarkSyncError } from "#domain/errors";
-import type { Repository } from "#domain/git/port";
 import { validateRef, validateRepoRelative } from "#domain/git/paths";
+import type { Repository } from "#domain/git/port";
 import { Result } from "#domain/result";
+import { globToRegExp } from "#shared/glob";
 
 /**
  * Create a Repository implementation backed by the shell git CLI.
@@ -18,18 +19,32 @@ export function createShellGit(repoPath: string): Repository {
 				validateRepoRelative(pattern);
 			}
 
-			// First, list all matching files
-			const listArgs = ["ls-tree", "-r", "--name-only", ref, "--", ...patterns];
-			const listResult = spawnGit(repoPath, listArgs);
+			// Empty select → empty result (DEC-4, GH-64).
+			if (patterns.length === 0) {
+				return Result.ok(new Map());
+			}
+
+			// Patterns are globs, not git pathspecs — git pathspec does not
+			// support `**`, so list every committed file and filter in-memory
+			// with the shared matcher (GH-64).
+			const listResult = spawnGit(repoPath, [
+				"ls-tree",
+				"-r",
+				"--name-only",
+				ref,
+			]);
 
 			if (!listResult.ok) {
 				return listResult;
 			}
 
+			// Union semantics: a file is included if ANY pattern matches.
+			const matchers = patterns.map(globToRegExp);
 			const fileNames = listResult.value
 				.trim()
 				.split("\n")
-				.filter((s) => s.length > 0);
+				.filter((s) => s.length > 0)
+				.filter((name) => matchers.some((re) => re.test(name)));
 
 			if (fileNames.length === 0) {
 				return Result.ok(new Map());
