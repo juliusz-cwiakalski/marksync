@@ -1,7 +1,7 @@
 ---
 id: MS2-E4-S2
 title: "attachments-images"
-status: todo
+status: done
 type: story
 priority: high
 epic: MS2-E4
@@ -11,7 +11,7 @@ gh_issue: GH-26
 feature_spec: doc/spec/features/feature-safe-publish.md
 decisions: []
 dependencies: { blocks: [], blocked_by: [MS2-E3-S4, MS2-E3-S6] }
-cross_cutting: [NFR-SEC-5]
+cross_cutting: [NFR-SEC-7]
 ---
 
 # MS2-E4-S2 — Local images & attachments (content-hashed, path-safe)
@@ -20,7 +20,7 @@ cross_cutting: [NFR-SEC-5]
 Discover local images referenced from Markdown, resolve them **path-safely** (no traversal), content-hash them, upload via the v1 attachment API (E3-S4), and **reuse unchanged attachments** (no re-upload). Emit `<ac:image><ri:attachment ri:filename="..."/></ac:image>` references.
 
 ## Background
-The MS-0001 spike H4 validated the v1 attachment API and the **400-duplicate-filename = skip signal** (blueprint §0). Mermaid attachments (E4-S1) share the same content-hash + reuse mechanism; this story handles user-authored images/assets and the shared asset-resolver. Path safety is a security gate (NFR-SEC-5: no path traversal).
+The MS-0001 spike H4 validated the v1 attachment API and the **400-duplicate-filename = skip signal** (blueprint §0). Mermaid attachments (E4-S1) share the same content-hash + reuse mechanism; this story handles user-authored images/assets and the shared asset-resolver. Path safety is a security gate (NFR-SEC-7: no path traversal).
 
 ## Detailed scope (deliverables)
 1. **`src/domain/assets/resolver.ts`** — `AssetResolver`: walk the Markdown AST (E3-S3) for image nodes; resolve each `![alt](path)` local path **relative to the doc** and **confined to the configured `root`** — reject `../` traversal outside root → `Forbidden{operation:"path-traversal"}`. Compute `sha256` of the bytes → identity.
@@ -40,7 +40,7 @@ The MS-0001 spike H4 validated the v1 attachment API and the **400-duplicate-fil
 - Naming scheme shared with E4-S1 (mermaid).
 
 ## Acceptance criteria (testable)
-- [ ] **Path safety (NFR-SEC-5):** a Markdown doc referencing `../../etc/passwd` → `Forbidden(path-traversal)`; never reads outside root.
+- [ ] **Path safety (NFR-SEC-7):** a Markdown doc referencing `../../etc/passwd` → `Forbidden(path-traversal)`; never reads outside root.
 - [ ] **Reuse (idempotency):** unchanged image → `attachmentExists` true → no upload call (mock target assertion); changed image → new hash → upload.
 - [ ] **Update on change:** same filename, changed bytes → `/data` update bumps version.
 - [ ] Format coverage: png/jpg/gif/svg/webp all upload + reference correctly.
