@@ -14,6 +14,7 @@ links:
     - doc/overview/02-roadmap.md
     - doc/overview/architecture-overview.md
     - doc/inception/analysis/risks.md
+  related_changes: ["GH-69"]
   summary: "Non-functional requirements — performance, security, reliability, operability, compatibility, privacy, maintainability, accessibility for MS-0002 and beyond."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -89,7 +90,7 @@ binding. `MS-0002` NFRs are release-blocking guardrails unless marked
 | ID | Requirement | Target | Source / rationale |
 |---|---|---|---|
 | NFR-PRIV-1 | Local-first | No hosted backend for core value | A-VIA-1; north star |
-| NFR-PRIV-2 | Remote rendering opt-in | Any path sending diagram content to a remote service is off by default with a warning | ADR-0002 C-3; spec FR-AST-007 |
+| NFR-PRIV-2 | Remote rendering opt-in | Any path sending diagram content to a remote service is off by default with a warning | ADR-0002 C-3; spec FR-AST-007. **Implemented (GH-69):** `render.mermaid.policy` defaults to `code` (no remote egress); the opt-in `render` policy POSTs diagram content to public Kroki and emits a one-time privacy warning per run (`code`/`skip` emit none) |
 | NFR-PRIV-3 | No population telemetry | No outbound analytics; metrics are CLI-derivable | North star measurement note |
 
 ## Maintainability (`MS-0002` binding unless noted)

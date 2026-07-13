@@ -35,6 +35,14 @@ All decision records for this repository, ordered by number.
 > correctly defaulted under GH-25. ADR-0001/ADR-0002 governance statuses remain
 > `Accepted`; the open-question/resolution state is recorded in each record's body
 > and Revision History.
+>
+> **Update 2026-07-13 (GH-69, lifecycle phase 7).** MS-0002 also wires the
+> `render` policy (ADR-0002 rung 6) to the public Kroki API behind the domain
+> `Renderer` port — an opt-in remote SVG renderer with a one-time privacy warning
+> (NFR-PRIV-2) and per-fence fallback to `code` on network failure (C-2). The
+> default remains `code` (no remote egress). The in-process official-library
+> renderer (Part B, rungs 1–5) remains deferred to MS-0003+. ADR-0002 governance
+> status remains `Accepted`; the revision history records the GH-69 update.
 
 | ID | Type | Title | Status | Date | Owners |
 |----|------|-------|--------|------|--------|

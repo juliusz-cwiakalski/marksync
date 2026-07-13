@@ -6,13 +6,13 @@ ados_distribution: redistributable
 id: ROADMAP-ENGINEERING
 status: Draft
 created: 2026-07-03
-last_updated: 2026-07-12
+last_updated: 2026-07-13
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005]
-  related_changes: []
+  related_changes: ["GH-69"]
 summary: "Engineering roadmap — MS-0002 MVP (safe one-way publisher / trust wedge), MS-0003 MLP (exceptional DX), then staged reverse-sync gates."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -70,7 +70,7 @@ _Beachhead-critical items first (the wedge); validation apparatus is best-effort
 - **Minimal repair surface** (in `MS-0002` / MVP, not deferred): `repair-state` for stale locks and interrupted-apply journal replay (premortem `§14` includes `repair` in the beachhead) — so a single stale lock or partial apply never blocks a whole subtree with no recovery.
 - Visible provenance (panel/footer: source path + Git revision + last-sync) plus machine content-property metadata.
 - Local images/attachments (path-safe, content-hashed, reused when unchanged).
-- Mermaid diagrams rendered via the **official** library in-process, content-hashed (ADR-0001, ADR-0002). **Spike-gated:** if the ADR-0002 headless-render spike fails late, the `MS-0002` fallback is render-failure policy `code` (preserve the code block) per the ADR-0002 ladder, with full in-process render moved to `MS-0003` — a failed spike does **not** block `MS-0002` release.
+- Mermaid diagrams rendered as SVG image attachments. `MS-0002` ships the `code` policy as the default (GH-25) and the opt-in `render` policy via the public Kroki API (ADR-0002 rung 6, GH-69) — content-hashed (`marksync-mermaid-<fullhash>.svg`) and reused when unchanged. The ADR-0002 headless-render spike (GH-11) PARTIAL-FAILED (happy-dom/jsdom have no SVG layout engine), so the deterministic **in-process** renderer via the official library moves to `MS-0003+` (CEO-DEC-1) — a failed spike does **not** block `MS-0002` release.
 - Auth: local API-token (email + token, OS keyring) and non-interactive CI credentials from environment.
 - Dry-run / plan / diff before any write; stable exit codes; JSON/NDJSON output; `doctor` health-check (capability + permission discovery, premortem `§4.2`, `§7.4`).
 - **`MS-0002` performance budget (NFR guardrails):** binary ≤ 90 MB; cold-start ≤ 2 s on reference hardware; targets repos ≤ ~500 managed pages (large-repo incremental optimization is deferred — correctness first, premortem `§5.9`, `§13.11`).
