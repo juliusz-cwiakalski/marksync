@@ -41,9 +41,9 @@ function loadFixtures(): Fixture[] {
 const fixtures = loadFixtures();
 
 describe("TC-GOLDEN (AC-F4-1 / NFR-REL-4) — remark-gfm-reachable fixtures byte-match goldens", () => {
-	test("the golden set is the re-baselined 26 (PM-DEC-1; sub/sup excluded; GH-25 +1 mermaid-code-policy)", () => {
-		// Locks the fidelity bar: exactly the 26 remark-gfm-reachable pairs.
-		expect(fixtures.length).toBe(26);
+	test("the golden set is the re-baselined 27 (PM-DEC-1; sub/sup excluded; GH-25 +1 mermaid-code-policy; GH-63 +1 frontmatter)", () => {
+		// Locks the fidelity bar: exactly the 27 remark-gfm-reachable pairs.
+		expect(fixtures.length).toBe(27);
 		expect(fixtures.map((f) => f.name).sort()).toContain("kitchensink");
 	});
 

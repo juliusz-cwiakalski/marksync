@@ -189,7 +189,7 @@ The `doc/spec/features/feature-safe-publish.md` markdown-pipeline row will be re
 
 **Tasks**:
 
-- [ ] **4.1** Create `tests/golden/fixtures/markdown/frontmatter.md` with content:
+- [x] **4.1** Create `tests/golden/fixtures/markdown/frontmatter.md` with content (pre-existing from prior session; content verified correct — marksync.uuid block + `# Hello World` + paragraph):
   ```markdown
   ---
   marksync:
@@ -199,23 +199,22 @@ The `doc/spec/features/feature-safe-publish.md` markdown-pipeline row will be re
 
   This is the page body after front-matter.
   ```
-- [ ] **4.2** Create `tests/golden/fixtures/markdown/frontmatter.storage.xhtml` with expected output (NO `<hr/>`, no YAML):
+- [x] **4.2** Create `tests/golden/fixtures/markdown/frontmatter.storage.xhtml` with expected output (NO `<hr/>`, no YAML; NO trailing newline — byte-exact per hr/paragraph convention):
   ```xml
   <h1>Hello World</h1>
+
   <p>This is the page body after front-matter.</p>
   ```
-- [ ] **4.3** Update `tests/golden/markdown/storage-renderer.test.ts` line 46:
-  - Change `expect(fixtures.length).toBe(26)` to `expect(fixtures.length).toBe(27)`
-  - Update test message: "the golden set is the re-baselined 27 (...)"
-- [ ] **4.4** Run `bun test tests/golden/markdown/storage-renderer.test.ts` to verify fixture is loaded and passes
+- [x] **4.3** Update `tests/golden/markdown/storage-renderer.test.ts` count assertion `toBe(26)` → `toBe(27)` and message "re-baselined 26" → "re-baselined 27 (...; GH-63 +1 frontmatter)"
+- [x] **4.4** Run `bun test tests/golden/markdown/storage-renderer.test.ts` — 33 pass / 0 fail; snapshots 26 passed + 1 added (frontmatter auto-created regression layer); hr unchanged
 
 **Acceptance Criteria**:
 
-- Must: Golden fixture `frontmatter.md` + `frontmatter.storage.xhtml` exists and passes
-- Must: Storage XHTML contains NO `<hr/>` elements from front-matter fences
-- Must: Storage XHTML contains NO YAML content as headings or paragraphs
-- Must: Fixture count assertion updated to 27
-- Must: All 27 golden tests pass (26 existing + 1 new)
+- Must: Golden fixture `frontmatter.md` + `frontmatter.storage.xhtml` exists and passes — PASSED (byte-exact `.toBe(fixture.expected)` green)
+- Must: Storage XHTML contains NO `<hr/>` elements from front-matter fences — PASSED (output is `<h1>...` then `<p>...`)
+- Must: Storage XHTML contains NO YAML content as headings or paragraphs — PASSED (front-matter dropped at HAST bridge)
+- Must: Fixture count assertion updated to 27 — PASSED (`expect(fixtures.length).toBe(27)`)
+- Must: All 27 golden tests pass (26 existing + 1 new) — PASSED (33/33 pass; 27 byte-exact + 6 code-macro/mermaid)
 
 **Affected code areas**:
 
@@ -361,8 +360,7 @@ The `doc/spec/features/feature-safe-publish.md` markdown-pipeline row will be re
 |-------|--------|---------|-----------|--------|-------|
 | Phase 1: Dependency Installation | Complete | 2026-07-13 | 2026-07-13 | 9d91081 | remark-frontmatter@5.0.0 installed; ^5.0.0 in package.json; bun.lock resolves unified ^11.0.0 |
 | Phase 2: Wire remark-frontmatter Plugin | Complete | 2026-07-13 | 2026-07-13 | a77d609 | parse.ts wired `remark().use(remarkFrontmatter).use(remarkGfm)`; hr.md unchanged (lone `---` → thematicBreak → `<hr/>`); front-matter → yaml node dropped at HAST bridge; 32 golden + 9 unit tests pass; typecheck clean |
-| Phase 3: Unit Test (TC-FMS-002) | Complete | 2026-07-13 | 2026-07-13 | TBD | TC-FMS-002 added (adapted per v1.4 — validates no thematicBreak, yaml node recognized, first content node heading); 13/13 unit tests pass |
-| Phase 3: Unit Test (TC-FMS-002) | Pending | TBD | TBD | TBD | |
-| Phase 4: Golden Fixture (TC-FMS-001, TC-FMS-004) | Pending | TBD | TBD | TBD | |
+| Phase 3: Unit Test (TC-FMS-002) | Complete | 2026-07-13 | 2026-07-13 | 3501c36 | TC-FMS-002 added (adapted per v1.4 — validates no thematicBreak, yaml node recognized, first content node heading); 13/13 unit tests pass |
+| Phase 4: Golden Fixture (TC-FMS-001, TC-FMS-004) | Complete | 2026-07-13 | 2026-07-13 | (this commit) | frontmatter.storage.xhtml byte-exact (no trailing newline); count 26→27; 33/33 golden pass; hr unchanged; frontmatter snapshot auto-created |
 | Phase 5: Verify All Tests | Pending | TBD | TBD | TBD | |
 | Phase 6: Finalize (AC reconciliation) | Pending | TBD | TBD | TBD | |
