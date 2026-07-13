@@ -43,6 +43,10 @@ import type { Element, Root } from "hast";
 import { join } from "node:path";
 import { readFileSync } from "node:fs";
 import { AssetResolver } from "#domain/assets/resolver";
+import { transform } from "#domain/mermaid/transform";
+import type { Renderer } from "#domain/mermaid/port";
+import { KrokiClient } from "#infra/mermaid/kroki";
+import { attachmentFilename } from "#infra/confluence/attachments";
 
 // Read package.json version at module level
 const pkg = JSON.parse(
@@ -133,6 +137,8 @@ export async function computePlan(
 	lock: LockFile,
 	git: Repository,
 	target: TargetSystem,
+	/** Injectable mermaid renderer (tests pass a stub; production defaults to KrokiClient). */
+	mermaidRenderer?: Renderer,
 ): Promise<Result<Plan, MarkSyncError>> {
 	// 1. Branch gate FIRST (0 discovery reads on deny)
 	const branchResult = git.currentBranch();
@@ -172,6 +178,8 @@ export async function computePlan(
 	const entries: PlanEntry[] = [];
 	const bindingsMutable: Record<string, { id: string; title: string }> = {};
 	const allWarnings: string[] = [];
+	// GH-69 / NFR-PRIV-2: emit the mermaid privacy warning once per run.
+	let privacyWarningEmitted = false;
 
 	// GH-26: Construct AssetResolver once, rooted at config.root
 	const resolver = new AssetResolver({ root: config.root });
@@ -204,12 +212,42 @@ export async function computePlan(
 		if (!parseResult.ok) return parseResult;
 		const mdast = parseResult.value;
 
-		const hast = mdastToHast(mdast);
+		let hast = mdastToHast(mdast);
 
-		// GH-26: Resolve assets (path-safe, content-addressed)
+		// GH-26: Resolve assets FIRST (path-safe, content-addressed) — processes
+		// real local <img> paths. MUST run before the mermaid transform so the
+		// resolver never sees the synthetic marksync-mermaid-<hash>.svg img nodes
+		// (plan P3.1 load-bearing ordering).
 		const assetResult = await resolver.resolve(hast, path);
 		if (!assetResult.ok) return assetResult; // Forbidden(path-traversal) aborts the plan
 		const assetSet = assetResult.value;
+
+		// GH-69: Mermaid rendering (ONLY when policy === "render"). Runs AFTER
+		// resolver.resolve() (so synthetic img nodes bypass the path-safe walker)
+		// and BEFORE target.renderBody() (so imageMacro emits <ac:image>).
+		let mermaidArtifacts: Artifact[] = [];
+		if (config.render.mermaid.policy === "render") {
+			if (!privacyWarningEmitted) {
+				allWarnings.push(
+					"Mermaid rendering sends diagram content to Kroki API (https://kroki.io) — review privacy policy before use",
+				);
+				privacyWarningEmitted = true;
+			}
+
+			const renderer: Renderer = mermaidRenderer ?? new KrokiClient();
+			const mermaidResult = await transform(
+				hast,
+				config.render.mermaid,
+				renderer,
+				path,
+			);
+			if (!mermaidResult.ok) {
+				return mermaidResult;
+			}
+			mermaidArtifacts = mermaidResult.value.artifacts;
+			hast = mermaidResult.value.transformedHast;
+			allWarnings.push(...mermaidResult.value.warnings);
+		}
 
 		// Resolve cross-page links BEFORE rendering (AC-F7-1)
 		const linksResolved = _resolveLinksInDoc(hast, path, bindingsMap);
@@ -240,6 +278,10 @@ export async function computePlan(
 		const attachmentHashes: Record<string, string> = {};
 		for (const resolved of assetSet.srcMap.values()) {
 			attachmentHashes[resolved.filename] = resolved.hash;
+		}
+		// GH-69: merge mermaid artifacts (marksync-mermaid-<fullhash>.svg)
+		for (const artifact of mermaidArtifacts) {
+			attachmentHashes[attachmentFilename(artifact)] = artifact.hash;
 		}
 
 		// Build ContentHash with adapter's hash (adapter is hash authority)
@@ -324,7 +366,7 @@ export async function computePlan(
 				action,
 				hashes: contentHash,
 				renderedBody: body, // Capture for apply
-				assets: assetSet.artifacts, // GH-26: stash for upload
+				assets: [...assetSet.artifacts, ...mermaidArtifacts], // GH-26+69: stash for upload
 			});
 		} else {
 			// Unbound doc: app-tier Create action (no classify - no base)
@@ -341,7 +383,7 @@ export async function computePlan(
 				},
 				hashes: contentHash,
 				renderedBody: body, // Capture for apply
-				assets: assetSet.artifacts, // GH-26: stash for upload
+				assets: [...assetSet.artifacts, ...mermaidArtifacts], // GH-26+69: stash for upload
 			});
 		}
 	}

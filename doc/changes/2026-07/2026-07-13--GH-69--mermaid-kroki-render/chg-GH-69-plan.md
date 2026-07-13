@@ -183,94 +183,28 @@ warning.
 
 **Tasks:**
 
-  - [ ] **P3.1** In `src/app/push-flow.ts`, after `mdastToHast` (line ~207) and **after**
-    `resolver.resolve()` (line ~210-211), but **before `target.renderBody`** (line ~226):
-    ```ts
-    // GH-26: Resolve assets FIRST (path-safe, content-addressed) — processes real
-    // local <img> paths. MUST run before the mermaid transform so the resolver never
-    // sees the synthetic marksync-mermaid-<hash>.svg img nodes.
-    const assetResult = await resolver.resolve(hast, path);
-    if (!assetResult.ok) return assetResult; // Forbidden(path-traversal) aborts the plan
-    const assetSet = assetResult.value;
+  - [x] **P3.1** In `src/app/push-flow.ts`, insert mermaid transform AFTER `resolver.resolve()`
+    and BEFORE `target.renderBody()` when `policy === "render"` (done — load-bearing ordering
+    preserved: resolver FIRST → transform SECOND → renderBody LAST; `const hast` → `let hast`).
+    Optional 5th `mermaidRenderer?` param on `computePlan` enables test injection (production
+    defaults to `new KrokiClient()`).
 
-    // GH-69: Mermaid rendering (ONLY when policy === "render").
-    // IMPORTANT: This transform MUST run AFTER resolver.resolve() and BEFORE
-    // target.renderBody(). Rationale: the transform injects synthetic
-    // <img src="marksync-mermaid-<hash>.svg"> nodes. If it ran BEFORE the resolver,
-    // the resolver would treat those filenames as local file paths → realpathSync
-    // fails → Forbidden(path-traversal) → plan aborts. Running after the resolver,
-    // the synthetic nodes bypass it and flow to renderBody → imageMacro →
-    // <ac:image><ri:attachment ri:filename="..."/>.
-    let mermaidArtifacts: Artifact[] = [];
-    if (config.render.mermaid.policy === "render") {
-      // Emit one-time privacy warning (once per run, not per doc)
-      if (!privacyWarningEmitted) {
-        allWarnings.push(
-          "Mermaid rendering sends diagram content to Kroki API (https://kroki.io) — review privacy policy before use"
-        );
-        privacyWarningEmitted = true;
-      }
+  - [x] **P3.2** Add `privacyWarningEmitted` flag at the top of `computePlan` (outside
+    the per-doc loop) to ensure the warning is emitted once per run (done — declared
+    alongside `allWarnings`).
 
-      const renderer: Renderer = new KrokiClient(); // or injected for tests
-      const mermaidResult = await transform(hast, config.render.mermaid, renderer);
-      if (!mermaidResult.ok) {
-        // RemoteUnreachable is a per-document warning, not a plan abort
-        const err = mermaidResult.error;
-        if (err.kind === "RemoteUnreachable") {
-          allWarnings.push(
-            `Mermaid render failed for diagram at ${path}: ${err.cause ?? "Unknown error"} — falling back to code block`
-          );
-        } else {
-          return mermaidResult; // Other errors abort the plan
-        }
-      } else {
-        mermaidArtifacts = mermaidResult.value.artifacts;
-        hast = mermaidResult.value.transformedHast; // use transformed tree for renderBody
-        allWarnings.push(...mermaidResult.value.warnings);
-      }
-    }
+  - [x] **P3.3** Modify the `attachmentHashes` construction to include mermaid
+    artifacts (done — loops `mermaidArtifacts` via `attachmentFilename(artifact)`).
 
-    // Render the (possibly mermaid-transformed) HAST to Storage XHTML
-    const renderResult = target.renderBody(hast, { sourcePath: path });
-    ```
+  - [x] **P3.4** Modify `PlanEntry` construction to stash `assets: [...assetSet.artifacts,
+    ...mermaidArtifacts]` (done — both bound + unbound entries, replaceAll).
 
-- [ ] **P3.2** Add `privacyWarningEmitted` flag at the top of `computePlan` (outside
-  the per-doc loop) to ensure the warning is emitted once per run.
+  - [x] **P3.5** Write `tests/integration/app/mermaid/mermaid-render.test.ts`
+    (done — 9 tests: TC-MERM-001 render activation + upload, TC-MERM-003 reuse +
+    determinism, TC-MERM-006 per-doc isolation, TC-MERM-008 privacy warning render/code/skip,
+    TC-MERM-011 no secrets in output; 9 pass; mock target uses REAL renderStorage).
 
-- [ ] **P3.3** Modify the `attachmentHashes` construction to include mermaid
-  artifacts:
-  ```ts
-  const attachmentHashes: Record<string, string> = {};
-  // GH-26: local assets
-  for (const resolved of assetSet.srcMap.values()) {
-    attachmentHashes[resolved.filename] = resolved.hash;
-  }
-  // GH-69: mermaid artifacts
-  for (const artifact of mermaidArtifacts) {
-    const filename = attachmentFilename(artifact); // produces marksync-mermaid-<fullhash>.svg
-    attachmentHashes[filename] = artifact.hash;
-  }
-  ```
-
-- [ ] **P3.4** Modify `PlanEntry` construction to stash `assets: [...assetSet.artifacts,
-  ...mermaidArtifacts]` (append mermaid artifacts to local assets).
-
-- [ ] **P3.5** Write `tests/integration/app/mermaid/mermaid-render.test.ts`:
-  - **TC-MERM-001** (render activation): Mock Kroki adapter + mock target → assert
-    Storage body contains `<ac:image><ri:attachment ri:filename="marksync-mermaid-<fullsha256>.svg"/>`,
-    `uploadAttachment` called once with correct artifact.
-  - **TC-MERM-002** (golden fixture foundation, see Phase 4): Stub renderer → assert
-    XHTML structure matches committed golden.
-  - **TC-MERM-003** (attachment reuse): First run → upload 1×; second run with
-    same source → `attachmentExists` true, `uploadAttachment` called 0×.
-  - **TC-MERM-006** (per-document isolation): Doc A renders successfully, doc B
-    fails → run continues, doc B falls back to code block.
-  - **TC-MERM-008** (privacy warning): `policy = "render"` → warning in plan output;
-    `policy = "code"/"skip"` → no warning.
-  - **TC-MERM-011** (no secrets in output): Mermaid source contains fake token →
-    filename is hash (not token), output contains 0 token occurrences.
-
-- [ ] **P3.6** Commit: `feat(mermaid): GH-69 wire mermaid transform into computePlan`.
+  - [x] **P3.6** Commit: `feat(mermaid): gh-69 wire mermaid transform into computeplan`.
 
 ---
 
@@ -420,7 +354,7 @@ identifies the following docs that will need updating:
 |-------|--------|---------|-----------|--------|-------|
 | Phase 1 | Done | 2026-07-13 | 2026-07-13 | 5884ecf | Renderer port + Kroki adapter; 7 unit tests PASS, typecheck clean |
 | Phase 2 | Done | 2026-07-13 | 2026-07-13 | 2a5953e | Mermaid HAST transform; 8 unit tests PASS, typecheck + depcruise clean |
-| Phase 3 | Pending | - | - | - | computePlan wiring + privacy warning |
+| Phase 3 | Done | 2026-07-13 | 2026-07-13 | (pending commit) | computePlan wiring; 9 integration tests PASS, full suite 1040 pass |
 | Phase 4 | Pending | - | - | - | Golden fixture |
 | Phase 5 | Pending | - | - | - | Quality gate & cleanup |
 | Remediation | Pending | - | - | - | Populated by `@reviewer` if needed |
