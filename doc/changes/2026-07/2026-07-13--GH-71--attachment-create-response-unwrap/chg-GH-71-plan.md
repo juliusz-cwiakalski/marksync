@@ -134,17 +134,17 @@ No open questions — the fix is fully specified in the ticket and spike evidenc
 
 **Tasks**:
 
-- [ ] **3.1** Run the full attachment test suite: `bun test tests/unit/infra/confluence/attachments.test.ts`
-- [ ] **3.2** Verify all existing tests pass unchanged: TC-DUP-001, TC-DUP-002, TC-EXISTS-001, TC-LIST-001
-- [ ] **3.3** Verify all new tests pass: TC-ATTACH-001, TC-ATTACH-002, TC-ATTACH-003, TC-ATTACH-005, TC-ATTACH-006
-- [ ] **3.4** Run typecheck: `bun run typecheck` — must pass
-- [ ] **3.5** Run lint: `bun run lint` — must pass
+- [x] **3.1** Full attachment suite: `bun test tests/unit/infra/confluence/attachments.test.ts` → 14 pass / 0 fail
+- [x] **3.2** Existing tests unchanged: TC-DUP-001/002, TC-EXISTS-001, TC-LIST-001 all pass (also confirmed via full unit suite: 774 pass / 0 fail across 74 files)
+- [x] **3.3** New tests pass: TC-ATTACH-001/002/003/005/006 all pass
+- [x] **3.4** `bun run typecheck` (tsc --noEmit) → exit 0
+- [x] **3.5** `bun run lint` (biome lint .) → exit 0
 
 **Acceptance Criteria**:
 
-- Must: AC-3 — All existing attachment tests pass unchanged (TC-DUP-001/002, TC-EXISTS-001, TC-LIST-001)
-- Must: All new tests pass (TC-ATTACH-001/002/003/005)
-- Must: No typecheck or lint errors
+- Must: AC-3 — All existing attachment tests pass unchanged (TC-DUP-001/002, TC-EXISTS-001, TC-LIST-001) — **PASSED**: full unit suite 774 pass / 0 fail (74 files)
+- Must: All new tests pass (TC-ATTACH-001/002/003/005) — **PASSED**: 5 new tests pass (incl. TC-ATTACH-006)
+- Must: No typecheck or lint errors — **PASSED**: typecheck exit 0, lint exit 0
 
 **Affected code areas**:
 
@@ -198,5 +198,5 @@ No open questions — the fix is fully specified in the ticket and spike evidenc
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
 | Phase 1 | Done | 2026-07-13 | 2026-07-13 | 512b288 | Core implementation — unwrap results[0] in mapCreate; typecheck + lint pass, 9 existing tests pass |
-| Phase 2 | Done | 2026-07-13 | 2026-07-13 | (pending commit) | Test coverage — 5 new tests (TC-ATTACH-001/002/003/005/006); attachments.ts at 100% coverage; 14 tests pass |
-| Phase 3 | Not started | — | — | — | Finalize — verify all tests pass and no regressions |
+| Phase 2 | Done | 2026-07-13 | 2026-07-13 | 3b0f23d | Test coverage — 5 new tests (TC-ATTACH-001/002/003/005/006); attachments.ts at 100% coverage; 14 tests pass |
+| Phase 3 | Done | 2026-07-13 | 2026-07-13 | (pending commit) | Finalize — 14 attachment tests pass, full unit suite 774/0, typecheck + lint clean |
