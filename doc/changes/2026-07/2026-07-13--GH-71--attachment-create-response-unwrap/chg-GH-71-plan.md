@@ -1,0 +1,209 @@
+---
+# Copyright (c) 2025-2026 Juliusz Ćwiąkalski (https://www.cwiakalski.com | https://www.linkedin.com/in/juliusz-cwiakalski/ | https://x.com/cwiakalski)
+# MIT License - see LICENSE file for full terms
+source: https://github.com/juliusz-cwiakalski/agentic-delivery-os/blob/main/doc/templates/implementation-plan-template.md
+ados_distribution: redistributable
+id: chg-GH-71-attachment-create-response-unwrap
+status: Proposed
+created: 2026-07-13T00:00:00Z
+last_updated: 2026-07-13T00:00:00Z
+owners: ["@cwiakalski"]
+service: confluence-adapter
+labels: ["bug", "MS-0002", "priority:high"]
+links:
+  change_spec: ./chg-GH-71-spec.md
+summary: "Fix the attachment upload response parsing to handle the Confluence v1 API's { results: [...] } wrapper, unblocking Mermaid SVG rendering and all attachment uploads."
+version_impact: patch
+---
+
+# IMPLEMENTATION PLAN — GH-71: Attachment upload schema mismatch — v1 API returns { results: [...] } not flat object
+
+## Context and Goals
+
+This plan delivers a P0 bug fix for the `AttachmentService.mapCreate` function in `src/infra/confluence/attachments.ts`. The current implementation incorrectly parses the v1 API's attachment create response as a flat object, but Confluence returns `{ results: [...] }` even for single attachment creates. This causes every attachment upload to fail with a schema validation error, blocking the Mermaid SVG rendering feature (GH-69) and all attachment operations (GH-26).
+
+The fix implements DEC-1 and DEC-2 from the spec: unwrap `results[0]` in the mapper (not the schema) with a defensive fallback for flat responses. The plan also adds the missing happy-path test coverage that allowed the bug to ship undetected.
+
+No open questions — the fix is fully specified in the ticket and spike evidence at `doc/inception/integration-scenarios/11-attachments.md:37`.
+
+## Scope
+
+### In Scope
+
+- Fix `mapCreate` in `src/infra/confluence/attachments.ts` (lines 184-196) to unwrap `body.results[0]` before zod validation (F-1, AC-1, AC-2, AC-4)
+- Add unit tests for the happy-path attachment create using the verbatim spike-evidence response shape (TC-ATTACH-001, TC-ATTACH-002, TC-ATTACH-003, TC-ATTACH-005)
+- Verify all existing attachment tests pass unchanged (TC-DUP-001/002, TC-EXISTS-001, TC-LIST-001) (AC-3, TC-ATTACH-004)
+
+### Out of Scope
+
+- Changes to the `AttachmentCreateResponse` schema (it correctly models a single result; the unwrap happens in the mapper per DEC-1) (NG-1)
+- Changes to `AttachmentListResponse` or the `list()` path (already correct per spec) (NG-2)
+- Changes to the 400-duplicate / `resolveExisting` path (already correct per spec) (NG-3)
+- Changes to the Kroki/mermaid rendering pipeline (GH-69 is merged and correct; it was blocked by this upload bug) (NG-4)
+- E2E live-sandbox testing (CI integration-tier coverage is sufficient for a response-parsing fix) (NG-5)
+
+### Constraints
+
+- Must handle `noUncheckedIndexedAccess` strict mode: `results[0]` is `unknown | undefined` — plan accounts for the undefined case (schema validation fails → `RemoteUnreachable`, which is correct)
+- Follow `.ai/rules/typescript.md` conventions: minimal comments, zod at boundaries, explicit typing at exports
+- Follow `.ai/rules/testing-strategy.md` conventions: unit tests using existing `script()`, `jsonRes()`, `svgArtifact()` helpers
+- Use the verbatim spike evidence response shape from `doc/inception/integration-scenarios/11-attachments.md:37`
+
+### Risks
+
+- **RSK-1**: Confluence API changes response shape in the future. Mitigated by DEC-2: defensive check uses `body.results[0]` if present, else `body` as-is (future-proofing).
+- **RSK-2**: Multiple results in create response (unexpected). Mitigated by mapper taking `results[0]`; schema validates single result structure. Low probability; if it occurs, schema validation fails → `RemoteUnreachable` (correct behavior).
+
+### Success Metrics
+
+- Attachment upload success rate: 100% (currently 0% due to schema validation failure)
+- Unit test coverage for `mapCreate` success path: 1 new test (TC-ATTACH-001)
+- Existing attachment test pass rate: 100% (no regressions)
+- Response parsing performance: ≤ 1ms for unwrapping and validation (unchanged from current path, verified via TC-ATTACH-001 timing assertion)
+
+## Phases
+
+### Phase 1: Core implementation — unwrap results[0] in mapCreate
+
+**Goal**: Fix `mapCreate` to unwrap the v1 API's `{ results: [...] }` wrapper before zod validation, enabling successful attachment uploads.
+
+**Tasks**:
+
+- [ ] **1.1** Modify `mapCreate` in `src/infra/confluence/attachments.ts` (lines 184-196) to:
+  - Check if `body` has a `results` property (using type guard pattern)
+  - If present, extract `results[0]` (type is `unknown | undefined` under `noUncheckedIndexedAccess`)
+  - If not present, use `body` as-is (defensive fallback per DEC-2)
+  - Pass the unwrapped value to `AttachmentCreateResponse.safeParse()`
+- [ ] **1.2** Verify TypeScript strict mode compliance: ensure no implicit `any` and proper handling of `unknown | undefined` for `results[0]`
+
+**Acceptance Criteria**:
+
+- Must: AC-1 — POST create returning `{ "results": [{ "id": "att123", "title": "...", "version": { "number": 1 } }] }` → `upload()` returns `ok(AttachmentRef)` with correct id/title/hash/version
+- Should: No changes to `AttachmentCreateResponse` schema (per DEC-1)
+
+**Affected code areas**:
+
+- `src/infra/confluence/attachments.ts` — `mapCreate` function (updated)
+
+**System docs to update**:
+
+- none (no spec changes; this is a bug fix)
+
+**Tests**:
+
+- Manual verification: `bun run typecheck` — must pass with no errors
+- Manual verification: `bun run lint` — must pass with no errors
+- Manual verification: Review the fix against the ticket's example code and DEC-1/DEC-2
+
+**Completion signal**: `fix(confluence): unwrap results[0] in attachment create response parsing`
+
+---
+
+### Phase 2: Test coverage — happy-path and edge case unit tests
+
+**Goal**: Add unit tests for the happy-path attachment create and edge cases, preventing regression of this bug.
+
+**Tasks**:
+
+- [ ] **2.1** Add `describe` block for "attachment create — happy path with wrapped response" with tests for:
+  - TC-ATTACH-001: Happy-path create with `{ "results": [{ ... }] }` using verbatim spike evidence response shape
+  - TC-ATTACH-002: Defensive fallback for flat response (no `results` wrapper)
+  - TC-ATTACH-003: Mermaid SVG artifact upload (validates GH-69 unblocking)
+  - TC-ATTACH-005: Schema validation error message clarity (invalid response structure)
+- [ ] **2.2** Use existing test helpers: `script()`, `jsonRes()`, `svgArtifact()` from `attachments.test.ts`
+- [ ] **2.3** Include performance timing assertion in TC-ATTACH-001 for NFR-1 (≤ 1ms for unwrapping + validation)
+
+**Acceptance Criteria**:
+
+- Must: AC-4 — New regression test for happy-path create using verbatim spike-evidence response shape
+- Must: AC-2 — Mermaid render pipeline can upload SVG attachments (validated via TC-ATTACH-003)
+- Must: NFR-2 — Error handling clarity maintained (validated via TC-ATTACH-005)
+
+**Affected code areas**:
+
+- `tests/unit/infra/confluence/attachments.test.ts` — new tests (updated)
+
+**System docs to update**:
+
+- none (no spec changes; this is test coverage for the fix)
+
+**Tests**:
+
+- Run unit tests: `bun test tests/unit/infra/confluence/attachments.test.ts` — must pass
+- Verify new tests use verbatim spike evidence response shape from `doc/inception/integration-scenarios/11-attachments.md:37`
+
+**Completion signal**: `test(attachments): add happy-path create tests with wrapped response`
+
+---
+
+### Phase 3: Finalize — verify all tests pass and no regressions
+
+**Goal**: Confirm the fix works and does not break existing functionality.
+
+**Tasks**:
+
+- [ ] **3.1** Run the full attachment test suite: `bun test tests/unit/infra/confluence/attachments.test.ts`
+- [ ] **3.2** Verify all existing tests pass unchanged: TC-DUP-001, TC-DUP-002, TC-EXISTS-001, TC-LIST-001
+- [ ] **3.3** Verify all new tests pass: TC-ATTACH-001, TC-ATTACH-002, TC-ATTACH-003, TC-ATTACH-005
+- [ ] **3.4** Run typecheck: `bun run typecheck` — must pass
+- [ ] **3.5** Run lint: `bun run lint` — must pass
+
+**Acceptance Criteria**:
+
+- Must: AC-3 — All existing attachment tests pass unchanged (TC-DUP-001/002, TC-EXISTS-001, TC-LIST-001)
+- Must: All new tests pass (TC-ATTACH-001/002/003/005)
+- Must: No typecheck or lint errors
+
+**Affected code areas**:
+
+- none (verification phase)
+
+**System docs to update**:
+
+- none
+
+**Tests**:
+
+- Full unit test suite: `bun test tests/unit/infra/confluence/attachments.test.ts`
+- Typecheck: `bun run typecheck`
+- Lint: `bun run lint`
+
+**Completion signal**: `fix(confluence): verify attachment create response unwrap — all tests pass`
+
+---
+
+## Test Scenarios
+
+| TC ID | Scenario | Phase(s) | AC Coverage |
+|-------|----------|----------|-------------|
+| TC-ATTACH-001 | Happy-path create with wrapped response { results: [...] } | Phase 2 | AC-1, AC-4 |
+| TC-ATTACH-002 | Defensive fallback for flat response (no results wrapper) | Phase 2 | — (DEC-2 validation) |
+| TC-ATTACH-003 | Mermaid SVG artifact upload through upload pipeline | Phase 2 | AC-2 |
+| TC-ATTACH-004 | Existing attachment tests unchanged (regression confirmation) | Phase 3 | AC-3 |
+| TC-ATTACH-005 | Schema validation error message clarity (invalid response structure) | Phase 2 | NFR-2 |
+
+## Artifacts and Links
+
+| Artifact | Location | Type |
+|----------|----------|------|
+| Change specification | ./chg-GH-71-spec.md | Spec |
+| Test plan | ./chg-GH-71-test-plan.md | Test Plan |
+| Implementation plan (this file) | ./chg-GH-71-plan.md | Plan |
+| Source file to fix | src/infra/confluence/attachments.ts | Code |
+| Test file to update | tests/unit/infra/confluence/attachments.test.ts | Code |
+| Schema file (reference only, no changes) | src/infra/confluence/schemas/attachment.ts | Code |
+| Spike evidence (response shape) | doc/inception/integration-scenarios/11-attachments.md:37 | Documentation |
+
+## Plan Revision Log
+
+| Version | Date | Author | Changes |
+|---------|------|--------|---------|
+| 1.0 | 2026-07-13 | Implementation Plan Writer | Initial implementation plan for GH-71 |
+
+## Execution Log
+
+| Phase | Status | Started | Completed | Commit | Notes |
+|-------|--------|---------|-----------|--------|-------|
+| Phase 1 | Not started | — | — | — | Core implementation — unwrap results[0] in mapCreate |
+| Phase 2 | Not started | — | — | — | Test coverage — happy-path and edge case unit tests |
+| Phase 3 | Not started | — | — | — | Finalize — verify all tests pass and no regressions |
