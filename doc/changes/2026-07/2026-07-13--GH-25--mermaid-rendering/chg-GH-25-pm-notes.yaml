@@ -1,0 +1,93 @@
+change_id: GH-25
+title: "[MS2-E4-S1] Mermaid rendering"
+slug: mermaid-code-policy-default
+branch: feat/GH-25/mermaid-code-policy (to be created by @coder)
+change_folder: doc/changes/2026-07/2026-07-13--GH-25--mermaid-rendering
+story_file: doc/planning/milestones/MS-2/MS2-E4--features/MS2-E4-S1--mermaid-rendering.md
+feature_spec: doc/spec/features/feature-mermaid-rendering.md
+decisions: [ADR-0001, ADR-0002, TDR-0004, CEO-DEC-1]
+
+phases:
+  clarify_scope: { started: "2026-07-13T03:00:00Z", completed: "2026-07-13T03:30:00Z" }
+  specification: { started: "2026-07-13T03:30:00Z", completed: "2026-07-13T03:45:00Z" }
+  test_planning: { started: "2026-07-13T03:45:00Z", completed: "2026-07-13T04:00:00Z" }
+  delivery_planning: { started: "2026-07-13T04:00:00Z", completed: "2026-07-13T04:15:00Z" }
+  dor_check: { started: "2026-07-13T04:15:00Z", completed: "2026-07-13T04:30:00Z" }
+  delivery: { started: "2026-07-13T04:30:00Z", completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+
+decisions:
+  - text: >
+      CEO-DEC-1 (2026-07-13, CEO-agent under user-delegated autonomous authority):
+      MS2-E4-S1 ships the `code` policy (preserve raw Mermaid code block) as the
+      MS-0002 default per ADR-0002 fallback rung 7. Full in-process Mermaid SVG
+      rendering deferred to MS-0003+. Option 1 (Chromium) rejected — violates
+      ADR-0001 single-binary/no-Chromium. Option 2 (SVG-layout shim) rejected for
+      MS-0002 — unvalidated, needs a follow-up spike. TypeScript/Bun LOCKED IN
+      (15 successful deliveries) — ADR-0001 NOT revisited; the revisit trigger is
+      resolved without fundamental reconsideration. ADR-0001/0002 open-question
+      amendments to be recorded by @doc-syncer in phase 7, citing CEO-DEC-1.
+    date: "2026-07-13"
+
+open_questions: []
+
+blockers:
+  - text: >
+      clarify_scope BLOCKER (resolved 2026-07-13) — the GH-25 story file carried
+      an explicit "Do not start delivery against the current scope" banner because
+      the GH-11 spike (H4 FAIL 0/5) invalidated the happy-dom in-process premise
+      and ADR-0001/0002 flagged an unresolved owner-level decision. RESOLVED by
+      CEO-DEC-1 (option 3: code policy as MS-0002 default).
+    date: "2026-07-13"
+    resolved_date: "2026-07-13"
+
+notes:
+  - text: >
+      State detection at intake: GH-25 OPEN, no open PR, no GH-25 branch, on main
+      (56f707c). Hard dependencies resolved — MS2-E1-S1 (GH-11 spike, CLOSED) and
+      MS2-E3-S6 (GH-23 sync engine, MERGED 5e1a1d8). Initially blocked at
+      clarify_scope pending owner decision (comment #4953533817); unblocked by
+      CEO-DEC-1.
+    type: info
+    workItemRef: GH-25
+    date: "2026-07-13"
+  - text: >
+      Scoping finding (load-bearing for spec): the code-policy fallback is ALREADY
+      the de-facto pipeline behavior. A ```mermaid fence → <pre><code
+      class="language-mermaid"> → codeMacro() (src/infra/confluence/render/storage.ts:185)
+      → Confluence code macro with language=mermaid. No renderer exists. So the
+      re-scoped story is SMALL: (1) flip the config default so it reflects MS-0002
+      reality instead of the misleading "render"; (2) add explicit tests proving
+      mermaid fences are preserved byte-stable as code macros; (3) adversarial
+      fixtures (safe by construction — content is CDATA-escaped inside a code
+      macro); (4) document the fallback ladder as the MS-0002 operating default.
+    type: info
+    workItemRef: GH-25
+    date: "2026-07-13"
+  - text: >
+      Pre-existing inconsistency for the spec-writer to resolve: MermaidPolicy
+      enum is "render" | "skip" (src/domain/config/types.ts:31), but ADR-0002
+      names rung 7 the "code" policy and C-2 lists policy values error|code|macro.
+      There is no "code" value in the enum, and the policy is declared but never
+      consumed (no code reads config.render.mermaid.policy). The spec must decide
+      the canonical MS-0002 policy model: likely add "code" to the enum and make
+      it the default (aligning config with ADR-0002 terminology), OR repurpose
+      the existing values. Config default (config.ts:147) and starter template
+      (config-template.ts:75) both currently ship "render".
+    type: info
+    workItemRef: GH-25
+    date: "2026-07-13"
+  - text: >
+      Retro — the ADR-0001/0002 owner decision was pending in ceo_open_questions
+      since 2026-07-06 (7 days) across 7 deliveries (GH-18..GH-24). GH-25 is the
+      first ticket where the pending decision blocked delivery outright.
+      Improvement: resolve owner-level decisions surfaced by spikes before
+      dependent stories reach the top of the backlog. Mitigated here by surfacing
+      the blocker at clarify_scope (no wasted spec/plan/coder work).
+    type: retro
+    workItemRef: GH-25
+    date: "2026-07-13"

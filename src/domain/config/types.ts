@@ -28,7 +28,7 @@ export type HierarchyMode = "mirror" | "flat";
 export type SyncGranularity = "squash";
 
 /** Mermaid render policy. */
-export type MermaidPolicy = "render" | "skip";
+export type MermaidPolicy = "code" | "render" | "skip";
 
 /** Mermaid security level (mirrors the official Mermaid option). */
 export type MermaidSecurityLevel = "strict" | "loose" | "sandbox";

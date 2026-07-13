@@ -43,6 +43,7 @@ describe("writeStarterConfig — TC-INIT-001: round-trip (AC-F5-1)", () => {
 			expect(loaded.value.targets.default?.type).toBe("confluence");
 			// Defaults are applied over the starter too.
 			expect(loaded.value.sync.stalePlanMinutes).toBe(15);
+			expect(loaded.value.render.mermaid.policy).toBe("code");
 			expect(loaded.value.render.mermaid.deterministicIds).toBe(true);
 		} finally {
 			rmSync(dir, { recursive: true, force: true });

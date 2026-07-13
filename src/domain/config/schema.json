@@ -91,11 +91,11 @@
 					"type": "object",
 					"additionalProperties": false,
 					"properties": {
-						"policy": {
-							"type": "string",
-							"description": "When to render Mermaid diagrams (default: render).",
-							"enum": ["render", "skip"]
-						},
+					"policy": {
+						"type": "string",
+						"description": "When to render Mermaid diagrams (default: code — MS-0002 preserves as code macro with language=mermaid; render is a forward-compatible placeholder descending to code until the MS-0003+ renderer lands).",
+						"enum": ["code", "render", "skip"]
+					},
 						"securityLevel": {
 							"type": "string",
 							"description": "Mermaid security level (default: strict).",
