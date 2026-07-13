@@ -409,4 +409,31 @@ describe("shell-git glob pattern matching (GH-64)", () => {
 
 		expect(result.value.size).toBe(0);
 	});
+
+	// TC-GLOB-007: Malicious pattern with `..` throws before git spawn (AC-F3-1)
+	test("TC-GLOB-007: malicious pattern with .. throws before git spawn", async () => {
+		const repo = await buildRepo({ "test.md": "# Test\n" });
+
+		// validateRepoRelative throws synchronously before any git spawn.
+		expect(() => repo.readCommitted("HEAD", ["docs/../../etc/passwd"])).toThrow(
+			/parent directory reference/,
+		);
+	});
+
+	// TC-GLOB-008: Malicious pattern with shell metacharacters throws (AC-F3-2)
+	test("TC-GLOB-008: malicious pattern with shell metacharacters throws", async () => {
+		const repo = await buildRepo({ "test.md": "# Test\n" });
+
+		for (const malicious of [
+			"docs;rm -rf /",
+			"$(id)",
+			"`whoami`",
+			"docs|cat",
+			"docs&>file",
+		]) {
+			expect(() => repo.readCommitted("HEAD", [malicious])).toThrow(
+				/shell metacharacter/,
+			);
+		}
+	});
 });

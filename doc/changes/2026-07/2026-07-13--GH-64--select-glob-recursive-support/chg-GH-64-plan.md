@@ -202,31 +202,18 @@ All requirements are derived from the change specification ([chg-GH-64-spec.md](
 
 **Tasks**:
 
-- [ ] **4.1** Implement TC-GLOB-007: "Malicious pattern with `..` throws before git spawn"
-  - Create temp git repo with a test file
-  - Call `repo.readCommitted("HEAD", ["docs/../../etc/passwd"])`
-  - Verify error is thrown before any git command is spawned
-  - Verify error message indicates parent directory reference
-- [ ] **4.2** Implement TC-GLOB-008: "Malicious pattern with shell metacharacters throws"
-  - Create temp git repo with a test file
-  - Call `repo.readCommitted("HEAD", ["docs;rm -rf /"])`
-  - Verify error is thrown before any git command is spawned
-  - Test additional metacharacters: `$(id)`, `` `whoami` ``, `|cat`, `&>file`
-- [ ] **4.3** Update TC-GLOB-010: "Existing happy path test updated for glob semantics"
-  - Locate existing test at `tests/unit/infra/git/shell-git.test.ts` line ~153 that calls `repo.readCommitted("HEAD", ["."])`
-  - Change the pattern argument from `["."]` to `["**/*.md"]` (or `["*.md"]` depending on temp repo structure)
-  - Verify the test still exercises reading committed files and returns a non-empty map
-  - Rationale: After the fix, `.` is a literal glob pattern (no special meaning), so the existing test would fail with empty results
-- [ ] **4.4** Verify TC-GLOB-010: "Existing happy path with updated pattern still works"
-  - Run the updated test to confirm it passes with new implementation
-- [ ] **4.5** Run all unit tests for shell-git: `bun test tests/unit/infra/git/shell-git.test.ts`
+- [x] **4.1** Implement TC-GLOB-007: "Malicious pattern with `..` throws before git spawn" — PASS (throws /parent directory reference/)
+- [x] **4.2** Implement TC-GLOB-008: "Malicious pattern with shell metacharacters throws" — PASS (throws /shell metacharacter/ for `;`, `$()`, backtick, `|`, `&>`)
+- [x] **4.3** Update TC-GLOB-010: "Existing happy path test updated for glob semantics" — DONE in Phase 1 (kept tree green): `["."]` → `["**/*.md"]` at line 153
+- [x] **4.4** Verify TC-GLOB-010: "Existing happy path with updated pattern still works" — PASS (reads test.md, returns non-empty map)
+- [x] **4.5** Run all unit tests for shell-git: `bun test tests/unit/infra/git/shell-git.test.ts` — 22 pass / 0 fail
 
 **Acceptance Criteria**:
 
-- Must: TC-GLOB-007 passes (AC-F3-1, NFR-SEC-7)
-- Must: TC-GLOB-008 passes (AC-F3-2, NFR-SEC-7)
-- Must: TC-GLOB-010 updated test passes (regression coverage)
-- Must: All existing unit tests still pass (no regressions)
+- Must: TC-GLOB-007 passes (AC-F3-1, NFR-SEC-7) — PASSED
+- Must: TC-GLOB-008 passes (AC-F3-2, NFR-SEC-7) — PASSED
+- Must: TC-GLOB-010 updated test passes (regression coverage) — PASSED
+- Must: All existing unit tests still pass (no regressions) — PASSED (22/22)
 
 **Affected code areas**:
 
