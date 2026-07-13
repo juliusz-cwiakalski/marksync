@@ -527,6 +527,35 @@ describe("TC-METADATA-001, TC-METADATA-002, TC-NO-CHANGE-001", () => {
 	});
 });
 
+/** ATTACHMENT drift tests (GH-26, NFR-3). */
+describe("TC-UNIT-009", () => {
+	test("TC-UNIT-009: attachmentHashes change only (same body) → NOT NO_CHANGE", () => {
+		const contentHast = root([text("Content")]);
+		const hash = canonicalHash(contentHast);
+
+		const input: ClassifyInput = {
+			local: buildContentHash({
+				source: "local",
+				hast: contentHast,
+				attachmentHashes: { "img.png": "sha256:newhash" }, // Different hash
+				title: "Test Title",
+				parentPageId: "98765",
+			}),
+			base: mockSharedBase({
+				renderedBodyHash: hash,
+				attachmentHashes: { "img.png": "sha256:oldhash" }, // Old hash
+			}),
+			remote: mockRemote({ bodyHash: hash }),
+		};
+		const result = classify(input);
+		expect(result.ok).toBe(true);
+		if (result.ok) {
+			expect(result.value).not.toBe("NO_CHANGE");
+			expect(result.value).toBe("LOCAL_AHEAD");
+		}
+	});
+});
+
 /** EDGE case: both missing. */
 describe("TC-EDGE-001", () => {
 	test("TC-EDGE-001: local absent + remote.kind == 'missing' + binding → LOCAL_MISSING (DEC-6)", () => {

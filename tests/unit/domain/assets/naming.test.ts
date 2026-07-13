@@ -35,34 +35,23 @@ describe("domain assets naming", () => {
 		expect(result).toBe(`marksync-asset-${hash}.bin`);
 	});
 
-	test("TC-UNIT-010 naming-agreement invariant: domain === infra for non-SVG", () => {
-		// For each non-SVG MIME, assetFilename must agree with attachmentFilename
+	test("TC-UNIT-010 naming-agreement invariant: domain === infra for all formats", () => {
+		// For ALL MIMEs (including SVG), assetFilename must agree with attachmentFilename
+		// when artifact.kind is unset (defaults to asset). SVG only diverges when
+		// artifact.kind === "mermaid" (reserved for E4-S1).
 		const bytes = new Uint8Array([1, 2, 3, 4]);
-		const nonSvgMimes = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+		const allMimes = [
+			"image/png",
+			"image/jpeg",
+			"image/gif",
+			"image/svg+xml",
+			"image/webp",
+		];
 
-		for (const mime of nonSvgMimes) {
+		for (const mime of allMimes) {
 			const domainName = assetFilename({ hash, mime });
 			const infraName = attachmentFilename({ bytes, mime, hash });
 			expect(domainName).toBe(infraName);
 		}
-	});
-
-	test("TC-UNIT-010 SVG: domain uses marksync-asset-, infra uses marksync-mermaid-", () => {
-		// SVG has documented divergence: domain = marksync-asset- for user-authored images,
-		// infra = marksync-mermaid- reserved for E4-S1 (mermaid manager)
-		const bytes = new Uint8Array([1, 2, 3, 4]);
-		const domainName = assetFilename({ hash, mime: "image/svg+xml" });
-		const infraName = attachmentFilename({
-			bytes,
-			mime: "image/svg+xml",
-			hash,
-		});
-
-		// Domain uses marksync-asset- prefix
-		expect(domainName).toBe(`marksync-asset-${hash}.svg`);
-		// Infra uses marksync-mermaid- prefix (reserved for mermaid diagrams)
-		expect(infraName).toBe(`marksync-mermaid-${hash}.svg`);
-		// They differ (documented divergence)
-		expect(domainName).not.toBe(infraName);
 	});
 });

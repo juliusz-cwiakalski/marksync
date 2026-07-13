@@ -1,5 +1,5 @@
 // Domain asset filename helper (DEC-1). Produces `marksync-asset-<hash>.<ext>`
-// from hash+mime, reconciled with the infra `attachmentFilename()` for non-SVG.
+// from hash+mime, reconciled with the infra `attachmentFilename()` for all formats.
 
 export function assetFilename(artifact: {
 	hash: string;

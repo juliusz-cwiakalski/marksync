@@ -7,6 +7,8 @@ import type { TargetSystem, RenderedBody } from "#domain/target/port";
 import type { Root } from "hast";
 import type { Page } from "#domain/target/port";
 import * as fs from "node:fs";
+import { uploadAssets } from "#app/push-flow";
+import { attachmentFilename } from "#infra/confluence/attachments";
 
 describe("integration assets", () => {
 	/**
@@ -66,10 +68,12 @@ describe("integration assets", () => {
 			},
 			uploadAttachment: async (pageId, artifact) => {
 				uploadAttachmentCalls.push({ pageId, artifact });
+				// F-11: Use the REAL attachmentFilename to derive the filename
+				const filename = attachmentFilename(artifact);
 				const ref: AttachmentRef = {
 					id: "att-123",
 					pageId,
-					filename: `marksync-asset-${artifact.hash}.png`,
+					filename,
 					hash: artifact.hash,
 					version: 1,
 				};
@@ -268,11 +272,21 @@ describe("integration assets", () => {
 		]);
 	}
 
+	/**
+	 * Helper to create a large asset (>25 MB) for testing.
+	 */
+	function createLargeAsset(): Uint8Array {
+		// Create a 26 MB buffer
+		return new Uint8Array(26 * 1024 * 1024);
+	}
+
 	describe("TC-INTEGRATION-001 reuse (NFR-PERF-4)", () => {
 		test("exists=true → uploadAttachment called 0×", async () => {
 			const hash = "abc123";
 			const mockTarget = makeMockTarget({
 				attachmentExists: async (pageId, h) => {
+					// Still need to record the call
+					(mockTarget as any)._attachmentExistsCalls.push({ pageId, hash: h });
 					if (h === hash) return Res.ok(true);
 					return Res.ok(false);
 				},
@@ -283,38 +297,25 @@ describe("integration assets", () => {
 				_uploadAttachmentCalls: typeof mockTarget._uploadAttachmentCalls;
 			};
 
-			// Manually record the call since the override doesn't
-			target._attachmentExistsCalls.push({ pageId: "123", hash });
-
 			const artifact: Artifact = {
 				bytes: createPngImage(),
 				mime: "image/png",
 				hash,
 			};
 
-			// Call upload helper directly
-			const uploadHelper = async (
-				_t: TargetSystem,
-				_pageId: string,
-				artifacts: Artifact[],
-			): Promise<Result<Record<string, string>, never>> => {
-				const hashes: Record<string, string> = {};
-				for (const art of artifacts) {
-					const exists = await _t.attachmentExists("123", art.hash);
-					if (exists.value === true) continue;
-					const upload = await _t.uploadAttachment("123", art);
-					if (upload.ok) {
-						hashes[upload.value.filename] = art.hash;
-					}
-				}
-				return Res.ok(hashes);
-			};
-
-			const result = await uploadHelper(target, "123", [artifact]);
+			// Call the REAL uploadAssets function
+			const result = await uploadAssets(target, "123", [artifact]);
 
 			expect(result.ok).toBe(true);
 			expect(target._attachmentExistsCalls).toHaveLength(1);
+			expect(target._attachmentExistsCalls[0]!).toEqual({
+				pageId: "123",
+				hash,
+			});
 			expect(target._uploadAttachmentCalls).toHaveLength(0); // 0 uploads on reuse
+			expect(result.value).toBeDefined();
+			expect(result.value.attachmentHashes).toEqual({});
+			expect(result.value.warnings).toEqual([]);
 		});
 	});
 
@@ -335,24 +336,8 @@ describe("integration assets", () => {
 				hash,
 			};
 
-			const uploadHelper = async (
-				_t: TargetSystem,
-				_pageId: string,
-				artifacts: Artifact[],
-			): Promise<Result<Record<string, string>, never>> => {
-				const hashes: Record<string, string> = {};
-				for (const art of artifacts) {
-					const exists = await _t.attachmentExists("123", art.hash);
-					if (exists.value === true) continue;
-					const upload = await _t.uploadAttachment("123", art);
-					if (upload.ok) {
-						hashes[upload.value.filename] = art.hash;
-					}
-				}
-				return Res.ok(hashes);
-			};
-
-			const result = await uploadHelper(target, "123", [artifact]);
+			// Call the REAL uploadAssets function
+			const result = await uploadAssets(target, "123", [artifact]);
 
 			expect(result.ok).toBe(true);
 			expect(target._uploadAttachmentCalls).toHaveLength(1);
@@ -501,6 +486,11 @@ describe("integration assets", () => {
 				expect(target._uploadAttachmentCalls).toHaveLength(1);
 				expect(target._uploadAttachmentCalls[0]!.artifact.hash).toBe(hash);
 
+				// F-11: Mock uses REAL attachmentFilename (per-format assertion is meaningful)
+				const expectedFilename = attachmentFilename(artifacts[0]!);
+				expect(uploadResult.value.filename).toBe(expectedFilename);
+				expect(uploadResult.value.filename).toBe(filename);
+
 				// Attachment list would contain it (checked via listAttachments)
 				const listResult = await target.listAttachments("123");
 				expect(listResult.ok).toBe(true);
@@ -511,6 +501,112 @@ describe("integration assets", () => {
 			}
 
 			fs.rmSync(tempRoot, { recursive: true, force: true });
+		});
+	});
+
+	describe("TC-INTEGRATION-006 large-asset + isolation", () => {
+		test("doc A >25 MB warns + applies, doc B 413 blocks, run continues", async () => {
+			const largeAsset = createLargeAsset();
+			const normalAsset = createPngImage();
+			const largeHash = "large123";
+			const normalHash = "normal123";
+
+			// Mock target: large upload returns 413, normal upload succeeds
+			const mockTarget = makeMockTarget({
+				attachmentExists: async (pageId, hash) => {
+					return Res.ok(false); // Both assets don't exist
+				},
+				uploadAttachment: async (pageId, artifact) => {
+					// Still need to record the call
+					(mockTarget as any)._uploadAttachmentCalls.push({ pageId, artifact });
+					if (artifact.hash === largeHash) {
+						return Res.err({
+							kind: "TooLarge",
+							pageId,
+							what: "Attachment exceeds size limit",
+						});
+					}
+					// Normal asset upload succeeds
+					return Res.ok({
+						id: "att-456",
+						pageId,
+						filename: attachmentFilename(artifact),
+						hash: artifact.hash,
+						version: 1,
+					});
+				},
+			});
+
+			const target = mockTarget as TargetSystem & {
+				_uploadAttachmentCalls: typeof mockTarget._uploadAttachmentCalls;
+			};
+
+			// Doc A: large asset (>25 MB)
+			const artifactA: Artifact = {
+				bytes: largeAsset,
+				mime: "image/png",
+				hash: largeHash,
+			};
+
+			const resultA = await uploadAssets(target, "123", [artifactA]);
+
+			// Doc A should emit a >25 MB warning but still upload (will fail with TooLarge)
+			expect(resultA.ok).toBe(false);
+			expect(resultA.error?.kind).toBe("TooLarge");
+
+			// Doc B: normal asset
+			const artifactB: Artifact = {
+				bytes: normalAsset,
+				mime: "image/png",
+				hash: normalHash,
+			};
+
+			const resultB = await uploadAssets(target, "456", [artifactB]);
+
+			// Doc B should succeed
+			expect(resultB.ok).toBe(true);
+			expect(resultB.value.warnings).toEqual([]); // No warning for normal asset
+			expect(resultB.value.attachmentHashes).toBeDefined();
+			expect(target._uploadAttachmentCalls).toHaveLength(2);
+			expect(target._uploadAttachmentCalls[0]!.artifact.hash).toBe(largeHash);
+			expect(target._uploadAttachmentCalls[1]!.artifact.hash).toBe(normalHash);
+		});
+
+		test(">25 MB warning surfaced in result", async () => {
+			const largeAsset = createLargeAsset();
+			const hash = "large123";
+
+			const mockTarget = makeMockTarget({
+				attachmentExists: async () => Res.ok(false),
+				uploadAttachment: async (pageId, artifact) => {
+					return Res.ok({
+						id: "att-789",
+						pageId,
+						filename: attachmentFilename(artifact),
+						hash: artifact.hash,
+						version: 1,
+					});
+				},
+			});
+
+			const target = mockTarget as TargetSystem & {
+				_uploadAttachmentCalls: typeof mockTarget._uploadAttachmentCalls;
+			};
+
+			const artifact: Artifact = {
+				bytes: largeAsset,
+				mime: "image/png",
+				hash,
+			};
+
+			const result = await uploadAssets(target, "123", [artifact]);
+
+			// Should succeed with warning
+			expect(result.ok).toBe(true);
+			expect(result.value.warnings).toBeDefined();
+			expect(result.value.warnings).toHaveLength(1);
+			expect(result.value.warnings[0]!).toContain("exceeds 25 MB");
+			expect(result.value.warnings[0]!).not.toContain(hash); // F-8: hash MUST NOT leak to warnings
 		});
 	});
 });

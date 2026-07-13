@@ -139,7 +139,8 @@ export class AttachmentService {
  */
 export function attachmentFilename(artifact: Artifact): string {
 	const ext = extFromMime(artifact.mime);
-	const prefix = artifact.kind === "mermaid" ? "marksync-mermaid-" : "marksync-asset-";
+	const prefix =
+		artifact.kind === "mermaid" ? "marksync-mermaid-" : "marksync-asset-";
 	return `${prefix}${artifact.hash}.${ext}`;
 }
 
