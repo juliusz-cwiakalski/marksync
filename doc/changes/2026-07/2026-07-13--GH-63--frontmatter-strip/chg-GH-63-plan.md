@@ -81,16 +81,16 @@ The `doc/spec/features/feature-safe-publish.md` markdown-pipeline row will be re
 
 **Tasks**:
 
-- [ ] **1.1** Create or checkout branch `fix/GH-63/frontmatter-strip`
-- [ ] **1.2** Run `bun add remark-frontmatter` to install the package
-- [ ] **1.3** Verify in `package.json` that `remark-frontmatter` is added to dependencies with version ^5.x
-- [ ] **1.4** Verify in `bun.lock` that the package resolves correctly with no conflicts
+- [x] **1.1** Create or checkout branch `fix/GH-63/frontmatter-strip` (already checked out at start)
+- [x] **1.2** Run `bun add remark-frontmatter` to install the package (installed remark-frontmatter@5.0.0)
+- [x] **1.3** Verify in `package.json` that `remark-frontmatter` is added to dependencies with version ^5.x (`"remark-frontmatter": "^5.0.0"`)
+- [x] **1.4** Verify in `bun.lock` that the package resolves correctly with no conflicts (remark-frontmatter@5.0.0 → unified ^11.0.0, remark-15 compatible)
 
 **Acceptance Criteria**:
 
-- Must: `remark-frontmatter` ^5.x is listed in `package.json` dependencies
-- Must: `bun.lock` shows successful resolution with no conflicts
-- Should: Version matches remark 15 compatibility per spec Appendix B
+- Must: `remark-frontmatter` ^5.x is listed in `package.json` dependencies — PASSED (`^5.0.0`)
+- Must: `bun.lock` shows successful resolution with no conflicts — PASSED (remark-frontmatter@5.0.0, unified ^11.0.0)
+- Should: Version matches remark 15 compatibility per spec Appendix B — PASSED (v5.0.0 targets unified 11 / remark 15)
 
 **Affected code areas**:
 
@@ -366,7 +366,7 @@ The `doc/spec/features/feature-safe-publish.md` markdown-pipeline row will be re
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| Phase 1: Dependency Installation | Pending | TBD | TBD | TBD | |
+| Phase 1: Dependency Installation | Complete | 2026-07-13 | 2026-07-13 | TBD | remark-frontmatter@5.0.0 installed; ^5.0.0 in package.json; bun.lock resolves unified ^11.0.0 |
 | Phase 2: Wire remark-frontmatter Plugin | Pending | TBD | TBD | TBD | |
 | Phase 3: Unit Test (TC-FMS-002) | Pending | TBD | TBD | TBD | |
 | Phase 4: Golden Fixture (TC-FMS-001, TC-FMS-004) | Pending | TBD | TBD | TBD | |
