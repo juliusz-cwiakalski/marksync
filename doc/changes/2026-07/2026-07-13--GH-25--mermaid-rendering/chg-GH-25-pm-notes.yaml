@@ -14,11 +14,11 @@ phases:
   delivery_planning: { started: "2026-07-13T04:00:00Z", completed: "2026-07-13T04:15:00Z" }
   dor_check: { started: "2026-07-13T04:15:00Z", completed: "2026-07-13T04:30:00Z" }
   delivery: { started: "2026-07-13T04:30:00Z", completed: "2026-07-13T05:00:00Z" }
-  system_spec_update: { started: "2026-07-13T05:00:00Z", completed: null }
-  review_fix: { started: null, completed: null }
-  quality_gates: { started: null, completed: null }
-  dod_check: { started: null, completed: null }
-  pr_creation: { started: null, completed: null, url: null }
+  system_spec_update: { started: "2026-07-13T05:20:00Z", completed: "2026-07-13T05:20:00Z" }
+  review_fix: { started: "2026-07-13T05:20:00Z", completed: "2026-07-13T05:40:00Z" }
+  quality_gates: { started: "2026-07-13T05:40:00Z", completed: "2026-07-13T05:40:00Z" }
+  dod_check: { started: "2026-07-13T05:40:00Z", completed: "2026-07-13T05:50:00Z" }
+  pr_creation: { started: "2026-07-13T05:50:00Z", completed: null, url: null }
 
 decisions:
   - text: >
@@ -46,6 +46,20 @@ blockers:
     resolved_date: "2026-07-13"
 
 notes:
+  - text: >
+      DoD CHECK (2026-07-13): ALL criteria met. (1) All phases complete
+      clarify_scope→quality_gates. (2) All 12 plan tasks checked [x], 0
+      unchecked. (3) All 8 spec ACs satisfied — reviewer iter-1 PASS (artifact:
+      code-review/review-iter-1.yaml). (4) Current-truth docs complete —
+      doc-syncer reported no residual gaps; ADR-0001/0002 CEO-DEC-1 open
+      questions resolved; feature spec reconciled with implemented policy model.
+      (5) Quality gates green — bun run check: 962 pass / 0 fail / 0 dependency
+      violations (run twice: post-delivery + post-remediation). Review remediation
+      applied F-1 (well-formed-XML assertion, commit 2bccbc1) + F-2 (plan
+      checkboxes); F-3 (pre-existing long headers) left as out-of-scope.
+    type: info
+    workItemRef: GH-25
+    date: "2026-07-13"
   - text: >
       State detection at intake: GH-25 OPEN, no open PR, no GH-25 branch, on main
       (56f707c). Hard dependencies resolved — MS2-E1-S1 (GH-11 spike, CLOSED) and
