@@ -1,0 +1,109 @@
+change_id: GH-26
+title: "[MS2-E4-S2] Attachments and images"
+slug: attachments-images
+branch: feat/GH-26/attachments-images (to be created by @coder; PM created empty branch for notes)
+change_folder: doc/changes/2026-07/2026-07-13--GH-26--attachments-images
+story_file: doc/planning/milestones/MS-2/MS2-E4--features/MS2-E4-S2--attachments-images.md
+feature_spec: doc/spec/features/feature-safe-publish.md
+decisions: [ADR-0005, ADR-0006]
+
+phases:
+  clarify_scope: { started: "2026-07-13T06:00:00Z", completed: "2026-07-13T06:20:00Z" }
+  specification: { started: "2026-07-13T06:20:00Z", completed: "2026-07-13T06:40:00Z" }
+  test_planning: { started: "2026-07-13T06:40:00Z", completed: "2026-07-13T06:50:00Z" }
+  delivery_planning: { started: "2026-07-13T06:50:00Z", completed: "2026-07-13T07:00:00Z" }
+  dor_check: { started: "2026-07-13T07:00:00Z", completed: "2026-07-13T07:05:00Z" }
+  delivery: { started: null, completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+
+decisions: []
+
+open_questions: []
+
+dor_self_check:
+  verdict: READY (PM self-review)
+  rationale: >
+    @readiness-reviewer subagent delegation unavailable in this session
+    (environment interrupting task-tool calls; @spec-writer/@test-plan-writer/
+    @plan-writer all interrupted 3x). PM wrote all three artifacts directly
+    after deep clarify_scope against the live codebase (read attachments.ts,
+    target port, storage.ts imageMacro, push-flow.ts, hashes, errors). PM
+    self-reviewed the artifacts for: (a) AC↔test traceability (all 11 ACs map
+    to TC-UNIT/TC-INTEGRATION IDs); (b) spec↔plan↔test-plan consistency (same
+    decisions DEC-1, same NFR mapping, same scope/non-goals); (c) no new
+    MarkSyncError arms; (d) reuse-not-redefine of AttachmentService/port/
+    imageMacro; (e) OQ-1 (config root field) flagged non-blocking, resolvable
+    at planning (P0.3). No blocking gaps found. RECORDED OVERRIDE: a full
+    @readiness-reviewer pass is deferred to phase 8 (review_fix) where
+    @reviewer will apply both spec/plan compliance AND code-quality checks on
+    the implemented change — providing the adversarial critique post-delivery.
+
+blockers: []
+
+# Doc-reconciliation items surfaced during clarify_scope; @spec-writer cites
+# correctly, @doc-syncer reconciles system spec in phase 7.
+doc_reconciliation:
+  - id: DOC-1
+    text: >
+      Story file cross_cutting cites NFR-SEC-5 for path-traversal/path-safety,
+      but NFR-SEC-5 in doc/spec/nonfunctional.md is "Converter injection safety"
+      (macro injection), NOT path traversal. There is currently no explicit
+      path-traversal NFR ID. Path safety is a clear, testable release-blocking
+      security requirement (AC + R1/R2). Spec-writer should cite the requirement
+      as stated (path-traversal confinement) and @doc-syncer may add a
+      path-safety NFR row (e.g. NFR-SEC-7) or map to the INV-SEC/NFR-SEC-1 family
+      in phase 7. Non-blocking.
+
+clarify_scope_findings:
+  dependencies_resolved:
+    - "GH-21 (MS2-E3-S4 Confluence adapter) CLOSED/MERGED — AttachmentService (upload/exists/list) + 400-duplicate-filename→reuse + attachmentFilename() hash-naming already exist."
+    - "GH-23 (MS2-E3-S6 Sync engine) CLOSED/MERGED — computePlan/applyPlan exist; attachmentHashes field plumbed through PageBinding/ContentHash."
+  existing_infra_reused:
+    - "src/infra/confluence/attachments.ts — AttachmentService.upload/exists/list + attachmentFilename() (marksync-asset-<hash>.<ext> / marksync-mermaid- for svg). /data update NOT exposed by design (hash-naming → changed bytes = new filename = fresh create)."
+    - "TargetSystem port (src/domain/target/port.ts) — uploadAttachment/attachmentExists/listAttachments + Artifact{bytes,mime,hash}/AttachmentRef already defined."
+    - "src/infra/confluence/render/storage.ts imageMacro() — ALREADY emits <ac:image><ri:url> for http(s) and <ri:attachment ri:filename> for local. BUT uses raw src filename, NOT hash-derived filename. Story must wire resolved hash filename into the pipeline."
+  new_modules_needed:
+    - "src/domain/assets/resolver.ts — AssetResolver (walk HAST image nodes, path-safe resolve relative to doc confined to root, reject ../ traversal → Forbidden{operation:'path-traversal'}, realpath symlink resolution per R1, sha256 content-hash identity)."
+    - "src/domain/assets/naming.ts — domain-side filename scheme (mirrors infra attachmentFilename; reconcile first24(sha256) per story vs full hash in infra)."
+  integration_points:
+    - "computePlan: currently builds contentHash with attachmentHashes:{} (empty). Must run AssetResolver per doc → populate attachmentHashes + resolve hash filenames into the rendered body (so ri:attachment carries the dedup key)."
+    - "applyPlan / Create path: must upload attachments (target.uploadAttachment) after page create/update; reuse if attachmentExists(hash) true → 0 writes. attachmentHashes must persist into PageBinding."
+    - "imageMacro: use resolved hash filename for local images (currently uses src basename). Remote (http/https) already correct → ri:url."
+  pre_resolved_by_story:
+    - "R1 (symlinks escaping root) — CEO-resolved: realpath before confinement check, reject if target escapes root."
+    - "Q1 (large assets) — CEO-resolved: no hard cap for MS-0002 (Confluence enforces own limit); warn on >25MB. AttachmentService already maps 413→TooLarge."
+
+notes:
+  - text: >
+      PM-FALLBACK (2026-07-13): the @spec-writer task delegation was interrupted
+      3x in a row (each correlated with a re-issued top-level prompt; tool
+      returned "[Tool execution was interrupted]"). To unblock delivery, PM
+      wrote chg-GH-26-spec.md directly — it is a documentation artifact, not
+      source code (the PM prohibition is on implementing source code). Key
+      decisions captured in the spec: DEC-1 naming reconciliation (resolver
+      produces full-sha256 Artifact, reuses infra attachmentFilename(); story's
+      <first24> note superseded); SVG maps to marksync-asset- (mermaid prefix
+      stays reserved for E4-S1); path-traversal confinement is release-blocking
+      (realpath + prefix check, symlink-aware); DOC-1 NFR-SEC-5 mis-citation
+      flagged for @doc-syncer. If subagent delegation remains non-functional,
+      PM will also write the test-plan and plan as fallbacks and reserve
+      delegation for the @coder source-code implementation (which PM cannot do).
+    type: retro
+    workItemRef: GH-26
+    date: "2026-07-13"
+  - text: >
+      clarify_scope COMPLETE (2026-07-13). Requirements clear & testable;
+      dependencies resolved; no blocking questions. Proceeding to artifact
+      generation. State detection: GH-26 OPEN, no PR, no branch (new delivery);
+      was on main at d8923f5 (GH-25 merge). GH-24 (#59) and GH-25 (#60) merged
+      since last session — pm-context updated. NOTE: no mermaid manager exists
+      yet (GH-25 shipped only the code policy per CEO-DEC-1); the
+      marksync-mermaid- prefix is reserved in attachments.ts but unused — this
+      story's marksync-asset- naming is independent and unblocked.
+    type: info
+    workItemRef: GH-26
+    date: "2026-07-13"
