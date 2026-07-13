@@ -1,0 +1,117 @@
+change_id: GH-69
+title: "[MS2-E4] Mermaid SVG rendering via Kroki API — render diagrams as Confluence image attachments (P0 for demo)"
+branch: feat/GH-69/mermaid-kroki-render
+change_folder: doc/changes/2026-07/2026-07-13--GH-69--mermaid-kroki-render
+
+phases:
+  clarify_scope: { started: "2026-07-13T18:50:00Z", completed: "2026-07-13T18:55:00Z" }
+  specification: { started: "2026-07-13T18:56:00Z", completed: "2026-07-13T19:02:00Z" }
+  test_planning: { started: "2026-07-13T19:03:00Z", completed: "2026-07-13T19:06:00Z" }
+  delivery_planning: { started: "2026-07-13T19:07:00Z", completed: "2026-07-13T19:12:00Z" }
+  dor_check: { started: null, completed: null }
+  delivery: { started: null, completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+
+decisions:
+  - text: >
+      PM-decided (clarify_scope): the public-Kroki privacy tension (NFR-PRIV-2 /
+      ADR-0002 C-3 require remote rendering opt-in + warning) resolves cleanly
+      WITHOUT blocking human input. The `render` policy is already opt-in
+      (`code` is the config default since GH-25). The implementation must emit a
+      one-time privacy warning when `render` activates against a remote endpoint
+      (public kroki.io). This satisfies C-3 ("off by default with a warning") and
+      keeps delivery unblocked. A self-hosted Kroki endpoint config is a
+      forward-compatible extension but NOT in this change's scope (public
+      kroki.io is the demo-reachable path per the ticket).
+    date: "2026-07-13"
+  - text: >
+      PM-decided (clarify_scope): determinism + content-hash dedup. The artifact
+      filename `marksync-mermaid-<sha256-24>.svg` is derived from a hash of the
+      SVG bytes Kroki returns (parallel to GH-26's `marksync-asset-<hash>.<ext>`
+      over file bytes). The existing `Artifact` type already carries
+      `kind?: "asset" | "mermaid"` for exactly this distinction. Dedup reuses
+      the GH-26 `attachmentExists(pageId, hash)` path — unchanged diagram → same
+      SVG → same hash → no re-upload. Determinism of Kroki output is a test-plan
+      concern (golden/byte-stability probe).
+    date: "2026-07-13"
+  - text: >
+      PM-decided (specification review, supersedes spec DEC-4 truncation): use
+      the FULL sha256 hex in the mermaid attachment filename — NOT truncated to
+      24 chars. Verified that `src/infra/confluence/attachments.ts`
+      `attachmentFilename(artifact)` ALREADY produces
+      `marksync-mermaid-<artifact.hash>.svg` when `kind === "mermaid"` and uses
+      `artifact.hash` as-is. GH-26 assets use the full 64-hex hash in their
+      filenames (`marksync-asset-<64hex>.<ext>`). To keep the mermaid path
+      symmetric with the asset path and require ZERO changes to
+      `attachmentFilename()`, the mermaid Artifact.hash stores the full sha256.
+      The ticket's `marksync-mermaid-<sha256-24>.svg` is descriptive shorthand;
+      AC-5 (determinism: same source → same hash → same filename) is satisfied
+      by the full hash. Truncation would add collision risk, break round-trip
+      symmetry with `hashFromFilename()`, and diverge from GH-26 for no benefit.
+      Downstream agents (test-plan, plan, coder) MUST use the full hash; the
+      spec's DEC-4 truncation clause is superseded by this decision.
+    date: "2026-07-13"
+  - text: >
+      Verified (specification review): the upload pipeline is already
+      mermaid-ready. `src/infra/confluence/attachments.ts`: `AttachmentService`
+      .`upload()` calls `attachmentFilename(artifact)` which prefixes
+      `marksync-mermaid-` for `kind === "mermaid"`; `exists()` dedups by full
+      hash; the 400 "same file name" path is idempotent. So the mermaid
+      transform only needs to build `Artifact { bytes, mime: "image/svg+xml",
+      hash: <full sha256>, kind: "mermaid" }` and append to PlanEntry.assets —
+      upload/dedup is reused verbatim from GH-26. The plan-writer should NOT
+      touch `attachmentFilename()` or `AttachmentService`.
+    date: "2026-07-13"
+
+open_questions: []
+
+blockers: []
+
+notes:
+  - text: >
+      Intake (2026-07-13): GH-69 OPEN, no PR, no branch — fresh delivery. State
+      detection: ticket OPEN, no open/closed PRs for GH-69, on `main` clean.
+      Parked GH-63 (PR #68 open, awaiting review) to take up GH-69 per explicit
+      user request. Added `change` + `in-progress` labels (change was missing —
+      mandatory per pm-instructions). Business ID MS2-E4 (epic-level; the
+      deferred `render` policy from CEO-DEC-1/GH-25). Dependencies GH-25 (code
+      policy default) + GH-26 (asset pipeline) both merged. Loaded story context:
+      MS2-E4 epic, MS2-E4-S1 mermaid-rendering story, feature-mermaid-rendering
+      spec, ADR-0002, NFR-PRIV-2.
+    type: info
+    workItemRef: GH-69
+    date: "2026-07-13"
+  - text: >
+      Scope cross-check vs system spec: the `MermaidPolicy` enum
+      (`"code" | "render" | "skip"`) and config types are in place (GH-25); the
+      `TargetSystem` port already has `uploadAttachment`/`attachmentExists`/
+      `listAttachments` (GH-21); the `Artifact` type already has the
+      `kind?: "asset" | "mermaid"` marker (GH-26 foreshadowed this); `PlanEntry`
+      .`assets?: Artifact[]` carries artifacts for upload; `uploadAssets()` in
+      push-flow handles dedup via `attachmentExists`. The AssetResolver only
+      walks `<img>` — mermaid fences (`pre>code.language-mermaid`) are NOT yet
+      intercepted; the storage renderer currently emits them as code macros
+      (codeMacro). The render-policy implementation must insert a HAST transform
+      between mdastToHast and renderStorage that (1) finds mermaid fences,
+      (2) renders via Kroki, (3) builds an Artifact, (4) replaces the fence
+      with an `<ac:image><ri:attachment ri:filename="marksync-mermaid-<hash>.svg"/></ac:image>`
+      raw node (or img element), (5) appends the artifact to the entry's assets.
+    type: info
+    workItemRef: GH-69
+    date: "2026-07-13"
+  - text: >
+      Doc-impact preview (for @doc-syncer phase 7): feature-mermaid-rendering.md
+      (currently says render deferred to MS-0003+ — must update to reflect Kroki
+      render policy now implemented); ADR-0002 (rung 6 public Kroki now wired —
+      revision-history entry); nonfunctional.md NFR-PRIV-2 (evidence: render
+      policy opt-in + warning); tech-stack / typescript.md allowed-deps if a new
+      dep is added (Kroki is HTTP, likely no new dep — uses existing fetch).
+      Architecture-overview if a new domain module (e.g. domain/mermaid/ or
+      domain/render/) is introduced.
+    type: info
+    workItemRef: GH-69
+    date: "2026-07-13"
