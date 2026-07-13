@@ -221,3 +221,61 @@ describe("TC-PROP-V1-SCHEMA-001 — malformed v1 response → RemoteUnreachable 
 		expect(result.error.kind).toBe("RemoteUnreachable");
 	});
 });
+
+describe("TC-PROP-V1-FETCH-404 — POST 409 → fallback GET 404 → RemoteUnreachable (key vanished)", () => {
+	test("POST 409 then GET 404 → err(RemoteUnreachable)", async () => {
+		const { service } = script((method) => {
+			if (method === "POST") return jsonRes(409, { errors: [{ code: "CONFLICT" }] });
+			if (method === "GET") return new Response(null, { status: 404 });
+			return jsonRes(500, {});
+		});
+		const result = await service.put(PAGE, KEY, "v");
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.error.kind).toBe("RemoteUnreachable");
+	});
+});
+
+describe("TC-PROP-V1-FETCH-403 — POST 409 → fallback GET 403 → Forbidden", () => {
+	test("POST 409 then GET 403 → err(Forbidden)", async () => {
+		const { service } = script((method) => {
+			if (method === "POST") return jsonRes(409, { errors: [{ code: "CONFLICT" }] });
+			if (method === "GET") return new Response(null, { status: 403 });
+			return jsonRes(500, {});
+		});
+		const result = await service.put(PAGE, KEY, "v");
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.error.kind).toBe("Forbidden");
+	});
+});
+
+describe("TC-PROP-V1-PUT-403 — POST 409 → GET → PUT 403 → Forbidden", () => {
+	test("versioned PUT 403 → err(Forbidden)", async () => {
+		const { service } = script((method) => {
+			if (method === "POST") return jsonRes(409, { errors: [{ code: "CONFLICT" }] });
+			if (method === "GET") return jsonRes(200, prop("old", 5));
+			if (method === "PUT") return new Response(null, { status: 403 });
+			return jsonRes(500, {});
+		});
+		const result = await service.put(PAGE, KEY, "v");
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.error.kind).toBe("Forbidden");
+	});
+});
+
+describe("TC-PROP-V1-PUT-409 — POST 409 → GET → PUT 409 → RemoteUnreachable (DEC-6, NOT Conflict)", () => {
+	test("versioned PUT 409 (rare race) → err(RemoteUnreachable)", async () => {
+		const { service } = script((method) => {
+			if (method === "POST") return jsonRes(409, { errors: [{ code: "CONFLICT" }] });
+			if (method === "GET") return jsonRes(200, prop("old", 5));
+			if (method === "PUT") return jsonRes(409, { errors: [{ code: "CONFLICT" }] });
+			return jsonRes(500, {});
+		});
+		const result = await service.put(PAGE, KEY, "v");
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.error.kind).toBe("RemoteUnreachable");
+	});
+});
