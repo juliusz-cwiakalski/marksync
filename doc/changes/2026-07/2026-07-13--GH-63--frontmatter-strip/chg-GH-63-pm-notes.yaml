@@ -12,9 +12,9 @@ phases:
   delivery: { started: "2026-07-13T17:25:00Z", completed: "2026-07-13T17:45:00Z" }
   system_spec_update: { started: "2026-07-13T17:46:00Z", completed: "2026-07-13T17:52:00Z" }
   review_fix: { started: "2026-07-13T17:53:00Z", completed: "2026-07-13T18:02:00Z" }
-  quality_gates: { started: "2026-07-13T18:03:00Z", completed: null }
-  dod_check: { started: null, completed: null }
-  pr_creation: { started: null, completed: null, url: null }
+  quality_gates: { started: "2026-07-13T18:03:00Z", completed: "2026-07-13T18:10:00Z" }
+  dod_check: { started: "2026-07-13T18:11:00Z", completed: "2026-07-13T18:15:00Z" }
+  pr_creation: { started: "2026-07-13T18:16:00Z", completed: null, url: null }
 
 decisions:
   - text: >
