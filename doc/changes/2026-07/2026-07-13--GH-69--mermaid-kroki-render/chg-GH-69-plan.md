@@ -419,7 +419,7 @@ identifies the following docs that will need updating:
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
 | Phase 1 | Done | 2026-07-13 | 2026-07-13 | 5884ecf | Renderer port + Kroki adapter; 7 unit tests PASS, typecheck clean |
-| Phase 2 | Done | 2026-07-13 | 2026-07-13 | (pending commit) | Mermaid HAST transform; 8 unit tests PASS, typecheck + depcruise clean |
+| Phase 2 | Done | 2026-07-13 | 2026-07-13 | 2a5953e | Mermaid HAST transform; 8 unit tests PASS, typecheck + depcruise clean |
 | Phase 3 | Pending | - | - | - | computePlan wiring + privacy warning |
 | Phase 4 | Pending | - | - | - | Golden fixture |
 | Phase 5 | Pending | - | - | - | Quality gate & cleanup |
