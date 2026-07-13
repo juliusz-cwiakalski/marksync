@@ -185,7 +185,11 @@ function mapCreate(
 	pageId: string,
 	body: unknown,
 ): Result<AttachmentRef, MarkSyncError> {
-	const parsed = AttachmentCreateResponse.safeParse(body);
+	// v1 wraps even single creates in { results: [...] } (11-attachments.md:37);
+	// unwrap the first element, falling back to body as-is for flat responses.
+	// An empty results[] yields undefined → safeParse fails → RemoteUnreachable.
+	const candidate = hasWrappedResults(body) ? body.results[0] : body;
+	const parsed = AttachmentCreateResponse.safeParse(candidate);
 	if (!parsed.success) {
 		return Result.err({
 			kind: "RemoteUnreachable",
@@ -193,6 +197,17 @@ function mapCreate(
 		});
 	}
 	return Result.ok(toRef(pageId, parsed.data));
+}
+
+function hasWrappedResults(
+	body: unknown,
+): body is { results: unknown[] } {
+	return (
+		typeof body === "object" &&
+		body !== null &&
+		"results" in body &&
+		Array.isArray(body.results)
+	);
 }
 
 function isDuplicateFilename(text: string | undefined): boolean {

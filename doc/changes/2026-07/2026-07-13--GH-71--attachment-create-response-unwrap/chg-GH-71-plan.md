@@ -69,17 +69,13 @@ No open questions — the fix is fully specified in the ticket and spike evidenc
 
 **Tasks**:
 
-- [ ] **1.1** Modify `mapCreate` in `src/infra/confluence/attachments.ts` (lines 184-196) to:
-  - Check if `body` has a `results` property (using type guard pattern)
-  - If present, extract `results[0]` (type is `unknown | undefined` under `noUncheckedIndexedAccess`)
-  - If not present, use `body` as-is (defensive fallback per DEC-2)
-  - Pass the unwrapped value to `AttachmentCreateResponse.safeParse()`
-- [ ] **1.2** Verify TypeScript strict mode compliance: ensure no implicit `any` and proper handling of `unknown | undefined` for `results[0]`
+- [x] **1.1** Modify `mapCreate` in `src/infra/confluence/attachments.ts` (lines 184-196) to unwrap `results[0]` via the `hasWrappedResults` type guard; falls back to body as-is for flat responses; passes candidate to `AttachmentCreateResponse.safeParse()` (diff verified: +16/-1)
+- [x] **1.2** TypeScript strict mode compliance verified: `bun run typecheck` (tsc --noEmit) passes clean — `results[0]` is `unknown | undefined` under `noUncheckedIndexedAccess`, widening `candidate` to `unknown` as expected
 
 **Acceptance Criteria**:
 
-- Must: AC-1 — POST create returning `{ "results": [{ "id": "att123", "title": "...", "version": { "number": 1 } }] }` → `upload()` returns `ok(AttachmentRef)` with correct id/title/hash/version
-- Should: No changes to `AttachmentCreateResponse` schema (per DEC-1)
+- Must: AC-1 — POST create returning `{ "results": [{ "id": "att123", "title": "...", "version": { "number": 1 } }] }` → `upload()` returns `ok(AttachmentRef)` with correct id/title/hash/version — **PASSED (code)**: `mapCreate` now unwraps via `hasWrappedResults`; full assertion coverage deferred to Phase 2 (TC-ATTACH-001)
+- Should: No changes to `AttachmentCreateResponse` schema (per DEC-1) — **PASSED**: `schemas/attachment.ts` untouched
 
 **Affected code areas**:
 
@@ -206,6 +202,6 @@ No open questions — the fix is fully specified in the ticket and spike evidenc
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| Phase 1 | Not started | — | — | — | Core implementation — unwrap results[0] in mapCreate |
+| Phase 1 | Done | 2026-07-13 | 2026-07-13 | (pending commit) | Core implementation — unwrap results[0] in mapCreate; typecheck + lint pass, 9 existing tests pass |
 | Phase 2 | Not started | — | — | — | Test coverage — happy-path and edge case unit tests |
 | Phase 3 | Not started | — | — | — | Finalize — verify all tests pass and no regressions |
