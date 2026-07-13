@@ -7,8 +7,8 @@ phases:
   clarify_scope: { started: "2026-07-13T16:46:00Z", completed: "2026-07-13T16:46:00Z" }
   specification: { started: "2026-07-13T16:53:00Z", completed: "2026-07-13T16:53:00Z" }
   test_planning: { started: "2026-07-13T16:54:00Z", completed: "2026-07-13T16:59:00Z" }
-  delivery_planning: { started: "2026-07-13T17:00:00Z", completed: null }
-  dor_check: { started: null, completed: null }
+  delivery_planning: { started: "2026-07-13T17:00:00Z", completed: "2026-07-13T17:05:00Z" }
+  dor_check: { started: "2026-07-13T17:06:00Z", completed: null }
   delivery: { started: null, completed: null }
   system_spec_update: { started: null, completed: null }
   review_fix: { started: null, completed: null }
@@ -16,7 +16,15 @@ phases:
   dod_check: { started: null, completed: null }
   pr_creation: { started: null, completed: null, url: null }
 
-decisions: []
+decisions:
+  - text: >
+      No package.json version bump for this bug fix. Verified via git history
+      that recent P0 fixes (GH-66 #67, GH-62 #65, GH-25 #60, GH-26 #61) did NOT
+      bump the version; the last version change (0.4.0→0.4.1) was GH-24 #59.
+      Version bumps are milestone/minor-scoped, not per-bug-fix. Removed the
+      version bump the plan-writer added to Phase 7; Phase 7 is now AC
+      reconciliation only.
+    date: "2026-07-13"
 open_questions: []
 blockers: []
 

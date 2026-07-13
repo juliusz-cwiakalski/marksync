@@ -320,43 +320,41 @@ All requirements are derived from `chg-GH-63-spec.md` and `chg-GH-63-test-plan.m
 
 ---
 
-### Phase 7: Finalize and Release
+### Phase 7: Finalize (AC reconciliation)
 
-**Goal**: Finalize the change with version bump (patch), spec reconciliation, and commit verification.
+**Goal**: Finalize the change by reconciling every acceptance criterion against the implemented tests.
 
 **Tasks**:
 
-- [ ] **7.1** Version bump per repo conventions: update `package.json` version from `0.4.1` to `0.4.2` (patch increment)
-- [ ] **7.2** Reconcile spec: verify all AC from `chg-GH-63-spec.md` are met:
-  - AC-F1-1: Front-matter source → Storage XHTML with no front-matter leak (TC-FM-001)
-  - AC-F1-2: Front-matter source → MDAST tree excludes front-matter block (TC-FM-002)
-  - AC-F2-1: `readUuid()` returns same UUID before/after fix (TC-FM-003)
-  - AC-F2-2: Full test suite passes; fixture count 27; `hr.md` still renders `<hr/>` (TC-FM-004, TC-FM-005)
-- [ ] **7.3** Verify all commits follow Conventional Commits format (`type(scope): description`)
-- [ ] **7.4** Verify branch is `fix/GH-63/frontmatter-strip`
-- [ ] **7.5** Document any deviations from the plan in the plan revision log (see below)
+ - [ ] **7.1** Reconcile spec: verify all AC from `chg-GH-63-spec.md` are met:
+   - AC-F1-1: Front-matter source → Storage XHTML with no front-matter leak (TC-FM-001)
+   - AC-F1-2: Front-matter source → MDAST tree excludes front-matter block (TC-FM-002)
+   - AC-F2-1: `readUuid()` returns same UUID before/after fix (TC-FM-003)
+   - AC-F2-2: Full test suite passes; fixture count 27; `hr.md` still renders `<hr/>` (TC-FM-004, TC-FM-005)
+ - [ ] **7.2** Verify all commits follow Conventional Commits format (`type(scope): description`)
+ - [ ] **7.3** Verify branch is `fix/GH-63/frontmatter-strip`
+ - [ ] **7.4** Document any deviations from the plan in the plan revision log (see below)
 
 **Acceptance Criteria**:
 
-- Must: `package.json` version bumped to `0.4.2` (patch)
-- Must: All acceptance criteria from spec are met
-- Must: All commits follow Conventional Commits format
-- Must: Plan revision log documents any deviations
-- Should: No unexpected changes outside scope
+ - Must: All acceptance criteria from spec are met
+ - Must: All commits follow Conventional Commits format
+ - Must: Plan revision log documents any deviations
+ - Should: No unexpected changes outside scope
 
 **Affected code areas**:
 
-- `package.json` (updated: version bump 0.4.1 → 0.4.2)
+ - None (finalization phase only)
 
 **System docs to update**:
 
-- None (no system doc changes for finalization)
+ - None (no system doc changes for finalization)
 
 **Tests**:
 
-- Run `bun run check` to ensure final state passes all quality gates
+ - Run `bun run check` to ensure final state passes all quality gates
 
-**Completion signal**: `release(GH-63): version bump to 0.4.2 for front-matter stripping fix`
+**Completion signal**: `fix(GH-63): finalize front-matter stripping fix`
 
 ---
 
@@ -395,6 +393,7 @@ All requirements are derived from `chg-GH-63-spec.md` and `chg-GH-63-test-plan.m
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-13 | Implementation Plan Writer (via agent) | Initial plan for GH-63 front-matter stripping bug fix. Includes critical edge case verification for hr.md fixture (TC-FM-004) with empirical test decision step in Phase 2. |
+| 1.1 | 2026-07-13 | PM (via agent) | Removed version bump from Phase 7 — recent P0 fixes (GH-66, GH-62, GH-25, GH-26) did not bump package.json version; version bumps are milestone/minor-scoped in this repo, not per-bug-fix. Phase 7 is now AC reconciliation only. |
 
 ---
 
