@@ -359,6 +359,42 @@ describe("shell-git glob pattern matching (GH-64)", () => {
 		]);
 	});
 
+	// TC-GLOB-004: Union semantics with two patterns (AC-F2-1)
+	test("TC-GLOB-004: union semantics with two patterns", async () => {
+		const repo = await buildRepo({
+			"docs/a.md": "# A\n",
+			"README.md": "# README\n",
+		});
+
+		const result = repo.readCommitted("HEAD", ["docs/**/*.md", "README.md"]);
+
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+
+		expect(keys(result.value)).toEqual(["README.md", "docs/a.md"]);
+	});
+
+	// TC-GLOB-005: Union semantics across multiple directories (AC-F2-2)
+	test("TC-GLOB-005: union semantics across multiple directories", async () => {
+		const repo = await buildRepo({
+			"docs/a.md": "# A\n",
+			"docs/b/c.md": "# C\n",
+			"src/d.md": "# D\n",
+			"README.md": "# README\n",
+		});
+
+		const result = repo.readCommitted("HEAD", ["docs/**/*.md", "src/**/*.md"]);
+
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+
+		expect(keys(result.value)).toEqual([
+			"docs/a.md",
+			"docs/b/c.md",
+			"src/d.md",
+		]);
+	});
+
 	// TC-GLOB-009: Empty patterns list returns empty map (DEC-4)
 	test("TC-GLOB-009: empty patterns list returns empty map", async () => {
 		const repo = await buildRepo({

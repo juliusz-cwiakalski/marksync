@@ -170,23 +170,15 @@ All requirements are derived from the change specification ([chg-GH-64-spec.md](
 
 **Tasks**:
 
-- [ ] **3.1** Implement TC-GLOB-004: "Union semantics with two patterns"
-  - Create temp git repo with: `docs/a.md`, `README.md`
-  - Call `repo.readCommitted("HEAD", ["docs/**/*.md", "README.md"])`
-  - Verify exactly 2 files returned: `docs/a.md`, `README.md`
-  - Verify union semantics: file matches if EITHER pattern matches
-- [ ] **3.2** Implement TC-GLOB-005: "Union semantics across multiple directories"
-  - Create temp git repo with: `docs/a.md`, `docs/b/c.md`, `src/d.md`, `README.md`
-  - Call `repo.readCommitted("HEAD", ["docs/**/*.md", "src/**/*.md"])`
-  - Verify exactly 3 files returned: `docs/a.md`, `docs/b/c.md`, `src/d.md`
-  - Verify `README.md` is NOT in results (matches neither pattern)
-- [ ] **3.3** Run all unit tests for shell-git to verify new tests pass: `bun test tests/unit/infra/git/shell-git.test.ts`
+- [x] **3.1** Implement TC-GLOB-004: "Union semantics with two patterns" — PASS (README.md, docs/a.md)
+- [x] **3.2** Implement TC-GLOB-005: "Union semantics across multiple directories" — PASS (docs/a.md, docs/b/c.md, src/d.md)
+- [x] **3.3** Run all unit tests for shell-git to verify new tests pass: `bun test tests/unit/infra/git/shell-git.test.ts` — 20 pass / 0 fail
 
 **Acceptance Criteria**:
 
-- Must: TC-GLOB-004 passes (AC-F2-1)
-- Must: TC-GLOB-005 passes (AC-F2-2)
-- Must: All existing unit tests still pass (no regressions)
+- Must: TC-GLOB-004 passes (AC-F2-1) — PASSED
+- Must: TC-GLOB-005 passes (AC-F2-2) — PASSED
+- Must: All existing unit tests still pass (no regressions) — PASSED (20/20)
 
 **Affected code areas**:
 
