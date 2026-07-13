@@ -114,7 +114,7 @@ All requirements are derived from the change specification ([chg-GH-64-spec.md](
 
 **System docs to update**:
 
-- None (this phase is code-only)
+- None (code-only phase — Repository port contract unchanged, glob semantics already documented in `src/shared/glob.ts` and `selectFiles`; formal doc reconciliation in Phase 7)
 
 **Tests**:
 
@@ -233,16 +233,20 @@ All requirements are derived from the change specification ([chg-GH-64-spec.md](
   - Call `repo.readCommitted("HEAD", ["docs;rm -rf /"])`
   - Verify error is thrown before any git command is spawned
   - Test additional metacharacters: `$(id)`, `` `whoami` ``, `|cat`, `&>file`
-- [ ] **4.3** Verify TC-GLOB-010: "Existing happy path with `["."]` still works"
-  - Ensure existing test at lines 122-178 in `shell-git.test.ts` covers this scenario
-  - Run test to confirm it passes with new implementation
-- [ ] **4.4** Run all unit tests for shell-git: `bun test tests/unit/infra/git/shell-git.test.ts`
+- [ ] **4.3** Update TC-GLOB-010: "Existing happy path test updated for glob semantics"
+  - Locate existing test at `tests/unit/infra/git/shell-git.test.ts` line ~153 that calls `repo.readCommitted("HEAD", ["."])`
+  - Change the pattern argument from `["."]` to `["**/*.md"]` (or `["*.md"]` depending on temp repo structure)
+  - Verify the test still exercises reading committed files and returns a non-empty map
+  - Rationale: After the fix, `.` is a literal glob pattern (no special meaning), so the existing test would fail with empty results
+- [ ] **4.4** Verify TC-GLOB-010: "Existing happy path with updated pattern still works"
+  - Run the updated test to confirm it passes with new implementation
+- [ ] **4.5** Run all unit tests for shell-git: `bun test tests/unit/infra/git/shell-git.test.ts`
 
 **Acceptance Criteria**:
 
 - Must: TC-GLOB-007 passes (AC-F3-1, NFR-SEC-7)
 - Must: TC-GLOB-008 passes (AC-F3-2, NFR-SEC-7)
-- Must: TC-GLOB-010 passes (regression coverage)
+- Must: TC-GLOB-010 updated test passes (regression coverage)
 - Must: All existing unit tests still pass (no regressions)
 
 **Affected code areas**:
@@ -257,7 +261,7 @@ All requirements are derived from the change specification ([chg-GH-64-spec.md](
 
 - Unit test execution: `bun test tests/unit/infra/git/shell-git.test.ts`
 
-**Completion signal**: `fix(GH-64): add unit tests for security regression and existing behavior (TC-GLOB-007, TC-GLOB-008, TC-GLOB-010)`
+**Completion signal**: `fix(GH-64): add unit tests for security regression and update existing happy path test (TC-GLOB-007, TC-GLOB-008, TC-GLOB-010)`
 
 ---
 
@@ -415,11 +419,11 @@ All requirements are derived from the change specification ([chg-GH-64-spec.md](
 | TC-GLOB-003 | `**/test.md` matches root and nested files | 2, 6 | AC-F1-3 |
 | TC-GLOB-004 | Union semantics with two patterns | 3, 6 | AC-F2-1 |
 | TC-GLOB-005 | Union semantics across multiple directories | 3, 6 | AC-F2-2 |
-| TC-GLOB-006 | Starter config with flat directory discovery | Covered by TC-GLOB-001, TC-GLOB-002 | AC-G2-2 |
+| TC-GLOB-006 | Starter config with flat directory discovery | 2, 6 (deduplicated — covered by TC-GLOB-001, TC-GLOB-002) | AC-G2-2 |
 | TC-GLOB-007 | Malicious pattern with `..` throws before git spawn | 4, 6 | AC-F3-1, NFR-SEC-7 |
 | TC-GLOB-008 | Malicious pattern with shell metacharacters throws | 4, 6 | AC-F3-2, NFR-SEC-7 |
 | TC-GLOB-009 | Empty patterns list returns empty map | 2, 6 | Edge case |
-| TC-GLOB-010 | Existing happy path with `["."]` still works | 4, 6 | Regression |
+| TC-GLOB-010 | Existing happy path with updated pattern still works | 4, 6 | Regression |
 | TC-GLOB-011 | Integration test: TC-INTEGRATION-009 regression | 6 | AC-F3-3, NFR-SEC-7 |
 | TC-GLOB-012 | Integration test: Starter config produces non-empty plan | 5, 6 | AC-G2-1, NFR-PERF-5 |
 
@@ -443,6 +447,7 @@ All requirements are derived from the change specification ([chg-GH-64-spec.md](
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-13 | Plan Writer | Initial implementation plan for GH-64 |
+| 1.1 | 2026-07-13 | Plan Writer | Fix DoR findings: (1) added explicit task 4.3 to update existing test pattern from `["."]` to `["**/*.md"]`; (2) updated TC-GLOB-006 mapping to show it's covered by Phase 2 (deduplicated); (3) added rationale for "System docs to update: None" — Repository port contract unchanged, glob semantics already documented, formal reconciliation in Phase 7 |
 
 ## Execution Log
 

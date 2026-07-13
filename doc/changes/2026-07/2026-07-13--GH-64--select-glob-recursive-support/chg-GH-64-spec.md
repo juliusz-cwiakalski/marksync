@@ -59,7 +59,7 @@ Because git pathspec does not support recursive `**` glob patterns and MarkSync'
 | Pattern match accuracy | 100% of standard glob patterns (`**`, `*`, `?`) work as expected |
 | Starter config functionality | `marksync init` produces a working config that discovers files without manual edits |
 | Safety test pass rate | 100% of existing safety fuzz tests (TC-INTEGRATION-009) remain passing |
-| Performance impact | No measurable degradation in `readCommitted` latency for typical repo sizes (≤500 files) |
+| Performance impact (informational) | No noticeable latency for typical MS-0002 corpus (≤500 files) — informational only, not a gating metric |
 
 ### 4.2 Non-Goals
 
@@ -154,14 +154,16 @@ N/A — no data model changes. The `readCommitted` return type `Result<Map<strin
 
 ### 8.5 Backward Compatibility
 
-**Fully backward compatible.** The `readCommitted` method signature and semantics are unchanged. Existing patterns that work today (e.g., directory prefixes like `docs/`) continue to work. The fix expands the set of supported patterns to include recursive globs (`**`), which previously silently matched nothing.
+**Fully backward compatible with one intentional correction.** The `readCommitted` method signature and semantics are unchanged. Existing patterns that work today (e.g., directory prefixes like `docs/`) continue to work. The fix expands the set of supported patterns to include recursive globs (`**`), which previously silently matched nothing.
+
+**One intentional edge-case change:** When called with an empty patterns array (`readCommitted(ref, [])`), the current implementation returns all committed files (an accidental side-effect of `git ls-tree` with no pathspec). After this fix, empty patterns correctly return an empty map — this is intentional and aligns with the app-layer `selectFiles` semantics where empty select → empty result. The old "all files" behavior was not a designed contract and was inconsistent with standard glob semantics.
 
 ## 9. NON-FUNCTIONAL REQUIREMENTS (NFRs)
 
 | ID | Requirement | Threshold |
 |----|-------------|-----------|
 | NFR-SEC-7 | Path-traversal confinement | Malicious patterns rejected before git spawn; `validateRepoRelative` retains same rejection set (0 bytes read outside root) |
-| NFR-PERF-5 | Conversion latency | `readCommitted` latency for typical MS-0002 corpus (≤500 files) not measurably degraded |
+| NFR-PERF-5 | Conversion latency (informational) | `readCommitted` for typical MS-0002 corpus (≤500 files) should not introduce noticeable latency. Performance is informational, not a hard gate — this is a P1 correctness fix, and MS-0002 corpus sizes make O(files × patterns) negligible. |
 | NFR-MAINT-1 | Adapter isolation | All glob pattern logic remains isolated behind the `Repository` port; application layer unchanged |
 
 ## 10. TELEMETRY & OBSERVABILITY REQUIREMENTS
@@ -183,6 +185,7 @@ N/A — this is a correctness fix with no new telemetry requirements. Existing e
 - The `validateRepoRelative` function's rejection set is sufficient for security (no additional malicious patterns are needed for the new implementation).
 - MS-0002 corpus sizes remain modest (≤500 files), making the O(files × patterns) in-memory filter acceptable.
 - The single production caller (`src/app/push-flow.ts:154`) does not rely on git pathspec-specific behavior beyond file listing.
+- Empty patterns (`[]`) should return an empty result map, not all files — this is an intentional correction of an accidental behavior in the current implementation.
 
 ## 13. DEPENDENCIES
 
@@ -203,6 +206,7 @@ N/A — all questions resolved during scope clarification.
 | DEC-1 | Use in-memory glob filtering instead of git pathspec translation | Translation would require mapping `**` to git's complex pathspec syntax (wildcards, charsets, etc.) and would be fragile. In-memory filtering uses the existing, tested glob matcher and is simple and maintainable. | 2026-07-13 |
 | DEC-2 | Retain `validateRepoRelative` pattern validation | Even though patterns are no longer passed to git as pathspecs, the validation guard provides defense-in-depth and maintains the invariant that malicious patterns are caught before any git spawn. | 2026-07-13 |
 | DEC-3 | Use union semantics for multiple patterns | Consistent with existing `selectFiles` behavior in the config layer; a file is included if it matches ANY pattern. | 2026-07-13 |
+| DEC-4 | Empty patterns return empty map (intentional correction) | The current implementation returns all files when `patterns=[]` (accidental git behavior). This is inconsistent with app-layer `selectFiles` semantics where empty select → empty result. The fix makes empty patterns return an empty map, aligning with standard glob semantics and the designed contract. | 2026-07-13 |
 
 ## 16. AFFECTED COMPONENTS (HIGH-LEVEL)
 
@@ -317,6 +321,7 @@ test-repo/
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-13 | Juliusz Ćwiąkalski | Initial specification |
+| 1.1 | 2026-07-13 | Juliusz Ćwiąkalski | Minor DoR fixes: clarified empty-patterns edge case as intentional correction (DEC-4), reclassified NFR-PERF-5 as informational |
 
 ---
 

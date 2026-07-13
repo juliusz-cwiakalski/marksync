@@ -1,0 +1,79 @@
+change_id: GH-64
+title: "[MS2-E4] Glob patterns with ** not supported by git ls-tree pathspec (P1)"
+branch: fix/GH-64/select-glob-recursive-support
+change_folder: doc/changes/2026-07/2026-07-13--GH-64--select-glob-recursive-support
+
+phases:
+  clarify_scope: { started: "2026-07-13", completed: "2026-07-13" }
+  specification: { started: "2026-07-13", completed: "2026-07-13" }
+  test_planning: { started: "2026-07-13", completed: "2026-07-13" }
+  delivery_planning: { started: "2026-07-13", completed: "2026-07-13" }
+  dor_check: { started: "2026-07-13", completed: "2026-07-13" }
+  delivery: { started: null, completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+
+decisions:
+  - text: >
+      Fix approach = ticket option 1: list ALL committed files via
+      `git ls-tree -r --name-only ref` (no pathspec), then filter in-memory
+      with src/shared/glob.ts (filterByGlob/matchGlob, which support `**`).
+      Rationale: glob.ts already implements correct micromatch-style `**`
+      semantics used by selectFiles (app tier); reusing it keeps a single
+      source of truth for glob matching. Option 2 (translate `**` to git
+      pathspec) is rejected — git pathspec has no clean `**` equivalent and
+      would duplicate matching logic.
+    date: "2026-07-13"
+  - text: >
+      Security invariant preserved: validateRepoRelative(pattern) stays on
+      each pattern even though patterns are no longer passed to git (they are
+      consumed by the in-memory matcher). This keeps TC-INTEGRATION-009
+      malicious-path fuzz test green (patterns still throw before any spawn).
+      Glob chars `*` and `?` pass validateRepoRelative (only shell
+      metacharacters / control bytes / `..` / absolute paths are rejected).
+    date: "2026-07-13"
+
+open_questions: []
+
+blockers: []
+
+notes:
+  - text: >
+      DoR iter-1 NOT_READY (2026-07-13). CRITICAL: existing happy-path test
+      uses readCommitted("HEAD", ["."]) — after fix, "." is a literal glob
+      (matches only "."), so test returns empty map and fails. Test plan
+      TC-GLOB-010 wrongly claimed "." matches everything / "no change"; plan
+      had no task to update the test. Reopening specification (empty-patterns
+      semantics + NFR-PERF threshold), test_planning (TC-GLOB-010 fix,
+      TC-GLOB-006 phase assignment, AC-G2-1 proxy note), delivery_planning
+      (add test-update task, TC-GLOB-006 phase, doc-impact rationale).
+    type: retro
+    workItemRef: GH-64
+    date: "2026-07-13"
+  - text: >
+      Scope clarification complete. Ticket is well-specified (problem, repro,
+      root cause, fix options, 2 ACs). No story file (MS2-E4-bug is a generic
+      bug tag, not MS2-B<NNN>); ticket body is authoritative. No
+      gaps/contradictions found against system spec. Single production caller
+      of readCommitted: push-flow.ts:154 (git.readCommitted("HEAD",
+      config.select)). Port contract unchanged; behavior fix only.
+    type: info
+    date: "2026-07-13"
+  - text: >
+      Doc impact assessment: minimal. feature-safe-publish.md describes
+      "discover committed docs via the Repository port" at a high level —
+      no pathspec/glob implementation detail. Glob semantics already
+      documented in src/shared/glob.ts and selectFiles (config.ts). No ADR
+      changes needed. doc-syncer to confirm in phase 7.
+    type: info
+    date: "2026-07-13"
+  - text: >
+      Retro — GH-64 intake (2026-07-13): 11th recurrence of pm-context stale
+      on out-of-band merge (GH-71 merged while listed as active_change).
+      Reconciled in pm-context housekeeping.
+    type: retro
+    workItemRef: GH-64
+    date: "2026-07-13"
