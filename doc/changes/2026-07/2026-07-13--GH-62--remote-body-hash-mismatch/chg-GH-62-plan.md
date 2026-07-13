@@ -343,12 +343,43 @@ The fix has three coordinated parts:
 
 ---
 
+### Phase 7: Code Review Remediation (Iteration 2)
+
+**Goal**: Close the two non-blocking plan-bookkeeping findings from review-iter-2 (status: PASS). No code or test changes required — this phase is documentation hygiene only.
+
+**Tasks**:
+
+- [ ] **7.1** Check off the completed Phase 6 tasks: mark 6.1, 6.2, 6.5, 6.6, 6.8 as done; mark 6.3 with a note that TC-FETCH-002 is implicitly covered by TC-IDEM-002; mark 6.4 done noting all §3.1 "Covered" entries are accurate via implicit coverage; mark 6.7 as deferred-advisory (iter-1 F-5) (F-6).
+- [ ] **7.2** Populate `chg-GH-62-test-plan.md` §10 execution-log table with TC IDs + pass results, and replace "(this commit)" with `17caa5f` in the Phase 6 execution-log row (F-7).
+
+**Acceptance Criteria**:
+
+- Must: No Phase 6 task box left open without an explicit disposition (F-6 resolved)
+- Must: Test-plan §10 execution log populated (F-7 resolved)
+
+**Affected code areas**:
+
+- None (documentation only)
+
+**System docs to update**:
+
+- None
+
+**Tests**:
+
+- None (no code change)
+
+**Completion signal**: `docs(GH-62): close review-iter-2 bookkeeping findings`
+
+---
+
 ## Plan Revision Log
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-13 | plan-writer | Initial plan for GH-62 |
 | 1.1 | 2026-07-13 | reviewer | Added Phase 6: Code Review Remediation (Iteration 1) — 5 findings (1H/2M/2L) |
+| 1.2 | 2026-07-13 | reviewer | Added Phase 7: Code Review Remediation (Iteration 2) — PASS, 2 non-blocking plan-bookkeeping findings (1M/1L) |
 
 ## Execution Log
 
