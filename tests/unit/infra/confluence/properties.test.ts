@@ -222,60 +222,80 @@ describe("TC-PROP-V1-SCHEMA-001 — malformed v1 response → RemoteUnreachable 
 	});
 });
 
-describe("TC-PROP-V1-FETCH-404 — POST 409 → fallback GET 404 → RemoteUnreachable (key vanished)", () => {
-	test("POST 409 then GET 404 → err(RemoteUnreachable)", async () => {
+// fetchCurrentVersion fallback-GET error paths (F-2). The happy POST 409 → GET
+// 200 → PUT flow is covered by TC-PROP-V1-VERSION-001/002 above; these exercise
+// the rare edges where the key vanishes or permission is revoked between the
+// POST-409 and the version-fetch GET.
+
+describe("TC-PROP-V1-ERR-003 — POST 409 → fallback GET 404 (key vanished) → RemoteUnreachable (F-2 / DEC-6)", () => {
+	test("key vanishes between POST-409 and GET → err(RemoteUnreachable); cause mentions vanished", async () => {
 		const { service } = script((method) => {
-			if (method === "POST") return jsonRes(409, { errors: [{ code: "CONFLICT" }] });
+			if (method === "POST")
+				return jsonRes(409, { errors: [{ code: "CONFLICT" }] });
 			if (method === "GET") return new Response(null, { status: 404 });
 			return jsonRes(500, {});
 		});
-		const result = await service.put(PAGE, KEY, "v");
+		const result = await service.put(PAGE, KEY, "value");
 		expect(result.ok).toBe(false);
 		if (result.ok) return;
 		expect(result.error.kind).toBe("RemoteUnreachable");
+		expect(result.error.kind).not.toBe("Conflict");
+		if (result.error.kind !== "RemoteUnreachable") return;
+		expect(result.error.cause).toMatch(/vanished/);
 	});
 });
 
-describe("TC-PROP-V1-FETCH-403 — POST 409 → fallback GET 403 → Forbidden", () => {
-	test("POST 409 then GET 403 → err(Forbidden)", async () => {
+describe("TC-PROP-V1-ERR-004 — POST 409 → fallback GET 403 → Forbidden (F-2)", () => {
+	test("permission revoked between POST and GET → err(Forbidden)", async () => {
 		const { service } = script((method) => {
-			if (method === "POST") return jsonRes(409, { errors: [{ code: "CONFLICT" }] });
+			if (method === "POST")
+				return jsonRes(409, { errors: [{ code: "CONFLICT" }] });
 			if (method === "GET") return new Response(null, { status: 403 });
 			return jsonRes(500, {});
 		});
-		const result = await service.put(PAGE, KEY, "v");
+		const result = await service.put(PAGE, KEY, "value");
 		expect(result.ok).toBe(false);
 		if (result.ok) return;
 		expect(result.error.kind).toBe("Forbidden");
 	});
 });
 
-describe("TC-PROP-V1-PUT-403 — POST 409 → GET → PUT 403 → Forbidden", () => {
-	test("versioned PUT 403 → err(Forbidden)", async () => {
+// updateByKey PUT error paths (F-3). The deferred concurrent-race PUT-409 maps
+// to RemoteUnreachable (catch-all), NOT Conflict — this is the central DEC-6 /
+// PM-DEC-1 decision flagged at DoR.
+
+describe("TC-PROP-V1-ERR-005 — POST 409 → GET version → PUT 403 → Forbidden (F-3)", () => {
+	test("permission revoked before PUT → err(Forbidden)", async () => {
 		const { service } = script((method) => {
-			if (method === "POST") return jsonRes(409, { errors: [{ code: "CONFLICT" }] });
+			if (method === "POST")
+				return jsonRes(409, { errors: [{ code: "CONFLICT" }] });
 			if (method === "GET") return jsonRes(200, prop("old", 5));
 			if (method === "PUT") return new Response(null, { status: 403 });
 			return jsonRes(500, {});
 		});
-		const result = await service.put(PAGE, KEY, "v");
+		const result = await service.put(PAGE, KEY, "value");
 		expect(result.ok).toBe(false);
 		if (result.ok) return;
 		expect(result.error.kind).toBe("Forbidden");
 	});
 });
 
-describe("TC-PROP-V1-PUT-409 — POST 409 → GET → PUT 409 → RemoteUnreachable (DEC-6, NOT Conflict)", () => {
-	test("versioned PUT 409 (rare race) → err(RemoteUnreachable)", async () => {
+describe("TC-PROP-V1-ERR-006 — POST 409 → GET → PUT 409 → RemoteUnreachable, NOT Conflict (DEC-6 catch-all) (F-3)", () => {
+	test("concurrent race in the GET→PUT window: PUT 409 → err(RemoteUnreachable)", async () => {
 		const { service } = script((method) => {
-			if (method === "POST") return jsonRes(409, { errors: [{ code: "CONFLICT" }] });
+			if (method === "POST")
+				return jsonRes(409, { errors: [{ code: "CONFLICT" }] });
 			if (method === "GET") return jsonRes(200, prop("old", 5));
-			if (method === "PUT") return jsonRes(409, { errors: [{ code: "CONFLICT" }] });
+			if (method === "PUT")
+				return jsonRes(409, { errors: [{ code: "CONFLICT" }] });
 			return jsonRes(500, {});
 		});
-		const result = await service.put(PAGE, KEY, "v");
+		const result = await service.put(PAGE, KEY, "value");
 		expect(result.ok).toBe(false);
 		if (result.ok) return;
 		expect(result.error.kind).toBe("RemoteUnreachable");
+		expect(result.error.kind).not.toBe("Conflict");
+		if (result.error.kind !== "RemoteUnreachable") return;
+		expect(result.error.status).toBe(409);
 	});
 });

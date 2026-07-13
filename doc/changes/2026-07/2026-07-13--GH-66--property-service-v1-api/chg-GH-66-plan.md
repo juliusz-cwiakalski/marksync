@@ -178,32 +178,32 @@ This plan fixes a P0 bug where the MarkSync update flow fails with HTTP 400 on e
 
 **Tasks**:
 
-- [ ] **3.1** Generalize `script()` helper in `tests/unit/infra/confluence/properties.test.ts` (line 41):
+- [x] **3.1** Generalize `script()` helper in `tests/unit/infra/confluence/properties.test.ts` (line 41):
   - Change from `const path = parsed.pathname.replace(/^\/wiki\/api\/v2/, "");` to `const path = parsed.pathname.replace(/^\/wiki\/(api\/v2|rest\/api)/, "");` (strips both `/wiki/api/v2` and `/wiki/rest/api`) (TC-PROP-V1-PATH-001/002/003)
-- [ ] **3.2** Update unit test fixtures in `properties.test.ts` to use v1 response shapes:
+- [x] **3.2** Update unit test fixtures in `properties.test.ts` to use v1 response shapes:
   - Change all `{key: KEY, value}` fixtures to `{id: "123", key: KEY, value, version: {number: 1, when: "2026-07-13T00:00:00.000Z"}}` (TC-PROP-V1-GET-001/002/003, TC-PROP-V1-POST-001)
   - Update handler responses to return v1 shapes with `version: {number, when}` (TC-PROP-V1-GET-001/002/003, TC-PROP-V1-POST-001)
-- [ ] **3.3** Add version-number flow test (TC-PROP-V1-VERSION-001):
+- [x] **3.3** Add version-number flow test (TC-PROP-V1-VERSION-001):
   - Test POST create → 409 → GET version → PUT with incremented version
   - Verify exact request sequence: POST → GET → PUT
   - Verify PUT body contains `version: {number: currentVersion + 1}`
   - Verify all paths are v1 paths (AC-F2-2, F-2, F-3, DEC-3, NFR-3)
-- [ ] **3.4** Add large value version-number flow test (TC-PROP-V1-VERSION-002):
+- [x] **3.4** Add large value version-number flow test (TC-PROP-V1-VERSION-002):
   - Test version-number flow with 8 KB value
   - Verify byte-equality and version increment (AC-F2-2, AC-F4-1, NFR-1)
-- [ ] **3.5** Update existing byte-equality tests (TC-PROP-RT-001 → TC-PROP-V1-BYTE-001):
+- [x] **3.5** Update existing byte-equality tests (TC-PROP-RT-001 → TC-PROP-V1-BYTE-001):
   - Update test names to reference v1
   - Ensure assertions pass with v1 paths (AC-F4-1, NFR-1)
-- [ ] **3.6** Update missing-key test (TC-PROP-MISS-001 → TC-PROP-V1-GET-003):
+- [x] **3.6** Update missing-key test (TC-PROP-MISS-001 → TC-PROP-V1-GET-003):
   - Update test name to reference v1
   - Verify 404 → ok(undefined) with v1 path (AC-F1-2)
-- [ ] **3.7** Update conflict test (TC-PROP-CONFLICT-001 → integrated into TC-PROP-V1-VERSION-001):
+- [x] **3.7** Update conflict test (TC-PROP-CONFLICT-001 → integrated into TC-PROP-V1-VERSION-001):
   - Remove or refactor existing 409 → PUT test into new version-number flow test
-- [ ] **3.8** Add error tests:
+- [x] **3.8** Add error tests:
   - Add TC-PROP-V1-ERR-001: 403 → Forbidden (G-3)
   - Add TC-PROP-V1-ERR-002: 413 → TooLarge (G-3)
   - Add TC-PROP-V1-SCHEMA-001: Schema validation failure → RemoteUnreachable (F-4, DM-1)
-- [ ] **3.9** Update integration tests in `tests/integration/confluence/confluence-target.test.ts`:
+- [x] **3.9** Update integration tests in `tests/integration/confluence/confluence-target.test.ts`:
   - Update existing `TC-INT-PROP-RT` block to assert v1 paths:
     - GET: `/wiki/rest/api/content/{pageId}/property/{key}` (TC-INT-PROP-V1-001)
     - POST: `/wiki/rest/api/content/{pageId}/property` (TC-INT-PROP-V1-001)
@@ -249,13 +249,13 @@ This plan fixes a P0 bug where the MarkSync update flow fails with HTTP 400 on e
 
 **Tasks**:
 
-- [ ] **4.1** Run typecheck: `bun run typecheck`
-- [ ] **4.2** Run lint: `bun run lint`
-- [ ] **4.3** Run all tests: `bun test`
-- [ ] **4.4** Verify all new unit tests pass (TC-PROP-V1-GET-001, TC-PROP-V1-GET-002, TC-PROP-V1-GET-003, TC-PROP-V1-POST-001, TC-PROP-V1-VERSION-001, TC-PROP-V1-VERSION-002, TC-PROP-V1-BYTE-001, TC-PROP-V1-PATH-001, TC-PROP-V1-PATH-002, TC-PROP-V1-PATH-003, TC-PROP-V1-ERR-001, TC-PROP-V1-ERR-002, TC-PROP-V1-SCHEMA-001)
-- [ ] **4.5** Verify all new integration tests pass (TC-INT-PROP-V1-001, TC-INT-PROP-V1-002)
-- [ ] **4.6** Verify no regressions in existing test suites
-- [ ] **4.7** Verify all acceptance criteria from spec verified (AC-F1-1, AC-F1-2, AC-F2-1, AC-F2-2, AC-F3-1, AC-F4-1, AC-T1-1, AC-T2-1)
+- [x] **4.1** Run typecheck: `bun run typecheck`
+- [x] **4.2** Run lint: `bun run lint`
+- [x] **4.3** Run all tests: `bun test`
+- [x] **4.4** Verify all new unit tests pass (TC-PROP-V1-GET-001, TC-PROP-V1-GET-002, TC-PROP-V1-GET-003, TC-PROP-V1-POST-001, TC-PROP-V1-VERSION-001, TC-PROP-V1-VERSION-002, TC-PROP-V1-BYTE-001, TC-PROP-V1-PATH-001, TC-PROP-V1-PATH-002, TC-PROP-V1-PATH-003, TC-PROP-V1-ERR-001, TC-PROP-V1-ERR-002, TC-PROP-V1-SCHEMA-001)
+- [x] **4.5** Verify all new integration tests pass (TC-INT-PROP-V1-001, TC-INT-PROP-V1-002)
+- [x] **4.6** Verify no regressions in existing test suites
+- [x] **4.7** Verify all acceptance criteria from spec verified (AC-F1-1, AC-F1-2, AC-F2-1, AC-F2-2, AC-F3-1, AC-F4-1, AC-T1-1, AC-T2-1)
 
 **Acceptance Criteria**:
 
@@ -291,13 +291,13 @@ This plan fixes a P0 bug where the MarkSync update flow fails with HTTP 400 on e
 
 **Tasks**:
 
-- [ ] **5.1** Review implementation against spec and test plan — ensure all AC covered
-- [ ] **5.2** Reconcile `doc/spec/features/feature-confluence-adapter.md` — these incorrectly claim v2 for content properties:
+- [x] **5.1** Review implementation against spec and test plan — ensure all AC covered
+- [x] **5.2** Reconcile `doc/spec/features/feature-confluence-adapter.md` — these incorrectly claim v2 for content properties:
   - §3.1 (L55-57), §3.2 table (L78), §4.2 (L127): Update to state that key-based property access uses v1 API
   - §5 (L154-155): The checked system-spec AC asserting "v2 used for content/properties; v1 only for attachments/search/restrictions" becomes FALSE after this change and must be reconciled
   - (Handled in lifecycle phase 7 `system_spec_update` via `@doc-syncer`, but noted here for awareness)
-- [ ] **5.3** Version bump per repo conventions (patch version for bug fix)
-- [ ] **5.4** Final commit with all changes staged
+- [x] **5.3** Version bump per repo conventions (patch version for bug fix) — **DEFERRED to MS-0002 release per PM** (a P0 adapter bugfix does not warrant a standalone version bump mid-change)
+- [x] **5.4** Final commit with all changes staged
 
 **Acceptance Criteria**:
 
@@ -362,6 +362,8 @@ This plan fixes a P0 bug where the MarkSync update flow fails with HTTP 400 on e
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.4 | 2026-07-13 | coder | Closed Phase 6 remediation (review iter-1, PASS): checked Phase 3/4/5 + 6.1–6.4 boxes; 5.3 version bump DEFERRED to MS-0002 per PM; added optional edge-case tests (F-2/F-3 → TC-PROP-V1-ERR-003/004/005/006 covering fetchCurrentVersion + updateByKey error paths incl. DEC-6 catch-all); execution log filled for phases 1–6. |
+| 1.3 | 2026-07-13 | reviewer | Code review iter-1 (PASS): added Phase 6 remediation (plan-tracking gaps — phases 3–5 checkboxes unchecked despite completion; execution log updated; optional edge-case tests). No source-code changes required. |
 | 1.2 | 2026-07-13 | plan-writer | DoR iter-2 fixes: (A) Align Constraints (L61) and RSK-4 (L68) to DEC-6: property-PUT 409 maps to RemoteUnreachable, not Conflict; (B) Update TC-PROP-V1-ERR-002 reference to "put POST 413 → TooLarge"; (C) Add note to Phase 2 AC for PUT-409→RemoteUnreachable coverage via catch-all error mapping; (E) Mark `when` optional in PropertyV1Response schema shape per DM-1 |
 | 1.1 | 2026-07-13 | plan-writer | DoR iter-1 fixes: (1) Phase 2 task 2.2: Specify version-extraction mechanism (raw v1 GET, schema validation, error handling for 404/403/non-2xx), (2) Phase 2 tasks 2.2/2.3: Clarify property-PUT 409 → RemoteUnreachable (not Conflict) per PM-DEC-1/DEC-6, (3) Phase 5 task 5.2: Add §5 (L154-155) to doc-update list |
 | 1.0 | 2026-07-13 | plan-writer | Initial plan for GH-66 |
@@ -370,6 +372,30 @@ This plan fixes a P0 bug where the MarkSync update flow fails with HTTP 400 on e
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| (Populated during execution) | | | | | |
 | 1 — Schema | COMPLETE | 2026-07-13 | 2026-07-13 | de3780e | PropertyV1Response schema ({id,key,value,version:{number,when?}}); import/usage/header updated; typecheck clean |
 | 2 — Core fix | COMPLETE | 2026-07-13 | 2026-07-13 | 4a3b593 | get/put/updateByKey → v1 paths; put() 409 → fetchCurrentVersion (private helper) → updateByKey(currentVersion); PUT-409→RemoteUnreachable (DEC-6); typecheck+lint clean |
+| 3 — Tests | COMPLETE | 2026-07-13 | 2026-07-13 | 62523ba | script() strips v1+v2 prefixes; v1 path assertions; TC-PROP-V1-VERSION-001/002 (409→GET→PUT); byte-equality 8 KB; error tests (403→Forbidden, 413→TooLarge, schema-fail→RemoteUnreachable); 34 tests pass |
+| 4 — Verification | COMPLETE | 2026-07-13 | 2026-07-13 | — | typecheck clean; lint clean (no diagnostics in changed files); all tests pass (34/34) |
+| 5 — Finalize | COMPLETE | 2026-07-13 | 2026-07-13 | 3693c28, ff8b70 | docs reconciled (feature spec, architecture, glossary, test spec, roadmap, ADR-0006); pm-notes recorded; version bump deferred to MS-0002 release per PM |
+| 6 — Remediation | COMPLETE | 2026-07-13 | 2026-07-13 | (this commit) | F-1: Phase 3/4/5 boxes checked + execution log filled; F-4: 5.3 version bump DEFERRED to MS-0002 per PM; F-2/F-3: added 4 edge-case tests (TC-PROP-V1-ERR-003/004 fetchCurrentVersion 404/403; TC-PROP-V1-ERR-005/006 updateByKey 403/409→RemoteUnreachable DEC-6); full suite 1011 pass / 0 fail, typecheck + lint clean |
+
+---
+
+### Phase 6: Code Review Remediation (Iteration 1)
+
+**Goal**: Close the plan-tracking gaps identified in review iteration 1 (PASS with non-blocking findings). No source-code changes required — the implementation is correct and complete.
+
+**Tasks**:
+
+- [x] **6.1** Check all Phase 3 task boxes (3.1–3.9) — work delivered in commit 62523ba (F-1)
+- [x] **6.2** Check all Phase 4 task boxes (4.1–4.7) — typecheck/lint/tests verified passing (F-1)
+- [x] **6.3** Check Phase 5.1, 5.2, 5.4 task boxes — review complete, docs reconciled (3693c28), pm-notes recorded (ff8b70) (F-1)
+- [x] **6.4** Resolve Phase 5.3 (version bump): **DEFERRED to MS-0002 release per PM** — a P0 adapter bugfix does not warrant a standalone version bump mid-change (F-4)
+- [x] **6.5** *(Optional)* Add unit tests for fetchCurrentVersion error paths: 404-vanished → RemoteUnreachable, 403 → Forbidden (F-2) — DONE: TC-PROP-V1-ERR-003 (GET 404 → RemoteUnreachable, cause mentions vanished), TC-PROP-V1-ERR-004 (GET 403 → Forbidden)
+- [x] **6.6** *(Optional)* Add unit tests for updateByKey error paths: PUT 403 → Forbidden, PUT 409 → RemoteUnreachable (DEC-6 catch-all) (F-3) — DONE: TC-PROP-V1-ERR-005 (PUT 403 → Forbidden), TC-PROP-V1-ERR-006 (PUT 409 → RemoteUnreachable, asserts NOT Conflict — DEC-6/PM-DEC-1)
+
+**Acceptance Criteria**:
+
+- Must: All plan task checkboxes reflect actual completion state (no DONE_BUT_UNCHECKED) — PASSED (phases 3/4/5 + 6.1–6.6 all `[x]`; 5.3 marked DEFERRED-with-note)
+- Must: Execution log records phases 3–5 — PASSED (rows for 1–6 populated; placeholder removed)
+- Should: Optional edge-case tests added if time permits (F-2, F-3 are low-severity) — PASSED (TC-PROP-V1-ERR-003/004/005/006 added; full suite 1011 pass / 0 fail; typecheck + lint clean)
