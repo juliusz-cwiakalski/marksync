@@ -342,7 +342,7 @@ identifies the following docs that will need updating:
 | Phase 1 | Done | 2026-07-13 | 2026-07-13 | 5884ecf | Renderer port + Kroki adapter; 7 unit tests PASS, typecheck clean |
 | Phase 2 | Done | 2026-07-13 | 2026-07-13 | 2a5953e | Mermaid HAST transform; 8 unit tests PASS, typecheck + depcruise clean |
 | Phase 3 | Done | 2026-07-13 | 2026-07-13 | 50b01a0 | computePlan wiring; 9 integration tests PASS, full suite 1040 pass |
-| Phase 4 | Done | 2026-07-13 | 2026-07-13 | (pending commit) | Golden fixture; 2 golden tests PASS, existing 33 golden tests unaffected |
+| Phase 4 | Done | 2026-07-13 | 2026-07-13 | 44616b7 | Golden fixture; 2 golden tests PASS, existing 33 golden tests unaffected |
 | Phase 5 | Pending | - | - | - | Quality gate & cleanup |
 | Remediation | Pending | - | - | - | Populated by `@reviewer` if needed |
 
