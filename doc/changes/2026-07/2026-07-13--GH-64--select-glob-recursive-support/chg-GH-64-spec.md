@@ -4,7 +4,7 @@
 change:
   ref: GH-64
   type: fix
-  status: Proposed
+  status: Approved
   slug: select-glob-recursive-support
   title: "[MS2-E4] Glob patterns with ** not supported by git ls-tree pathspec (P1)"
   owners: [Juliusz Ćwiąkalski]

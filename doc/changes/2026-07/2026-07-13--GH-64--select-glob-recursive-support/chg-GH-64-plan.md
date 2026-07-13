@@ -4,7 +4,7 @@
 source: https://github.com/juliusz-cwiakalski/agentic-delivery-os/blob/main/doc/templates/implementation-plan-template.md
 ados_distribution: redistributable
 id: chg-GH-64-select-glob-recursive-support
-status: Proposed
+status: Completed
 created: 2026-07-13T00:00:00Z
 last_updated: 2026-07-13T00:00:00Z
 owners: [Juliusz Ćwiąkalski]
@@ -312,35 +312,35 @@ All requirements are derived from the change specification ([chg-GH-64-spec.md](
 
 **Tasks**:
 
-- [ ] **7.1** Update version bump per repo conventions (check if manual update needed or if CI handles this)
-- [ ] **7.2** Review change specification [chg-GH-64-spec.md](./chg-GH-64-spec.md) and mark as "Approved" if not already done
-- [ ] **7.3** Review test plan [chg-GH-64-test-plan.md](./chg-GH-64-test-plan.md) and mark as "Approved" if not already done
-- [ ] **7.4** Update implementation plan status to "Completed" and fill in execution log
-- [ ] **7.5** Verify all acceptance criteria from spec are met:
-  - AC-F1-1: Recursive `**` matches nested markdown files ✓
-  - AC-F1-2: Extension filter excludes non-markdown files ✓
-  - AC-F1-3: `**/test.md` matches root and nested files ✓
-  - AC-F2-1: Union semantics with two patterns ✓
-  - AC-F2-2: Union semantics across multiple directories ✓
-  - AC-G2-1: Starter config produces non-empty plan with nested files ✓
-  - AC-G2-2: Starter config with flat directory discovery ✓
-  - AC-F3-1: Malicious pattern with `..` throws before git spawn ✓
-  - AC-F3-2: Malicious pattern with shell metacharacters throws ✓
-  - AC-F3-3: Existing safety fuzz tests remain passing ✓
-- [ ] **7.6** Verify all success metrics are met:
-  - Pattern match accuracy: 100% of standard glob patterns work ✓
-  - Starter config functionality: works out of the box ✓
-  - Safety test pass rate: 100% ✓
-  - Performance impact: no measurable degradation ✓
-- [ ] **7.7** Run final full test suite to ensure everything is green: `bun test` (all tests)
+- [x] **7.1** Update version bump per repo conventions (check if manual update needed or if CI handles this) — N/A: repo has no CHANGELOG and no per-PR version bump (recent merges GH-63/66/69/71 did not bump `package.json` 0.4.1); `version_impact: patch` is honored at release time, not per change
+- [x] **7.2** Review change specification [chg-GH-64-spec.md](./chg-GH-64-spec.md) and mark as "Approved" if not already done — status set to Approved (DoR passed per pm-notes)
+- [x] **7.3** Review test plan [chg-GH-64-test-plan.md](./chg-GH-64-test-plan.md) and mark as "Approved" if not already done — status set to Approved (DoR passed per pm-notes)
+- [x] **7.4** Update implementation plan status to "Completed" and fill in execution log — status set to Completed; execution log filled below
+- [x] **7.5** Verify all acceptance criteria from spec are met:
+  - AC-F1-1: Recursive `**` matches nested markdown files ✓ (TC-GLOB-001 PASS)
+  - AC-F1-2: Extension filter excludes non-markdown files ✓ (TC-GLOB-002 PASS)
+  - AC-F1-3: `**/test.md` matches root and nested files ✓ (TC-GLOB-003 PASS)
+  - AC-F2-1: Union semantics with two patterns ✓ (TC-GLOB-004 PASS)
+  - AC-F2-2: Union semantics across multiple directories ✓ (TC-GLOB-005 PASS)
+  - AC-G2-1: Starter config produces non-empty plan with nested files ✓ (TC-GLOB-012 PASS, 500 files)
+  - AC-G2-2: Starter config with flat directory discovery ✓ (covered by TC-GLOB-001/002 — `**/` matches zero-or-more segments)
+  - AC-F3-1: Malicious pattern with `..` throws before git spawn ✓ (TC-GLOB-007 PASS)
+  - AC-F3-2: Malicious pattern with shell metacharacters throws ✓ (TC-GLOB-008 PASS)
+  - AC-F3-3: Existing safety fuzz tests remain passing ✓ (TC-INTEGRATION-009 PASS — TC-GLOB-011)
+- [x] **7.6** Verify all success metrics are met:
+  - Pattern match accuracy: 100% of standard glob patterns work ✓ (TC-GLOB-001…005, 012)
+  - Starter config functionality: works out of the box ✓ (TC-GLOB-012)
+  - Safety test pass rate: 100% ✓ (TC-INTEGRATION-009 green)
+  - Performance impact: no measurable degradation ✓ (TC-GLOB-012 < 2000ms for 500-file corpus)
+- [x] **7.7** Run final full test suite to ensure everything is green: `bun test` (all tests) — unit 782 pass / 0 fail; integration 208 pass / 0 fail (see Phase 6 + final run)
 
 **Acceptance Criteria**:
 
-- Must: All acceptance criteria from spec verified as met
-- Must: All success metrics verified as met
-- Must: Full test suite passes (unit + integration)
-- Must: Project builds without errors
-- Should: Plan status updated to "Completed"
+- Must: All acceptance criteria from spec verified as met — PASSED (see 7.5)
+- Must: All success metrics verified as met — PASSED (see 7.6)
+- Must: Full test suite passes (unit + integration) — PASSED (782 + 208)
+- Must: Project builds without errors — PASSED (tsc clean)
+- Should: Plan status updated to "Completed" — DONE
 
 **Affected code areas**:
 
@@ -405,4 +405,24 @@ All requirements are derived from the change specification ([chg-GH-64-spec.md](
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| (Populated during execution) | | | | | |
+| 1 — Core implementation | COMPLETED | 2026-07-13 | 2026-07-13 | 235a032 | readCommitted lists all files + in-memory glob filter (union); DEC-4 empty-patterns early return; validateRepoRelative retained; TC-GLOB-010 pattern `["."]`→`["**/*.md"]` fixed inline to keep tree green |
+| 2 — Recursive/extension/empty unit tests | COMPLETED | 2026-07-13 | 2026-07-13 | 7f86646 | TC-GLOB-001, 002, 003, 009 added (dedicated GH-64 describe block with buildRepo helper) |
+| 3 — Union semantics unit tests | COMPLETED | 2026-07-13 | 2026-07-13 | 4a86d15 | TC-GLOB-004, 005 added |
+| 4 — Security regression tests | COMPLETED | 2026-07-13 | 2026-07-13 | 0c39bee | TC-GLOB-007, 008 added; TC-GLOB-010 verified (done in Phase 1) |
+| 5 — Starter config integration test | COMPLETED | 2026-07-13 | 2026-07-13 | 07eb21f | TC-GLOB-012 added (500-file nested corpus, distractors excluded, < 2000ms) |
+| 6 — Full verification | COMPLETED | 2026-07-13 | 2026-07-13 | 3b5a624 | unit 782 pass / integration 208 pass / typecheck clean / boundaries clean; biome format conformance applied to changed files (no new warnings) |
+| 7 — Finalize and release | COMPLETED | 2026-07-13 | 2026-07-13 | (this commit) | spec+test-plan→Approved; plan→Completed; all ACs/metrics verified; version bump N/A (release-time convention); no system-spec/ADR changes needed |
+
+### Final test results (Phase 7 confirmation run)
+
+- Unit suite (`tests/unit/`): **782 pass / 0 fail**
+- Integration suite (`tests/integration/`): **208 pass / 0 fail**
+- Typecheck (`tsc --noEmit`): **clean**
+- Boundary check (`depcruise src`): **no violations** (infra→shared compliant, RSK-3 closed)
+- Format check (`biome format .`): **clean**
+
+### Notes / deviations
+
+- **No `bun run build` script exists** in `package.json`; Phase 1/6/7 used `bun run typecheck` (tsc --noEmit) as the compilation gate, which is the repo's actual compilation check.
+- **TC-GLOB-010** (update existing happy-path test `["."]`→`["**/*.md"]`) was applied in Phase 1 rather than Phase 4 to avoid committing a known-red test between phases; verified again in Phase 4.
+- **No PR created** — PM handles PR creation in delivery phase 11. Review (delivery phase 8) to be run separately by @reviewer per PM instructions.

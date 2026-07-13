@@ -4,7 +4,7 @@
 source: https://github.com/juliusz-cwiakalski/agentic-delivery-os/blob/main/doc/templates/test-plan-template.md
 ados_distribution: redistributable
 id: chg-GH-64-test-plan
-status: Proposed
+status: Approved
 created: 2026-07-13
 last_updated: 2026-07-13
 owners: [Juliusz Ćwiąkalski]
