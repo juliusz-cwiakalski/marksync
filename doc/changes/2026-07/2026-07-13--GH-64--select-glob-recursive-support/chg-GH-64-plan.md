@@ -84,29 +84,29 @@ All requirements are derived from the change specification ([chg-GH-64-spec.md](
 
 **Tasks**:
 
-- [ ] **1.1** Read current implementation of `readCommitted` in `src/infra/git/shell-git.ts` (lines ~14-58)
-- [ ] **1.2** Add import for `filterByGlob` from `src/shared/glob.ts` at top of file (verify path alias `#shared/glob` is correct)
-- [ ] **1.3** Modify `readCommitted` method: change `git ls-tree` command from `["ls-tree", "-r", "--name-only", ref, "--", ...patterns]` to `["ls-tree", "-r", "--name-only", ref]` (remove `--` and patterns)
-- [ ] **1.4** After listing all files (after line where `ls-tree` output is parsed), add in-memory filtering logic:
+- [x] **1.1** Read current implementation of `readCommitted` in `src/infra/git/shell-git.ts` (lines ~14-58)
+- [x] **1.2** Add import for `filterByGlob` from `src/shared/glob.ts` at top of file (verify path alias `#shared/glob` is correct) — imported `globToRegExp` from `#shared/glob`
+- [x] **1.3** Modify `readCommitted` method: change `git ls-tree` command from `["ls-tree", "-r", "--name-only", ref, "--", ...patterns]` to `["ls-tree", "-r", "--name-only", ref]` (remove `--` and patterns)
+- [x] **1.4** After listing all files (after line where `ls-tree` output is parsed), add in-memory filtering logic:
   - Compile patterns using `globToRegExp` from `src/shared/glob.ts` (or use `filterByGlob` directly)
   - For each file in the list, test if it matches ANY pattern (union semantics)
   - Collect matching files into a new array or Set
-- [ ] **1.5** Add edge case handling: if `patterns` array is empty, return empty map immediately (union semantics with zero patterns = empty set)
-- [ ] **1.6** Retain existing `validateRepoRelative(pattern)` loop before git spawn (lines 17-19) — security invariant
-- [ ] **1.7** Retain existing `validateRepoRelative(fileName)` per-file in the read loop (line 41) — security invariant
-- [ ] **1.8** Ensure the `git show ref:path` read loop continues to work for matched files only
-- [ ] **1.9** Build project to verify TypeScript compilation: `bun run build`
-- [ ] **1.10** Run existing unit tests for shell-git to check for immediate regressions: `bun test tests/unit/infra/git/shell-git.test.ts`
+- [x] **1.5** Add edge case handling: if `patterns` array is empty, return empty map immediately (union semantics with zero patterns = empty set) — DEC-4 early return added
+- [x] **1.6** Retain existing `validateRepoRelative(pattern)` loop before git spawn (lines 17-19) — security invariant
+- [x] **1.7** Retain existing `validateRepoRelative(fileName)` per-file in the read loop (line 41) — security invariant
+- [x] **1.8** Ensure the `git show ref:path` read loop continues to work for matched files only
+- [x] **1.9** Build project to verify TypeScript compilation: `bun run build` — no `build` script; used `bun run typecheck` (tsc --noEmit) → PASS
+- [x] **1.10** Run existing unit tests for shell-git to check for immediate regressions: `bun test tests/unit/infra/git/shell-git.test.ts` — 14 pass / 0 fail. NOTE: the expected `["."]` regression was fixed inline (TC-GLOB-010: `["."]` → `["**/*.md"]`) to keep the commit green; detailed in Phase 4 task 4.3.
 
 **Acceptance Criteria**:
 
-- Must: `readCommitted` no longer passes patterns as git pathspecs (AC-F1-1)
-- Must: `readCommitted` filters files in-memory using glob matcher (AC-F1-1, AC-F1-2, AC-F1-3)
-- Must: `validateRepoRelative(pattern)` is still called before git spawn (AC-F3-1, AC-F3-2, NFR-SEC-7)
-- Must: `validateRepoRelative(fileName)` is still called per-file when reading (AC-F3-1, AC-F3-2, NFR-SEC-7)
-- Must: Empty patterns array returns empty map (TC-GLOB-009)
-- Must: Code compiles without errors
-- Should: Union semantics implemented (file matches if ANY pattern matches)
+- Must: `readCommitted` no longer passes patterns as git pathspecs (AC-F1-1) — PASSED (ls-tree args have no `--`/patterns)
+- Must: `readCommitted` filters files in-memory using glob matcher (AC-F1-1, AC-F1-2, AC-F1-3) — PASSED (globToRegExp + union filter)
+- Must: `validateRepoRelative(pattern)` is still called before git spawn (AC-F3-1, AC-F3-2, NFR-SEC-7) — PASSED (loop retained; safety-fuzz test green)
+- Must: `validateRepoRelative(fileName)` is still called per-file when reading (AC-F3-1, AC-F3-2, NFR-SEC-7) — PASSED (per-file validation retained)
+- Must: Empty patterns array returns empty map (TC-GLOB-009) — PASSED (DEC-4 early return; verified Phase 2)
+- Must: Code compiles without errors — PASSED (tsc --noEmit clean)
+- Should: Union semantics implemented (file matches if ANY pattern matches) — PASSED (matchers.some(...))
 
 **Affected code areas**:
 

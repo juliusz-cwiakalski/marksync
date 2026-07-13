@@ -150,7 +150,7 @@ describe("shell-git happy path", () => {
 			true,
 		);
 
-		const readResult = repo.readCommitted("HEAD", ["."]);
+		const readResult = repo.readCommitted("HEAD", ["**/*.md"]);
 		expect(readResult.ok).toBe(true);
 		if (!readResult.ok) return;
 
