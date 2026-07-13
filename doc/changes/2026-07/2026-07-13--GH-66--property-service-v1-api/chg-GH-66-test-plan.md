@@ -117,7 +117,7 @@ This test plan validates the P0 fix for PropertyService to use Confluence Cloud 
 | TC-PROP-V1-PATH-002 | Unit test asserts v1 POST create path | Regression | Critical | High | AC-T1-1 |
 | TC-PROP-V1-PATH-003 | Unit test asserts v1 PUT update path | Regression | Critical | High | AC-T1-1 |
 | TC-PROP-V1-ERR-001 | v1 GET 403 → Forbidden | Negative | Important | High | AC-F1-1 |
-| TC-PROP-V1-ERR-002 | put POST 413 → TooLarge | Negative | Important | High | AC-F1-1 |
+| TC-PROP-V1-ERR-002 | put POST 413 → TooLarge | Negative | Important | High | AC-F2-1 |
 | TC-PROP-V1-SCHEMA-001 | v1 response schema validation failure → RemoteUnreachable | Negative | Important | High | F-4, DM-1 |
 | TC-INT-PROP-V1-001 | Integration test verifies v1 GET/POST/PUT paths | Happy Path | Critical | High | AC-T2-1 |
 | TC-INT-PROP-V1-002 | Integration test verifies no 400 errors in update flow | Happy Path | Critical | High | AC-T2-1, AC-F2-2 |
@@ -576,7 +576,7 @@ This test plan validates the P0 fix for PropertyService to use Confluence Cloud 
 **Scenario Type**: Negative
 **Impact Level**: Important
 **Priority**: High
-**Related IDs**: AC-F1-1, G-3
+**Related IDs**: AC-F2-1, G-3
 **Test Type(s)**: Unit
 **Automation Level**: Automated
 **Target Layer / Location**: `src/infra/confluence/properties.ts` → `tests/unit/infra/confluence/properties.test.ts`

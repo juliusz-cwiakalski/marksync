@@ -6,7 +6,7 @@ ados_distribution: redistributable
 id: chg-GH-66-property-service-v1-api
 status: Updated
 created: 2026-07-13T00:00:00Z
-last_updated: 2026-07-13T00:00:00Z
+last_updated: 2026-07-13T12:00:00Z
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 labels: [bug, p0, ms-0002, mvp, property-service, v1-api, confluence-adapter]
@@ -58,14 +58,14 @@ This plan fixes a P0 bug where the MarkSync update flow fails with HTTP 400 on e
 
 - Backward compatibility: Existing properties on Confluence are accessible via v1 key-based GET (v1/v2 share one namespace)
 - Performance: POST create → 409 → GET → PUT is acceptable for MS-0002 scale (one extra GET on update)
-- Concurrency: 409 after GET is rare (racy window) — acceptable to surface as Conflict to caller (OQ-2 resolved)
+- Concurrency: 409 after GET is rare (racy window) — property-PUT 409 maps to `RemoteUnreachable` (catch-all), NOT Conflict, for MS-0002 MVP (PM-DEC-1 / DEC-6)
 
 ### Risks
 
 - **RSK-1**: Version-number handling causes 409 loops. Mitigated by: Explicit update mechanism (POST create → on 409 → GET current version → PUT with `number: currentVersion + 1`). Test coverage for this flow (TC-PROP-V1-VERSION-001, TC-PROP-V1-VERSION-002). Residual: Low.
 - **RSK-2**: v1 response shape differs from v2. Mitigated by: Update zod schema to match v1 `{id, key, value, version: {number, when}}`. Byte-equality test validates `value` round-trip (TC-PROP-V1-BYTE-001). Residual: Low.
 - **RSK-3**: Existing test suite fails on v2 path assertions. Mitigated by: Update all property tests to assert v1 paths (TC-PROP-V1-PATH-001/002/003, TC-INT-PROP-V1-001/002). Residual: Low.
-- **RSK-4**: Concurrent updates cause 409 after GET. Mitigated by: Surface 409 as Conflict to caller (same as page 409). Acceptable for MS-0002 MVP (OQ-2 resolved). Residual: Low.
+- **RSK-4**: Concurrent updates cause 409 after GET. Mitigated by: Property-PUT 409 → `RemoteUnreachable` (catch-all); the rare concurrent race is acceptable for MS-0002 MVP (PM-DEC-1 / spec DEC-6). Re-running sync re-GETs the current version and recovers. Residual: Low.
 - **RSK-5**: `script()` helper only strips `/wiki/api/v2` prefix. Mitigated by: Update helper to strip both `/wiki/api/v2` and `/wiki/rest/api` prefixes. Residual: Low.
 
 ### Success Metrics
@@ -84,7 +84,7 @@ This plan fixes a P0 bug where the MarkSync update flow fails with HTTP 400 on e
 **Tasks**:
 
 - [ ] **1.1** Replace `PropertyV2Response` with `PropertyV1Response` in `src/infra/confluence/schemas/property.ts`:
-  - Schema shape: `{id, key, value, version: {number, when}}`
+  - Schema shape: `{id, key, value, version: {number, when?}}` (number required, when optional per DM-1)
   - Update comment from "v2 content-property API" to "v1 content-property API"
   - Export `PropertyV1Response` type (F-4, DM-1, AC-F4-1)
 - [ ] **1.2** Update import in `src/infra/confluence/properties.ts` line 9 from `PropertyV2Response` to `PropertyV1Response`
@@ -93,7 +93,7 @@ This plan fixes a P0 bug where the MarkSync update flow fails with HTTP 400 on e
 
 **Acceptance Criteria**:
 
-- Must: `PropertyV1Response` schema exists in `src/infra/confluence/schemas/property.ts` with correct shape `{id, key, value, version: {number, when}}`
+- Must: `PropertyV1Response` schema exists in `src/infra/confluence/schemas/property.ts` with correct shape `{id, key, value, version: {number, when?}}` (number required, when optional per DM-1)
 - Must: `properties.ts` imports and uses `PropertyV1Response`
 - Must: Schema validation error message updated to reference `PropertyV1Response`
 - Should: No TypeScript compilation errors
@@ -151,6 +151,7 @@ This plan fixes a P0 bug where the MarkSync update flow fails with HTTP 400 on e
 - Must: `updateByKey()` signature is `updateByKey(pageId, key, value, currentVersion: number)` and uses v1 path `PUT /wiki/rest/api/content/{pageId}/property/{key}` with `{key, value, version: {number: n+1}}`
 - Must: Error semantics preserved: 403→Forbidden, 404(GET)→ok(undefined), 413→TooLarge, schema-fail→RemoteUnreachable
 - Must: Property-PUT 409 (rare concurrent-write race) maps to RemoteUnreachable, NOT Conflict, per PM-DEC-1/DEC-6
+  - Note: This path is covered by the catch-all RemoteUnreachable mapping (not a dedicated Conflict test, per DEC-6); see error-semantics coverage for RemoteUnreachable/error-mapping behavior
 - Should: No TypeScript compilation errors
 
 **Affected code areas**:
@@ -339,7 +340,7 @@ This plan fixes a P0 bug where the MarkSync update flow fails with HTTP 400 on e
 | TC-PROP-V1-PATH-002 | Unit test asserts v1 POST create path | 3, 4 | AC-T1-1 |
 | TC-PROP-V1-PATH-003 | Unit test asserts v1 PUT update path | 3, 4 | AC-T1-1 |
 | TC-PROP-V1-ERR-001 | v1 GET 403 → Forbidden | 3, 4 | AC-F1-1, G-3 |
-| TC-PROP-V1-ERR-002 | v1 GET 413 → TooLarge | 3, 4 | AC-F1-1, G-3 |
+| TC-PROP-V1-ERR-002 | v1 put POST 413 → TooLarge | 3, 4 | AC-F1-1, G-3 |
 | TC-PROP-V1-SCHEMA-001 | v1 response schema validation failure → RemoteUnreachable | 3, 4 | F-4, DM-1, G-3 |
 | TC-INT-PROP-V1-001 | Integration test verifies v1 GET/POST/PUT paths | 3, 4 | AC-T2-1 |
 | TC-INT-PROP-V1-002 | Integration test verifies no 400 errors in update flow | 3, 4 | AC-T2-1, AC-F2-2, NFR-2 |
@@ -361,6 +362,7 @@ This plan fixes a P0 bug where the MarkSync update flow fails with HTTP 400 on e
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.2 | 2026-07-13 | plan-writer | DoR iter-2 fixes: (A) Align Constraints (L61) and RSK-4 (L68) to DEC-6: property-PUT 409 maps to RemoteUnreachable, not Conflict; (B) Update TC-PROP-V1-ERR-002 reference to "put POST 413 → TooLarge"; (C) Add note to Phase 2 AC for PUT-409→RemoteUnreachable coverage via catch-all error mapping; (E) Mark `when` optional in PropertyV1Response schema shape per DM-1 |
 | 1.1 | 2026-07-13 | plan-writer | DoR iter-1 fixes: (1) Phase 2 task 2.2: Specify version-extraction mechanism (raw v1 GET, schema validation, error handling for 404/403/non-2xx), (2) Phase 2 tasks 2.2/2.3: Clarify property-PUT 409 → RemoteUnreachable (not Conflict) per PM-DEC-1/DEC-6, (3) Phase 5 task 5.2: Add §5 (L154-155) to doc-update list |
 | 1.0 | 2026-07-13 | plan-writer | Initial plan for GH-66 |
 
