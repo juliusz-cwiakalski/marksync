@@ -199,4 +199,4 @@ No open questions — the fix is fully specified in the ticket and spike evidenc
 |-------|--------|---------|-----------|--------|-------|
 | Phase 1 | Done | 2026-07-13 | 2026-07-13 | 512b288 | Core implementation — unwrap results[0] in mapCreate; typecheck + lint pass, 9 existing tests pass |
 | Phase 2 | Done | 2026-07-13 | 2026-07-13 | 3b0f23d | Test coverage — 5 new tests (TC-ATTACH-001/002/003/005/006); attachments.ts at 100% coverage; 14 tests pass |
-| Phase 3 | Done | 2026-07-13 | 2026-07-13 | (pending commit) | Finalize — 14 attachment tests pass, full unit suite 774/0, typecheck + lint clean |
+| Phase 3 | Done | 2026-07-13 | 2026-07-13 | ba59b64 | Finalize — 14 attachment tests pass, full unit suite 774/0, typecheck + lint clean |
