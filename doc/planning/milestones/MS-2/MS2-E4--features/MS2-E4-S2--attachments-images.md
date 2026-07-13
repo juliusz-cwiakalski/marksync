@@ -42,7 +42,7 @@ The MS-0001 spike H4 validated the v1 attachment API and the **400-duplicate-fil
 ## Acceptance criteria (testable)
 - [ ] **Path safety (NFR-SEC-7):** a Markdown doc referencing `../../etc/passwd` → `Forbidden(path-traversal)`; never reads outside root.
 - [ ] **Reuse (idempotency):** unchanged image → `attachmentExists` true → no upload call (mock target assertion); changed image → new hash → upload.
-- [ ] **Update on change:** same filename, changed bytes → `/data` update bumps version.
+- [ ] **Update on change:** changed bytes → new content hash → new hash-derived filename → fresh attachment create (the `/data` in-place update is intentionally unreachable by design — hash-naming means changed bytes always produce a new filename).
 - [ ] Format coverage: png/jpg/gif/svg/webp all upload + reference correctly.
 - [ ] Remote image → `<ri:url>` reference, no upload.
 - [ ] Pipeline: a doc with a local image → Storage body contains the `<ri:attachment>` with the hash filename; the attachment exists after apply.

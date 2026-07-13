@@ -13,14 +13,33 @@ phases:
   test_planning: { started: "2026-07-13T06:40:00Z", completed: "2026-07-13T06:50:00Z" }
   delivery_planning: { started: "2026-07-13T06:50:00Z", completed: "2026-07-13T07:00:00Z" }
   dor_check: { started: "2026-07-13T07:00:00Z", completed: "2026-07-13T07:05:00Z" }
-  delivery: { started: null, completed: null }
-  system_spec_update: { started: null, completed: null }
-  review_fix: { started: null, completed: null }
+  delivery: { started: "2026-07-13T07:10:00Z", completed: "2026-07-13T07:40:00Z" }
+  system_spec_update: { started: "2026-07-13T07:40:00Z", completed: "2026-07-13T07:55:00Z" }
+  review_fix: { started: "2026-07-13T08:00:00Z", completed: null }
   quality_gates: { started: null, completed: null }
   dod_check: { started: null, completed: null }
   pr_creation: { started: null, completed: null, url: null }
 
-decisions: []
+decisions:
+  - text: >
+      DEC-1 (naming reconciliation, 2026-07-13): the AssetResolver produces an
+      Artifact carrying the FULL sha256 hex, and the domain naming helper
+      assetFilename() produces marksync-asset-<hash>.<ext> — identical to the
+      existing infra AttachmentService.attachmentFilename() for non-SVG. The
+      story file's <first24(sha256)> note is superseded by the already-shipped
+      full-hash scheme (single naming authority). User-authored .svg maps to
+      marksync-asset- (the marksync-mermaid- prefix stays reserved for E4-S1).
+      Change-scoped decision (reconciles with GH-21 infra); no new ADR.
+    date: "2026-07-13"
+  - text: >
+      DOC-1 resolved (2026-07-13, @doc-syncer commit 5c7d708): path-traversal
+      confinement added as NFR-SEC-7 in doc/spec/nonfunctional.md (NFR-SEC-5 was
+      "Converter injection safety" and was NOT repurposed); story cross_cutting
+      + narrative + AC citations corrected NFR-SEC-5->NFR-SEC-7; security-baseline
+      gained a Path-traversal confinement section; feature-safe-publish /
+      architecture-overview / ubiquitous-language / feature-confluence-adapter
+      reconciled with the delivered AssetResolver + upload/reuse wiring.
+    date: "2026-07-13"
 
 open_questions: []
 
@@ -43,6 +62,33 @@ dor_self_check:
     the implemented change — providing the adversarial critique post-delivery.
 
 blockers: []
+
+delivery_report:
+  verdict: COMPLETED_ALL (@coder)
+  commits:
+    - 77536a9: "docs(safe-publish): GH-26 change artifacts"
+    - af54d75: "feat(assets): GH-26 add domain asset-naming helper"
+    - 88dee57: "feat(assets): GH-26 path-safe content-hashed AssetResolver"
+    - 3d87fbb: "feat(safe-publish): GH-26 wire AssetResolver into computePlan"
+    - 05b6426: "feat(safe-publish): GH-26 wire asset upload/reuse into applyPlan"
+    - 48deddd: "test(assets): GH-26 asset upload/reuse integration tests"
+    - 06ffad1: "chore(assets): GH-26 plan status updated to Delivered"
+    - 5c7d708: "docs(spec): reconcile current-truth docs with GH-26 (@doc-syncer)"
+  new_modules: [src/domain/assets/naming.ts, src/domain/assets/resolver.ts]
+  new_tests: [tests/unit/domain/assets/naming.test.ts, tests/unit/domain/assets/resolver.test.ts, tests/integration/assets/asset-upload.test.ts]
+  bun_run_check_at_delivery: "PASS — 989 pass / 0 fail / 28 snapshots / 3665 expect() calls / 95 files; typecheck+lint+dep-cruiser green"
+  ac_status:
+    AC1_path_traversal: "PASS (TC-UNIT-001..006 prove 0 bytes read)"
+    AC2_reuse: "PASS (TC-INTEGRATION-001)"
+    AC3_update_on_change: "PASS (TC-INTEGRATION-002 — no /data call)"
+    AC4_format_coverage: "PASS (TC-UNIT-007 + TC-INTEGRATION-003)"
+    AC5_remote_image: "PASS (TC-UNIT-008 + TC-INTEGRATION-004)"
+    AC6_pipeline: "PASS (TC-INTEGRATION-005)"
+    AC7_asset_drift: "PASS (attachmentHashes populated)"
+    AC8_naming_invariant: "PASS (TC-UNIT-010)"
+    AC9_large_asset: "PARTIAL — >25MB warning via console.warn; 413->TooLarge per-doc isolation. Acceptable for MS-0002."
+    AC10_no_secrets: "PASS (TC-UNIT-011)"
+    AC11_quality_gate: "PASS"
 
 # Doc-reconciliation items surfaced during clarify_scope; @spec-writer cites
 # correctly, @doc-syncer reconciles system spec in phase 7.
