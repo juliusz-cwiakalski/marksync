@@ -79,7 +79,7 @@ Because `PropertyService` uses the v2 API path for key-based property access (wh
 | F-1 | Key-based property GET via v1 API | v1 correctly accepts string keys in path; resolves 400 errors. |
 | F-2 | Key-based property PUT (update) via v1 API with version handling | v1 requires optimistic concurrency via `version.number`; avoids 409 loops. |
 | F-3 | Idempotent create-or-update via v1 API | POST create on 409 → GET current version → PUT with incremented version. |
-| F-4 | v1 response schema validation | Parse v1 `{id, key, value, version:{number, when}}` shape; preserve byte-equality. |
+ | F-4 | v1 response schema validation | Parse v1 `{id, key, value, version:{number, when?}}` shape; preserve byte-equality. `version.number` required; `version.when` optional (unused by code). |
 
 ### 5.1 Capability Details
 
@@ -193,7 +193,7 @@ N/A — this change emits no new events.
 
 | ID | Element | Description |
 |----|---------|-------------|
-| DM-1 | PropertyV1Response schema | Replaces `PropertyV2Response`: `{id, key, value, version: {number, when}}`. v1 includes `version.number` required for optimistic concurrency. |
+ | DM-1 | PropertyV1Response schema | Replaces `PropertyV2Response`: `{id, key, value, version: {number, when?}}`. v1 includes `version.number` required for optimistic concurrency; `version.when` is optional (unused by code). |
 | DM-2 | PropertyService.updateByKey signature | Updated to use v1 path and version-number request body. |
 
 ### 8.4 External Integrations
@@ -229,7 +229,7 @@ N/A — this change does not introduce new telemetry. Existing logging via `Conf
 | RSK-1 | Version-number handling causes 409 loops | H | M | Explicit update mechanism: POST create → on 409 → GET current version → PUT with `number: currentVersion + 1`. Test coverage for this flow. | Low |
 | RSK-2 | v1 response shape differs from v2 | M | L | Update zod schema to match v1 `{id, key, value, version: {number, when}}`. Byte-equality test validates `value` round-trip. | Low |
 | RSK-3 | Existing test suite fails on v2 path assertions | L | H | Update all property tests to assert v1 paths. | Low |
-| RSK-4 | Concurrent updates cause 409 after GET | M | L | 409 after GET is rare (racy window). Acceptable: surface as `Conflict` to caller (same as page 409). | Low |
+ | RSK-4 | Concurrent updates cause 409 after GET | M | L | Property-PUT 409 → `RemoteUnreachable` (catch-all); the rare concurrent race is acceptable for MS-0002 MVP (PM-DEC-1). Re-running sync re-GETs the current version and recovers. Deferred to post-MS-0002: a property-shaped conflict error + putProperty re-fetch-once handling. | Low |
 
 ## 12. ASSUMPTIONS
 
@@ -253,7 +253,7 @@ N/A — this change does not introduce new telemetry. Existing logging via `Conf
 | ID | Question | Context | Status |
 |----|----------|---------|--------|
 | OQ-1 | Should POST create use v1 or v2? | v2 POST create works, but mixed API surface is inconsistent. | **RESOLVED (PM):** Use v1 throughout for property read/write. Keeps one namespace and one error model. |
-| OQ-2 | What to do if GET version fails between POST 409 and PUT? | Racy window: another process updates the property. | **RESOLVED (PM):** Surface 409 as `Conflict` to caller. Caller re-enters sync flow (same as page 409). Acceptable for MS-0002 MVP. |
+ | OQ-2 | What to do if PUT fails with 409 after GET version? | Racy window: another process updates the property between GET and PUT. | **RESOLVED (PM):** Property-PUT 409 is mapped to `RemoteUnreachable` (catch-all), NOT `Conflict`, for MS-0002 MVP (PM-DEC-1). Rationale: GET-version-then-PUT flow makes 409 rare (only concurrent-write race in GET→PUT window); `operationId` dedup + per-doc isolation (GH-24) prevents self-racing; `putProperty` consumer blocks on ANY error without special `Conflict` handling (re-fetch-once dance gated on `updatePage` only); `Conflict` error kind is page-shaped and would mislead error mapper + user. Recovery: `RemoteUnreachable` → blocked → user re-runs sync → re-GETs current version. Deferred to post-MS-0002. |
 
 ## 15. DECISION LOG
 
@@ -263,7 +263,8 @@ N/A — this change does not introduce new telemetry. Existing logging via `Conf
 | DEC-2 | Use v1 throughout for property read/write | Consistent API surface and error model; avoids mixing v1/v2. | 2026-07-13 |
 | DEC-3 | Update mechanism: POST create → 409 → GET version → PUT with incremented version | v1 requires `version.number` for optimistic concurrency; fetches current version to avoid 409 loops. | 2026-07-13 |
 | DEC-4 | Rejected: v2 list → v2 GET/PUT by ID approach | More complex; key-based semantics are simpler and sufficient for `marksync.metadata`. | 2026-07-13 |
-| DEC-5 | Rejected: Versionless PUT on v1 | Confluence rejects versionless updates with 409; must send `version.number`. | 2026-07-13 |
+ | DEC-5 | Rejected: Versionless PUT on v1 | Confluence rejects versionless updates with 409; must send `version.number`. | 2026-07-13 |
+ | DEC-6 | Property-PUT 409 → RemoteUnreachable (not Conflict) for MS-0002 MVP | GET-version-then-PUT flow makes 409 rare; `operationId` dedup prevents self-racing; `putProperty` consumer blocks on ANY error without special `Conflict` handling; `Conflict` error kind is page-shaped. Recovery via re-running sync. Deferred to post-MS-0002: property-shaped conflict error + re-fetch-once handling. | 2026-07-13 |
 
 ## 16. AFFECTED COMPONENTS (HIGH-LEVEL)
 
@@ -309,8 +310,8 @@ N/A — this change does not introduce new security risks. v1 paths use existing
 ## 22. MAINTENANCE & OPERATIONS IMPACT
 
 - **API usage:** Switch from v2 to v1 for property operations; both APIs are stable and supported.
-- **Debugging:** v1 path errors emit via existing logging; logs correlate with `runId` per NFR-OBS-2.
-- **Documentation impact:** `doc/spec/features/feature-confluence-adapter.md` §3.1 (L55-57), §3.2 table (L78), §4.2 (L127) incorrectly claim v2 for content properties. These will be reconciled by `@doc-syncer` in phase 7 (not in scope for this change).
+ - **Debugging:** v1 path errors emit via existing logging; logs correlate with `runId` per NFR-OBS-2.
+ - **Documentation impact:** `doc/spec/features/feature-confluence-adapter.md` §3.1 (L55-57), §3.2 table (L78), §4.2 (L127), §5 (L154-155) incorrectly claim v2 for content properties. These will be reconciled by `@doc-syncer` in phase 7 (not in scope for this change).
 
 ## 23. GLOSSARY
 
@@ -343,7 +344,7 @@ PropertyService.put(pageId, key, value)
 │           ├─ 200 → Extract version.number
 │           └─ PUT /wiki/rest/api/content/{pageId}/property/{key}
 │               ├─ 2xx → Done (property updated)
-│               └─ 409 → Surface Conflict (rare: concurrent update)
+ │               └─ 409 → RemoteUnreachable (rare concurrent race; deferred to post-MS-0002, PM-DEC-1)
 │
 └─ Error (403, 413, etc.) → Surface to caller
 ```
