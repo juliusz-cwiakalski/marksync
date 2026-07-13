@@ -9,7 +9,7 @@ last_updated: 2026-07-13
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: [GH-21, GH-26, GH-66]
+  related_changes: [GH-21, GH-26, GH-66, GH-71]
   decisions: [ADR-0005, ADR-0006, ADR-0010]
   contracts: []
 ---

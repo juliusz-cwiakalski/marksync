@@ -1,0 +1,67 @@
+change_id: GH-71
+title: "[MS2-E4] Attachment upload schema mismatch — v1 API returns { results: [...] } not flat object (P0)"
+branch: fix/GH-71/attachment-create-response-unwrap
+change_folder: doc/changes/2026-07/2026-07-13--GH-71--attachment-create-response-unwrap
+
+phases:
+  clarify_scope: { started: "2026-07-13T21:10:00Z", completed: "2026-07-13T21:15:00Z" }
+  specification: { started: "2026-07-13T21:16:00Z", completed: "2026-07-13T21:35:00Z" }
+  test_planning: { started: "2026-07-13T21:21:00Z", completed: "2026-07-13T21:35:00Z" }
+  delivery_planning: { started: "2026-07-13T21:26:00Z", completed: "2026-07-13T21:30:00Z" }
+  dor_check: { started: "2026-07-13T21:30:00Z", completed: "2026-07-13T21:40:00Z" }
+  delivery: { started: "2026-07-13T21:40:00Z", completed: "2026-07-13T21:50:00Z" }
+  system_spec_update: { started: "2026-07-13T21:50:00Z", completed: "2026-07-13T21:55:00Z" }
+  review_fix: { started: "2026-07-13T21:55:00Z", completed: "2026-07-13T22:00:00Z" }
+  quality_gates: { started: "2026-07-13T22:00:00Z", completed: "2026-07-13T22:10:00Z" }
+  dod_check: { started: "2026-07-13T22:10:00Z", completed: "2026-07-13T22:12:00Z" }
+  pr_creation: { started: "2026-07-13T22:13:00Z", completed: "2026-07-13T22:15:00Z", url: "https://github.com/juliusz-cwiakalski/marksync/pull/72" }
+
+decisions: []
+open_questions: []
+blockers: []
+
+notes:
+  - text: >
+      DoR iter-1 NOT_READY (2026-07-13): 2 blocking findings. (1) Spec AC-2
+      silently narrowed the ticket's "mermaid SVG rendering works end-to-end"
+      AC to just "upload succeeds" — no traceability bridge explaining that
+      upload-unblock + unchanged GH-69 pipeline = E2E rendering restored.
+      (2) Empty results array edge case ({ results: [] } → results[0] undefined
+      under noUncheckedIndexedAccess → safeParse(undefined) fails) had zero test
+      coverage despite the plan acknowledging the undefined case. Reopened
+      specification + test_planning. Applying surgical fixes then re-running DoR.
+    type: retro
+    workItemRef: GH-71
+    date: "2026-07-13"
+  - text: >
+      Intake (2026-07-13): P0 bug. mapCreate in src/infra/confluence/attachments.ts
+      parses the POST attachment-create response as a flat AttachmentCreateResponse
+      ({ id, title, ... }) but the v1 API returns { results: [{ id, title, ... }] }
+      (confirmed by spike evidence doc/inception/integration-scenarios/11-attachments.md:37,
+      F-01-upload.json). list() handles this correctly (AttachmentListResponse +
+      parsed.data.results); mapCreate does not unwrap. This blocks GH-69 (mermaid
+      render) SVG attachment upload end-to-end. Fix is precise in the ticket:
+      unwrap body.results[0] before schema validation. Also: NO test covers the
+      happy-path create (only 400-dup + list/exists paths are tested) — the bug
+      went undetected because mapCreate's success path was never exercised.
+  - text: >
+      Retro — test-coverage gap allowed a P0 to ship. mapCreate (the v1 attachment
+      CREATE success-path mapper) had ZERO unit coverage: every attachment test
+      either hit the 400-dup path (TC-DUP-001/002) or list/exists (which use the
+      correct AttachmentListResponse unwrap). The GH-21 test plan enumerated
+      TC-ATTACH-001 (upload success) but it was never implemented. A single
+      happy-path create test against the spike-evidence response shape (F-01:
+      { results: [{ id, title, version }] }) would have caught this at GH-21 time.
+      Process improvement: every adapter response mapper must have at least one
+      test that uses the verbatim spike-evidence response body.
+    type: retro
+    workItemRef: GH-71
+    date: "2026-07-13"
+  - text: >
+      Housekeeping (2026-07-13): GH-69 (PR #70) and GH-63 (PR #68) both MERGED +
+      CLOSED since last session while pm-context listed them as active/parked.
+      11th+12th recurrence of pm-context stale on out-of-band merge. Moved both
+      to recently_delivered, pruned GH-19 + GH-20 (oldest two, kept 10).
+    type: retro
+    workItemRef: GH-71
+    date: "2026-07-13"
