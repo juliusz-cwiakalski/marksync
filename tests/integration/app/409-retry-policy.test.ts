@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { applyPlan, type Plan } from "#app/push-flow";
 import type { LockFile } from "#domain/config/lock-types";
 import { generateUuidV7 } from "#domain/identity/uuid";
+import { rawHash } from "#domain/state/hashes";
 import { FakeTarget } from "#tests/_helpers/fake-target";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -52,11 +53,15 @@ describe("409 retry policy", () => {
 
 			// Setup: FakeTarget with initial page at version 1
 			const target = new FakeTarget();
+			const fixtureBody = "<h1>Doc A Initial</h1>";
+			// base.renderedBodyHash must equal rawHash(remote body) so the re-fetch
+			// classifies as LOCAL_AHEAD (remote unchanged) → decideOnConflict reapplies.
+			const fixtureHash = rawHash(fixtureBody);
 			target.addFixture({
 				id: "page-123",
 				title: "Doc A",
 				version: 1,
-				body: "<h1>Doc A Initial</h1>",
+				body: fixtureBody,
 			});
 
 			// Setup: Configure 409-then-refreshed sequence
@@ -86,8 +91,8 @@ describe("409 retry policy", () => {
 								pageVersion: 1, // Stale baseVersion
 								sourceCommit: "initial",
 								sourceContentHash: "initial",
-								renderedBodyHash: "initial",
-								remoteBodyHash: "initial",
+								renderedBodyHash: fixtureHash,
+								remoteBodyHash: fixtureHash,
 								attachmentHashes: {},
 								operationId: "initial-op",
 								synchronizedAt: new Date().toISOString(),
@@ -287,11 +292,15 @@ describe("409 retry policy", () => {
 
 			// Setup: FakeTarget with initial page at version 1
 			const target = new FakeTarget();
+			const fixtureBody = "<h1>Doc A Initial</h1>";
+			// base.renderedBodyHash must equal rawHash(remote body) so the re-fetch
+			// classifies as LOCAL_AHEAD → decideOnConflict reapplies (then conflicts).
+			const fixtureHash = rawHash(fixtureBody);
 			target.addFixture({
 				id: "page-123",
 				title: "Doc A",
 				version: 1,
-				body: "<h1>Doc A Initial</h1>",
+				body: fixtureBody,
 			});
 
 			// Setup: Configure 409-then-refreshed sequence
@@ -324,8 +333,8 @@ describe("409 retry policy", () => {
 								pageVersion: 1, // Stale baseVersion
 								sourceCommit: "initial",
 								sourceContentHash: "initial",
-								renderedBodyHash: "initial",
-								remoteBodyHash: "initial",
+								renderedBodyHash: fixtureHash,
+								remoteBodyHash: fixtureHash,
 								attachmentHashes: {},
 								operationId: "initial-op",
 								synchronizedAt: new Date().toISOString(),

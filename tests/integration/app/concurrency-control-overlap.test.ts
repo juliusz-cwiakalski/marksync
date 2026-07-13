@@ -1,6 +1,14 @@
 // Integration tests for concurrency control: two-runner overlap (TC-CONC-005, TC-CONC-006).
 
-import { afterAll, beforeEach, beforeAll, describe, expect, it } from "bun:test";
+import {
+	afterAll,
+	afterEach,
+	beforeEach,
+	beforeAll,
+	describe,
+	expect,
+	it,
+} from "bun:test";
 import { applyPlan, type Plan } from "#app/push-flow";
 import type { LockFile } from "#domain/config/lock-types";
 import { generateUuidV7 } from "#domain/identity/uuid";

@@ -16,8 +16,9 @@ import { computePlan, applyPlan } from "#app/push-flow";
 import { FakeRepository } from "#tests/_helpers/fake-repository";
 import { FakeTarget } from "#tests/_helpers/fake-target";
 import { ensureCacheLayout } from "#app/cache";
-import { mkdtempSync, rmSync, readFileSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, existsSync } from "node:fs";
 import { generateUuidV7 } from "#domain/identity/uuid";
+import { rawHash } from "#domain/state/hashes";
 
 describe("secrets-safety integration test", () => {
 	let tmpCacheDir: string;
@@ -329,6 +330,12 @@ Token: ${fakeTokenB}`,
 		const docUuid = "019f56e4-18f5-7027-bfdf-5438918bb3bc";
 		const pageId = "page-123";
 
+		// Fixture body + its hash. base.renderedBodyHash must equal rawHash(remote
+		// body) so computePlan classifies LOCAL_AHEAD (action=Update) and reaches
+		// the freshness gate at apply time — otherwise it Blocks at DIVERGED.
+		const fixtureBody = "<h1>Doc Stale</h1>";
+		const fixtureHash = rawHash(fixtureBody);
+
 		// Plant the fake token in a document
 		fakeRepo.setFile(
 			"doc-stale.md",
@@ -350,8 +357,8 @@ Content with: ${fakeToken}`,
 			pageVersion: 1,
 			sourceCommit: "base-sha",
 			sourceContentHash: "new-local-hash",
-			renderedBodyHash: "old-rendered-hash",
-			remoteBodyHash: "old-rendered-hash",
+			renderedBodyHash: fixtureHash,
+			remoteBodyHash: fixtureHash,
 			attachmentHashes: {},
 			operationId: "op-old",
 			synchronizedAt: "2025-01-01T00:00:00Z",
@@ -365,11 +372,19 @@ Content with: ${fakeToken}`,
 			id: pageId,
 			title: "Doc Stale",
 			version: 1,
-			body: "<h1>Doc Stale</h1>",
+			body: fixtureBody,
 		});
 
-		// Set a newer operationId on the remote to trigger StalePlan
-		await new Promise((resolve) => setTimeout(resolve, 10));
+		// Compute plan first (generates plan.operationId = op_<fresh runId>).
+		ensureCacheLayout(tmpCacheDir);
+		const planResult = await computePlan(config, lock, fakeRepo, fakeTarget);
+		expect(planResult.ok).toBe(true);
+		const plan = planResult.value!;
+
+		// Now plant a NEWER operation-id on the remote (generated AFTER the plan's
+		// runId, so uuidV7Timestamp ranks it strictly newer) → assertOperationFresh
+		// returns StalePlan at apply time.
+		await new Promise((resolve) => setTimeout(resolve, 5));
 		const newerOpId = `op_${generateUuidV7()}`;
 		fakeTarget.setMetadataProperty(
 			pageId,
@@ -381,20 +396,14 @@ Content with: ${fakeToken}`,
 				sourcePath: "doc-stale.md",
 				sourceCommit: "remote-commit",
 				sourceContentHash: "remote-hash",
-				renderedBodyHash: "remote-hash",
+				renderedBodyHash: fixtureHash,
 				operationId: newerOpId, // Newer than plan's operationId
 				synchronizedAt: new Date().toISOString(),
 				toolVersion: "1.0.0",
 			}),
 		);
 
-		// Compute plan
-		ensureCacheLayout(tmpCacheDir);
-		const planResult = await computePlan(config, lock, fakeRepo, fakeTarget);
-		expect(planResult.ok).toBe(true);
-		const plan = planResult.value!;
-
-		// Apply plan (should trigger StalePlan)
+		// Apply plan (should trigger StalePlan on the freshness gate)
 		const applyResult = await applyPlan(plan, fakeTarget, lock, {
 			cwd: tmpCacheDir,
 			cacheDir: tmpCacheDir,
@@ -411,9 +420,13 @@ Content with: ${fakeToken}`,
 		// Assert the ApplyReport JSON contains NO occurrences of the fake token
 		expect(reportJson).not.toContain(fakeToken);
 
-		// Read the journal file (should exist but may be empty for blocked documents)
+		// Read the journal file. A run whose every document is blocked before the
+		// write path writes NO journal entries, so the file may not exist — treat
+		// absence as an empty journal (which trivially has no token).
 		const journalPath = join(tmpCacheDir, "journal", `${plan.runId}.jsonl`);
-		const journalContent = readFileSync(journalPath, "utf-8");
+		const journalContent = existsSync(journalPath)
+			? readFileSync(journalPath, "utf-8")
+			: "";
 
 		// Assert the journal contains NO occurrences of the fake token
 		expect(journalContent).not.toContain(fakeToken);

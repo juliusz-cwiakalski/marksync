@@ -30,8 +30,12 @@ export function uuidV7Timestamp(uuid: string): number | undefined {
 		return undefined;
 	}
 
-	// Extract the first 12 hex characters (48 bits)
-	const hexTs = cleanUuid.slice(0, 12);
+	// The 48-bit Unix-ms timestamp lives in the first 12 hex digits, but the
+	// canonical UUID is hyphenated (8-4-4-4-12) — de-hyphenate before slicing or
+	// the first dash lands inside the prefix and parseInt stops at it, yielding a
+	// ~1970 timestamp that makes every fresh plan look stale.
+	const hex = cleanUuid.replaceAll("-", "");
+	const hexTs = hex.slice(0, 12);
 	return Number.parseInt(hexTs, 16);
 }
 

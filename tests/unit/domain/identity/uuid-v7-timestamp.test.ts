@@ -16,6 +16,18 @@ describe("uuidV7Timestamp", () => {
 		expect(typeof ts2).toBe("number");
 	});
 
+	it("extracts the correct absolute timestamp, not a truncated 1970 value", () => {
+		// The first 12 hex digits (de-hyphenated) encode the 48-bit Unix-ms
+		// timestamp. If the extractor slices the hyphenated form, parseInt stops
+		// at the first dash and returns ~27M (1970) instead of ~1.78T (2026) —
+		// which would make every fresh plan look stale. Guard the absolute value.
+		const uuid = "019f56e4-18f5-759b-bfdf-5438918bb3bc";
+		const ts = uuidV7Timestamp(uuid);
+		expect(ts).toBeDefined();
+		expect(ts).toBeGreaterThan(1_700_000_000_000); // > 2023
+		expect(ts).toBeLessThan(4_000_000_000_000); // < 2100 (overflow guard)
+	});
+
 	it("extracts timestamp from op_-prefixed UUID v7", () => {
 		// Operation-id format: op_<uuid-v7>
 		const operationId = "op_019f56e4-18f5-759b-bfdf-5438918bb3bc";

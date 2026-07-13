@@ -13,9 +13,9 @@ phases:
   dor_check: { started: "2026-07-13T00:35:00Z", completed: "2026-07-13T00:50:00Z" }
   delivery: { started: "2026-07-13T00:50:00Z", completed: "2026-07-13T01:40:00Z" }
   system_spec_update: { started: "2026-07-13T01:40:00Z", completed: "2026-07-13T02:00:00Z" }
-  review_fix: { started: "2026-07-13T02:00:00Z", completed: null }
-  quality_gates: { started: null, completed: null }
-  dod_check: { started: null, completed: null }
+  review_fix: { started: "2026-07-13T02:00:00Z", completed: "2026-07-13T03:30:00Z" }
+  quality_gates: { started: "2026-07-13T03:30:00Z", completed: "2026-07-13T03:45:00Z" }
+  dod_check: { started: "2026-07-13T03:45:00Z", completed: null }
   pr_creation: { started: null, completed: null, url: null }
 
 decisions: []
@@ -28,6 +28,28 @@ doc_risks:
   - New CI concurrency-group templates under examples/ci/ or docs/guides/ (story deliverable #4).
 
 notes:
+  - text: >
+      RETRO (review iter 1 → quality gates): the review FAIL surfaced missing
+      integration tests (plan tasks marked done without files). On running them,
+      8 failures emerged with a SINGLE shared root cause that was NOT a test bug:
+      uuidV7Timestamp (src/domain/identity/uuid.ts) sliced the hyphenated UUID
+      form — slice(0,12) on "019f56e4-18f5..." grabbed "019f56e4-18f" (with
+      hyphen) and parseInt stopped at the dash, returning a ~27M (1970) value
+      instead of ~1.78T (2026). Every fresh plan read as ~55 years stale →
+      assertPlanNotExpired always fired → every doc falsely StalePlan-blocked →
+      "happy path" docs never updated AND no journal entries written (ENOENT).
+      The unit test for uuidV7Timestamp only asserted toBeDefined()/ordering
+      (accidentally preserved because both UUIDs truncated identically), never
+      the absolute value — so the bug passed unit review AND DoR. Process fixes:
+      (1) timestamp/epoch-extraction unit tests MUST assert the absolute value
+      against a known-era floor, not just shape/ordering; (2) the
+      plan-task-to-artifact traceability gap (tasks marked done without files)
+      still needs an automated check. Added the absolute-value regression guard.
+      The integration tests then caught the real wiring behavior end-to-end —
+      proving their value (the blocker finding was correct to demand them).
+    type: retro
+    workItemRef: GH-24
+    date: "2026-07-13"
   - text: >
       DoR verdict: READY (all 10 adversarial probes pass; 5 minor/nit findings
       recorded as coder guidance, none blocking). Pre-staged infrastructure

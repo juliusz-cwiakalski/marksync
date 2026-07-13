@@ -187,9 +187,11 @@ describe("concurrency isolation", () => {
 			expect(result.value.writes).toBe(1);
 			expect(result.value.blocks).toBe(1);
 
-			// Assert: The run did NOT abort — both outcomes are present in the report
-			expect(result.value.results[0].outcome).not.toBe("blocked");
-			expect(result.value.results[1].outcome).not.toBe("blocked");
+			// Assert: The run did NOT abort — both docs processed (one blocked,
+			// one updated), regardless of entry order. Per-document isolation means
+			// doc-a's StalePlan did not prevent doc-b's update.
+			const outcomes = result.value.results.map((r) => r.outcome).sort();
+			expect(outcomes).toEqual(["blocked", "updated"]);
 
 			// Assert: FakeTarget state reflects only doc B's successful write
 			const pageA = await target.getPage("page-a");
