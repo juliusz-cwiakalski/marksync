@@ -2,9 +2,9 @@
 # Copyright (c) 2025-2026 Juliusz Ćwiąkalski (https://www.cwiakalski.com | https://www.linkedin.com/in/juliusz-cwiakalski/ | https://x.com/cwiakalski)
 # MIT License - see LICENSE file for full terms
 id: chg-GH-69-mermaid-kroki-render
-status: Proposed
+status: Updated
 created: 2026-07-13T00:00:00Z
-last_updated: 2026-07-13T00:00:00Z
+last_updated: 2026-07-13T16:30:00Z
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 labels: [MS-0002, MS2-E4, mermaid, kroki, remote-rendering, attachments]
@@ -168,43 +168,46 @@ block on failure, and dedups within-doc by source.
 
 **Tasks:**
 
-- [ ] **P2.1** Create `src/domain/mermaid/transform.ts` exporting the transform:
-  ```ts
-  import type { Renderer } from "#domain/mermaid/port";
-  import type { Artifact } from "#domain/target/port";
-  import type { MarkSyncError } from "#domain/errors";
-  import type { Result } from "#domain/result";
-  import type { Root } from "hast";
-  import type { MermaidRenderConfig } from "#domain/config/types";
-  import type { MermaidPolicy } from "#domain/config/types";
+ - [ ] **P2.1** Create `src/domain/mermaid/transform.ts` exporting the transform:
+   ```ts
+   import type { Renderer } from "#domain/mermaid/port";
+   import type { Artifact } from "#domain/target/port";
+   import type { MarkSyncError } from "#domain/errors";
+   import type { Result } from "#domain/result";
+   import type { Root } from "hast";
+   import type { MermaidRenderConfig } from "#domain/config/types";
+   import type { MermaidPolicy } from "#domain/config/types";
 
-  export interface TransformResult {
-    artifacts: Artifact[];
-    transformedHast: Root;
-    warnings: string[];
-  }
+   export interface TransformResult {
+     artifacts: Artifact[];
+     transformedHast: Root;
+     warnings: string[];
+   }
 
-  export async function transform(
-    hast: Root,
-    config: MermaidRenderConfig,
-    renderer: Renderer,
-  ): Promise<Result<TransformResult, MarkSyncError>> {
-    // If policy !== "render" → return ok({ artifacts: [], transformedHast: hast, warnings: [] })
-    // Walk HAST for element nodes with tagName === "pre"
-    // Check if pre > code child has className containing "language-mermaid"
-    // For each mermaid fence:
-    //   source = code.textContent
-    //   dedupKey = source (in-doc dedup)
-    //   if already rendered → reuse existing artifact + filename
-    //   else: result = await renderer.render(source)
-    //     On success: build img node with src = filename (full hash from artifact),
-    //                 alt = "Mermaid diagram"
-    //                 replace pre with img
-    //                 collect artifact
-    //     On RemoteUnreachable: keep pre unchanged, collect warning
-    // Return ok({ artifacts, transformedHast, warnings })
-  }
-  ```
+   export async function transform(
+     hast: Root,
+     config: MermaidRenderConfig,
+     renderer: Renderer,
+   ): Promise<Result<TransformResult, MarkSyncError>> {
+     // If policy !== "render" → return ok({ artifacts: [], transformedHast: hast, warnings: [] })
+     // IMPORTANT: Recursively walk the ENTIRE HAST tree (not just top-level children) to find
+     // pre>code.language-mermaid nodes inside blockquotes, list items, table cells, etc. Reuse the
+     // recursive walk pattern from AssetResolver.walkElements() in src/domain/assets/resolver.ts.
+     // Walk HAST for element nodes with tagName === "pre"
+     // Check if pre > code child has className containing "language-mermaid"
+     // For each mermaid fence:
+     //   source = code.textContent
+     //   dedupKey = source (in-doc dedup)
+     //   if already rendered → reuse existing artifact + filename
+     //   else: result = await renderer.render(source)
+     //     On success: build img node with src = filename (full hash from artifact),
+     //                 alt = "Mermaid diagram"
+     //                 replace pre with img
+     //                 collect artifact
+     //     On RemoteUnreachable: keep pre unchanged, collect warning
+     // Return ok({ artifacts, transformedHast, warnings })
+   }
+   ```
 
 - [ ] **P2.2** Write `tests/unit/domain/mermaid/transform.test.ts` with stubbed renderer:
   - **TC-MERM-004** (policy activation): Test `policy = "render"` → pre replaced
@@ -223,56 +226,65 @@ block on failure, and dedups within-doc by source.
 ## Phase 3 — computePlan wiring + privacy warning (F-3, F-5, NFR-4, NFR-PRIV-2)
 
 **Goal:** Wire the mermaid transform into `computePlan` after `mdastToHast` and
-before `target.renderBody`, only when `config.render.mermaid.policy ===
-"render"`. Merge mermaid artifacts into `PlanEntry.assets` and
-`ContentHash.attachmentHashes`. Emit a one-time privacy warning.
+after `resolver.resolve()`, but before `target.renderBody`, only when
+`config.render.mermaid.policy === "render"`. Merge mermaid artifacts into
+`PlanEntry.assets` and `ContentHash.attachmentHashes`. Emit a one-time privacy
+warning.
 
 **Tasks:**
 
-- [ ] **P3.1** In `src/app/push-flow.ts`, after `mdastToHast` (line ~207) and **before**
-  `target.renderBody` (line ~226):
-  ```ts
-  // GH-69: Mermaid rendering (when policy === "render")
-  let mermaidArtifacts: Artifact[] = [];
-  if (config.render.mermaid.policy === "render") {
-    // Emit one-time privacy warning
-    if (!privacyWarningEmitted) {
-      allWarnings.push(
-        "Mermaid rendering sends diagram content to Kroki API (https://kroki.io) — review privacy policy before use"
-      );
-      privacyWarningEmitted = true;
-    }
+ - [ ] **P3.1** In `src/app/push-flow.ts`, after `mdastToHast` (line ~207) and **after**
+   `resolver.resolve()` (line ~210-211), but **before `target.renderBody`** (line ~226):
+   ```ts
+   // GH-69: Mermaid rendering (when policy === "render")
+   // IMPORTANT: This transform MUST run AFTER resolver.resolve() and BEFORE target.renderBody()
+   // Rationale: The AssetResolver walks every <img> element and treats non-http src as local file paths.
+   // If this transform ran before the resolver, the synthetic <img src="marksync-mermaid-<hash>.svg"> nodes
+   // injected by the transform would be seen by the resolver, which would try to resolve them as file paths,
+   // fail with Forbidden(path-traversal), and abort the entire plan. By running after the resolver,
+   // the synthetic mermaid img nodes bypass the resolver and flow directly to renderBody → imageMacro,
+   // which checks src.startsWith("http") → false → emits <ac:image><ri:attachment ri:filename="..."/>.
+   let mermaidArtifacts: Artifact[] = [];
+   if (config.render.mermaid.policy === "render") {
+     // Emit one-time privacy warning
+     if (!privacyWarningEmitted) {
+       allWarnings.push(
+         "Mermaid rendering sends diagram content to Kroki API (https://kroki.io) — review privacy policy before use"
+       );
+       privacyWarningEmitted = true;
+     }
 
-    // Construct Kroki renderer (or accept injected Renderer for tests)
-    const renderer: Renderer = new KrokiClient(); // or injected
+     // Construct Kroki renderer (or accept injected Renderer for tests)
+     const renderer: Renderer = new KrokiClient(); // or injected
 
-    // Run mermaid transform
-    const mermaidResult = await transform(hast, config.render.mermaid, renderer);
-    if (!mermaidResult.ok) {
-      // RemoteUnreachable is a per-document warning, not a plan abort
-      const err = mermaidResult.error;
-      if (err.kind === "RemoteUnreachable") {
-        allWarnings.push(
-          `Mermaid render failed for diagram at ${path}: ${err.cause ?? "Unknown error"} — falling back to code block`
-        );
-      } else {
-        return mermaidResult; // Other errors abort the plan
-      }
-    } else {
-      // Success: merge artifacts, use transformed HAST
-      mermaidArtifacts = mermaidResult.value.artifacts;
-      hast = mermaidResult.value.transformedHast;
-      allWarnings.push(...mermaidResult.value.warnings);
-    }
-  }
+     // Run mermaid transform (after resolver.resolve() has processed all real local images)
+     const mermaidResult = await transform(hast, config.render.mermaid, renderer);
+     if (!mermaidResult.ok) {
+       // RemoteUnreachable is a per-document warning, not a plan abort
+       const err = mermaidResult.error;
+       if (err.kind === "RemoteUnreachable") {
+         allWarnings.push(
+           `Mermaid render failed for diagram at ${path}: ${err.cause ?? "Unknown error"} — falling back to code block`
+         );
+       } else {
+         return mermaidResult; // Other errors abort the plan
+       }
+     } else {
+       // Success: merge artifacts, use transformed HAST
+       mermaidArtifacts = mermaidResult.value.artifacts;
+       hast = mermaidResult.value.transformedHast;
+       allWarnings.push(...mermaidResult.value.warnings);
+     }
+   }
 
-  // GH-26: Resolve assets (path-safe, content-addressed) — unchanged
-  const assetResult = await resolver.resolve(hast, path);
-  // ... existing asset resolution code ...
+   // GH-26: Resolve assets (path-safe, content-addressed) — unchanged
+   // This runs BEFORE the mermaid transform to process real local <img> paths
+   const assetResult = await resolver.resolve(hast, path);
+   // ... existing asset resolution code ...
 
-  // Merge mermaid artifacts into entry.assets (append to local assets)
-  // Populate ContentHash.attachmentHashes from both local + mermaid artifacts
-  ```
+   // Merge mermaid artifacts into entry.assets (append to local assets)
+   // Populate ContentHash.attachmentHashes from both local + mermaid artifacts
+   ```
 
 - [ ] **P3.2** Add `privacyWarningEmitted` flag at the top of `computePlan` (outside
   the per-doc loop) to ensure the warning is emitted once per run.
@@ -375,6 +387,38 @@ and the implementation satisfies the quality gate.
 
 ---
 
+## Documentation impact (for @doc-syncer phase 7)
+
+Per the ADOS lifecycle, `@doc-syncer` handles doc reconciliation in phase 7. This plan
+identifies the following docs that will need updating:
+
+**Feature spec:**
+- `doc/spec/features/feature-mermaid-rendering.md` — Currently says rendering is deferred
+  to MS-0003+. Must update to reflect that Kroki rendering (rung 6 public Kroki) is now
+  implemented in MS-0002.
+
+**Decision records:**
+- `doc/decisions/ADR-0002-mermaid-rendering-strategy.md` — Rung 6 public Kroki is now
+  wired into the codebase. Add a revision-history entry noting the implementation and
+  referencing GH-69.
+
+**Nonfunctional requirements:**
+- `doc/spec/nonfunctional.md` — NFR-PRIV-2 (privacy): Add evidence that the render
+  policy opt-in + warning mechanism is implemented (one-time warning emitted when
+  `render.mermaid.policy === "render"`).
+
+**Architecture (if applicable):**
+- `doc/overview/architecture-overview.md` — IF a new domain/infra module is introduced
+  (this change introduces `src/domain/mermaid/` and `src/infra/mermaid/`), update the
+  architecture diagram or dependency matrix to reflect the new Mermaid rendering path.
+
+**Code style rules (if applicable):**
+- `.ai/rules/typescript.md` — IF a new dependency is added, update `allowed-deps`.
+  NOTE: Kroki is accessed via HTTP using the built-in `fetch` API, so no new dependency
+  is expected (this is likely a no-op).
+
+---
+
 ## Test Scenarios
 
 | ID | Scenario | Phases | AC |
@@ -416,6 +460,7 @@ and the implementation satisfies the quality gate.
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-13 | plan-writer (AI-assisted) | Initial plan |
+| 1.1 | 2026-07-13 | plan-writer (AI-assisted) | DoR iter-1 fixes: (1) Fixed BLOCKER - mermaid transform now explicitly runs AFTER resolver.resolve() with load-bearing invariant rationale; (2) Added documentation impact section for phase 7; (3) Added recursive HAST walk requirement to P2.1 |
 
 ---
 
@@ -457,9 +502,19 @@ and the implementation satisfies the quality gate.
   across environments).
 - **Commit per phase** with Conventional Commit prefixes (`feat(mermaid):`,
   `test(mermaid):`, `chore(mermaid):`). Include `GH-69` in each subject.
-- **The mermaid transform runs AFTER `mdastToHast` and BEFORE
-  `target.renderBody`.** This order is critical for the HAST transformation to
-  take effect.
+ - **The mermaid transform runs AFTER `mdastToHast` and AFTER `resolver.resolve()`,
+   but BEFORE `target.renderBody`.** This order is CRITICAL and load-bearing:
+   - The AssetResolver walks every `<img>` element and treats non-http `src` values
+     as local file paths (calling `fs.realpathSync(resolved)`).
+   - If the mermaid transform ran before the resolver, the synthetic
+     `<img src="marksync-mermaid-<hash>.svg">` nodes would be seen by the resolver,
+     which would try to resolve them as file paths, fail with
+     `Forbidden(path-traversal)`, and abort the entire plan.
+   - By running AFTER the resolver, the synthetic mermaid `img` nodes bypass the
+     resolver and flow directly to `renderBody` → `imageMacro`, which checks
+     `src.startsWith("http")` → false → emits
+     `<ac:image><ri:attachment ri:filename="marksync-mermaid-<hash>.svg"/>`.
+   - See P3.1 for the full rationale and code comment.
 - **Per-document isolation:** A `RemoteUnreachable` on one doc's mermaid fences
   should NOT abort the run. The transform should fall back to the code block and
   continue with the next document.

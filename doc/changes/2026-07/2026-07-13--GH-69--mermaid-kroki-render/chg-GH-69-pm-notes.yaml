@@ -5,10 +5,13 @@ change_folder: doc/changes/2026-07/2026-07-13--GH-69--mermaid-kroki-render
 
 phases:
   clarify_scope: { started: "2026-07-13T18:50:00Z", completed: "2026-07-13T18:55:00Z" }
-  specification: { started: "2026-07-13T18:56:00Z", completed: "2026-07-13T19:02:00Z" }
+  specification: { started: "2026-07-13T18:56:00Z", completed: null }
+  specification_reopened: { iter: 2, started: "2026-07-13T19:20:00Z", reason: "DoR iter-1 NOT_READY: MAJOR #2 stale truncated-hash text, MAJOR #3 phantom mermaidFilename helper, MINOR #4/#5" }
   test_planning: { started: "2026-07-13T19:03:00Z", completed: "2026-07-13T19:06:00Z" }
-  delivery_planning: { started: "2026-07-13T19:07:00Z", completed: "2026-07-13T19:12:00Z" }
-  dor_check: { started: null, completed: null }
+  test_planning_reopened: { iter: 2, started: "2026-07-13T19:20:00Z", reason: "DoR iter-1 MINOR #7: no test for empty mermaid source edge case" }
+  delivery_planning: { started: "2026-07-13T19:07:00Z", completed: null }
+  delivery_planning_reopened: { iter: 2, started: "2026-07-13T19:20:00Z", reason: "DoR iter-1 NOT_READY: BLOCKER #1 transform ordering before resolver, MINOR #6 doc-update section, MINOR #8 recursive HAST walk" }
+  dor_check: { started: "2026-07-13T19:14:00Z", completed: null }
   delivery: { started: null, completed: null }
   system_spec_update: { started: null, completed: null }
   review_fix: { started: null, completed: null }
@@ -72,6 +75,29 @@ open_questions: []
 blockers: []
 
 notes:
+  - text: >
+      RETRO (DoR iter-1, 2026-07-13): NOT_READY — 1 BLOCKER + 2 MAJOR found by
+      @readiness-reviewer. BLOCKER: plan P3.1 placed the mermaid transform
+      BEFORE resolver.resolve() in computePlan. Because AssetResolver walks
+      every non-http <img src> as a local file path (realpathSync), the
+      synthetic marksync-mermaid-<hash>.svg img nodes injected by the transform
+      would trigger Forbidden(path-traversal) and abort every plan containing a
+      mermaid fence. Fix: order is mdastToHast → resolver.resolve (real local
+      images only) → mermaid transform (inject synthetic img) → renderBody.
+      MAJOR: spec body was never reconciled with the PM full-hash decision
+      (made in clarify_scope/specification review) — 8+ stale "truncated to 24
+      chars" references + a phantom mermaidFilename() helper that the plan
+      correctly omits. Root cause: the PM decision to supersede spec DEC-4 was
+      recorded in pm-notes but the spec-writer had already authored the spec
+      against the ticket's sha256-24 shorthand BEFORE the decision was made, and
+      the spec was never re-synced. Process improvement: when PM makes a
+      decision that contradicts an already-written artifact, re-delegate to that
+      artifact's author to reconcile BEFORE proceeding to the next phase, rather
+      than only recording the override in pm-notes. Reopening specification +
+      delivery_planning + test_planning (MINOR empty-source edge case).
+    type: retro
+    workItemRef: GH-69
+    date: "2026-07-13"
   - text: >
       Intake (2026-07-13): GH-69 OPEN, no PR, no branch — fresh delivery. State
       detection: ticket OPEN, no open/closed PRs for GH-69, on `main` clean.

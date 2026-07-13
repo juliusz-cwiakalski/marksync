@@ -25,7 +25,7 @@ change:
 
 ## 1. SUMMARY
 
-This is the **Mermaid rendering implementation** for MS-0002, delivering the ADR-0002 rung 6 fallback (public Kroki) with opt-in privacy warning. When `render.mermaid.policy` is set to `"render"`, MarkSync discovers Mermaid code blocks in Markdown, sends each to the Kroki API (`POST https://kroki.io/mermaid/svg` with the diagram source as the request body), receives rendered SVG bytes, content-hashes them for deduplication, uploads them as Confluence page attachments with filename `marksync-mermaid-<sha256-24>.svg`, and replaces the code block with an `<ac:image><ri:attachment ri:filename="..."/></ac:image>` reference. The existing GH-26 asset pipeline handles upload/reuse; the `code` policy remains the default (preserves raw code as implemented in GH-25). Network failures fall back gracefully to the code block with a warning; a one-time privacy warning is emitted when rendering against the remote endpoint (NFR-PRIV-2 compliance).
+This is the **Mermaid rendering implementation** for MS-0002, delivering the ADR-0002 rung 6 fallback (public Kroki) with opt-in privacy warning. When `render.mermaid.policy` is set to `"render"`, MarkSync discovers Mermaid code blocks in Markdown, sends each to the Kroki API (`POST https://kroki.io/mermaid/svg` with the diagram source as the request body), receives rendered SVG bytes, content-hashes them for deduplication, uploads them as Confluence page attachments with filename `marksync-mermaid-<full-sha256-hex>.svg`, and replaces the code block with an `<ac:image><ri:attachment ri:filename="..."/></ac:image>` reference. The existing GH-26 asset pipeline handles upload/reuse; the `code` policy remains the default (preserves raw code as implemented in GH-25). Network failures fall back gracefully to the code block with a warning; a one-time privacy warning is emitted when rendering against the remote endpoint (NFR-PRIV-2 compliance).
 
 ## 2. CONTEXT
 
@@ -56,7 +56,7 @@ Because the `render` policy is unimplemented and in-process rendering is blocked
 - **G-1**: Deliver Kroki-based Mermaid rendering — discover `language-mermaid` fences, render via `POST https://kroki.io/mermaid/svg`, produce SVG bytes, hash them, and build `Artifact { bytes, mime: "image/svg+xml", hash, kind: "mermaid" }` (F-1).
 - **G-2**: Wire the mermaid transform into `computePlan` — run after `mdastToHast` and before `target.renderBody`, only when `config.render.mermaid.policy === "render"`. Build `Artifact[]` and populate `ContentHash.attachmentHashes` (F-2).
 - **G-3**: Integrate with GH-26 asset pipeline — `applyPlan` uploads mermaid artifacts via the existing `uploadAssets()` path, reuses via `attachmentExists`, and merges hashes into `PageBinding.attachmentHashes` (F-3).
-- **G-4**: Content-hashed deduplication — same Mermaid source → same Kroki output → same `sha256` → same filename `marksync-mermaid-<first-24-hex>.svg` → reused on subsequent runs (0 re-uploads, NFR-PERF-4) (F-4).
+- **G-4**: Content-hashed deduplication — same Mermaid source → same Kroki output → same `sha256` → same filename `marksync-mermaid-<full-sha256-hex>.svg` → reused on subsequent runs (0 re-uploads, NFR-PERF-4) (F-4).
 - **G-5**: Privacy compliance — emit a one-time warning when `render.mermaid.policy === "render"` is active against the public Kroki endpoint (NFR-PRIV-2 / ADR-0002 C-3). The default (`code`) sends no content remotely (F-5).
 - **G-6**: Graceful fallback on network failure — Kroki HTTP errors → fall back to code block + warning; never silently drop a diagram (ADR-0002 C-2) (F-6).
 - **G-7**: Determinism — same source + Kroki version → stable SVG output; hash-based identity enables idempotency (F-4).
@@ -79,7 +79,7 @@ Because the `render` policy is unimplemented and in-process rendering is blocked
 
 - **NG-1**: mmdc CLI implementation in this change. The ticket lists it as a fallback, but this story delivers Kroki as the primary render path. Design the `Renderer` port to be swappable, but do not wire mmdc unless it's low-cost (document the recommendation).
 - **NG-2**: Self-hosted Kroki configuration. Forward-compatible but not in scope; this change uses the public `https://kroki.io` endpoint.
-- **NG-3**: SVG sanitization. Kroki is trusted for MS-0002; adversarial payload handling is out of scope (deferred to MS-0003+ per ADR-0002 Security Requirements).
+- **NG-3**: SVG sanitization. Accepted-risk for MS-0002: Kroki is treated as a trusted renderer (it applies Mermaid's `securityLevel` internally); full SVG sanitization per ADR-0002 Security Requirements is deferred to MS-0003+ when untrusted renderers are supported. The privacy warning (F-5) and opt-in default (code) bound the risk.
 - **NG-4**: Reimplementing the GH-26 asset pipeline. Reuse the existing `uploadAssets()`, `attachmentExists()`, `Artifact` shape, and `PlanEntry.assets` wiring.
 - **NG-5**: Reimplementing `codeMacro` or the `code` policy behavior. GH-25 already delivers this; unchanged.
 - **NG-6**: PNG output. SVG is the output format for this change (matches ADR-0002 §"Output format (SVG vs PNG)").
@@ -92,7 +92,7 @@ Because the `render` policy is unimplemented and in-process rendering is blocked
 | F-1 | Kroki-based Mermaid renderer | HTTP adapter that POSTs diagram source to `https://kroki.io/mermaid/svg` and returns `Artifact { bytes, mime, hash, kind: "mermaid" }`. The render adapter (infra tier). |
 | F-2 | Mermaid HAST transform | Walks HAST for `pre > code.language-mermaid`, renders via Kroki, replaces the fence with an `img` node (so `imageMacro` emits `<ri:attachment>`). Only active when policy === `"render"`. The domain-side orchestration. |
 | F-3 | `computePlan` mermaid wiring | Run the mermaid transform after `mdastToHast` and before `target.renderBody`; populate `ContentHash.attachmentHashes` and `PlanEntry.assets`. |
-| F-4 | Content hashing and naming | Hash SVG bytes via sha256; filename is `marksync-mermaid-<first-24-hex>.svg`. Enables dedup and reuse (0 re-uploads on unchanged diagrams). |
+| F-4 | Content hashing and naming | Hash SVG bytes via sha256; filename is `marksync-mermaid-<full-sha256-hex>.svg`. Enables dedup and reuse (0 re-uploads on unchanged diagrams). Hashing the SVG bytes (not the logical-input formula from ADR-0002) is the pragmatic choice for the Kroki path because Kroki's output is the artifact content; the full hash in `Artifact.hash` drives both dedup (`attachmentExists`) and filename, and is deterministic given deterministic Kroki output. |
 | F-5 | Privacy warning emission | Emit one-time warning when `render.mermaid.policy === "render"` is active. Satisfies NFR-PRIV-2 / ADR-0002 C-3. |
 | F-6 | Network fallback handling | Kroki HTTP errors → fall back to emitting the original code block + warning. Satisfies ADR-0002 C-2 (no silent failure). |
 
@@ -128,10 +128,9 @@ Because the `render` policy is unimplemented and in-process rendering is blocked
   - The privacy warning (F-5) is emitted once per run when the mermaid transform is active with the remote Kroki endpoint (e.g., via a `console.warn` or collected into `plan.warnings`).
 
 - **F-4 (Content hashing and naming).**
-  - Hash: compute full sha256 hex of the SVG bytes returned by Kroki (using `crypto.subtle` like GH-26).
-  - Filename: `marksync-mermaid-<first-24-hex>.svg` where `<first-24-hex>` is the first 24 characters of the full hash.
-  - Lookup: `attachmentExists(pageId, hash)` uses the **full** hash (the existing GH-26 pattern). The truncated form is only for display/filename.
-  - This is parallel to GH-26: hash full bytes for lookup, truncate for filename.
+  - Hash: compute full sha256 hex of the SVG bytes returned by Kroki (using `crypto.subtle` like GH-26). Hashing the SVG bytes (not the logical-input formula from ADR-0002) is the pragmatic choice for the Kroki path because Kroki's output is the artifact content; the full hash in `Artifact.hash` drives both dedup (`attachmentExists`) and filename, and is deterministic given deterministic Kroki output.
+  - Filename: the existing `attachmentFilename(artifact)` in `src/infra/confluence/attachments.ts` produces `marksync-mermaid-<artifact.hash>.svg` when `kind === 'mermaid'` (symmetric with GH-26).
+  - Lookup: `attachmentExists(pageId, hash)` uses the full hash (the existing GH-26 pattern). NO truncation is used — the same full hash appears in both lookup and filename.
   - The `Artifact.kind` marker is `"mermaid"` to gate the `marksync-mermaid-` prefix (per GH-26 DEC-1).
 
 - **F-5 (Privacy warning emission).** When `config.render.mermaid.policy === "render"`:
@@ -156,13 +155,13 @@ Flow 1 — computePlan with mermaid `render` policy (Kroki primary):
       mermaidTransform(hast, config, krokiRenderer):
         for each pre>code.language-mermaid:
           source = code.textContent
-          krokiRenderer.render(source):
-            POST https://kroki.io/mermaid/svg → SVG bytes
-            hash = sha256(bytes)
-            artifact = Artifact{bytes, mime:"image/svg+xml", hash, kind:"mermaid"}
-            filename = marksync-mermaid-<first-24(hash)>.svg
-            artifacts.push(artifact)
-            replace pre with img(src=filename, alt="Mermaid diagram")
+           krokiRenderer.render(source):
+             POST https://kroki.io/mermaid/svg → SVG bytes
+             hash = sha256(bytes)
+             artifact = Artifact{bytes, mime:"image/svg+xml", hash, kind:"mermaid"}
+             filename = marksync-mermaid-<hash>.svg
+             artifacts.push(artifact)
+             replace pre with img(src=filename, alt="Mermaid diagram")
           on RemoteUnreachable:
             keep pre unchanged → will render as code
             warn("Mermaid render failed: <error> — falling back to code block")
@@ -213,7 +212,7 @@ Flow 5 — Privacy warning (NFR-PRIV-2):
 - Kroki HTTP adapter at `src/infra/mermaid/kroki.ts` — `render(source) → Result<Artifact, MarkSyncError>` (F-1).
 - Mermaid HAST transform at `src/domain/mermaid/` — discover fences, render via adapter, replace with img, fallback on error (F-2, F-6).
 - `computePlan` wiring — run transform when policy === `"render"`; populate `ContentHash.attachmentHashes`; merge mermaid artifacts into `PlanEntry.assets` (F-3).
-- Content hashing and naming — sha256 of SVG bytes; filename `marksync-mermaid-<first-24-hex>.svg` (F-4).
+- Content hashing and naming — sha256 of SVG bytes; filename `marksync-mermaid-<full-sha256-hex>.svg` (F-4).
 - Privacy warning — one-time warning when `render` policy active (F-5).
 - Network fallback — code block emission on `RemoteUnreachable` + warning (F-6).
 - Integration with GH-26 asset pipeline — `uploadAssets` handles mermaid artifacts; dedup via `attachmentExists`.
@@ -257,7 +256,7 @@ No event bus. The conceptual **Mermaid Rendered** and **Mermaid Render Failed (f
 | DM-2 | `ContentHash.attachmentHashes` (POPULATED) | Already exists (GH-22); this story populates it from mermaid artifacts (filename → hash). |
 | DM-3 | `PageBinding.attachmentHashes` (POPULATED) | Already exists (GH-19); this story persists mermaid artifact hashes into it via `uploadAssets` merge. |
 | DM-4 | `PlanEntry.assets` (POPULATED) | Already exists (GH-26); this story appends mermaid `Artifact[]` to it. |
-| DM-5 | Mermaid naming (NEW) | Filename helper: `mermaidFilename(hash: string) → "marksync-mermaid-<first-24-hex>.svg"`. |
+| DM-5 | Mermaid naming (REUSE EXISTING) | Reuses the existing `attachmentFilename(artifact)` in `src/infra/confluence/attachments.ts`, which produces `marksync-mermaid-<full-sha256-hex>.svg` for `kind === 'mermaid'`. NO new helper. |
 | DM-6 | `Renderer` port (NEW, domain/mermaid/port.ts) | `render(source: string): Promise<Result<Artifact, MarkSyncError>>`. Generic renderer contract; Kroki adapter implements it. |
 
 ### 8.4 External Integrations
@@ -340,7 +339,7 @@ No product telemetry (NFR-SEC-3). Observability is structural:
 | DEC-1 | Replace mermaid `pre` with `img` node (not `raw` XHTML) | Cleaner integration: `imageMacro` already emits `<ac:image><ri:attachment ri:filename="..."/>` for `<img>` nodes. `raw` node would duplicate that logic. | 2026-07-13 |
 | DEC-2 | Kroki adapter lives in `src/infra/mermaid/kroki.ts` | Infra tier because it performs HTTP I/O; respects ports-and-adapters layering. | 2026-07-13 |
 | DEC-3 | Mermaid transform lives in `src/domain/mermaid/` | Domain tier because it orchestrates the renderer and transforms HAST (adapter-agnostic logic). | 2026-07-13 |
-| DEC-4 | Hash: full sha256 for lookup, truncated to 24 chars for filename | Parallel to GH-26 pattern: full hash for dedup lookup, truncated for display. | 2026-07-13 |
+| DEC-4 | Hash: FULL sha256 hex for both lookup and filename (symmetric with GH-26). The existing `attachmentFilename()` in `src/infra/confluence/attachments.ts` produces `marksync-mermaid-<artifact.hash>.svg` when `kind === 'mermaid'` — NO new naming helper and NO truncation. The ticket's `<sha256-24>` shorthand is superseded by pipeline consistency (PM decision, pm-notes.yaml). | 2026-07-13 |
 | DEC-5 | mmdc CLI deferred (not implemented in this change) | Low priority for MS-0002 demo; Kroki is the primary path. Design `Renderer` port for swappability, but don't wire mmdc. | 2026-07-13 |
 | DEC-6 | Privacy warning emitted once per run (not per diagram) | Avoids noise; user only needs to see it once per run when `render` policy is active. | 2026-07-13 |
 
@@ -352,7 +351,7 @@ No product telemetry (NFR-SEC-3). Observability is structural:
 | `src/domain/mermaid/transform.ts` | NEW — Mermaid HAST transform (F-2, F-6) |
 | `src/domain/mermaid/port.ts` | NEW — `Renderer` port interface (DM-6) |
 | `src/app/push-flow.ts` | UPDATED — `computePlan` wiring: run mermaid transform when policy === `"render"` (F-3) |
-| `src/domain/assets/naming.ts` | UPDATED — add `mermaidFilename(hash)` helper (DM-5) |
+| `src/domain/assets/naming.ts` | NO CHANGE — reuses existing `attachmentFilename()` in infra tier (DM-5) |
 | `src/domain/config/types.ts` | NO CHANGE — `MermaidPolicy` enum exists (GH-25) |
 | `src/infra/confluence/attachments.ts` | NO CHANGE — reuses existing `AttachmentService` |
 | `src/infra/confluence/render/storage.ts` | NO CHANGE — reuses existing `imageMacro` |
@@ -365,7 +364,7 @@ Each AC is testable and traces to a ticket AC + F/NFR.
 - **AC-2 (attachment dedup, ticket AC):** An unchanged mermaid diagram (same source) across two runs → `attachmentExists(pageId, hash)` returns true on the second run → **0** `uploadAttachment` calls (asserted via mock target). (Traces to F-4, NFR-2, ticket AC #2)
 - **AC-3 (policy activation, ticket AC):** `render.mermaid.policy: render` activates rendering; `render.mermaid.policy: code` preserves raw code as `<ac:structured-macro ac:name="code">` with `language=mermaid`. (Traces to F-2, F-5, ticket AC #3)
 - **AC-4 (network fallback, ticket AC):** A network failure on Kroki API → the original mermaid fence is emitted as a code block + a warning is surfaced (no `ac:image`, no upload attempt). (Traces to F-6, NFR-5, ticket AC #4)
-- **AC-5 (determinism, ticket AC):** Same mermaid source → same SVG bytes → same hash → same filename `marksync-mermaid-<first-24-hex>.svg` across runs. (Traces to F-4, NFR-3, ticket AC #5)
+- **AC-5 (determinism, ticket AC):** Same mermaid source → same SVG bytes → same hash → same filename `marksync-mermaid-<full-sha256-hex>.svg` across runs. (Traces to F-4, NFR-3, ticket AC #5)
 - **AC-6 (privacy warning, NFR-PRIV-2):** `render.mermaid.policy: render` → one-time warning "Mermaid rendering sends diagram content to Kroki API (https://kroki.io) — review privacy policy before use" is emitted; `code`/`skip` → no warning. (Traces to F-5, NFR-4, NFR-PRIV-2)
 - **AC-7 (quality gate):** `bun run check` exits **0**. (Traces to NFR-9)
 
@@ -414,7 +413,7 @@ No data migration. This is additive; existing pages remain unchanged. Only pages
 | `code` policy | Mermaid render mode that preserves the raw source as a code block (default, safe). |
 | `Artifact` | A binary attachment (bytes, mime, hash, optional `kind` marker) for upload to Confluence. |
 | Content hash | sha256 hex of artifact bytes; used for dedup lookup. |
-| Mermaid filename | `marksync-mermaid-<first-24-hex>.svg`; derived from the content hash. |
+| Mermaid filename | `marksync-mermaid-<full-sha256-hex>.svg`; derived from the content hash. Produced by the existing `attachmentFilename(artifact)` in `src/infra/confluence/attachments.ts` when `kind === 'mermaid'`. |
 | Privacy warning | One-time warning emitted when `render.mermaid.policy: render` is active, informing the user that diagram content is sent to Kroki. |
 
 ## 24. APPENDICES

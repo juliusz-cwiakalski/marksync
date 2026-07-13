@@ -73,7 +73,7 @@ GH-69 enables Mermaid diagram rendering via the public Kroki API, converting cod
 | AC-1 | Render activation — mermaid fence → `<ac:image><ri:attachment ri:filename="marksync-mermaid-<fullhash>.svg"/>`; attachment exists after apply | TC-MERM-001, TC-MERM-002 | Integration + Golden | To Implement |
 | AC-2 | Attachment reuse — unchanged → `attachmentExists` true → **0** `uploadAttachment` calls | TC-MERM-003 | Integration | To Implement |
 | AC-3 | Policy activation — `render` activates; `code`/`skip` preserve as code macro | TC-MERM-004 | Unit | To Implement |
-| AC-4 | Network fallback — Kroki HTTP error → code block + warning; no `ac:image`, no upload | TC-MERM-005, TC-MERM-006 | Unit + Integration | To Implement |
+| AC-4 | Network fallback — Kroki HTTP error → code block + warning; no `ac:image`, no upload | TC-MERM-005, TC-MERM-006, TC-MERM-012 | Unit + Integration | To Implement |
 | AC-5 | Determinism — same source → same SVG → same hash → same filename (full sha256) across runs | TC-MERM-007 | Unit | To Implement |
 | AC-6 | Privacy warning — `render` → one-time warning; `code`/`skip` → no warning | TC-MERM-008 | Integration | To Implement |
 | AC-7 | `bun run check` exits 0 | (quality gate) | All | To Implement |
@@ -97,7 +97,7 @@ GH-69 enables Mermaid diagram rendering via the public Kroki API, converting cod
 | NFR-2 attachment reuse (NFR-PERF-4) | TC-MERM-003 |
 | NFR-3 determinism | TC-MERM-007 |
 | NFR-4 privacy warning (NFR-PRIV-2) | TC-MERM-008 |
-| NFR-5 network fallback | TC-MERM-005, TC-MERM-006 |
+| NFR-5 network fallback | TC-MERM-005, TC-MERM-006, TC-MERM-012 |
 | NFR-6 per-document isolation | TC-MERM-006 |
 | NFR-7 timeout safety | TC-MERM-005 |
 | NFR-8 no secrets in output (INV-SEC-1) | TC-MERM-001 (asserted via filename pattern) |
@@ -168,6 +168,7 @@ GH-69 enables Mermaid diagram rendering via the public Kroki API, converting cod
 | TC-MERM-009 | In-doc dedup — same mermaid twice → one Artifact | Edge Case | Important | Medium | F-2 |
 | TC-MERM-010 | Timeout safety — Kroki timeout → `RemoteUnreachable` | Negative | Important | Medium | NFR-7 |
 | TC-MERM-011 | No secrets in filenames/output (INV-SEC-1) | Negative | Important | Medium | NFR-8 |
+| TC-MERM-012 | Empty mermaid source — renderer error → code block + warning | Edge Case | Important | Medium | AC-4, F-6, NFR-5 |
 
 ### 5.2 Scenario Details
 
@@ -559,6 +560,42 @@ GH-69 enables Mermaid diagram rendering via the public Kroki API, converting cod
 - Mermaid source may contain secrets (user data), but the filename is the content hash, not the source text.
 - This is similar to GH-26 AC-10 (no secrets in asset filenames/output).
 
+---
+
+#### TC-MERM-012 - Empty mermaid source — renderer error → code block + warning
+
+**Scenario Type**: Edge Case
+**Impact Level**: Important
+**Priority**: Medium
+**Related IDs**: F-6, AC-4, NFR-5, DM-6
+**Test Type(s)**: Unit
+**Automation Level**: Automated
+**Target Layer / Location**: `tests/unit/domain/mermaid/transform.test.ts`
+**Tags**: @backend
+
+**Preconditions**:
+- A stubbed `Renderer` that returns an error when called with empty (or whitespace-only) source (e.g., `err({ kind: "RemoteUnreachable", cause: "Empty diagram source" })`).
+- A HAST tree with a mermaid fence containing empty source (```mermaid\n\n```).
+
+**Steps**:
+1. Call the mermaid transform with the empty-source fence and `policy = "render"`.
+2. Inspect the transformed HAST and any emitted warnings.
+
+**Expected Outcome**:
+- The renderer is called with empty source and returns an error.
+- The transform keeps the original `pre` element unchanged (so it renders as code).
+- A warning is emitted like "Mermaid render failed for diagram at <sourcePath>: Empty diagram source — falling back to code block".
+- No `Artifact` is produced (no upload attempt).
+
+**Postconditions**:
+- No silent failure for empty input (ADR-0002 C-2).
+- The run continues (per-document isolation).
+
+**Notes / Clarifications**:
+- Empty source is a valid edge case: Kroki will likely reject it, and the transform must handle this gracefully.
+- This follows the same error path as network failure (AC-4/F-6) — no silent drop, warning emitted, code block fallback.
+- Mocking the renderer to return an error for empty source is allowed per the over-mocking guardrail (adapter boundary + fault injection).
+
 ## 6. Environments and Test Data
 
 ### 6.1 Environments
@@ -595,6 +632,7 @@ GH-69 enables Mermaid diagram rendering via the public Kroki API, converting cod
 | TC-MERM-009 | `tests/unit/domain/mermaid/transform.test.ts` (extend) | `bun test tests/unit/domain/mermaid/transform.test.ts` | Stub `Renderer` | To Implement |
 | TC-MERM-010 | `tests/unit/infra/mermaid/kroki.test.ts` (extend) | `bun test tests/unit/infra/mermaid/kroki.test.ts` | Mock `fetch` with timeout | To Implement |
 | TC-MERM-011 | `tests/integration/app/mermaid/mermaid-render.test.ts` (extend) | `bun test tests/integration/app/mermaid/mermaid-render.test.ts` | Stub `Renderer` | To Implement |
+| TC-MERM-012 | `tests/unit/domain/mermaid/transform.test.ts` (extend) | `bun test tests/unit/domain/mermaid/transform.test.ts` | Stub `Renderer` returning error for empty source | To Implement |
 
 ## 8. Risks, Assumptions, and Open Questions
 
@@ -627,6 +665,7 @@ GH-69 enables Mermaid diagram rendering via the public Kroki API, converting cod
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-13 | test-plan-writer (AI-assisted) | Initial test plan |
+| 1.1 | 2026-07-13 | test-plan-writer (AI-assisted) | Added TC-MERM-012 for empty mermaid source edge case (DoR iter-1 MINOR #7) |
 
 ## 10. Test Execution Log
 
