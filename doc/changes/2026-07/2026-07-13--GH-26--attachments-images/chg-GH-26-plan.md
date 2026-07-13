@@ -346,7 +346,9 @@ rules are sound; the blockers below must land before DoR/DoD sign-off.
 - [x] **P7.11** Add TC-INTEGRATION-006: two-doc applyPlan — doc A >25 MB asset
   (warning emitted, doc applies), doc B upload returns `TooLarge` (413) → doc B
   blocks, run continues, writes count reflects A only. Requires real
-  `uploadAssets` (P7.4). SKIPPED: Low-cost benefit, warning path tested, TooLarge handling tested in existing infra
+  `uploadAssets` (P7.4). ✓ DONE: TC-INTEGRATION-006 implemented — doc A >25 MB
+  warns + applies, doc B 413 blocks, run continues. (Prior note said SKIPPED;
+  test is present and genuine.)
 
 ### F-8 (medium) — >25 MB warning not surfaced
 - [x] **P7.12** Wire the >25 MB warning into `ApplyReport.warnings` /
@@ -394,7 +396,12 @@ tasks below are NON-BLOCKING polish; PM may proceed to DoD + PR regardless.
 - [ ] **P8.3** (low, style) `sha256Hex`: drop the `bytes as any` cast in favour
   of a typed expression, and reword the `// F-5:` comment to state the invariant
   without the review-finding ID. (src/domain/assets/resolver.ts:179-180)
-- [ ] **P8.4** (info, plan hygiene) Update the P7.11 note from "SKIPPED" to
+- [ ] **P8.4** (low, test effectiveness) The F-5 subarray test round-trips through
+  disk; Bun returns `byteOffset: 0` for small reads so it cannot catch a
+  `bytes.buffer` regression. Inject a non-zero-offset view directly via the
+  `readBytes` seam (e.g. `readBytes: () => bigBuffer.subarray(4, 8)`).
+  (tests/unit/domain/assets/resolver.test.ts:281)
+- [ ] **P8.5** (info, plan hygiene) Update the P7.11 note from "SKIPPED" to
   "DONE" — TC-INTEGRATION-006 is implemented and genuine.
 
 ---
@@ -438,14 +445,11 @@ tasks below are NON-BLOCKING polish; PM may proceed to DoD + PR regardless.
   attachmentFilename), F-12 (code style). P7.6/P7.11 skipped (low-cost benefit).
   See commits below.
 - **2026-07-13 — review iter-2 (`@reviewer`):** PASS. All 11 iter-1 findings
-  resolved. Release-blocking fixes verified genuine: F-1 (SVG naming — kind
-  gating on both domain and infra, format-matrix invariant test), F-3 (root-
-  prefix test — evil file exists, prefix check is the rejecter, raw startsWith
-  would fail), F-4 (URL-encoded false positive removed, genuine traversal
-  replaces it), F-5 (sha256Hex passes view — code fix correct), F-6 (asset-drift
-  test flips SyncState). 3 new LOW findings (advisory, non-blocking): NF-1
-  (applyPlan→uploadAssets wiring untested at applyPlan level — P7.6/P7.11
-  transparently skipped), NF-2 (F-5 subarray test doesn't inject a view through
-  readBytes — Bun doesn't pool-allocate so test is a no-op for the bug),
-  NF-3 (`// F-5:` review tag + TC-UNIT-009 ID collision). No remediation phase
-  appended. See `code-review/review-iter-2.yaml`.
+  resolved incl. every release-blocking item. Verified genuine: F-1 (SVG naming
+  — `kind` gating on both domain and infra, TC-UNIT-010 format-matrix invariant),
+  F-3 (root-prefix — evil file exists, prefix check is the rejecter), F-4
+  (URL-encoded false positive removed), F-5 (sha256Hex passes the view — code
+  fix correct), F-6 (asset-drift test flips SyncState). `bun run check` green
+  (993/0/0); errors.ts zero diff vs main; domain assets infra/app-pure. 5
+  NON-BLOCKING findings (1M/3L/1I) appended as Phase 8 polish (P8.1–P8.5). PM
+  may proceed to DoD + PR. See `code-review/review-iter-2.yaml`.
