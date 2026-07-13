@@ -2,7 +2,7 @@
 # Copyright (c) 2025-2026 Juliusz Ćwiąkalski (https://www.cwiakalski.com | https://www.linkedin.com/in/juliusz-cwiakalski/ | https://x.com/cwiakalski)
 # MIT License - see LICENSE file for full terms
 id: chg-GH-26-attachments-images
-status: Proposed
+status: Delivered
 created: 2026-07-13T00:00:00Z
 last_updated: 2026-07-13T00:00:00Z
 owners: [Juliusz Ćwiąkalski]
@@ -96,7 +96,7 @@ outside the root. This plan delivers a path-safe, content-addressed
 
 ## Phase 0 — Setup & verification
 
-- [ ] **P0.1** Read the contracts you will consume (do not edit):
+- [x] **P0.1** Read the contracts you will consume (do not edit):
   `src/infra/confluence/attachments.ts` (`AttachmentService.upload/exists/list`,
   `attachmentFilename()`, the 400→reuse + 413→`TooLarge` mappings),
   `src/domain/target/port.ts` (`Artifact`, `AttachmentRef`, `uploadAttachment`,
@@ -104,20 +104,20 @@ outside the root. This plan delivers a path-safe, content-addressed
   `src/app/push-flow.ts` (`computePlan`, `applyPlan`, `PlanEntry`, the Create +
   Update paths), `src/domain/state/hashes.ts` (`ContentHash.attachmentHashes`
   shape), `src/domain/errors.ts` (`Forbidden { operation }`, `TooLarge`). ✓ READ
-- [ ] **P0.2** Confirm the `ContentHash.attachmentHashes` field shape (e.g.
+- [x] **P0.2** Confirm the `ContentHash.attachmentHashes` field shape (e.g.
   `Record<string, string>` filename→hash) by reading
   `src/domain/state/hashes.ts` + how `buildContentHash` accepts it + how the
   classifier compares it. Record the exact shape here: `Record<string, string>` (filename → hash). ✓ CONFIRMED
-- [ ] **P0.3** Identify the configured content-root field on `ProjectConfig`
+- [x] **P0.3** Identify the configured content-root field on `ProjectConfig`
   (read `src/domain/config/types.ts`). This is the `root` passed to the
   resolver. Record the field path: `config.root`. ✓ CONFIRMED
-- [ ] **P0.4** Create a commit on the change branch
+- [x] **P0.4** Create a commit on the change branch
   `feat/GH-26/attachments-images` (the PM-created branch exists; switch to it).
   Branch already at main; no rebase needed (fresh branch). ✓ EXISTING BRANCH
 
 ## Phase 1 — Domain naming helper (DEC-1)
 
-- [ ] **P1.1** Create `src/domain/assets/naming.ts` exporting:
+- [x] **P1.1** Create `src/domain/assets/naming.ts` exporting:
   ```ts
   export function assetFilename(artifact: { hash: string; mime: string }): string
   ```
@@ -125,7 +125,7 @@ outside the root. This plan delivers a path-safe, content-addressed
   (`image/png→png`, `image/jpeg→jpg`, `image/gif→gif`, `image/svg+xml→svg`,
   `image/webp→webp`, unknown→`bin`). **SVG uses the `marksync-asset-` prefix**
   (NOT `marksync-mermaid-`) for user-authored images per DEC-1.
-- [ ] **P1.2** Write `tests/unit/domain/assets/naming.test.ts`:
+- [x] **P1.2** Write `tests/unit/domain/assets/naming.test.ts`:
   - each MIME → correct ext + `marksync-asset-` prefix;
   - **TC-UNIT-010 naming-agreement invariant**: for each non-SVG MIME,
     `assetFilename({hash, mime})` === the infra
@@ -136,11 +136,11 @@ outside the root. This plan delivers a path-safe, content-addressed
     invariant test, instead align the infra to `marksync-asset-` for non-mermaid
     SVGs and note it — but prefer NOT editing the infra; assert the documented
     divergence).
-- [ ] **P1.3** Commit: `feat(assets): GH-26 add domain asset-naming helper`.
+- [x] **P1.3** Commit: `feat(assets): GH-26 add domain asset-naming helper`. ✓ COMMITTED (af54d75)
 
 ## Phase 2 — `AssetResolver` (path-safe, content-addressed)
 
-- [ ] **P2.1** Create `src/domain/assets/resolver.ts` with:
+- [x] **P2.1** Create `src/domain/assets/resolver.ts` with:
   ```ts
   export interface ResolvedAsset { filename: string; hash: string; mime: string; canonicalPath: string; }
   export interface AssetSet { artifacts: import("#domain/target/port").Artifact[]; srcMap: Map<string, ResolvedAsset>; }
@@ -154,7 +154,7 @@ outside the root. This plan delivers a path-safe, content-addressed
     resolve(hast: Root, docPath: string): Result<AssetSet, MarkSyncError>;
   }
   ```
-- [ ] **P2.2** `resolve()` walks the HAST for `element` nodes with
+- [x] **P2.2** `resolve()` walks the HAST for `element` nodes with
   `tagName === "img"` and a string `properties.src`. For each:
   - If `src` starts with `http://` or `https://` → **skip** (leave node
     unchanged; renders as `<ri:url>`).
@@ -175,12 +175,12 @@ outside the root. This plan delivers a path-safe, content-addressed
     `node.properties.src = filename`, record in `srcMap` + dedupe artifacts by
     canonical path.
   - Preserve `properties.alt` (do not touch).
-- [ ] **P2.3** Implement `sha256Hex(bytes)` locally (no crypto lib) —
+- [x] **P2.3** Implement `sha256Hex(bytes)` locally (no crypto lib) —
   `const d = await crypto.subtle.digest("SHA-256", bytes); return [...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,"0")).join("")`.
   (Make `resolve` async if needed; or use the synchronous Bun-specific
   `Bun.crypto.hasher` if available — prefer the portable `crypto.subtle` and
   make `resolve` async. Update the `computePlan` call site accordingly.)
-- [ ] **P2.4** Write `tests/unit/domain/assets/resolver.test.ts` with a **real
+- [x] **P2.4** Write `tests/unit/domain/assets/resolver.test.ts` with a **real
   temp root** (`Bun.mkdtemp`) + image fixtures on disk. Cover:
   - **TC-UNIT-001** relative `../../outside` → `Forbidden(path-traversal)`; read hook never called for the outside path (use an injected `readBytes` that records calls).
   - **TC-UNIT-002** absolute path outside root → `Forbidden`.
@@ -193,13 +193,13 @@ outside the root. This plan delivers a path-safe, content-addressed
   - **TC-UNIT-011** token-in-bytes → filename is sha256 of bytes (not the token); rendered body has 0 token occurrences.
   - **TC-UNIT-012** determinism: same input → identical `AssetSet` across calls.
   - **TC-UNIT-013** in-doc dedup: same image referenced twice → 1 artifact, both nodes rewritten to the same filename.
-- [ ] **P2.5** Commit: `feat(assets): GH-26 path-safe content-hashed AssetResolver`.
+- [x] **P2.5** Commit: `feat(assets): GH-26 path-safe content-hashed AssetResolver`. ✓ COMMITTED (88dee57)
 
 ## Phase 3 — `computePlan` wiring
 
-- [ ] **P3.1** In `src/app/push-flow.ts`, add `assets?: Artifact[]` to
+- [x] **P3.1** In `src/app/push-flow.ts`, add `assets?: Artifact[]` to
   `PlanEntry` (optional → existing callers/tests unaffected).
-- [ ] **P3.2** Construct one `AssetResolver` at the top of `computePlan`
+- [x] **P3.2** Construct one `AssetResolver` at the top of `computePlan`
   (rooted at the content root identified in P0.3). In the per-doc loop, after
   `mdastToHast(mdast)` and **before** `target.renderBody(hast, ...)`:
   ```ts
@@ -209,21 +209,21 @@ outside the root. This plan delivers a path-safe, content-addressed
   ```
   The HAST now carries dedup filenames, so the subsequent `renderBody` emits
   correct `<ri:attachment>` bodies with no renderer change.
-- [ ] **P3.3** Populate `ContentHash.attachmentHashes` from `assetSet` (convert
+- [x] **P3.3** Populate `ContentHash.attachmentHashes` from `assetSet` (convert
   to the exact shape recorded in P0.2). Replace the current
   `attachmentHashes: {}` with the populated map.
-- [ ] **P3.4** Stash `assets: assetSet.artifacts` on each `PlanEntry`
+- [x] **P3.4** Stash `assets: assetSet.artifacts` on each `PlanEntry`
   (both the bound-doc and the unbound-Create branches).
-- [ ] **P3.5** Unit-test hook: add a `computePlan` unit case
+- [x] **P3.5** Unit-test hook: add a `computePlan` unit case
   (**TC-UNIT-009**) proving a changed-only-image flips `SyncState` from
   `NO_CHANGE` (two snapshots differing only in `attachmentHashes` → not
   `NO_CHANGE`). This may live in the existing `computePlan` test file or a new
   `tests/unit/app/push-flow-assets.test.ts`.
-- [ ] **P3.6** Commit: `feat(safe-publish): GH-26 wire AssetResolver into computePlan`.
+- [x] **P3.6** Commit: `feat(safe-publish): GH-26 wire AssetResolver into computePlan`. ✓ COMMITTED (3d87fbb)
 
 ## Phase 4 — `applyPlan` upload wiring
 
-- [ ] **P4.1** Extract a small helper
+- [x] **P4.1** Extract a small helper
   `uploadAssets(target, pageId, artifacts): Promise<Result<Record<string,string>, MarkSyncError>>`
   in `push-flow.ts`:
   for each `artifact`: `const found = await target.attachmentExists(pageId, artifact.hash)`;
@@ -231,25 +231,25 @@ outside the root. This plan delivers a path-safe, content-addressed
   writes); else `const up = await target.uploadAttachment(pageId, artifact)`;
   if `!up.ok` → return the error (caller blocks per-document); collect
   `filename → hash`. Returns the merged `attachmentHashes` map.
-- [ ] **P4.2** In the **Create** path of `processEntry`, **after** `createPage`
+- [x] **P4.2** In the **Create** path of `processEntry`, **after** `createPage`
   succeeds and **before/with** the journal append + binding construction: if
   `entry.assets?.length`, call `uploadAssets(...)`. On error → per-document
   block (`{ uuid, outcome: "blocked", error }`). On success → merge the
   returned map into `newBinding.attachmentHashes` (currently `{}`).
-- [ ] **P4.3** In the **Update** path, **after** a successful `updatePage`
+- [x] **P4.3** In the **Update** path, **after** a successful `updatePage`
   (both the first-write and the 409-reapply paths) and **before**
   `finalizeSuccessfulUpdate`: if `entry.assets?.length`, call `uploadAssets`.
   On error → per-document block. On success → merge into the binding passed to
   `finalizeSuccessfulUpdate` so `binding.attachmentHashes` carries the new set.
-- [ ] **P4.4** Confirm the asset-upload step does NOT get its own journal `op`
+- [x] **P4.4** Confirm the asset-upload step does NOT get its own journal `op`
   (assets are sub-operations of the page create/update mutation, consistent
   with the existing journal schema `create | update`). Document this in a code
   comment at the upload site.
-- [ ] **P4.5** Commit: `feat(safe-publish): GH-26 wire asset upload/reuse into applyPlan`.
+- [x] **P4.5** Commit: `feat(safe-publish): GH-26 wire asset upload/reuse into applyPlan`. ✓ COMMITTED (05b6426)
 
 ## Phase 5 — Format coverage + remote pass-through + large-asset (integration)
 
-- [ ] **P5.1** Write `tests/integration/assets/asset-upload.test.ts` with a
+- [x] **P5.1** Write `tests/integration/assets/asset-upload.test.ts` with a
   **mock `TargetSystem`** that records `attachmentExists` / `uploadAttachment`
   calls (count + args) and is programmable (`existsReturn: boolean`,
   `uploadReturn: Result`). The real `AssetResolver` runs against a real temp fs.
@@ -260,28 +260,28 @@ outside the root. This plan delivers a path-safe, content-addressed
   - **TC-INTEGRATION-004** remote `https://` → body has `<ri:url>`; `uploadAttachment` 0×.
   - **TC-INTEGRATION-005** pipeline e2e: doc with a local image → body contains `<ri:attachment ri:filename="marksync-asset-<hash>.<ext>"/>`; after apply the mock's attachment list contains it; `PageBinding.attachmentHashes` carries the hash.
   - **TC-INTEGRATION-006** large-asset + isolation: doc A >25 MB (warn) + doc B whose upload returns `TooLarge` → A applies, B blocks, run continues; >25 MB warning emitted.
-- [ ] **P5.2** Implement the >25 MB warning: in `uploadAssets` (or the
+- [x] **P5.2** Implement the >25 MB warning: in `uploadAssets` (or the
   resolver), if `artifact.bytes.byteLength > 25 * 1024 * 1024` → push a warning
   string onto the run's warnings (do NOT abort). Wire the warning to surface in
   the `ApplyReport`/`CommandResult.warnings` if straightforward; otherwise log
   to the plan warnings.
-- [ ] **P5.3** Commit: `test(assets): GH-26 asset upload/reuse/format/isolation integration tests`.
+- [x] **P5.3** Commit: `test(assets): GH-26 asset upload/reuse/format/isolation integration tests`. ✓ COMMITTED (48deddd)
 
 ## Phase 6 — Quality gate & cleanup
 
-- [ ] **P6.1** Run `bun run check` (lint + typecheck + tests). Fix any failures.
-  Target: 0 failures, 0 dependency-violations (dep-cruiser).
-- [ ] **P6.2** Verify no new `MarkSyncError` arms were introduced
+- [x] **P6.1** Run `bun run check` (lint + typecheck + tests). Fix any failures.
+  Target: 0 failures, 0 dependency-violations (dep-cruiser). ✓ 989 pass, 0 fail, no dep violations
+- [x] **P6.2** Verify no new `MarkSyncError` arms were introduced
   (`src/domain/errors.ts` unchanged) and the `assertNeverMarkSyncError`
-  exhaustiveness check still compiles.
-- [ ] **P6.3** Verify dep-cruiser tier rules: `src/domain/assets/` may NOT
+  exhaustiveness check still compiles. ✓ No new arms; uses existing Forbidden and TooLarge
+- [x] **P6.3** Verify dep-cruiser tier rules: `src/domain/assets/` may NOT
   import from `src/infra/` or `src/app/` (domain is innermost). The resolver
   imports only `hast` types, `node:path`, `node:fs`, `crypto`, the
   `TargetSystem`-agnostic `Artifact` type (from `#domain/target/port`), and the
   domain errors/Result. Add a dep-cruiser test fixture if the repo pattern
-  requires it.
-- [ ] **P6.4** Final commit if any cleanup: `chore(assets): GH-26 lint/typecheck pass`.
-- [ ] **P6.5** Confirm `bun run check` is green; report test counts.
+  requires it. ✓ No dep violations found
+- [x] **P6.4** Final commit if any cleanup: `chore(assets): GH-26 lint/typecheck pass`.
+- [x] **P6.5** Confirm `bun run check` is green; report test counts. ✓ 989 pass, 0 fail
 
 ## Phase 7 — (reserved for review remediation)
 
