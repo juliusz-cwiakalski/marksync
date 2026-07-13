@@ -4,7 +4,7 @@
 id: chg-GH-69-mermaid-kroki-render
 status: Updated
 created: 2026-07-13T00:00:00Z
-last_updated: 2026-07-13T17:00:00Z
+last_updated: 2026-07-13T20:45:00Z
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 labels: [MS-0002, MS2-E4, mermaid, kroki, remote-rendering, attachments]
@@ -266,6 +266,56 @@ and the implementation satisfies the quality gate.
 
 ---
 
+## Phase 6 — Code Review Remediation (Iteration 1)
+
+**Goal:** Address the six non-blocking findings from review-iter-1 (0 BLOCKER,
+0 MAJOR, 2 MINOR, 2 LOW, 2 INFO). All are polish-level; the implementation is
+spec-compliant and production-ready as-is. This phase hardens the test suite
+against silent naming drift and cleans up style nits flagged by the reviewer.
+
+**Review artifact:** `code-review/review-iter-1.yaml`
+
+**Tasks:**
+
+- [ ] **P6.1** Add a filename-sync test (review F-1). In
+  `tests/integration/app/mermaid/mermaid-render.test.ts` (TC-MERM-001), replace
+  the hardcoded `marksync-mermaid-${expectedHash}.svg` expectation with one
+  derived from `attachmentFilename(artifact)` so a future change to the infra
+  naming function fails the test. Assert the `<ri:attachment ri:filename="...">`
+  in the rendered body equals `attachmentFilename(entry.assets[0])`.
+  Rationale: `transform.ts` `imgNode()` independently hardcodes the format
+  (domain cannot import infra); without a sync test, naming drift silently
+  breaks mermaid image references.
+
+- [ ] **P6.2** Trim `src/domain/mermaid/transform.ts` header to ≤ 3 lines
+  (review F-2). Merge the fallback note into the opening lines or drop the
+  bare `ADR-0002 C-2` tag (the ADR is already cited at the call site in
+  push-flow.ts).
+
+- [ ] **P6.3** Hoist the KrokiClient construction above the per-doc loop
+  (review F-3). Move `const renderer = mermaidRenderer ?? new KrokiClient();`
+  in `src/app/push-flow.ts` to alongside `privacyWarningEmitted` / `resolver`
+  (before the `for (const { path, uuid } of docsWithUuid)` loop), so a single
+  production instance serves the whole run.
+
+- [ ] **P6.4** Correct the Phase 5 commit hash in the Execution Log
+  (review F-4): `34f9675` → `e117014` (the actual quality-gate commit per
+  `git log main..HEAD`).
+
+- [ ] **P6.5** (optional) Drop the redundant `as unknown as ArrayBuffer` cast
+  in `src/infra/mermaid/kroki.ts:76` `sha256Hex` (review F-5 — `Uint8Array`
+  already satisfies `BufferSource`).
+
+- [ ] **P6.6** (optional) Decide on `transform()` return type (review F-6):
+  either add a one-line comment noting the error channel is reserved for
+  future fatal transform failures, or simplify to `Promise<TransformResult>`
+  and drop the dead `if (!mermaidResult.ok)` guard in push-flow.ts:244.
+
+- [ ] **P6.7** Re-run `bun run check`; confirm 0 failures, 0 dep violations.
+  Commit: `chore(mermaid): gh-69 review iter-1 remediation`.
+
+---
+
 ## Documentation impact (for @doc-syncer phase 7)
 
 Per the ADOS lifecycle, `@doc-syncer` handles doc reconciliation in phase 7. This plan
@@ -342,6 +392,7 @@ identifies the following docs that will need updating:
 | 1.0 | 2026-07-13 | plan-writer (AI-assisted) | Initial plan |
 | 1.1 | 2026-07-13 | plan-writer (AI-assisted) | DoR iter-1 fixes: (1) Fixed BLOCKER - mermaid transform now explicitly runs AFTER resolver.resolve() with load-bearing invariant rationale; (2) Added documentation impact section for phase 7; (3) Added recursive HAST walk requirement to P2.1 |
 | 1.2 | 2026-07-13 | plan-writer (AI-assisted) | DoR iter-1 fixes: (1) Fixed CRITICAL BLOCKER in P3.1 code sketch - statement order now correct: resolver.resolve() runs FIRST, then mermaid transform, then target.renderBody(); removed duplicate resolver.resolve() call; (2) Added TC-MERM-012 (empty source) to test scenarios coverage table and P2.2 task |
+| 1.3 | 2026-07-13 | reviewer (AI-assisted) | Added Phase 6 (Code Review Remediation, iteration 1) — 6 non-blocking findings (2 MINOR, 2 LOW, 2 INFO); see code-review/review-iter-1.yaml |
 
 ---
 
@@ -353,8 +404,8 @@ identifies the following docs that will need updating:
 | Phase 2 | Done | 2026-07-13 | 2026-07-13 | 2a5953e | Mermaid HAST transform; 8 unit tests PASS, typecheck + depcruise clean |
 | Phase 3 | Done | 2026-07-13 | 2026-07-13 | 50b01a0 | computePlan wiring; 9 integration tests PASS, full suite 1040 pass |
 | Phase 4 | Done | 2026-07-13 | 2026-07-13 | 44616b7 | Golden fixture; 2 golden tests PASS, existing 33 golden tests unaffected |
-| Phase 5 | Done | 2026-07-13 | 2026-07-13 | 34f9675 | Quality gate green: 1042 pass / 0 fail, depcruise 0 violations, errors.ts unchanged, tier rules verified |
-| Remediation | Pending | - | - | - | Populated by `@reviewer` if needed |
+| Phase 5 | Done | 2026-07-13 | 2026-07-13 | e117014 | Quality gate green: 1042 pass / 0 fail, depcruise 0 violations, errors.ts unchanged, tier rules verified |
+| Remediation | In Progress | 2026-07-13 | - | - | Phase 6 populated by @reviewer iter-1: 6 findings (0 blocker, 2 minor, 2 low, 2 info) |
 
 ---
 

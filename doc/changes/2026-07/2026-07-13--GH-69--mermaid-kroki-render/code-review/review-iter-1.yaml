@@ -1,0 +1,139 @@
+version: 1
+iteration: 1
+mode: local
+work_item_ref: GH-69
+branch: feat/GH-69/mermaid-kroki-render
+status: PASS
+summary: >
+  The GH-69 mermaid Kroki rendering implementation is spec-compliant and
+  production-ready: the load-bearing transform ordering (resolver → transform →
+  renderBody) is correct, the full sha256 hash flows end-to-end, the privacy
+  warning fires once per run, network fallback preserves the code block, and all
+  seven acceptance criteria have traceable tests (1042 pass / 0 fail, depcruise
+  clean, kroki.ts 100% coverage). Six non-blocking findings address a missing
+  filename-sync test, a 4-line file header, per-doc client construction, a stale
+  commit hash, a redundant cast, and an unused error channel — all polish-level.
+severity_breakdown:
+  critical: 0
+  high: 0
+  medium: 2
+  low: 2
+  info: 2
+spec_compliance: PASS
+plan_compliance: PASS
+findings:
+  - id: F-1
+    severity: medium
+    confidence: high
+    category: correctness
+    location: src/domain/mermaid/transform.ts:130
+    message: >
+      imgNode() hardcodes the `marksync-mermaid-<hash>.svg` format, mirroring
+      the infra-tier attachmentFilename() (src/infra/confluence/attachments.ts:140).
+      The two must produce byte-identical strings for <ri:attachment> to match
+      the uploaded filename. A comment acknowledges the duplication (transform.ts
+      lines 120-124) but no compatibility test asserts the two stay in sync —
+      code-review-instructions.md §"Structural type duplication" requires one.
+      TC-MERM-001 hardcodes the expected filename independently, so a future
+      change to attachmentFilename() would pass all current tests yet silently
+      break mermaid image references on Confluence.
+    suggestion: >
+      Add a sync assertion that derives the expected ri:filename from
+      attachmentFilename(artifact) rather than a hardcoded string, so a naming
+      drift fails the test. One test in the integration suite suffices.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-2
+    severity: medium
+    confidence: high
+    category: documentation
+    location: src/domain/mermaid/transform.ts:1
+    message: >
+      The file header is 4 comment lines (lines 1-4). .ai/rules/typescript.md
+      §"Code style principles" #2 and the boy-scout rule mandate headers ≤ 3
+      lines.
+    suggestion: >
+      Condense to ≤ 3 lines, e.g. merge the fallback note into the first two
+      lines or drop the ADR-0002 C-2 tag (already cited at the call site).
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-3
+    severity: low
+    confidence: high
+    category: performance
+    location: src/app/push-flow.ts:237
+    message: >
+      `mermaidRenderer ?? new KrokiClient()` is evaluated inside the per-doc
+      loop, constructing a fresh KrokiClient for every document in production.
+      Functionally harmless (the constructor only stores config), but a single
+      instance should serve the whole run.
+    suggestion: >
+      Hoist `const renderer = mermaidRenderer ?? new KrokiClient();` above the
+      per-doc loop (next to `privacyWarningEmitted` / `resolver`).
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-4
+    severity: low
+    confidence: high
+    category: plan-compliance
+    location: chg-GH-69-plan.md:356
+    message: >
+      The Execution Log records Phase 5 commit as `34f9675`, but `git log
+      main..HEAD` shows the actual quality-gate commit is `e117014`.
+    suggestion: >
+      Correct the Phase 5 commit hash in the Execution Log to `e117014`.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-5
+    severity: info
+    confidence: high
+    category: correctness
+    location: src/infra/mermaid/kroki.ts:76
+    message: >
+      sha256Hex casts `bytes as unknown as ArrayBuffer`; a Uint8Array already
+      satisfies BufferSource so the double cast is redundant (and technically
+      imprecise — it is an ArrayBufferView, not an ArrayBuffer). The same
+      helper is copy-pasted across 4 test files.
+    suggestion: >
+      Drop the cast (`crypto.subtle.digest("SHA-256", bytes)`) in kroki.ts.
+      Optional: extract a shared test helper for the 4 test copies.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-6
+    severity: info
+    confidence: medium
+    category: correctness
+    location: src/domain/mermaid/transform.ts:33
+    message: >
+      transform() declares `Result<TransformResult, MarkSyncError>` but always
+      returns ok — every renderer error is collected as a warning, never
+      propagated. The `if (!mermaidResult.ok)` guard in push-flow.ts:244 is
+      therefore dead code. This is defensible as future-proofing but the type
+      currently overpromises a failure mode that does not exist.
+    suggestion: >
+      Either (a) leave as-is with a one-line comment noting the error channel
+      is reserved for future fatal transform failures, or (b) simplify the
+      return type to `Promise<TransformResult>` and drop the dead guard.
+      Non-blocking; pick one for consistency.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+reviewed_at: 2026-07-13T20:45:00Z
+next_step: EXECUTE_REMEDIATION_PHASE
