@@ -11,10 +11,10 @@ phases:
   dor_check: { started: "2026-07-13T14:05:00Z", completed: "2026-07-13T14:42:00Z" }
   delivery: { started: "2026-07-13T14:43:00Z", completed: "2026-07-13T15:25:00Z" }
   system_spec_update: { started: "2026-07-13T15:26:00Z", completed: "2026-07-13T15:40:00Z" }
-  review_fix: { started: "2026-07-13T15:41:00Z", completed: null }
-  quality_gates: { started: null, completed: null }
-  dod_check: { started: null, completed: null }
-  pr_creation: { started: null, completed: null, url: null }
+  review_fix: { started: "2026-07-13T15:41:00Z", completed: "2026-07-13T16:05:00Z" }
+  quality_gates: { started: "2026-07-13T16:06:00Z", completed: "2026-07-13T16:06:00Z" }
+  dod_check: { started: "2026-07-13T16:07:00Z", completed: "2026-07-13T16:10:00Z" }
+  pr_creation: { started: "2026-07-13T16:11:00Z", completed: null, url: null }
 
 decisions:
   - text: >
