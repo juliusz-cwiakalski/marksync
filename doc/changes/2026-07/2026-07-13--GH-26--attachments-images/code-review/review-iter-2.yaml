@@ -1,0 +1,241 @@
+version: 1
+iteration: 2
+mode: local
+work_item_ref: GH-26
+branch: feat/GH-26/attachments-images
+status: PASS
+summary: >
+  All 11 iter-1 findings are genuinely resolved in the current code, including
+  every release-blocking item. F-1 (critical SVG naming divergence) is fixed:
+  `attachmentFilename` now gates the `marksync-mermaid-` prefix on an explicit
+  `kind === "mermaid"` marker (not mime), the `Artifact.kind?` field exists, and
+  TC-UNIT-010 proves domain `assetFilename` === infra `attachmentFilename` for
+  ALL formats (including SVG) when kind is unset — so the HAST `<ri:attachment>`
+  filename agrees with the uploaded filename. No mermaid regression: no
+  production code creates a mermaid Artifact (mermaid SVGs are inlined by the
+  render policy, not uploaded), so the kind gate is safe. F-3 (root-prefix) and
+  F-6 (asset drift) are fixed with genuine tests that exercise the real logic.
+  F-5 (sha256Hex) now passes the Uint8Array view (not `bytes.buffer`) and has a
+  subarray-view regression test. F-2/F-10 (uploadAssets exported + tested through
+  the real function with a recording mock), F-9 (canonical-path dedup), F-11
+  (mock uses real attachmentFilename), and F-12 (file header) are all resolved.
+  `bun run check` is green (993 pass / 0 fail / 0 dep violations), errors.ts has
+  a zero-line diff vs main, and `src/domain/assets/` stays infra/app-pure. Five
+  NON-BLOCKING findings remain (1 medium / 3 low / 1 info); none are
+  release-blocking, so PM may proceed to DoD + PR.
+severity_breakdown:
+  critical: 0
+  high: 0
+  medium: 1
+  low: 3
+  info: 1
+spec_compliance: PASS
+plan_compliance: PASS
+findings:
+  - id: F-1
+    severity: medium
+    confidence: high
+    category: observability
+    location: src/cli/commands/sync.ts:87
+    message: >
+      Residual F-8: the >25 MB warning is collected into `ApplyReport.warnings`
+      (populated end-to-end from `uploadAssets` → `processEntry` → `applyPlan`),
+      but `syncCommand` wraps the report via `ok(applyResult.value)` WITHOUT
+      passing `meta.warnings`, so the top-level `CommandResult.warnings` stays
+      undefined. The generic human renderer only renders the dedicated
+      `warning:` lines from `result.warnings` (top-level); the asset warning
+      therefore appears buried inside the compact `data:` JSON blob rather than
+      as a readable warning line. The warning IS present in structured/JSON
+      output (as `data.warnings`) and the hash does NOT leak, so the core F-8
+      harms (console.warn to stderr, hash leak, invisibility to the structured
+      path) are all addressed — this is a rendering-prominence gap, not a
+      security/correctness regression.
+    suggestion: >
+      In `syncCommand`, map `applyResult.value.warnings` into the `ok()` meta
+      (e.g. `ok(report, { warnings: report.warnings.map(message => ({ code:
+      "ASSET_SIZE", message })) })`) so the human renderer surfaces them via its
+      dedicated warning channel. Non-blocking; can ship as-is and address in a
+      follow-up.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-2
+    severity: low
+    confidence: high
+    category: testing
+    location: tests/unit/domain/assets/resolver.test.ts:49
+    message: >
+      The replacement TC-UNIT-003 (relative `../../` traversal) uses two separate
+      `Date.now()` calls for the outside directory — `outsideDir` is built at
+      line 28 (timestamp T1) while the img `src` embeds a fresh `Date.now()` at
+      line 49 (timestamp T2). Empirically confirmed: T1 ≠ T2, so the file
+      referenced by the resolved src does NOT exist and `realpath` throws,
+      meaning the test passes via a realpath-miss rather than the
+      `rootReal + path.sep` prefix check. This is the same false-positive class
+      iter-1 flagged (now a different root cause: timestamp mismatch instead of
+      URL-encoding). It is NOT release-blocking because the prefix check is
+      genuinely exercised by TC-UNIT-005 (root-prefix, real file), TC-UNIT-006
+      (symlink → /etc/passwd, real target), and TC-UNIT-003-abs (absolute, real
+      file) — the confinement invariant is sound and proven.
+    suggestion: >
+      Capture a single timestamp into a variable at the top of the test and
+      reuse it for both `outsideDir` and the img `src` (or reference
+      `outsideFile` directly as the absolute variant already does), so realpath
+      succeeds and the prefix check is the actual rejection path.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-3
+    severity: low
+    confidence: high
+    category: testing
+    location: tests/unit/domain/assets/resolver.test.ts:281
+    message: >
+      The F-5 subarray regression test (TC-UNIT-009) round-trips the view through
+      a file: it writes `bigBuffer.subarray(4,8)` to disk and reads it back via
+      `defaultReadBytes`. Empirically verified: Bun's `readFileSync` of a 4-byte
+      file returns a buffer with `byteOffset: 0` and `buffer.byteLength === 4`,
+      so `bytes.buffer` hashes the SAME bytes as the `bytes` view. The test
+      therefore asserts correct behaviour (hash === hash of the view bytes) but
+      CANNOT catch a regression to the old `bytes.buffer` bug in this runtime —
+      it is a no-op for the specific slab-confusion defect it claims to guard.
+      The production fix itself is correct.
+    suggestion: >
+      Inject a non-zero-offset view directly via the `readBytes` seam instead of
+      round-tripping through disk (e.g. `readBytes: () => bigBuffer.subarray(4,
+      8)`), so a `bytes.buffer` regression produces a wrong hash and the test
+      fails. Non-blocking — the fix is correct and the invariant is asserted.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-4
+    severity: low
+    confidence: high
+    category: style
+    location: src/domain/assets/resolver.ts:179
+    message: >
+      The F-5 fix in `sha256Hex` carries two minor style nits. (a) It uses
+      `bytes as any` to satisfy the `BufferSource` parameter type — functional
+      and honours the view, but bypasses type safety (a typed lib.dom config or
+      an explicit `Uint8Array` → `ArrayBufferView` annotation would be cleaner).
+      (b) The inline comment `// F-5: Pass the Uint8Array view (not bytes.buffer)
+      ...` references a transient review-finding ID; AGENTS.md asks not to
+      scatter review/ticket tag noise in code. The WHY is worth keeping; the ID
+      is not.
+    suggestion: >
+      Drop the `as any` cast in favour of a typed expression (or a one-line
+      `// BufferSource accepts ArrayBufferView` note if the lib types need it)
+      and reword the comment to state the invariant without the finding ID.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-5
+    severity: info
+    confidence: high
+    category: plan-compliance
+    location: chg-GH-26-plan.md:349
+    message: >
+      Plan-status mismatch: P7.11 (TC-INTEGRATION-006 large-asset + isolation)
+      is annotated "SKIPPED: Low-cost benefit", but the test actually EXISTS and
+      is genuine (tests/integration/assets/asset-upload.test.ts:522 — doc A >25
+      MB warns + applies, doc B 413 blocks, run continues, warning does not leak
+      hash). The task is done; the plan note is stale. (P7.6 — applyPlan
+      Create-path carrying `entry.assets` — IS legitimately skipped with sound
+      rationale; the real upload-reuse path is covered by TC-INTEGRATION-001/002.)
+    suggestion: >
+      Update the P7.11 note from "SKIPPED" to "DONE" (and optionally promote
+      P7.6 to a tracked follow-up) so the plan reflects reality for the DoD
+      audit.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+iter1_resolution:
+  F-1:
+    status: RESOLVED
+    evidence: >
+      attachments.ts:143 gates `marksync-mermaid-` on `artifact.kind ===
+      "mermaid"`; port.ts:81 adds `kind?: "asset" | "mermaid"`; resolver.ts:98
+      creates user artifacts without kind (defaults to asset); naming.test.ts
+      TC-UNIT-010 asserts domain `assetFilename` === infra `attachmentFilename`
+      for all formats incl. SVG when kind unset; attachments.test.ts:72/77 cover
+      both kind arms. No production code creates mermaid Artifacts (mermaid
+      inlined by render policy), so no regression.
+  F-2:
+    status: RESOLVED
+    evidence: >
+      `uploadAssets` exported (push-flow.ts:458); TC-INTEGRATION-001/002 call the
+      REAL function with a recording mock; recording wrapper layered after
+      `...overrides` so it always wins; TC-INTEGRATION-001 proves exists-before-
+      upload (0 uploads on reuse), TC-INTEGRATION-002 proves 1 upload on change.
+  F-3:
+    status: RESOLVED
+    evidence: >
+      TC-UNIT-005 (resolver.test.ts:133) now creates the evil sibling dir +
+      secret file at the SAME path the img src references; realpath succeeds and
+      the `rootReal + path.sep` prefix check rejects it (a raw startsWith would
+      wrongly allow).
+  F-4:
+    status: RESOLVED
+    evidence: >
+      The URL-encoded `%2e%2e%2f` fixture and the incorrect "path.resolve will
+      decode" comment are gone; replaced with a relative `../../` traversal. The
+      replacement has a separate timestamp-mismatch nit (reported as iter-2 F-2,
+      LOW, non-blocking).
+  F-5:
+    status: RESOLVED
+    evidence: >
+      resolver.ts:180 passes the Uint8Array view
+      (`crypto.subtle.digest("SHA-256", bytes as any)`) not `bytes.buffer`;
+      TC-UNIT-009 (resolver.test.ts:281) hashes a subarray view and asserts it
+      equals the hash of just those bytes (not the full slab). Caveat: the test
+      round-trips through disk and Bun returns byteOffset 0 for small reads, so
+      it cannot catch a bytes.buffer regression in this runtime — see iter-2 F-3.
+  F-6:
+    status: RESOLVED
+    evidence: >
+      classifier.test.ts:532 TC-UNIT-009 — two ContentHash differing ONLY in
+      `attachmentHashes` → `classify` returns LOCAL_AHEAD (not NO_CHANGE).
+  F-7:
+    status: RESOLVED
+    evidence: >
+      TC-INTEGRATION-006 (asset-upload.test.ts:522) — doc A >25 MB warns + applies,
+      doc B upload returns TooLarge(413) → blocks, run continues (2 upload calls).
+  F-8:
+    status: SUBSTANTIALLY_RESOLVED
+    evidence: >
+      console.warn + TODO removed; warning pushed to ApplyReport.warnings via
+      uploadAssets → processEntry → applyPlan; hash does not leak; residual
+      (ApplyReport.warnings not mapped to top-level CommandResult.warnings) reported
+      as iter-2 F-1 (MEDIUM, non-blocking).
+  F-9:
+    status: RESOLVED
+    evidence: >
+      resolver.ts:81-89 visitedPaths branch now scans srcMap.values() for a
+      matching canonicalPath; TC-UNIT-013 canonical (resolver.test.ts:486)
+      asserts image.png + ./image.png → 1 artifact, both nodes rewritten.
+  F-10:
+    status: RESOLVED
+    evidence: uploadAssets exported (push-flow.ts:458) — root cause of F-2 removed.
+  F-11:
+    status: RESOLVED
+    evidence: >
+      Mock defaultUploadAttachment derives filename via the real
+      `attachmentFilename` (asset-upload.test.ts:36); TC-INTEGRATION-005 asserts
+      uploaded filename === attachmentFilename(artifact) === HAST filename.
+  F-12:
+    status: RESOLVED
+    evidence: >
+      resolver.ts file header is 1 line; no signature-restating JSDoc. Minor
+      style nits (`as any`, finding-ID comment) reported as iter-2 F-3 (LOW).
+reviewed_at: 2026-07-13T12:00:00Z
+next_step: PROCEED

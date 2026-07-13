@@ -5,7 +5,7 @@ ados_distribution: redistributable
 id: NONFUNCTIONAL
 status: Draft
 created: 2026-07-04
-last_updated: 2026-07-04
+last_updated: 2026-07-13
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
@@ -45,6 +45,7 @@ binding. `MS-0002` NFRs are release-blocking guardrails unless marked
 | NFR-SEC-4 | Supply-chain baseline | SBOM + automated dependency/license/vuln scan on every release | R-SEC-1 |
 | NFR-SEC-5 | Converter injection safety | Malicious Markdown cannot inject `<ac:structured-macro>` server-side; macro-escape property tests | R-SEC-1; spec converter requirements |
 | NFR-SEC-6 | Credential storage | Tokens in OS keyring or env; never in project files; `logout` removes material | spec §9.10 |
+| NFR-SEC-7 | Path-traversal confinement | Local image/asset resolution cannot read bytes outside the configured root; escape vectors (relative `..`, absolute, symlink, URL-encoded, nested `..`, root-prefix) → `Forbidden(path-traversal)`; **0** bytes read outside root | GH-26; doc/guides/security-baseline.md |
 
 ## Reliability & safety (`MS-0002` binding — release-blocking)
 

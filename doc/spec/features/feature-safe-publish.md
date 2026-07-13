@@ -9,7 +9,7 @@ last_updated: 2026-07-13
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: [GH-18, GH-19, GH-20, GH-22, GH-23, GH-24]
+  related_changes: [GH-18, GH-19, GH-20, GH-22, GH-23, GH-24, GH-26]
   decisions: [ADR-0005, ADR-0006, ADR-0010, ADR-0011]
   contracts: []
 ---
@@ -75,6 +75,20 @@ conflict classification that **refuses to silently overwrite remote work**.
   Unsafe overwrites blocked by default. Realized by `computePlan` (pure dry-run)
   + `applyPlan` (parent-first, isolated, journaled write path) at
   `src/app/push-flow.ts` *(delivered — GH-23)*.
+- **Local images & attachments:** `AssetResolver` (`src/domain/assets/resolver.ts`)
+  walks the rendered HAST for local `img` nodes, resolves each `src` relative to
+  the document and **confined to the configured root** (canonicalize via
+  `realpath` + prefix check, symlink-aware — release-blocking security gate,
+  NFR-SEC-7), reads the bytes, derives MIME from the extension, computes a sha256
+  identity, and rewrites the node so the Storage render references the dedup
+  filename `marksync-asset-<sha256>.<ext>` (`assetFilename`, `src/domain/assets/naming.ts`).
+  Remote (`http(s)`) images are skipped (they render as `<ri:url>`). `computePlan`
+  resolves assets per document, populates `ContentHash.attachmentHashes` (so asset
+  drift is visible to the classifier), and stashes the `Artifact[]` on the plan
+  entry; `applyPlan` uploads each asset after Create/Update unless
+  `target.attachmentExists` is true (0 re-uploads on an idempotent rerun,
+  NFR-PERF-4) and persists the resulting hashes into `PageBinding.attachmentHashes`.
+  *(delivered — GH-26)*
 - **Concurrency control:** decentralized optimistic concurrency — Confluence 409
   on stale `version.number` + operation-ID dedup + stale-plan expiry + CI
   concurrency-group templates. Three pure domain gates
@@ -124,7 +138,8 @@ a `TargetSystem` port. The Confluence adapter is the sole implementation.
 | Identity service | UUID v7 assignment, front-matter management |
 | State manager | Committed `marksync.lock.yml` load/save/merge (`loadLock`/`saveLock`/`mergeBindings`, `src/app/lock.ts`), disposable `.marksync/` cache layout (`src/app/cache.ts`), pure content-property cross-check (`src/domain/state/reconcile.ts`), branch gate (`assertBranchAllowed`, `src/app/branch.ts`) *(delivered — GH-19)* |
 | Drift classifier | Pure `classify({ local?, base?, remote }) → Result<SyncState, MarkSyncError>` three-way classifier (`src/domain/state/classifier.ts`); `ContentHash` VO carrying the canonical-body + title + parent + attachment facets (`src/domain/state/hashes.ts`); six-value `SyncState` enum + `RemoteState` union + `SharedBase` view (`src/domain/state/sync-state.ts`); `SyncState → Action` mapping `NoOp`/`Update`/`Block`/`Skip` (`src/domain/state/actions.ts`) *(delivered — GH-22)* |
-| Sync engine | The use-case orchestration that ties the trust wedge together. `computePlan(config, lock, git, target) → Promise<Result<Plan, MarkSyncError>>` is the pure no-writes dry-run: branch gate → discover committed docs via the `Repository` port → duplicate-UUID fatal gate → parse/render/hash via `TargetSystem.renderBody` → resolve cross-page links → fetch remote state → classify → emit a reviewable `Plan`. `applyPlan(plan, target, lock, opts) → Promise<Result<ApplyReport, MarkSyncError>>` is the only write path: parent-first ordering, per-document isolation, journal-before-lock, provenance via `formatVersionMessage`, 409 Conflict surfaced as drift (re-fetch-once policy), atomic lock + `marksync.metadata` per doc. Append-only journal (`.marksync/journal/<run-id>.jsonl`) + `replayJournal` for partial-apply recovery. Modules: `src/app/push-flow.ts`, `src/app/journal.ts`, `src/domain/hierarchy/link-resolver.ts`, `src/domain/git/port.ts`, `src/infra/git/shell-git.ts` *(delivered — GH-23)* |
+| Sync engine | The use-case orchestration that ties the trust wedge together. `computePlan(config, lock, git, target) → Promise<Result<Plan, MarkSyncError>>` is the pure no-writes dry-run: branch gate → discover committed docs via the `Repository` port → duplicate-UUID fatal gate → parse/render/hash via `TargetSystem.renderBody` → resolve cross-page links → **resolve assets** (`AssetResolver`, path-safe, content-addressed) → fetch remote state → classify → emit a reviewable `Plan` (each `PlanEntry` carries `assets?: Artifact[]` and `ContentHash.attachmentHashes`). `applyPlan(plan, target, lock, opts) → Promise<Result<ApplyReport, MarkSyncError>>` is the only write path: parent-first ordering, per-document isolation, journal-before-lock, provenance via `formatVersionMessage`, **per-entry asset upload after Create/Update (reuse-on-exists, `PageBinding.attachmentHashes` merge)**, 409 Conflict surfaced as drift (re-fetch-once policy), atomic lock + `marksync.metadata` per doc. Append-only journal (`.marksync/journal/<run-id>.jsonl`) + `replayJournal` for partial-apply recovery. Modules: `src/app/push-flow.ts`, `src/app/journal.ts`, `src/domain/hierarchy/link-resolver.ts`, `src/domain/git/port.ts`, `src/infra/git/shell-git.ts` *(delivered — GH-23; asset wiring — GH-26)* |
+| Asset resolver | Path-safe, content-addressed local-image resolution. `AssetResolver` (`src/domain/assets/resolver.ts`, `{ root, readBytes? }` + `resolve(hast, docPath): Promise<Result<AssetSet, MarkSyncError>>`) walks HAST `img` nodes, resolves each local `src` relative to the doc confined to the configured root (`realpath` + prefix check, symlink-aware → `Forbidden(path-traversal)` with 0 bytes read on escape, NFR-SEC-7), sha256-identifies each asset, and rewrites the node to the dedup filename (`assetFilename`, `src/domain/assets/naming.ts` → `marksync-asset-<sha256>.<ext>`); returns an `AssetSet { artifacts, srcMap }`. Remote `http(s)` images are skipped. `computePlan`/`applyPlan` consume it. *(delivered — GH-26)* |
 | Concurrency gates | Decentralized optimistic-concurrency backstop for overlapping CI plans. Pure domain gates under `src/domain/state/`: `assertOperationFresh` (operation-ID freshness via UUID-v7 time-prefix comparison) at `operation-freshness.ts`; `assertPlanNotExpired` (stale-plan expiry window, default 15 min, conservative boundary) at `plan-expiry.ts`; `decideOnConflict` + `Decision` (409 re-fetch-once policy: reapply vs block over the `SyncState` matrix) at `conflict-policy.ts`; `uuidV7Timestamp` timestamp extractor at `src/domain/identity/uuid.ts`. Wired into `applyPlan`/`processEntry` with per-document isolation *(delivered — GH-24)* |
 | Confluence adapter | `TargetSystem` port implementation (v2/v1 API) |
 
@@ -149,6 +164,13 @@ a `TargetSystem` port. The Confluence adapter is the sole implementation.
 - [ ] **INV-SEC-1:** No credential appears in any output path (logs, plans,
       state, diagnostics, `version.message`, cache).
 - [ ] Semantic idempotency: second unchanged push writes 0 pages.
+- [ ] **NFR-SEC-7 (path-traversal confinement):** a local image referencing an
+      escape vector (relative `..`, absolute, symlink, URL-encoded, nested `..`,
+      root-prefix) → `Forbidden(path-traversal)` and **0** bytes are read outside
+      the configured root. *(delivered — GH-26)*
+- [ ] Asset idempotency (NFR-PERF-4): an unchanged image → `attachmentExists`
+      true → **0** attachment uploads; a changed image → new sha256 → upload.
+      *(delivered — GH-26)*
 - [ ] Drift classification: `NO_CHANGE` / `LOCAL_AHEAD` / `REMOTE_AHEAD` /
       `DIVERGED` / `REMOTE_MISSING` / `LOCAL_MISSING` all correctly detected.
 

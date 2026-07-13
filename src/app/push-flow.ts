@@ -16,6 +16,7 @@ import type {
 	SharedBase,
 } from "#domain/state/sync-state";
 import type { Action } from "#domain/state/actions";
+import type { Artifact } from "#domain/target/port";
 import { classify } from "#domain/state/classifier";
 import { actionFor } from "#domain/state/actions";
 import {
@@ -41,6 +42,7 @@ import type { MetadataProperty } from "#domain/state/reconcile";
 import type { Element, Root } from "hast";
 import { join } from "node:path";
 import { readFileSync } from "node:fs";
+import { AssetResolver } from "#domain/assets/resolver";
 
 // Read package.json version at module level
 const pkg = JSON.parse(
@@ -70,6 +72,8 @@ export interface PlanEntry {
 	hashes: ContentHash;
 	/** Rendered body for apply (target storage format). */
 	renderedBody: string;
+	/** Resolved assets for upload (GH-26). */
+	assets?: Artifact[];
 }
 
 /** The computed plan. */
@@ -94,6 +98,7 @@ export interface ApplyResultEntry {
 	uuid: DocumentId;
 	outcome: ApplyOutcome;
 	error?: MarkSyncError;
+	warnings?: string[]; // GH-26: warnings from uploadAssets
 }
 
 /** Apply report with per-entry results and aggregate counts. */
@@ -103,6 +108,7 @@ export interface ApplyReport {
 	writes: number; // created + updated
 	skips: number; // noop + skipped
 	blocks: number; // blocked
+	warnings: string[]; // GH-26: warnings from uploadAssets (>25 MB)
 }
 
 /** Options for applyPlan (PD-5: crash hook for testing). */
@@ -167,6 +173,9 @@ export async function computePlan(
 	const bindingsMutable: Record<string, { id: string; title: string }> = {};
 	const allWarnings: string[] = [];
 
+	// GH-26: Construct AssetResolver once, rooted at config.root
+	const resolver = new AssetResolver({ root: config.root });
+
 	// Collect all bindings for link resolution
 	for (const targetId of Object.keys(lock.targets)) {
 		const targetLock = lock.targets[targetId];
@@ -197,6 +206,11 @@ export async function computePlan(
 
 		const hast = mdastToHast(mdast);
 
+		// GH-26: Resolve assets (path-safe, content-addressed)
+		const assetResult = await resolver.resolve(hast, path);
+		if (!assetResult.ok) return assetResult; // Forbidden(path-traversal) aborts the plan
+		const assetSet = assetResult.value;
+
 		// Resolve cross-page links BEFORE rendering (AC-F7-1)
 		const linksResolved = _resolveLinksInDoc(hast, path, bindingsMap);
 		if (!linksResolved.ok) {
@@ -222,11 +236,17 @@ export async function computePlan(
 		const targetId = Object.keys(config.targets)[0] ?? "";
 		const parentId = config.targets[targetId]?.parentPageId ?? "";
 
+		// GH-26: Build attachmentHashes from assetSet (filename → hash)
+		const attachmentHashes: Record<string, string> = {};
+		for (const resolved of assetSet.srcMap.values()) {
+			attachmentHashes[resolved.filename] = resolved.hash;
+		}
+
 		// Build ContentHash with adapter's hash (adapter is hash authority)
 		let contentHash = buildContentHash({
 			source: bytes,
 			hast,
-			attachmentHashes: {},
+			attachmentHashes,
 			title,
 			parentPageId: parentId,
 		});
@@ -237,7 +257,7 @@ export async function computePlan(
 		let binding: PageBinding | undefined;
 		for (const tid of Object.keys(lock.targets)) {
 			const tdocs = lock.targets[tid]?.documents;
-			if (tdocs && tdocs[uuid]) {
+			if (tdocs?.[uuid]) {
 				binding = tdocs[uuid];
 				break;
 			}
@@ -303,6 +323,7 @@ export async function computePlan(
 				action,
 				hashes: contentHash,
 				renderedBody: body, // Capture for apply
+				assets: assetSet.artifacts, // GH-26: stash for upload
 			});
 		} else {
 			// Unbound doc: app-tier Create action (no classify - no base)
@@ -319,6 +340,7 @@ export async function computePlan(
 				},
 				hashes: contentHash,
 				renderedBody: body, // Capture for apply
+				assets: assetSet.artifacts, // GH-26: stash for upload
 			});
 		}
 	}
@@ -421,6 +443,55 @@ function _resolveLinksInDoc(
 	}
 
 	return Res.ok(undefined);
+}
+
+/**
+ * Upload assets for a page, skipping those that already exist (NFR-PERF-4).
+ * Returns a map of filename → hash for the uploaded assets.
+ * On error, returns the error (caller blocks per-document).
+ *
+ * This is a sub-operation of the page create/update mutation — it does NOT
+ * get its own journal op (consistent with DM-4).
+ *
+ * Exported for integration testing (GH-26 F-2/F-10).
+ */
+export async function uploadAssets(
+	target: TargetSystem,
+	pageId: string,
+	artifacts: Artifact[],
+): Promise<
+	Result<
+		{ attachmentHashes: Record<string, string>; warnings: string[] },
+		MarkSyncError
+	>
+> {
+	const attachmentHashes: Record<string, string> = {};
+	const warnings: string[] = [];
+
+	for (const artifact of artifacts) {
+		// Warn on large assets (>25 MB, story Q1)
+		if (artifact.bytes.byteLength > 25 * 1024 * 1024) {
+			warnings.push(`Asset exceeds 25 MB (${artifact.bytes.byteLength} bytes)`);
+		}
+
+		// Check if already exists (0 writes on reuse)
+		const existsResult = await target.attachmentExists(pageId, artifact.hash);
+		if (!existsResult.ok) return existsResult;
+		if (existsResult.value === true) {
+			// Already exists — skip (0 writes)
+			continue;
+		}
+
+		// Upload the artifact
+		const uploadResult = await target.uploadAttachment(pageId, artifact);
+		if (!uploadResult.ok) return uploadResult;
+
+		// Record the filename → hash mapping
+		// Note: uploadResult.value.filename is the dedup filename from the server
+		attachmentHashes[uploadResult.value.filename] = artifact.hash;
+	}
+
+	return Res.ok({ attachmentHashes, warnings });
 }
 
 /**
@@ -549,6 +620,7 @@ async function finalizeSuccessfulUpdate(
 	headSha: string,
 	operationId: string,
 	binding: PageBinding,
+	assetUploadHashes: Record<string, string> = {}, // GH-26: asset hashes to merge
 ): Promise<Result<ApplyResultEntry, MarkSyncError>> {
 	// Journal append BEFORE lock update
 	journal.append({
@@ -565,6 +637,10 @@ async function finalizeSuccessfulUpdate(
 		sourceCommit: headSha,
 		synchronizedAt: new Date().toISOString(),
 		operationId,
+		attachmentHashes: {
+			...binding.attachmentHashes,
+			...assetUploadHashes, // GH-26: merge newly uploaded assets
+		},
 	};
 
 	const lockTarget = lock.targets[targetId] ?? { documents: {} };
@@ -618,6 +694,7 @@ export async function applyPlan(
 	let skips = 0;
 	let blocks = 0;
 	let successfulMutations = 0; // PD-5: crash hook counts only successful mutations
+	const warnings: string[] = []; // GH-26: accumulate warnings from uploadAssets
 
 	// Format provenance message once
 	const message = formatVersionMessage(plan.provenance);
@@ -649,6 +726,11 @@ export async function applyPlan(
 			blocks++;
 		}
 
+		// GH-26: accumulate warnings from processEntry
+		if (outcome.warnings) {
+			warnings.push(...outcome.warnings);
+		}
+
 		if (crashAfter !== undefined && successfulMutations >= crashAfter) {
 			// Test-only crash hook: throws AFTER journal append (inside processEntry)
 			throw new Error(`CRASH_AFTER_${crashAfter}`);
@@ -661,6 +743,7 @@ export async function applyPlan(
 		writes,
 		skips,
 		blocks,
+		warnings,
 	});
 }
 
@@ -678,24 +761,25 @@ async function processEntry(
 	operationId: string,
 	headSha: string,
 	stalePlanMinutes: number,
-): Promise<ApplyResultEntry> {
+): Promise<ApplyResultEntry & { warnings?: string[] }> {
 	const { uuid, action } = entry;
 	const now = Date.now();
 	const planTimestamp = uuidV7Timestamp(operationId);
+	const warnings: string[] = []; // GH-26: accumulate warnings from uploadAssets
 
 	// NoOp → skip
 	if (action.kind === "NoOp") {
-		return { uuid, outcome: "noop" };
+		return { uuid, outcome: "noop", warnings };
 	}
 
 	// Skip → skip + warn
 	if (action.kind === "Skip") {
-		return { uuid, outcome: "skipped" };
+		return { uuid, outcome: "skipped", warnings };
 	}
 
 	// Block → record block (PD-8: 0 writes)
 	if (action.kind === "Block") {
-		return { uuid, outcome: "blocked", error: action.error };
+		return { uuid, outcome: "blocked", error: action.error, warnings };
 	}
 
 	// Update → updatePage with concurrency gates
@@ -721,7 +805,12 @@ async function processEntry(
 				stalePlanMinutes,
 			);
 			if (!expiryResult.ok) {
-				return { uuid, outcome: "blocked", error: expiryResult.error };
+				return {
+					uuid,
+					outcome: "blocked",
+					error: expiryResult.error,
+					warnings,
+				};
 			}
 		}
 
@@ -732,10 +821,15 @@ async function processEntry(
 		);
 		if (!propertyResult.ok) {
 			// Transport error on getProperty → block (spec §21)
-			return { uuid, outcome: "blocked", error: propertyResult.error };
+			return {
+				uuid,
+				outcome: "blocked",
+				error: propertyResult.error,
+				warnings,
+			};
 		}
 
-		let remoteOperationId: string | undefined = undefined;
+		let remoteOperationId: string | undefined;
 		if (propertyResult.ok && propertyResult.value !== undefined) {
 			try {
 				const parsed = JSON.parse(propertyResult.value) as MetadataProperty;
@@ -750,7 +844,12 @@ async function processEntry(
 			remoteOperationId,
 		);
 		if (!freshnessResult.ok) {
-			return { uuid, outcome: "blocked", error: freshnessResult.error };
+			return {
+				uuid,
+				outcome: "blocked",
+				error: freshnessResult.error,
+				warnings,
+			};
 		}
 
 		// Attempt updatePage with 409 re-fetch-once policy
@@ -769,7 +868,12 @@ async function processEntry(
 				const pageResult = await target.getPage(binding.pageId);
 				if (!pageResult.ok) {
 					// Transport error on re-fetch → block
-					return { uuid, outcome: "blocked", error: pageResult.error };
+					return {
+						uuid,
+						outcome: "blocked",
+						error: pageResult.error,
+						warnings,
+					};
 				}
 
 				const page = pageResult.value;
@@ -801,7 +905,12 @@ async function processEntry(
 					remote,
 				});
 				if (!classifyResult.ok) {
-					return { uuid, outcome: "blocked", error: classifyResult.error };
+					return {
+						uuid,
+						outcome: "blocked",
+						error: classifyResult.error,
+						warnings,
+					};
 				}
 
 				const refreshedState = classifyResult.value;
@@ -829,6 +938,27 @@ async function processEntry(
 					// Reapply succeeded
 					const updatedPage = reapplyResult.value;
 
+					// GH-26: Upload assets (if any) after page reapply
+					let reapplyAssetHashes: Record<string, string> = {};
+					if (entry.assets?.length) {
+						const uploadResult = await uploadAssets(
+							target,
+							updatedPage.id,
+							entry.assets,
+						);
+						if (!uploadResult.ok) {
+							// Asset upload failed — per-document block
+							return {
+								uuid,
+								outcome: "blocked",
+								error: uploadResult.error,
+								warnings,
+							};
+						}
+						reapplyAssetHashes = uploadResult.value.attachmentHashes;
+						warnings.push(...uploadResult.value.warnings);
+					}
+
 					const finalizeResult = await finalizeSuccessfulUpdate(
 						updatedPage.id,
 						uuid,
@@ -841,27 +971,50 @@ async function processEntry(
 						headSha,
 						operationId,
 						binding,
+						reapplyAssetHashes, // GH-26: pass asset hashes for merge
 					);
 
 					if (!finalizeResult.ok) {
-						return { uuid, outcome: "blocked", error: finalizeResult.error };
+						return {
+							uuid,
+							outcome: "blocked",
+							error: finalizeResult.error,
+							warnings,
+						};
 					}
 
-					return finalizeResult.value;
+					return { ...finalizeResult.value, warnings };
 				}
 				// Decision is "block" → block
-				return { uuid, outcome: "blocked", error: err };
+				return { uuid, outcome: "blocked", error: err, warnings };
 			}
 			// Transient transport errors → blocked (retryable)
 			// RateLimited / RemoteUnreachable from target HTTP failures
 			if (err.kind === "RateLimited" || err.kind === "RemoteUnreachable") {
-				return { uuid, outcome: "blocked", error: err };
+				return { uuid, outcome: "blocked", error: err, warnings };
 			}
 			// Other errors → blocked (but continue, per-document isolation)
-			return { uuid, outcome: "blocked", error: err };
+			return { uuid, outcome: "blocked", error: err, warnings };
 		}
 
 		const page = result.value;
+
+		// GH-26: Upload assets (if any) after page update
+		let assetUploadHashes: Record<string, string> = {};
+		if (entry.assets?.length) {
+			const uploadResult = await uploadAssets(target, page.id, entry.assets);
+			if (!uploadResult.ok) {
+				// Asset upload failed — per-document block
+				return {
+					uuid,
+					outcome: "blocked",
+					error: uploadResult.error,
+					warnings,
+				};
+			}
+			assetUploadHashes = uploadResult.value.attachmentHashes;
+			warnings.push(...uploadResult.value.warnings);
+		}
 
 		const finalizeResult = await finalizeSuccessfulUpdate(
 			page.id,
@@ -875,13 +1028,19 @@ async function processEntry(
 			headSha,
 			operationId,
 			binding,
+			assetUploadHashes, // GH-26: pass asset hashes for merge
 		);
 
 		if (!finalizeResult.ok) {
-			return { uuid, outcome: "blocked", error: finalizeResult.error };
+			return {
+				uuid,
+				outcome: "blocked",
+				error: finalizeResult.error,
+				warnings,
+			};
 		}
 
-		return finalizeResult.value;
+		return { ...finalizeResult.value, warnings };
 	}
 
 	// Create → createPage with stale-plan expiry check
@@ -894,7 +1053,12 @@ async function processEntry(
 				stalePlanMinutes,
 			);
 			if (!expiryResult.ok) {
-				return { uuid, outcome: "blocked", error: expiryResult.error };
+				return {
+					uuid,
+					outcome: "blocked",
+					error: expiryResult.error,
+					warnings,
+				};
 			}
 		}
 
@@ -906,10 +1070,27 @@ async function processEntry(
 		});
 
 		if (!result.ok) {
-			return { uuid, outcome: "blocked", error: result.error };
+			return { uuid, outcome: "blocked", error: result.error, warnings };
 		}
 
 		const page = result.value;
+
+		// GH-26: Upload assets (if any) after page create
+		let assetUploadHashes: Record<string, string> = {};
+		if (entry.assets?.length) {
+			const uploadResult = await uploadAssets(target, page.id, entry.assets);
+			if (!uploadResult.ok) {
+				// Asset upload failed — per-document block
+				return {
+					uuid,
+					outcome: "blocked",
+					error: uploadResult.error,
+					warnings,
+				};
+			}
+			assetUploadHashes = uploadResult.value.attachmentHashes;
+			warnings.push(...uploadResult.value.warnings);
+		}
 
 		// Journal append
 		journal.append({
@@ -930,7 +1111,7 @@ async function processEntry(
 			sourceContentHash: entry.hashes.rawHash,
 			renderedBodyHash: entry.hashes.canonicalHash,
 			remoteBodyHash: entry.hashes.canonicalHash, // Assume fresh
-			attachmentHashes: {},
+			attachmentHashes: assetUploadHashes, // GH-26: merged from upload
 			operationId,
 			synchronizedAt: new Date().toISOString(),
 			toolVersion: pkg.version,
@@ -944,7 +1125,7 @@ async function processEntry(
 		// Save lock
 		const saveResult = saveLock(cwd, lock);
 		if (!saveResult.ok) {
-			return { uuid, outcome: "blocked", error: saveResult.error };
+			return { uuid, outcome: "blocked", error: saveResult.error, warnings };
 		}
 
 		// Put property
@@ -955,10 +1136,10 @@ async function processEntry(
 			JSON.stringify(property),
 		);
 		if (!putResult.ok) {
-			return { uuid, outcome: "blocked", error: putResult.error };
+			return { uuid, outcome: "blocked", error: putResult.error, warnings };
 		}
 
-		return { uuid, outcome: "created" };
+		return { uuid, outcome: "created", warnings };
 	}
 
 	// Exhaustive check (PlanAction is a union)

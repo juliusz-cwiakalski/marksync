@@ -12,7 +12,7 @@ area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005, ADR-0006, TDR-0003, ADR-0010]
-  related_changes: [GH-18, GH-20, GH-21, GH-22, GH-23, GH-24]
+  related_changes: [GH-18, GH-20, GH-21, GH-22, GH-23, GH-24, GH-26]
   summary: "Architecture overview — ports-and-adapters CLI; Markdown→Storage pipeline; Confluence Cloud adapter; UUID+lock state model; no hosted backend."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -95,9 +95,9 @@ section below govern residence and dependency direction._
 | State classifier | MarkSync binary | domain | Pure three-way `classify({ local?, base?, remote }) → Result<SyncState, MarkSyncError>` + `SyncState` enum + `RemoteState` union + `SharedBase` view + `SyncState → Action` mapping (`NoOp`/`Update`/`Block`/`Skip`) — `src/domain/state/{classifier,sync-state,hashes,actions}.ts` *(delivered — GH-22)* |
 | Concurrency gates | MarkSync binary | domain | Decentralized optimistic-concurrency backstop for overlapping CI runs (ADR-0006 C-5/C-6): `assertOperationFresh` (operation-ID freshness via UUID-v7 time-prefix comparison), `assertPlanNotExpired` (stale-plan expiry, default 15 min, conservative boundary), `decideOnConflict` + `Decision` (409 re-fetch-once: reapply vs block over the `SyncState` matrix) — `src/domain/state/{operation-freshness,plan-expiry,conflict-policy}.ts`; `uuidV7Timestamp` extractor anchors both expiry and freshness via the `runId`'s embedded UUID-v7 timestamp (`src/domain/identity/uuid.ts`) *(delivered — GH-24)* |
 | Markdown parser | MarkSync binary | domain | Markdown → MDAST/HAST (remark + remark-gfm); canonical subset validation. `parseMarkdown` (`src/domain/markdown/parse.ts`) → `mdastToHast` bridge (`src/domain/markdown/mdast-to-hast.ts`) → unsupported-node classifier emitting `UnsupportedConstruct` (`src/domain/markdown/unsupported.ts`) → canonical HAST + `contentHash` sha256 (`src/domain/render/canonicalize.ts`) *(delivered — GH-20)* |
-| Asset resolver | MarkSync binary | domain | Safe path/hash/dedup prep for images + attachments |
+| Asset resolver | MarkSync binary | domain | Path-safe, content-addressed local-image resolution. `AssetResolver` (`src/domain/assets/resolver.ts`) walks HAST `img` nodes, resolves each local `src` relative to the doc confined to the configured root (`realpath` + prefix check, symlink-aware → `Forbidden(path-traversal)`, NFR-SEC-7), sha256-identifies each asset, and rewrites the node to the dedup filename `marksync-asset-<sha256>.<ext>` (`src/domain/assets/naming.ts`); remote `http(s)` images skipped *(delivered — GH-26)* |
 | Mermaid artifact manager | MarkSync binary | domain | Calculate Mermaid content hash, detect whether a given hash already exists on the target, orchestrate render→upload→reference |
-| Push executor | MarkSync binary | application | Ordered safe writes via `TargetSystem` port; the `computePlan` (pure, no-writes dry-run) + `applyPlan` (parent-first, per-document isolation, journaling, provenance wiring, Conflict-as-drift with re-fetch-once policy) use cases at `src/app/push-flow.ts` *(delivered — GH-23)*. Concurrency gates wired in GH-24 — operation-freshness + stale-plan-expiry before each write, 409 re-fetch-once on `Conflict` (pure gates at `src/domain/state/`) *(delivered — GH-24)* |
+| Push executor | MarkSync binary | application | Ordered safe writes via `TargetSystem` port; the `computePlan` (pure, no-writes dry-run) + `applyPlan` (parent-first, per-document isolation, journaling, provenance wiring, Conflict-as-drift with re-fetch-once policy) use cases at `src/app/push-flow.ts` *(delivered — GH-23)*. Concurrency gates wired in GH-24 — operation-freshness + stale-plan-expiry before each write, 409 re-fetch-once on `Conflict` (pure gates at `src/domain/state/`) *(delivered — GH-24)*. Asset resolution in `computePlan` + per-entry asset upload/reuse in `applyPlan` (reuse-on-exists → 0 writes; `PageBinding.attachmentHashes` merge) wired via `AssetResolver` (`src/domain/assets/`) *(delivered — GH-26)* |
 | Pull/conflict service | MarkSync binary | infrastructure | Reverse-sync patches/conflict workspace; never commits |
 | Lock/journal store | MarkSync binary | application | Lock atomic save (`saveLock`, delegating to the infra `writeAtomic` primitive at `src/infra/lock/store.ts`) + append-only journal writer + `replayJournal` for partial-apply recovery (`src/app/journal.ts`) *(delivered — GH-23)* |
 | Git adapter | MarkSync binary | infrastructure | `Repository` port (`src/domain/git/port.ts`) → shell-git adapter (`createShellGit`, `src/infra/git/shell-git.ts`) via Git CLI (TDR-0003); read-only committed snapshots *(delivered — GH-23)* |
@@ -110,7 +110,7 @@ section below govern residence and dependency direction._
 | Confluence client | MarkSync binary | infrastructure | `ConfluenceClient` → Cloud REST v2/v1; native `fetch`, `v1`/`v2` URL builders rooted at `baseUrl`, `authHeader` injection, redacted logging, 429 backoff → `RateLimited`, 5xx retry → `RemoteUnreachable`; 401/403 never retried *(delivered — GH-21)* |
 | Confluence page service | MarkSync binary | infrastructure (adapter) | `PageService` (v2): page create/read/update/move + the brand-defining 409-conflict parse → typed `Conflict`; 403 → `Forbidden`; 404 → `RemoteMissing` *(delivered — GH-21)* |
 | Confluence content property manager | MarkSync binary | infrastructure (adapter) | `PropertyService` (v2): `marksync.metadata` string property read/write (lock cross-check data); `getProperty` → `string | undefined` *(delivered — GH-21)* |
-| Confluence attachment manager | MarkSync binary | infrastructure | `AttachmentService` (v1-only): multipart upload, hash-named dedup, 400-duplicate idempotency signal → "already exists", `/data` update on changed bytes *(delivered — GH-21)* |
+| Confluence attachment manager | MarkSync binary | infrastructure | `AttachmentService` (v1-only): multipart upload, hash-named dedup, 400-duplicate idempotency signal → "already exists", existence + list. Changed bytes → new hash-named file → fresh create (no in-place `/data` update by design) *(delivered — GH-21)* |
 | Confluence Storage renderer | MarkSync binary | infrastructure (adapter) | HAST → Confluence Storage XHTML string-builder visitor (ADR-0005); `renderStorage(hast, opts) → { body, hash, warnings }` (`src/infra/confluence/render/storage.ts`); CDATA code bodies, omitted `ac:schema-version`/`ac:macro-id`, `<ac:task-list>` as its own block *(delivered — GH-20)* |
 | Confluence search + restrictions | MarkSync binary | infrastructure (adapter) | `SearchService` (CQL, v1-only) + `RestrictionsService` (v1-only) — minimal for MS-0002 *(delivered — GH-21)* |
 | Confluence page-history provenance | MarkSync binary | infrastructure (adapter) | `version.message` formatting per ADR-0010; MarkSync/Git prefix; compact included-commit summary; deterministic trim to `MAX_VERSION_MESSAGE_LEN` *(delivered — GH-21)* |
@@ -181,6 +181,7 @@ flowchart TB
 | new CLI command | `src/cli/commands/` | presentation; thin orchestration only |
 | new use-case orchestration | `src/app/` | application; calls domain + infra via ports |
 | new domain rule (drift, identity, planning) | `src/domain/<context>/` | no infra imports |
+| asset/path-safety resolution (local images, attachments) | `src/domain/assets/` | no infra imports; `AssetResolver` + `assetFilename` delivered (GH-26) |
 | new Markdown transform (generic) | `src/domain/render/` | MDAST/HAST-level; adapter-agnostic |
 | new Confluence-specific render/reverse | `src/infra/confluence/render/` | HAST→Storage, Storage→MDAST; behind `TargetSystem` port |
 | new Confluence endpoint use | `src/infra/confluence/` | behind `ConfluenceClient` interface |
@@ -297,7 +298,7 @@ flowchart TD
 ```
 
 - Each step is idempotent; partial-apply rerun uses journal + remote property to avoid duplicates (spec §9.8).
-- The dry-run path (Load → Classify → return `Plan` with 0 writes) is `computePlan`; the apply path (create/update parent-first → upload assets → update bodies + property → journal → lock) is `applyPlan` — both at `src/app/push-flow.ts` *(delivered — GH-23)*. Writes are serialized (bounded concurrency = 1, ADR-0010 C-3); each mutation is journaled (`src/app/journal.ts`) before the lock updates, and a 409 surfaces as drift with no retry.
+- The dry-run path (Load → Classify → return `Plan` with 0 writes) is `computePlan`; the apply path (create/update parent-first → upload assets → update bodies + property → journal → lock) is `applyPlan` — both at `src/app/push-flow.ts` *(delivered — GH-23)*. The asset-upload step (per-entry upload after Create/Update, reuse-on-exists, `attachmentHashes` merge) is wired via `AssetResolver` (`src/domain/assets/`) *(delivered — GH-26)*. Writes are serialized (bounded concurrency = 1, ADR-0010 C-3); each mutation is journaled (`src/app/journal.ts`) before the lock updates, and a 409 surfaces as drift with no retry.
 - Concurrency control (`A-FEA-7`): decentralized — Confluence 409 on stale `version.number` + operation-ID dedup + stale-plan expiry. No shared service; no pessimistic leasing. CI concurrency-group templates reduce overlap at the source. *(delivered — GH-24)*
 
 ### Reverse sync flow (later — `MS-0005+`)

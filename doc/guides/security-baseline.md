@@ -5,20 +5,20 @@ ados_distribution: redistributable
 id: SECURITY-BASELINE
 status: Draft
 created: 2026-07-05
-last_updated: 2026-07-05
+last_updated: 2026-07-13
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0006, ADR-0011]
-  related_changes: []
-  summary: "Security baseline — secret management, redaction, dependency audit, converter injection safety, and credential handling for MarkSync."
+  related_changes: [GH-26]
+  summary: "Security baseline — secret management, redaction, dependency audit, converter injection safety, path-traversal confinement, and credential handling for MarkSync."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
 
 # Security Baseline
 
-_The security baseline for MarkSync. Implements NFR-SEC-1 through NFR-SEC-6,
+_The security baseline for MarkSync. Implements NFR-SEC-1 through NFR-SEC-7,
 INV-SEC-1, and R-SEC-1. All agents (@coder, @plan-writer, reviewers) must load
 and follow this file._
 
@@ -165,6 +165,44 @@ it("strips ac:structured-macro from raw HTML", () => {
 });
 ```
 
+## Path-traversal confinement (NFR-SEC-7)
+
+### Threat
+
+A Markdown document authors local image paths (`![alt](path)`). MarkSync reads
+the referenced bytes and uploads them as attachments. Without confinement, a
+crafted `src` — relative `..` traversal (`../../etc/passwd`), absolute paths,
+symlinks that escape the configured root, URL-encoded traversal, nested `..`,
+or a root-prefix trick — could make MarkSync read and upload arbitrary bytes
+outside the configured content root.
+
+### Controls
+
+1. **Root confinement by canonicalization** — the `AssetResolver`
+   (`src/domain/assets/resolver.ts`) resolves each local `src` relative to the
+   document directory, then canonicalizes **both** the root and the target via
+   `fs.realpathSync` (this resolves symlinks — story R1, CEO-resolved) and
+   asserts the canonical target is within the canonical root (exact match or
+   `root + path.sep` prefix). On escape → `Forbidden { operation:
+   "path-traversal" }`.
+2. **0 bytes read on failure** — the confinement check runs **before** any
+   `readBytes` call; an escaping path is rejected and never opened. The
+   `readBytes` hook is injectable so unit tests assert it is never invoked for
+   an escaping path.
+3. **Defense at the gate** — confinement is evaluated in `computePlan` (the
+   pure dry-run); a `Forbidden(path-traversal)` aborts the plan before any
+   write. No per-doc skip — a security failure halts the plan.
+4. **Remote images untouched** — `http(s)` `src` values are skipped (they
+   render as `<ri:url>`); only local paths enter the confinement check.
+
+### Testing
+
+- **Unit vectors** — a fixture suite covers every escape vector (relative `..`,
+  absolute, symlink-escape, URL-encoded, nested `..`, root-prefix); each must
+  yield `Forbidden(path-traversal)` and the read-bytes hook must never fire.
+- **Integration** — the resolver + mock target cycle (upload/reuse/update) and
+  the format matrix (png/jpg/gif/svg/webp) are covered by integration tests.
+
 ## Credential storage (NFR-SEC-6)
 
 ### Keyring (spike-gated)
@@ -218,6 +256,8 @@ work-in-progress branches.
 - [ ] No `console.log` of raw objects (use `pino` with redaction).
 - [ ] No new credential patterns without a redaction rule + test.
 - [ ] No raw HTML pass-through in the converter (run injection tests).
+- [ ] Local image/asset paths confined to the configured root (run
+  path-traversal vector tests — NFR-SEC-7).
 - [ ] Branch restriction logic not bypassed.
 - [ ] No outbound network calls except to the configured Confluence target.
 

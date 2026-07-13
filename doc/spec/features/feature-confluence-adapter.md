@@ -5,11 +5,11 @@ ados_distribution: project-generated
 id: SPEC-CONFLUENCE-ADAPTER
 status: Current
 created: 2026-07-06
-last_updated: 2026-07-10
+last_updated: 2026-07-13
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: [GH-21]
+  related_changes: [GH-21, GH-26]
   decisions: [ADR-0005, ADR-0006, ADR-0010]
   contracts: []
 ---
@@ -55,9 +55,12 @@ transport surface — client, per-surface services, and the provenance formatter
 - **Content properties:** read/write the `marksync.metadata` content property
   (v2) for machine-readable state. `getProperty` returns `string | undefined` (a
   missing key is not an error).
-- **Attachments:** upload, update, existence check, list (v1-only). Hash-named
+- **Attachments:** upload, existence check, list (v1-only). Hash-named
   files dedup on the filename; a duplicate-filename 400 is the idempotency
-  signal (mapped to an "already exists" result, not an error).
+  signal (mapped to an "already exists" result, not an error). Changed bytes
+  always produce a new hash-named file (fresh create) — there is no in-place
+  `/data` update by design. The upload/existence surface is exercised by the
+  safe-publish asset upload step (GH-26).
 - **Search:** CQL search for page discovery (v1-only).
 - **Restrictions:** read page restrictions (v1-only).
 - **Labels:** add, delete, list (v1-only) — **deferred to post-MS-0002** (no

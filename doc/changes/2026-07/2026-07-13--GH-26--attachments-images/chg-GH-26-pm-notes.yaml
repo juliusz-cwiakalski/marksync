@@ -1,0 +1,213 @@
+change_id: GH-26
+title: "[MS2-E4-S2] Attachments and images"
+slug: attachments-images
+branch: feat/GH-26/attachments-images (to be created by @coder; PM created empty branch for notes)
+change_folder: doc/changes/2026-07/2026-07-13--GH-26--attachments-images
+story_file: doc/planning/milestones/MS-2/MS2-E4--features/MS2-E4-S2--attachments-images.md
+feature_spec: doc/spec/features/feature-safe-publish.md
+decisions: [ADR-0005, ADR-0006]
+
+phases:
+  clarify_scope: { started: "2026-07-13T06:00:00Z", completed: "2026-07-13T06:20:00Z" }
+  specification: { started: "2026-07-13T06:20:00Z", completed: "2026-07-13T06:40:00Z" }
+  test_planning: { started: "2026-07-13T06:40:00Z", completed: "2026-07-13T06:50:00Z" }
+  delivery_planning: { started: "2026-07-13T06:50:00Z", completed: "2026-07-13T07:00:00Z" }
+  dor_check: { started: "2026-07-13T07:00:00Z", completed: "2026-07-13T07:05:00Z" }
+  delivery: { started: "2026-07-13T07:10:00Z", completed: "2026-07-13T07:40:00Z" }
+  system_spec_update: { started: "2026-07-13T07:40:00Z", completed: "2026-07-13T07:55:00Z" }
+  review_fix: { started: "2026-07-13T08:00:00Z", completed: "2026-07-13T08:40:00Z" }
+  quality_gates: { started: "2026-07-13T08:40:00Z", completed: "2026-07-13T08:50:00Z" }
+  dod_check: { started: "2026-07-13T08:50:00Z", completed: "2026-07-13T09:00:00Z" }
+  pr_creation: { started: "2026-07-13T09:00:00Z", completed: "2026-07-13T09:10:00Z", url: "https://github.com/juliusz-cwiakalski/marksync/pull/61" }
+
+dod_check:
+  verdict: PASS
+  checks:
+    all_phases_complete: "clarify_scope → quality_gates all recorded with timestamps; pr_creation in progress"
+    plan_tasks_done: "Phases 0-6 delivered; Phase 7 P7.1-P7.5,P7.7-P7.10,P7.12-P7.15 done [x]; P7.6 (applyPlan Create-path asset test) + P7.11 (large-asset isolation) intentionally skipped — reviewer NF-1 marked advisory LOW (uploadAssets tested independently; wiring is a simple repeated pattern). Non-blocking."
+    spec_acs_satisfied: "All 11 ACs met. AC-1 path-traversal (iter-2 verified genuine), AC-2 reuse, AC-3 no-/data, AC-4 format coverage (incl. SVG after F-1), AC-5 remote, AC-6 pipeline, AC-7 asset-drift (F-6), AC-8 naming-invariant, AC-9 large-asset (F-8 warnings wired), AC-10 no-secrets, AC-11 bun run check green. iter-2 review PASS."
+    current_truth_docs: "Complete — @doc-syncer reconciled (NFR-SEC-7 added, feature/architecture/UL/security-baseline/confluence-adapter updated, story AC wording corrected). No residual gaps."
+    quality_gates_green: "bun run check 993/0/0 dep-violations; commitlint clean (origin/main..HEAD); YAML valid (only intentional malformed fixture)."
+  advisory_non_blocking: "iter-2 NF-1 (no applyPlan-level uploadAssets test), NF-2 (F-5 subarray test weak under Bun allocator), NF-3 (// F-5: comment noise, dup TC-UNIT-009 id). None block merge."
+
+review_summary:
+  iter_1: "FAIL — 11 findings (1c/5h/3m/2l). Release-blocking: F-1 SVG naming, F-3/F-4 path-traversal false-positive tests, F-5 sha256Hex bytes.buffer, F-6 asset-drift test absent. Phase 7 remediation (P7.1-P7.15) added to plan."
+  remediation_commits: ["7395991 (F-1 kind field)", "84f6626 (F-1..F-11 fixes)", "9af1c1e (mock-target call recording)"]
+  iter_2: >
+    PASS — all 11 iter-1 findings RESOLVED with evidence (artifact
+    code-review/review-iter-2.yaml). 3 advisory LOW (non-blocking): NF-1 no
+    applyPlan-level integration test for uploadAssets wiring (P7.6 skipped);
+    NF-2 F-5 subarray test can't detect regression under Bun's non-pooling
+    readFileSync (fix is correct, test is weak); NF-3 '// F-5:' review-tag noise
+    + duplicate TC-UNIT-009 ID across files. Reviewer: proceed to DoD + PR.
+
+quality_gates:
+  bun_run_check: "GREEN — 993 pass / 0 fail / 28 snapshots / 3695 expect() / 95 files; lint+format+typecheck+depcruise(0 violations)"
+  commitlint_origin_main_to_head: "EXIT 0 (all 13 commits Conventional-Commit compliant, lowercase gh-26 subjects)"
+  yaml_validation: "PASS — all repo YAML valid; only 'failure' is tests/unit/app/fixtures/invalid-malformed-yaml.yml, an INTENTIONAL test fixture"
+  test_placement: "ALL GH-26 tests under tests/unit|integration (CI runs tests/unit|integration|golden) — no relocation needed"
+
+decisions:
+  - text: >
+      DEC-1 (naming reconciliation, 2026-07-13): the AssetResolver produces an
+      Artifact carrying the FULL sha256 hex, and the domain naming helper
+      assetFilename() produces marksync-asset-<hash>.<ext> — identical to the
+      existing infra AttachmentService.attachmentFilename() for non-SVG. The
+      story file's <first24(sha256)> note is superseded by the already-shipped
+      full-hash scheme (single naming authority). User-authored .svg maps to
+      marksync-asset- (the marksync-mermaid- prefix stays reserved for E4-S1).
+      Change-scoped decision (reconciles with GH-21 infra); no new ADR.
+    date: "2026-07-13"
+  - text: >
+      DOC-1 resolved (2026-07-13, @doc-syncer commit 5c7d708): path-traversal
+      confinement added as NFR-SEC-7 in doc/spec/nonfunctional.md (NFR-SEC-5 was
+      "Converter injection safety" and was NOT repurposed); story cross_cutting
+      + narrative + AC citations corrected NFR-SEC-5->NFR-SEC-7; security-baseline
+      gained a Path-traversal confinement section; feature-safe-publish /
+      architecture-overview / ubiquitous-language / feature-confluence-adapter
+      reconciled with the delivered AssetResolver + upload/reuse wiring.
+    date: "2026-07-13"
+
+open_questions: []
+
+dor_self_check:
+  verdict: READY (PM self-review)
+  rationale: >
+    @readiness-reviewer subagent delegation unavailable in this session
+    (environment interrupting task-tool calls; @spec-writer/@test-plan-writer/
+    @plan-writer all interrupted 3x). PM wrote all three artifacts directly
+    after deep clarify_scope against the live codebase (read attachments.ts,
+    target port, storage.ts imageMacro, push-flow.ts, hashes, errors). PM
+    self-reviewed the artifacts for: (a) AC↔test traceability (all 11 ACs map
+    to TC-UNIT/TC-INTEGRATION IDs); (b) spec↔plan↔test-plan consistency (same
+    decisions DEC-1, same NFR mapping, same scope/non-goals); (c) no new
+    MarkSyncError arms; (d) reuse-not-redefine of AttachmentService/port/
+    imageMacro; (e) OQ-1 (config root field) flagged non-blocking, resolvable
+    at planning (P0.3). No blocking gaps found. RECORDED OVERRIDE: a full
+    @readiness-reviewer pass is deferred to phase 8 (review_fix) where
+    @reviewer will apply both spec/plan compliance AND code-quality checks on
+    the implemented change — providing the adversarial critique post-delivery.
+
+blockers: []
+
+delivery_report:
+  verdict: COMPLETED_ALL (@coder)
+  commits:
+    - 77536a9: "docs(safe-publish): GH-26 change artifacts"
+    - af54d75: "feat(assets): GH-26 add domain asset-naming helper"
+    - 88dee57: "feat(assets): GH-26 path-safe content-hashed AssetResolver"
+    - 3d87fbb: "feat(safe-publish): GH-26 wire AssetResolver into computePlan"
+    - 05b6426: "feat(safe-publish): GH-26 wire asset upload/reuse into applyPlan"
+    - 48deddd: "test(assets): GH-26 asset upload/reuse integration tests"
+    - 06ffad1: "chore(assets): GH-26 plan status updated to Delivered"
+    - 5c7d708: "docs(spec): reconcile current-truth docs with GH-26 (@doc-syncer)"
+  new_modules: [src/domain/assets/naming.ts, src/domain/assets/resolver.ts]
+  new_tests: [tests/unit/domain/assets/naming.test.ts, tests/unit/domain/assets/resolver.test.ts, tests/integration/assets/asset-upload.test.ts]
+  bun_run_check_at_delivery: "PASS — 989 pass / 0 fail / 28 snapshots / 3665 expect() calls / 95 files; typecheck+lint+dep-cruiser green"
+  ac_status:
+    AC1_path_traversal: "PASS (TC-UNIT-001..006 prove 0 bytes read)"
+    AC2_reuse: "PASS (TC-INTEGRATION-001)"
+    AC3_update_on_change: "PASS (TC-INTEGRATION-002 — no /data call)"
+    AC4_format_coverage: "PASS (TC-UNIT-007 + TC-INTEGRATION-003)"
+    AC5_remote_image: "PASS (TC-UNIT-008 + TC-INTEGRATION-004)"
+    AC6_pipeline: "PASS (TC-INTEGRATION-005)"
+    AC7_asset_drift: "PASS (attachmentHashes populated)"
+    AC8_naming_invariant: "PASS (TC-UNIT-010)"
+    AC9_large_asset: "PARTIAL — >25MB warning via console.warn; 413->TooLarge per-doc isolation. Acceptable for MS-0002."
+    AC10_no_secrets: "PASS (TC-UNIT-011)"
+    AC11_quality_gate: "PASS"
+
+# Doc-reconciliation items surfaced during clarify_scope; @spec-writer cites
+# correctly, @doc-syncer reconciles system spec in phase 7.
+doc_reconciliation:
+  - id: DOC-1
+    text: >
+      Story file cross_cutting cites NFR-SEC-5 for path-traversal/path-safety,
+      but NFR-SEC-5 in doc/spec/nonfunctional.md is "Converter injection safety"
+      (macro injection), NOT path traversal. There is currently no explicit
+      path-traversal NFR ID. Path safety is a clear, testable release-blocking
+      security requirement (AC + R1/R2). Spec-writer should cite the requirement
+      as stated (path-traversal confinement) and @doc-syncer may add a
+      path-safety NFR row (e.g. NFR-SEC-7) or map to the INV-SEC/NFR-SEC-1 family
+      in phase 7. Non-blocking.
+
+clarify_scope_findings:
+  dependencies_resolved:
+    - "GH-21 (MS2-E3-S4 Confluence adapter) CLOSED/MERGED — AttachmentService (upload/exists/list) + 400-duplicate-filename→reuse + attachmentFilename() hash-naming already exist."
+    - "GH-23 (MS2-E3-S6 Sync engine) CLOSED/MERGED — computePlan/applyPlan exist; attachmentHashes field plumbed through PageBinding/ContentHash."
+  existing_infra_reused:
+    - "src/infra/confluence/attachments.ts — AttachmentService.upload/exists/list + attachmentFilename() (marksync-asset-<hash>.<ext> / marksync-mermaid- for svg). /data update NOT exposed by design (hash-naming → changed bytes = new filename = fresh create)."
+    - "TargetSystem port (src/domain/target/port.ts) — uploadAttachment/attachmentExists/listAttachments + Artifact{bytes,mime,hash}/AttachmentRef already defined."
+    - "src/infra/confluence/render/storage.ts imageMacro() — ALREADY emits <ac:image><ri:url> for http(s) and <ri:attachment ri:filename> for local. BUT uses raw src filename, NOT hash-derived filename. Story must wire resolved hash filename into the pipeline."
+  new_modules_needed:
+    - "src/domain/assets/resolver.ts — AssetResolver (walk HAST image nodes, path-safe resolve relative to doc confined to root, reject ../ traversal → Forbidden{operation:'path-traversal'}, realpath symlink resolution per R1, sha256 content-hash identity)."
+    - "src/domain/assets/naming.ts — domain-side filename scheme (mirrors infra attachmentFilename; reconcile first24(sha256) per story vs full hash in infra)."
+  integration_points:
+    - "computePlan: currently builds contentHash with attachmentHashes:{} (empty). Must run AssetResolver per doc → populate attachmentHashes + resolve hash filenames into the rendered body (so ri:attachment carries the dedup key)."
+    - "applyPlan / Create path: must upload attachments (target.uploadAttachment) after page create/update; reuse if attachmentExists(hash) true → 0 writes. attachmentHashes must persist into PageBinding."
+    - "imageMacro: use resolved hash filename for local images (currently uses src basename). Remote (http/https) already correct → ri:url."
+  pre_resolved_by_story:
+    - "R1 (symlinks escaping root) — CEO-resolved: realpath before confinement check, reject if target escapes root."
+    - "Q1 (large assets) — CEO-resolved: no hard cap for MS-0002 (Confluence enforces own limit); warn on >25MB. AttachmentService already maps 413→TooLarge."
+
+notes:
+  - text: >
+      REVIEW iter-1 FAIL (2026-07-13, @reviewer, artifact
+      code-review/review-iter-1.yaml). 11 findings: 1 critical / 5 high / 3
+      medium / 2 low. Release-blocking: F-1 (SVG naming divergence — domain
+      rewrites HAST to marksync-asset-<hash>.svg but infra uploads as
+      marksync-mermaid-<hash>.svg → broken user SVG images + idempotency
+      break); F-3 (TC-UNIT-005 root-prefix trick is a FALSE POSITIVE — evil
+      dir doesn't exist so realpath throws before the prefix check); F-4
+      (TC-UNIT-003 URL-encoded traversal is a FALSE POSITIVE — path.resolve
+      doesn't URL-decode); F-5 (sha256Hex passes bytes.buffer full slab
+      ignoring byteOffset/byteLength → wrong hash for subarray views);
+      F-6 (TC-UNIT-009 asset-drift test absent though P3.5 checked). Phase 7
+      remediation P7.1-P7.15 written into the plan by @reviewer. Delegating to
+      @coder for remediation, then re-review iter-2. F-1/F-3/F-4/F-5 must PASS
+      before DoD.
+    type: blocker
+    workItemRef: GH-26
+    date: "2026-07-13"
+  - text: >
+      Retro — the deferred adversarial DoR critique (recorded override in
+      dor_self_check because @readiness-reviewer was unavailable pre-delivery)
+      WORKED as designed: run post-delivery via @reviewer, it surfaced a real
+      critical bug (F-1 SVG naming) and two false-positive security tests
+      (F-3/F-4) that the green 989-test suite hid. The green gate gave false
+      confidence. Improvement: even when DoR must be deferred, the post-delivery
+      @reviewer MUST run before DoD (it did here) — and security AC tests need
+      adversarial scrutiny for false positives (a passing test that passes for
+      the wrong reason is worse than no test).
+    type: retro
+    workItemRef: GH-26
+    date: "2026-07-13"
+  - text: >
+      PM-FALLBACK (2026-07-13): the @spec-writer task delegation was interrupted
+      3x in a row (each correlated with a re-issued top-level prompt; tool
+      returned "[Tool execution was interrupted]"). To unblock delivery, PM
+      wrote chg-GH-26-spec.md directly — it is a documentation artifact, not
+      source code (the PM prohibition is on implementing source code). Key
+      decisions captured in the spec: DEC-1 naming reconciliation (resolver
+      produces full-sha256 Artifact, reuses infra attachmentFilename(); story's
+      <first24> note superseded); SVG maps to marksync-asset- (mermaid prefix
+      stays reserved for E4-S1); path-traversal confinement is release-blocking
+      (realpath + prefix check, symlink-aware); DOC-1 NFR-SEC-5 mis-citation
+      flagged for @doc-syncer. If subagent delegation remains non-functional,
+      PM will also write the test-plan and plan as fallbacks and reserve
+      delegation for the @coder source-code implementation (which PM cannot do).
+    type: retro
+    workItemRef: GH-26
+    date: "2026-07-13"
+  - text: >
+      clarify_scope COMPLETE (2026-07-13). Requirements clear & testable;
+      dependencies resolved; no blocking questions. Proceeding to artifact
+      generation. State detection: GH-26 OPEN, no PR, no branch (new delivery);
+      was on main at d8923f5 (GH-25 merge). GH-24 (#59) and GH-25 (#60) merged
+      since last session — pm-context updated. NOTE: no mermaid manager exists
+      yet (GH-25 shipped only the code policy per CEO-DEC-1); the
+      marksync-mermaid- prefix is reserved in attachments.ts but unused — this
+      story's marksync-asset- naming is independent and unblocked.
+    type: info
+    workItemRef: GH-26
+    date: "2026-07-13"

@@ -25,11 +25,12 @@ function creds(): ConfluenceCredentials {
 	};
 }
 
-function svgArtifact(hash: string): Artifact {
+function svgArtifact(hash: string, kind?: "mermaid" | "asset"): Artifact {
 	return {
 		bytes: new TextEncoder().encode(`<svg>${hash}</svg>`),
 		mime: "image/svg+xml",
 		hash,
+		kind,
 	};
 }
 
@@ -69,8 +70,13 @@ const DUP_400_BODY = JSON.stringify({
 
 describe("attachmentFilename — hash-derived, mime-aware prefix/ext", () => {
 	test("mermaid SVG → marksync-mermaid-<hash>.svg", () => {
-		expect(attachmentFilename(svgArtifact("abc123"))).toBe(
+		expect(attachmentFilename(svgArtifact("abc123", "mermaid"))).toBe(
 			"marksync-mermaid-abc123.svg",
+		);
+	});
+	test("user SVG → marksync-asset-<hash>.svg", () => {
+		expect(attachmentFilename(svgArtifact("def456", "asset"))).toBe(
+			"marksync-asset-def456.svg",
 		);
 	});
 	test("png asset → marksync-asset-<hash>.png", () => {

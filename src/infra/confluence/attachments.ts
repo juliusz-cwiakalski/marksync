@@ -134,12 +134,13 @@ export class AttachmentService {
 
 /**
  * The hash-derived filename — the dedup key. Mermaid SVGs use the
- * `marksync-mermaid-` prefix (ADR-0002); other assets use `marksync-asset-`.
+ * `marksync-mermaid-` prefix (ADR-0002, gated on explicit kind field);
+ * other assets use `marksync-asset-`.
  */
 export function attachmentFilename(artifact: Artifact): string {
 	const ext = extFromMime(artifact.mime);
 	const prefix =
-		artifact.mime === "image/svg+xml" ? "marksync-mermaid-" : "marksync-asset-";
+		artifact.kind === "mermaid" ? "marksync-mermaid-" : "marksync-asset-";
 	return `${prefix}${artifact.hash}.${ext}`;
 }
 
