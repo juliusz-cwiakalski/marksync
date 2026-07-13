@@ -13,8 +13,8 @@ phases:
   delivery_planning: { started: "2026-07-13T08:15:00Z", completed: "2026-07-13T08:30:00Z" }
   dor_check: { started: "2026-07-13T08:30:00Z", completed: "2026-07-13T08:45:00Z" }
   delivery: { started: "2026-07-13T08:45:00Z", completed: "2026-07-13T12:30:00Z" }
-  system_spec_update: { started: "2026-07-13T12:30:00Z", completed: null }
-  review_fix: { started: null, completed: null }
+  system_spec_update: { started: "2026-07-13T12:30:00Z", completed: "2026-07-13T12:45:00Z" }
+  review_fix: { started: "2026-07-13T12:45:00Z", completed: null }
   quality_gates: { started: null, completed: null }
   dod_check: { started: null, completed: null }
   pr_creation: { started: null, completed: null, url: null }
@@ -92,5 +92,20 @@ notes:
       push-flow.ts:881); (4) spec §8.5 vs §19 stale "empty string" migration text.
       Process improvement: PM should have caught the duplicate AC ID during
       artifact review before delegating to DoR.
+    type: retro
+    date: "2026-07-13"
+  - text: >
+      Retro — Review iter-1 FAIL (5 findings). F-1 format:check (de-indentation
+      from editing push-flow.ts — one-command fix). F-2 missing TC-IDEM-002
+      (Update idempotency test). F-3 plan unchecked. During F-2 remediation,
+      TC-IDEM-002 revealed a DEEPER bug: finalizeSuccessfulUpdate never refreshed
+      renderedBodyHash in the binding (carried stale value from ...binding spread).
+      This meant after an Update, the next sync would see local.canonicalHash ≠
+      base.renderedBodyHash → false LOCAL_AHEAD. Fixed by passing
+      entry.hashes.canonicalHash to finalizeSuccessfulUpdate and setting it in
+      updatedBinding. Process improvement: the initial spec/plan should have
+      called out renderedBodyHash refresh as part of the fix, not just
+      remoteBodyHash. The fetch-back alone is insufficient if the local-side
+      hash is also stale.
     type: retro
     date: "2026-07-13"

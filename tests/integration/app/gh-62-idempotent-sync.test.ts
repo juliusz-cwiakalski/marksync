@@ -23,7 +23,11 @@ const config: ProjectConfig = {
 	targets: {
 		default: { type: "confluence", spaceKey: "TEST", parentPageId: "ROOT" },
 	},
-	sync: { allowBranches: ["main"], granularity: "squash", stalePlanMinutes: 15 },
+	sync: {
+		allowBranches: ["main"],
+		granularity: "squash",
+		stalePlanMinutes: 15,
+	},
 	render: {
 		mermaid: {
 			policy: "render",
@@ -43,10 +47,7 @@ const emptyLock: LockFile = {
 
 /** Simulate Confluence Storage XHTML normalization. */
 function confluenceNormalize(body: string): string {
-	return body
-		.replace(/<hr\/>/g, "<hr />")
-		.replace(/—/g, "&mdash;")
-		.replace(/<p>/g, "<p>");
+	return body.replace(/<hr\/>/g, "<hr />").replace(/—/g, "&mdash;");
 }
 
 describe("GH-62: idempotent sync with Confluence normalization", () => {
@@ -118,6 +119,111 @@ Content with — em dash and <hr/> rule.`,
 			expect(apply2.value.blocks).toBe(0);
 			expect(apply2.value.skips).toBe(1);
 			expect(target.getWriteCount()).toBe(0);
+		} finally {
+			rmSync(cacheDir, { recursive: true, force: true });
+		}
+	});
+
+	test("TC-IDEM-002: Update → fetch-back → second sync = 0 writes, 0 blocks", async () => {
+		const cacheDir = mkdtempSync(join(tmpdir(), "gh62-idem-update-"));
+		try {
+			const repo = new FakeRepository();
+			const target = new FakeTarget();
+			target.bodyNormalizer = confluenceNormalize;
+
+			const uuid = "019f56e4-18f5-7024-bfdf-5438918bb3bd";
+			const pageId = "page-existing-001";
+			repo.setFile(
+				"doc.md",
+				`---
+marksync:
+  uuid: ${uuid}
+---
+# Doc
+
+Updated content with — em dash.`,
+			);
+
+			// Pre-bind the page with STALE hashes (local has changed)
+			// FakeTarget.renderBody always returns hash "fixture-hash"
+			// So local.canonicalHash = "fixture-hash"
+			// Set binding.renderedBodyHash to something DIFFERENT → localChanged = true → LOCAL_AHEAD → Update
+			// Set binding.remoteBodyHash to match the remote body → remoteChanged = false
+			const remoteBody = "<h1>Old</h1>";
+			const lock: LockFile = {
+				version: 1,
+				targets: {
+					default: {
+						documents: {
+							[uuid]: {
+								uuid,
+								sourcePath: "doc.md",
+								pageId,
+								parentPageId: "ROOT",
+								pageVersion: 1,
+								sourceCommit: "old-sha",
+								sourceContentHash: "old-raw",
+								renderedBodyHash: "stale-rendered-hash", // ≠ local canonical → local changed
+								remoteBodyHash: rawHash(remoteBody), // = remote body → remote unchanged
+								attachmentHashes: {},
+								operationId: "op-old",
+								synchronizedAt: "2025-01-01T00:00:00Z",
+								toolVersion: "1.0.0",
+							},
+						},
+					},
+				},
+			};
+
+			// Add the existing page to FakeTarget
+			target.addFixture({
+				id: pageId,
+				title: "Doc",
+				version: 1,
+				body: remoteBody,
+				spaceId: "TEST",
+			});
+
+			ensureCacheLayout(cacheDir);
+
+			// First sync: Update (local changed, remote unchanged)
+			const plan1 = await computePlan(config, lock, repo, target);
+			expect(plan1.ok).toBe(true);
+			if (!plan1.ok) return;
+			expect(plan1.value.entries[0].action.kind).toBe("Update");
+
+			const apply1 = await applyPlan(plan1.value, target, lock, {
+				cwd: cacheDir,
+				cacheDir,
+				targetId: "default",
+			});
+			expect(apply1.ok).toBe(true);
+			if (!apply1.ok) return;
+			expect(apply1.value.writes).toBe(1); // Update occurred
+			expect(apply1.value.blocks).toBe(0);
+
+			// Verify remoteBodyHash was refreshed via fetch-back
+			const binding = lock.targets.default.documents[uuid];
+			expect(binding.remoteBodyHash).not.toBe(rawHash(remoteBody)); // Changed from old
+			expect(binding.remoteBodyHash.startsWith("sha256:")).toBe(true);
+
+			// Second sync: NoOp
+			target.resetWriteCounter();
+			const plan2 = await computePlan(config, lock, repo, target);
+			expect(plan2.ok).toBe(true);
+			if (!plan2.ok) return;
+			expect(plan2.value.entries[0].action.kind).toBe("NoOp");
+
+			const apply2 = await applyPlan(plan2.value, target, lock, {
+				cwd: cacheDir,
+				cacheDir,
+				targetId: "default",
+			});
+			expect(apply2.ok).toBe(true);
+			if (!apply2.ok) return;
+			expect(apply2.value.writes).toBe(0);
+			expect(apply2.value.blocks).toBe(0);
+			expect(apply2.value.skips).toBe(1);
 		} finally {
 			rmSync(cacheDir, { recursive: true, force: true });
 		}
