@@ -372,4 +372,4 @@ This plan fixes a P0 bug where the MarkSync update flow fails with HTTP 400 on e
 |-------|--------|---------|-----------|--------|-------|
 | (Populated during execution) | | | | | |
 | 1 — Schema | COMPLETE | 2026-07-13 | 2026-07-13 | de3780e | PropertyV1Response schema ({id,key,value,version:{number,when?}}); import/usage/header updated; typecheck clean |
-| 2 — Core fix | COMPLETE | 2026-07-13 | 2026-07-13 | (see below) | get/put/updateByKey → v1 paths; put() 409 → fetchCurrentVersion (private helper) → updateByKey(currentVersion); PUT-409→RemoteUnreachable (DEC-6); typecheck+lint clean |
+| 2 — Core fix | COMPLETE | 2026-07-13 | 2026-07-13 | 4a3b593 | get/put/updateByKey → v1 paths; put() 409 → fetchCurrentVersion (private helper) → updateByKey(currentVersion); PUT-409→RemoteUnreachable (DEC-6); typecheck+lint clean |

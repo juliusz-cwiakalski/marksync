@@ -161,11 +161,11 @@ describe("ConfluenceTarget wiring — every port op delegates to its service", (
 	test("getProperty / putProperty delegate to PropertyService", async () => {
 		const t = makeTarget((m, p) => {
 			if (m === "POST")
-				return new Response(JSON.stringify({ key: "k", value: "v" }), {
+				return new Response(JSON.stringify({ id: "1", key: "k", value: "v", version: { number: 1 } }), {
 					status: 200,
 					headers: { "Content-Type": "application/json" },
 				});
-			return new Response(JSON.stringify({ key: "k", value: "v" }), {
+			return new Response(JSON.stringify({ id: "1", key: "k", value: "v", version: { number: 1 } }), {
 				status: 200,
 				headers: { "Content-Type": "application/json" },
 			});

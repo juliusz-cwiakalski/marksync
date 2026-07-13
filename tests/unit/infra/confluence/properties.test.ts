@@ -1,6 +1,6 @@
-// Unit tests for PropertyService (F-4 / AC-F4-1): the v2 content-property
-// surface — string round-trip (byte-equal incl. ~8 KB), missing key →
-// ok(undefined), and 409 key-conflict handled via update-by-key.
+// Unit tests for PropertyService (GH-66): the v1 content-property surface —
+// string round-trip (byte-equal incl. ~8 KB), missing key → ok(undefined),
+// POST 409 → GET version → PUT with incremented version, and error semantics.
 
 import { describe, expect, test } from "bun:test";
 import type { ConfluenceCredentials } from "#domain/credentials";
@@ -11,6 +11,8 @@ const BASE_URL = "https://example.atlassian.net";
 const AUTH = "Basic dGVzdDp0b2tlbg==";
 const PAGE = "777";
 const KEY = "marksync.metadata";
+const GET_PATH = `/content/${PAGE}/property/${KEY}`;
+const POST_PATH = `/content/${PAGE}/property`;
 
 function creds(): ConfluenceCredentials {
 	return {
@@ -28,7 +30,21 @@ function jsonRes(status: number, body: unknown): Response {
 	});
 }
 
-/** Scripted responses keyed by method+path; records every request body. */
+/** v1 content-property response body: {id, key, value, version:{number, when}}. */
+function prop(value: string, number = 1): unknown {
+	return {
+		id: "123",
+		key: KEY,
+		value,
+		version: { number, when: "2026-07-13T00:00:00.000Z" },
+	};
+}
+
+/**
+ * Scripted responses keyed by method+path; records every request body. Strips
+ * both the v2 (`/wiki/api/v2`) and v1 (`/wiki/rest/api`) URL prefixes so path
+ * assertions read as `/content/{pageId}/property[/{key}]`.
+ */
 function script(
 	handler: (method: string, path: string, body: unknown) => Response,
 ): {
@@ -38,7 +54,7 @@ function script(
 	const bodies: { method: string; path: string; body: unknown }[] = [];
 	const fn = (url: string, init: RequestInit) => {
 		const parsed = new URL(url);
-		const path = parsed.pathname.replace(/^\/wiki\/api\/v2/, "");
+		const path = parsed.pathname.replace(/^\/wiki\/(api\/v2|rest\/api)/, "");
 		let body: unknown = undefined;
 		if (init.body && typeof init.body === "string") {
 			try {
@@ -56,12 +72,28 @@ function script(
 	return { service: new PropertyService(client), bodies };
 }
 
-describe("TC-PROP-RT-001 — put string → get byte-equal, incl. ~8 KB (AC-F4-1 / NFR-5)", () => {
-	test("round-trips a small string", async () => {
+describe("TC-PROP-V1-GET-001 / PATH-001 — get returns stored value over v1 path (AC-F1-1)", () => {
+	test("get small string → value + v1 GET path", async () => {
 		const value = "hello-world";
-		const { service } = script((method, p) => {
-			if (method === "POST") return jsonRes(200, { key: KEY, value });
-			if (method === "GET") return jsonRes(200, { key: KEY, value });
+		const { service, bodies } = script((method) => {
+			if (method === "GET") return jsonRes(200, prop(value));
+			return jsonRes(500, {});
+		});
+		const result = await service.get(PAGE, KEY);
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		expect(result.value).toBe(value);
+		expect(bodies[0]?.method).toBe("GET");
+		expect(bodies[0]?.path).toBe(GET_PATH);
+	});
+});
+
+describe("TC-PROP-V1-GET-002 / BYTE-001 / PATH-002 — put→get ~8 KB byte-equal over v1 paths (AC-F4-1 / NFR-1)", () => {
+	test("put ~8 KB then get byte-equal; POST + GET use v1 paths", async () => {
+		const value = "x".repeat(8 * 1024);
+		const { service, bodies } = script((method) => {
+			if (method === "POST") return jsonRes(200, prop(value));
+			if (method === "GET") return jsonRes(200, prop(value));
 			return jsonRes(500, {});
 		});
 		const put = await service.put(PAGE, KEY, value);
@@ -70,26 +102,15 @@ describe("TC-PROP-RT-001 — put string → get byte-equal, incl. ~8 KB (AC-F4-1
 		expect(get.ok).toBe(true);
 		if (!get.ok) return;
 		expect(get.value).toBe(value);
-	});
-
-	test("round-trips an ~8 KB string (spike H2 ~8.4 KB)", async () => {
-		const value = "x".repeat(8 * 1024);
-		const { service } = script((method) => {
-			if (method === "POST") return jsonRes(200, { key: KEY, value });
-			if (method === "GET") return jsonRes(200, { key: KEY, value });
-			return jsonRes(500, {});
-		});
-		await service.put(PAGE, KEY, value);
-		const get = await service.get(PAGE, KEY);
-		expect(get.ok).toBe(true);
-		if (!get.ok) return;
-		expect(get.value).toBe(value);
 		expect(get.value.length).toBe(8 * 1024);
+		const paths = bodies.map((b) => `${b.method} ${b.path}`);
+		expect(paths).toContain(`POST ${POST_PATH}`);
+		expect(paths).toContain(`GET ${GET_PATH}`);
 	});
 });
 
-describe("TC-PROP-MISS-001 — missing key → ok(undefined)", () => {
-	test("404 on get → ok(undefined)", async () => {
+describe("TC-PROP-V1-GET-003 — missing key → ok(undefined) (AC-F1-2)", () => {
+	test("get 404 → ok(undefined)", async () => {
 		const { service } = script(() => new Response(null, { status: 404 }));
 		const result = await service.get(PAGE, KEY);
 		expect(result.ok).toBe(true);
@@ -98,18 +119,105 @@ describe("TC-PROP-MISS-001 — missing key → ok(undefined)", () => {
 	});
 });
 
-describe("TC-PROP-CONFLICT-001 — 409 key-conflict → update-by-key", () => {
-	test("POST 409 then PUT 200 → ok", async () => {
+describe("TC-PROP-V1-POST-001 — put POST create for a new key → 2xx (AC-F2-1)", () => {
+	test("POST {key, value} → 2xx → ok; body has no version", async () => {
+		const { service, bodies } = script((method) => {
+			if (method === "POST") return jsonRes(200, prop("new-value"));
+			return jsonRes(500, {});
+		});
+		const result = await service.put(PAGE, KEY, "new-value");
+		expect(result.ok).toBe(true);
+		expect(bodies).toHaveLength(1);
+		expect(bodies[0]?.method).toBe("POST");
+		expect(bodies[0]?.path).toBe(POST_PATH);
+		expect(bodies[0]?.body).toEqual({ key: KEY, value: "new-value" });
+	});
+});
+
+describe("TC-PROP-V1-VERSION-001 / PATH-003 — POST 409 → GET version → PUT incremented (AC-F2-2 / DEC-3 / NFR-3)", () => {
+	test("POST 409, GET version.number 5, PUT version.number 6 → ok", async () => {
+		const value = "updated-value";
 		const { service, bodies } = script((method) => {
 			if (method === "POST")
 				return jsonRes(409, { errors: [{ code: "CONFLICT" }] });
-			if (method === "PUT") return jsonRes(200, { key: KEY, value: "v" });
+			if (method === "GET") return jsonRes(200, prop("old-value", 5));
+			if (method === "PUT") return jsonRes(200, prop(value, 6));
 			return jsonRes(500, {});
 		});
-		const result = await service.put(PAGE, KEY, "v");
+		const result = await service.put(PAGE, KEY, value);
 		expect(result.ok).toBe(true);
-		const methods = bodies.map((b) => b.method);
-		expect(methods).toContain("POST");
-		expect(methods).toContain("PUT");
+
+		expect(bodies).toHaveLength(3);
+		expect(bodies[0]?.method).toBe("POST");
+		expect(bodies[0]?.path).toBe(POST_PATH);
+		expect(bodies[0]?.body).toEqual({ key: KEY, value });
+		expect(bodies[1]?.method).toBe("GET");
+		expect(bodies[1]?.path).toBe(GET_PATH);
+		expect(bodies[2]?.method).toBe("PUT");
+		expect(bodies[2]?.path).toBe(GET_PATH);
+		expect(bodies[2]?.body).toEqual({
+			key: KEY,
+			value,
+			version: { number: 6 },
+		});
+	});
+});
+
+describe("TC-PROP-V1-VERSION-002 — version flow carries an ~8 KB value byte-equal (AC-F2-2 / AC-F4-1)", () => {
+	test("POST 409 → GET → PUT with 8 KB value; version incremented", async () => {
+		const value = "x".repeat(8 * 1024);
+		const { service, bodies } = script((method) => {
+			if (method === "POST")
+				return jsonRes(409, { errors: [{ code: "CONFLICT" }] });
+			if (method === "GET") return jsonRes(200, prop("old", 5));
+			if (method === "PUT") return jsonRes(200, prop(value, 6));
+			return jsonRes(500, {});
+		});
+		const result = await service.put(PAGE, KEY, value);
+		expect(result.ok).toBe(true);
+		expect(bodies[2]?.method).toBe("PUT");
+		expect(bodies[2]?.body).toEqual({
+			key: KEY,
+			value,
+			version: { number: 6 },
+		});
+	});
+});
+
+describe("TC-PROP-V1-ERR-001 — get 403 → Forbidden (G-3)", () => {
+	test("get 403 → err(Forbidden)", async () => {
+		const { service } = script(() => new Response(null, { status: 403 }));
+		const result = await service.get(PAGE, KEY);
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.error.kind).toBe("Forbidden");
+	});
+});
+
+describe("TC-PROP-V1-ERR-002 — put POST 413 → TooLarge (G-3)", () => {
+	test("POST 413 → err(TooLarge) with property-size what", async () => {
+		const { service } = script((method) => {
+			if (method === "POST")
+				return jsonRes(413, {
+					message: "Request body too large, exceeds maximum size",
+				});
+			return jsonRes(500, {});
+		});
+		const result = await service.put(PAGE, KEY, "x".repeat(8 * 1024));
+		expect(result.ok).toBe(false);
+		if (result.ok || result.error.kind !== "TooLarge") return;
+		expect(result.error.what).toMatch(/property .* exceeds/);
+	});
+});
+
+describe("TC-PROP-V1-SCHEMA-001 — malformed v1 response → RemoteUnreachable (F-4 / DM-1)", () => {
+	test("get 200 missing version → err(RemoteUnreachable)", async () => {
+		const { service } = script(() =>
+			jsonRes(200, { id: "123", key: KEY, value: "test" }),
+		);
+		const result = await service.get(PAGE, KEY);
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.error.kind).toBe("RemoteUnreachable");
 	});
 });
