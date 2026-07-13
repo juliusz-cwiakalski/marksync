@@ -52,7 +52,11 @@ describe("domain assets naming", () => {
 		// infra = marksync-mermaid- reserved for E4-S1 (mermaid manager)
 		const bytes = new Uint8Array([1, 2, 3, 4]);
 		const domainName = assetFilename({ hash, mime: "image/svg+xml" });
-		const infraName = attachmentFilename({ bytes, mime: "image/svg+xml", hash });
+		const infraName = attachmentFilename({
+			bytes,
+			mime: "image/svg+xml",
+			hash,
+		});
 
 		// Domain uses marksync-asset- prefix
 		expect(domainName).toBe(`marksync-asset-${hash}.svg`);

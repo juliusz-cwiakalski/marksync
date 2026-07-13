@@ -45,7 +45,9 @@ describe("AssetResolver", () => {
 			fs.mkdirSync(`${tempRoot}/docs`, { recursive: true });
 			fs.writeFileSync(docPath, "");
 
-			const hast = hastWithImg(`../../test-assets-outside-${Date.now()}/secret.txt`);
+			const hast = hastWithImg(
+				`../../test-assets-outside-${Date.now()}/secret.txt`,
+			);
 			const result = await resolver.resolve(hast, docPath);
 
 			expect(result.ok).toBe(false);
@@ -147,7 +149,9 @@ describe("AssetResolver", () => {
 			const docPath = `${tempRoot}/docs/subdir/test.md`;
 			fs.writeFileSync(docPath, "");
 
-			const hast = hastWithImg("./../../tmp/test-assets-nested-outside/secret.txt");
+			const hast = hastWithImg(
+				"./../../tmp/test-assets-nested-outside/secret.txt",
+			);
 			const result = await resolver.resolve(hast, docPath);
 
 			expect(result.ok).toBe(false);
@@ -237,8 +241,22 @@ describe("AssetResolver", () => {
 
 			// Create tiny 1x1 PNG (valid PNG header)
 			const pngBytes = new Uint8Array([
-				0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, // PNG signature
-				0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52, // IHDR
+				0x89,
+				0x50,
+				0x4e,
+				0x47,
+				0x0d,
+				0x0a,
+				0x1a,
+				0x0a, // PNG signature
+				0x00,
+				0x00,
+				0x00,
+				0x0d,
+				0x49,
+				0x48,
+				0x44,
+				0x52, // IHDR
 			]);
 
 			fs.writeFileSync(`${tempRoot}/test.png`, pngBytes);

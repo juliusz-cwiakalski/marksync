@@ -16,6 +16,7 @@ import type {
 	SharedBase,
 } from "#domain/state/sync-state";
 import type { Action } from "#domain/state/actions";
+import type { Artifact } from "#domain/target/port";
 import { classify } from "#domain/state/classifier";
 import { actionFor } from "#domain/state/actions";
 import {
@@ -41,6 +42,7 @@ import type { MetadataProperty } from "#domain/state/reconcile";
 import type { Element, Root } from "hast";
 import { join } from "node:path";
 import { readFileSync } from "node:fs";
+import { AssetResolver } from "#domain/assets/resolver";
 
 // Read package.json version at module level
 const pkg = JSON.parse(
@@ -70,6 +72,8 @@ export interface PlanEntry {
 	hashes: ContentHash;
 	/** Rendered body for apply (target storage format). */
 	renderedBody: string;
+	/** Resolved assets for upload (GH-26). */
+	assets?: Artifact[];
 }
 
 /** The computed plan. */
@@ -167,6 +171,9 @@ export async function computePlan(
 	const bindingsMutable: Record<string, { id: string; title: string }> = {};
 	const allWarnings: string[] = [];
 
+	// GH-26: Construct AssetResolver once, rooted at config.root
+	const resolver = new AssetResolver({ root: config.root });
+
 	// Collect all bindings for link resolution
 	for (const targetId of Object.keys(lock.targets)) {
 		const targetLock = lock.targets[targetId];
@@ -197,6 +204,11 @@ export async function computePlan(
 
 		const hast = mdastToHast(mdast);
 
+		// GH-26: Resolve assets (path-safe, content-addressed)
+		const assetResult = await resolver.resolve(hast, path);
+		if (!assetResult.ok) return assetResult; // Forbidden(path-traversal) aborts the plan
+		const assetSet = assetResult.value;
+
 		// Resolve cross-page links BEFORE rendering (AC-F7-1)
 		const linksResolved = _resolveLinksInDoc(hast, path, bindingsMap);
 		if (!linksResolved.ok) {
@@ -222,11 +234,17 @@ export async function computePlan(
 		const targetId = Object.keys(config.targets)[0] ?? "";
 		const parentId = config.targets[targetId]?.parentPageId ?? "";
 
+		// GH-26: Build attachmentHashes from assetSet (filename → hash)
+		const attachmentHashes: Record<string, string> = {};
+		for (const resolved of assetSet.srcMap.values()) {
+			attachmentHashes[resolved.filename] = resolved.hash;
+		}
+
 		// Build ContentHash with adapter's hash (adapter is hash authority)
 		let contentHash = buildContentHash({
 			source: bytes,
 			hast,
-			attachmentHashes: {},
+			attachmentHashes,
 			title,
 			parentPageId: parentId,
 		});
@@ -237,7 +255,7 @@ export async function computePlan(
 		let binding: PageBinding | undefined;
 		for (const tid of Object.keys(lock.targets)) {
 			const tdocs = lock.targets[tid]?.documents;
-			if (tdocs && tdocs[uuid]) {
+			if (tdocs?.[uuid]) {
 				binding = tdocs[uuid];
 				break;
 			}
@@ -303,6 +321,7 @@ export async function computePlan(
 				action,
 				hashes: contentHash,
 				renderedBody: body, // Capture for apply
+				assets: assetSet.artifacts, // GH-26: stash for upload
 			});
 		} else {
 			// Unbound doc: app-tier Create action (no classify - no base)
@@ -319,6 +338,7 @@ export async function computePlan(
 				},
 				hashes: contentHash,
 				renderedBody: body, // Capture for apply
+				assets: assetSet.artifacts, // GH-26: stash for upload
 			});
 		}
 	}
@@ -735,7 +755,7 @@ async function processEntry(
 			return { uuid, outcome: "blocked", error: propertyResult.error };
 		}
 
-		let remoteOperationId: string | undefined = undefined;
+		let remoteOperationId: string | undefined;
 		if (propertyResult.ok && propertyResult.value !== undefined) {
 			try {
 				const parsed = JSON.parse(propertyResult.value) as MetadataProperty;

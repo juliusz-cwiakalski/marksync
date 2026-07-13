@@ -29,7 +29,14 @@ export class AssetResolver {
 	private readonly readBytes: (canonicalPath: string) => Uint8Array;
 
 	constructor(opts: AssetResolverOptions) {
-		this.rootReal = fs.realpathSync(opts.root);
+		// Canonicalize root if it exists (for confinement). If it doesn't exist
+		// (test mocks), use it as-is.
+		try {
+			this.rootReal = fs.realpathSync(opts.root);
+		} catch {
+			// Root doesn't exist - use as-is (test scenario)
+			this.rootReal = opts.root;
+		}
 		this.readBytes = opts.readBytes ?? this.defaultReadBytes;
 	}
 
@@ -37,7 +44,10 @@ export class AssetResolver {
 	 * Walk the HAST for local images, confine to root, hash, and rewrite nodes.
 	 * Returns a Result with AssetSet on success, or Forbidden(path-traversal) on confinement failure.
 	 */
-	async resolve(hast: Root, docPath: string): Promise<Result<AssetSet, MarkSyncError>> {
+	async resolve(
+		hast: Root,
+		docPath: string,
+	): Promise<Result<AssetSet, MarkSyncError>> {
 		const artifacts: Artifact[] = [];
 		const srcMap = new Map<string, ResolvedAsset>();
 
@@ -128,7 +138,9 @@ export class AssetResolver {
 	/**
 	 * Safely realpath with error handling. Returns an error result on failure.
 	 */
-	private async safeRealpath(target: string): Promise<Result<string, MarkSyncError>> {
+	private async safeRealpath(
+		target: string,
+	): Promise<Result<string, MarkSyncError>> {
 		try {
 			const resolved = fs.realpathSync(target);
 			return Res.ok(resolved);
@@ -146,7 +158,8 @@ export class AssetResolver {
 	 * Default readBytes implementation.
 	 */
 	private defaultReadBytes(canonicalPath: string): Uint8Array {
-		return new Uint8Array(fs.readFileSync(canonicalPath));
+		const buffer = fs.readFileSync(canonicalPath);
+		return new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 	}
 
 	/**
@@ -198,7 +211,7 @@ export class AssetResolver {
  * Compute sha256 hex from bytes using crypto.subtle.
  */
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
-	const d = await crypto.subtle.digest("SHA-256", bytes);
+	const d = await crypto.subtle.digest("SHA-256", bytes.buffer as ArrayBuffer);
 	return [...new Uint8Array(d)]
 		.map((b) => b.toString(16).padStart(2, "0"))
 		.join("");

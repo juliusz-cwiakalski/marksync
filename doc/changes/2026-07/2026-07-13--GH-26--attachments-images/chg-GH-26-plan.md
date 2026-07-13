@@ -103,20 +103,17 @@ outside the root. This plan delivers a path-safe, content-addressed
   `attachmentExists`), `src/infra/confluence/render/storage.ts` (`imageMacro`),
   `src/app/push-flow.ts` (`computePlan`, `applyPlan`, `PlanEntry`, the Create +
   Update paths), `src/domain/state/hashes.ts` (`ContentHash.attachmentHashes`
-  shape), `src/domain/errors.ts` (`Forbidden { operation }`, `TooLarge`).
+  shape), `src/domain/errors.ts` (`Forbidden { operation }`, `TooLarge`). ✓ READ
 - [ ] **P0.2** Confirm the `ContentHash.attachmentHashes` field shape (e.g.
   `Record<string, string>` filename→hash) by reading
   `src/domain/state/hashes.ts` + how `buildContentHash` accepts it + how the
-  classifier compares it. Record the exact shape here: `______`. The resolver
-  must produce exactly that shape.
+  classifier compares it. Record the exact shape here: `Record<string, string>` (filename → hash). ✓ CONFIRMED
 - [ ] **P0.3** Identify the configured content-root field on `ProjectConfig`
   (read `src/domain/config/types.ts`). This is the `root` passed to the
-  resolver. Record the field path: `config.______`. If no explicit root field
-  exists, use the project cwd (the directory containing `marksync.yml`) as the
-  root and note it in the commit message. (Resolves spec OQ-1.)
+  resolver. Record the field path: `config.root`. ✓ CONFIRMED
 - [ ] **P0.4** Create a commit on the change branch
   `feat/GH-26/attachments-images` (the PM-created branch exists; switch to it).
-  Branch already at main; no rebase needed (fresh branch).
+  Branch already at main; no rebase needed (fresh branch). ✓ EXISTING BRANCH
 
 ## Phase 1 — Domain naming helper (DEC-1)
 
