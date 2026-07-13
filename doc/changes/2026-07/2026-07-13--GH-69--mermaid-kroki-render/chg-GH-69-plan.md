@@ -464,7 +464,7 @@ identifies the following docs that will need updating:
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| Phase 1 | Done | 2026-07-13 | 2026-07-13 | (pending commit) | Renderer port + Kroki adapter; 7 unit tests PASS, typecheck clean |
+| Phase 1 | Done | 2026-07-13 | 2026-07-13 | 5884ecf | Renderer port + Kroki adapter; 7 unit tests PASS, typecheck clean |
 | Phase 2 | Pending | - | - | - | Mermaid HAST transform |
 | Phase 3 | Pending | - | - | - | computePlan wiring + privacy warning |
 | Phase 4 | Pending | - | - | - | Golden fixture |
