@@ -114,3 +114,10 @@ exports[`TC-GOLDEN (AC-F4-1 / NFR-REL-4) — remark-gfm-reachable fixtures byte-
 exports[`TC-GOLDEN (AC-F4-1 / NFR-REL-4) — remark-gfm-reachable fixtures byte-match goldens byte-exact + snapshot — em: em.storage 1`] = `"<p><em>italic text</em></p>"`;
 
 exports[`TC-GOLDEN (AC-F4-1 / NFR-REL-4) — remark-gfm-reachable fixtures byte-match goldens byte-exact + snapshot — link-plain: link-plain.storage 1`] = `"<p><a href="https://opencode.ai">a link</a></p>"`;
+
+exports[`TC-GOLDEN (AC-F4-1 / NFR-REL-4) — remark-gfm-reachable fixtures byte-match goldens byte-exact + snapshot — mermaid-code-policy: mermaid-code-policy.storage 1`] = `
+"<ac:structured-macro ac:name="code"><ac:parameter ac:name="language">mermaid</ac:parameter><ac:plain-text-body><![CDATA[graph TD
+  Start[Start] --> Stop[Stop]
+  Start --> Process[Process]
+  Process --> Stop]]></ac:plain-text-body></ac:structured-macro>"
+`;
