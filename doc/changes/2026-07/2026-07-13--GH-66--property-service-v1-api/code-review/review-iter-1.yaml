@@ -1,0 +1,126 @@
+version: 1
+iteration: 1
+mode: local
+work_item_ref: GH-66
+branch: fix/GH-66/property-service-v1-api
+status: PASS
+summary: >
+  The P0 fix is correct and complete. PropertyService now uses v1 key-based
+  GET/POST/PUT throughout — no v2-by-key path remains. The version-extraction
+  mechanism (POST 409 → fetchCurrentVersion via raw v1 GET + PropertyV1Response
+  parse → updateByKey with version.number+1) matches the spec exactly. All error
+  mappings are correct (403→Forbidden, 404-GET→ok(undefined), 413→TooLarge,
+  schema-fail→RemoteUnreachable, property-PUT-409→RemoteUnreachable per DEC-6).
+  The DEC-6 decision is sound: the putProperty consumer (push-flow.ts) blocks on
+  any error without special Conflict handling, and the Conflict kind is
+  page-shaped. All 34 tests pass; typecheck and lint clean. Docs are reconciled
+  (feature spec, architecture, glossary, test spec, roadmap, ADR-0006). The only
+  gaps are plan-tracking hygiene (phases 3–5 done in code but unchecked) and
+  minor edge-case test coverage in the fallback paths — neither is a code defect.
+severity_breakdown:
+  critical: 0
+  high: 0
+  medium: 1
+  low: 3
+  info: 1
+spec_compliance: PASS
+plan_compliance: FAIL
+publication:
+findings:
+  - id: F-1
+    severity: medium
+    confidence: high
+    category: plan-compliance
+    location: chg-GH-66-plan.md:181-324 (Phase 3/4/5 task checkboxes + execution log)
+    message: >
+      Phase 3 (tests), Phase 4 (verification), and Phase 5.2 (doc reconciliation)
+      tasks are all marked `[ ]` (unchecked) but the work IS complete in the code.
+      Commit 62523ba delivered all Phase 3 test updates; typecheck/lint/tests pass
+      (Phase 4); commit 3693c28 reconciled all current-truth docs (Phase 5.2).
+      The execution log only records phases 1–2. This is DONE_BUT_UNCHECKED — the
+      plan does not reflect reality, which will confuse the DoD gate (phase 10).
+    suggestion: >
+      Check all Phase 3/4/5.2 task boxes; add execution-log rows for phases 3
+      (62523ba), 4 (verification), and 5 (3693c28 docs + pm-notes ff8b70). Confirm
+      with PM whether task 5.3 (version bump) is deferred to release or needed now.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-2
+    severity: low
+    confidence: high
+    category: testing-gaps
+    location: src/infra/confluence/properties.ts:108-121 (fetchCurrentVersion error paths)
+    message: >
+      The fallback-GET error paths in fetchCurrentVersion() — 404-vanished →
+      RemoteUnreachable and 403 → Forbidden — have no dedicated unit tests. The
+      happy path (POST 409 → GET 200 → PUT) is well covered by
+      TC-PROP-V1-VERSION-001/002, but the edge cases (key vanishes between
+      POST-409 and GET; permission revoked between POST and GET) are untested.
+    suggestion: >
+      Optional: add 1–2 unit tests exercising the fetchCurrentVersion 404 and 403
+      branches to guard against future regressions in the fallback-GET error
+      mapping.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-3
+    severity: low
+    confidence: high
+    category: testing-gaps
+    location: src/infra/confluence/properties.ts:154-169 (updateByKey error paths)
+    message: >
+      The updateByKey() PUT error paths — 403 → Forbidden and the catch-all
+      (incl. 409 → RemoteUnreachable per DEC-6) — have no dedicated tests. The
+      plan (line 154) acknowledges DEC-6 409 coverage is via the catch-all only.
+      The PUT 403 path is also untested.
+    suggestion: >
+      Optional: add a unit test for PUT 403 → Forbidden and one for PUT 409 →
+      RemoteUnreachable (documenting the DEC-6 catch-all behavior).
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-4
+    severity: low
+    confidence: medium
+    category: plan-compliance
+    location: chg-GH-66-plan.md:299 (task 5.3 version bump)
+    message: >
+      Plan task 5.3 (patch version bump) is not done — package.json is unchanged.
+      This may be intentional (version bumped at release rather than per-change),
+      but the task is unchecked and unaddressed.
+    suggestion: >
+      Confirm with PM whether version bump is deferred to the MS-0002 release or
+      should be applied now. If deferred, mark 5.3 as deferred with a note.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-5
+    severity: info
+    confidence: high
+    category: correctness
+    location: src/infra/confluence/properties.ts:154-169 (updateByKey no 413 branch)
+    message: >
+      Unlike put(), updateByKey() has no 413/too-large → TooLarge branch. A 413 on
+      the PUT would fall through to the catch-all RemoteUnreachable instead of
+      TooLarge. This is academic: POST already validated the body size (it
+      returned 409, not 413), and the PUT body carries the same value plus a tiny
+      version object — a 413 on PUT after a 409 on POST is near-impossible.
+    suggestion: >
+      No action required. If desired for symmetry, a 413 branch could be added to
+      updateByKey, but the practical risk is negligible.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+reviewed_at: 2026-07-13T16:30:00Z
+next_step: PROCEED

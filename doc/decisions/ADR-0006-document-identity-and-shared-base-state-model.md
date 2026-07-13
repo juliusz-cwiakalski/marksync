@@ -79,12 +79,12 @@ require durable identity and a shared base. The Phase 2 red-team escalated this
 The spec (§9.3) sketches a lock file + remote property (`marksync.metadata`) +
 disposable `.marksync/` cache, but leaves several load-bearing questions open
 (§2.5: "commit lock vs remote-only state"). The `MS-0001` spike has now verified
-the Confluence side: **v2 content properties** reliably carry
+the Confluence side: **content properties** reliably carry
 `marksync.metadata` (A-FEA-4, validated), and the **version-conflict 409** is
 reliable for drift detection (A-FEA-5, validated).
 
 FACT: content properties survive across page updates (spike E1–E3, ~8.4 KB
-accepted; v1 deprecated). FACT: `version.number = current+1` on update yields a
+accepted). FACT: `version.number = current+1` on update yields a
 machine-parseable 409 (spike G1). FACT: the `.marksync/` cache is local-only and
 gitignored in every reference implementation.
 
@@ -337,7 +337,7 @@ cross-check is `validated` (A-FEA-4, A-FEA-5).
   (C-5/C-6) parses as designed — `errors[0].code:"CONFLICT"` plus the
   version-laden title yields a typed `Conflict` with correctly extracted version
   numbers (never swapped); the **content-property cross-check** is wired through
-  the v2 `PropertyService` (the `marksync.metadata` string round-trips
+  the v1 `PropertyService` (key-based access, GH-66; the `marksync.metadata` string round-trips
   byte-for-byte, incl. ~8 KB — spike H2); and the **403 → warn+skip (never
   delete+recreate)** obligation (INV-SAFE-1) is enforced — a 403 produces
   `Forbidden` and the path issues zero delete/recreate operations. The 409 gate,

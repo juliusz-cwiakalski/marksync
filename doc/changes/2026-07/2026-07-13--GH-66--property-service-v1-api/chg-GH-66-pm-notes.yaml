@@ -1,0 +1,122 @@
+change_id: GH-66
+title: "[MS2-E4] PropertyService uses v2 API for key-based access — returns 400 (P0)"
+branch: fix/GH-66/property-service-v1-api
+slug: property-service-v1-api
+
+phases:
+  clarify_scope: { started: "2026-07-13T13:35:00Z", completed: "2026-07-13T13:45:00Z" }
+  specification: { started: "2026-07-13T13:46:00Z", completed: "2026-07-13T13:52:00Z", reopened: "2026-07-13T14:15:00Z" }
+  test_planning: { started: "2026-07-13T13:53:00Z", completed: "2026-07-13T14:40:00Z" }
+  delivery_planning: { started: "2026-07-13T13:59:00Z", completed: "2026-07-13T14:40:00Z" }
+  dor_check: { started: "2026-07-13T14:05:00Z", completed: "2026-07-13T14:42:00Z" }
+  delivery: { started: "2026-07-13T14:43:00Z", completed: "2026-07-13T15:25:00Z" }
+  system_spec_update: { started: "2026-07-13T15:26:00Z", completed: "2026-07-13T15:40:00Z" }
+  review_fix: { started: "2026-07-13T15:41:00Z", completed: "2026-07-13T16:05:00Z" }
+  quality_gates: { started: "2026-07-13T16:06:00Z", completed: "2026-07-13T16:06:00Z" }
+  dod_check: { started: "2026-07-13T16:07:00Z", completed: "2026-07-13T16:10:00Z" }
+  pr_creation: { started: "2026-07-13T16:11:00Z", completed: "2026-07-13T16:15:00Z", url: "https://github.com/juliusz-cwiakalski/marksync/pull/67" }
+
+decisions:
+  - text: >
+      PM-DEC-1 (DoR iter-1, finding 1): DEFER property-PUT-409→Conflict to
+      post-MS-0002. Map property-PUT-409 → RemoteUnreachable (the existing
+      catch-all). Rationale: (a) the GET-version-then-PUT flow makes 409 rare
+      (only a concurrent-write race in the GET→PUT window); (b) operationId
+      dedup + per-doc isolation (GH-24) prevents self-racing within one sync;
+      (c) the putProperty consumer (push-flow.ts L1201) blocks on ANY error
+      without special Conflict handling — the re-fetch-once dance is gated on
+      updatePage only (L900) — so a Conflict provides no retry benefit; (d) the
+      Conflict error kind is page-shaped (pageId/baseVersion/remoteVersion) and
+      would mislead the error mapper + user for a property conflict. Recovery
+      for the rare race = RemoteUnreachable → blocked → user re-runs sync →
+      re-GETs current version. Spec OQ-2/RSK-4/Appendix B re-resolved to match.
+    date: "2026-07-13"
+open_questions: []
+blockers: []
+
+notes:
+  - text: >
+      Intake (2026-07-13): P0 bug. State detection: OPEN, no PR, on main, clean
+      tree → fresh delivery. Labels applied: change, in-progress.
+    type: info
+    workItemRef: GH-66
+    date: "2026-07-13"
+  - text: >
+      Root cause confirmed in src/infra/confluence/properties.ts: get() (L22) and
+      updateByKey() (L103) build v2 paths `/pages/{id}/properties/{key}` but the
+      v2 API path param is a property ID (UUID/numeric), not a key. Result: 400
+      on every GET/PUT by key. POST create (L65, v2 `/pages/{id}/properties`)
+      passes key in the body, which v2 accepts. The ticket's evidence is
+      consistent with the code: v2 GET by key → 400; v1 GET by key → 200; v2
+      list → 200.
+    type: info
+    workItemRef: GH-66
+    date: "2026-07-13"
+  - text: >
+      Spec cross-check vs doc/spec/features/feature-confluence-adapter.md: §3.1
+      (L55-57), §3.2 table (L78 "Content properties | v2 | marksync.metadata
+      key; v1 deprecated"), §4.2 (L127 PropertyService "via v2") all assert
+      content properties use v2. This is precisely the bug — the spec claims v2
+      works for key-based access but it does not. Doc-syncer (phase 7) must
+      reconcile these to v1 for key-based GET/PUT. No contradiction with ticket;
+      the spec is simply wrong on this point and this change corrects both code
+      and spec.
+    type: info
+    workItemRef: GH-66
+    date: "2026-07-13"
+  - text: >
+      RISK/consideration for spec-writer: v1 content-property PUT-by-key
+      (`PUT /rest/api/content/{id}/property/{key}`) may require a
+      `version.number` in the body for optimistic concurrency on UPDATE (Confluence
+      returns 409/400 if the version is omitted/stale when the property exists).
+      The current v2 updateByKey path sends only `{key, value}`. The spec MUST
+      define how the update path resolves the version: (a) GET-by-key first to
+      learn the current version, then PUT with version+1; or (b) POST create,
+      on key-exists conflict GET version then PUT with version. This is the one
+      non-trivial scope detail — the fix is NOT a one-line path swap for the PUT
+      arm. Flag for DoR attention.
+    type: risk
+    workItemRef: GH-66
+    date: "2026-07-13"
+  - text: >
+      clarify_scope COMPLETE. No blocking questions. Ticket is detailed
+      (root cause, evidence, fix, AC all present and consistent with code). AC
+      are testable. Proceeding to artifact generation.
+    type: resolved
+    workItemRef: GH-66
+    date: "2026-07-13"
+  - text: >
+      RETRO — DoR iter-1 returned NOT_READY (3 blocking findings). Finding 1:
+      spec resolved property-PUT-409→Conflict but plan+test-plan dropped it.
+      Finding 2: test TC-PROP-V1-ERR-002 tests GET 413→TooLarge, but get() has
+      no 413 branch (413→TooLarge is put()-only) — wrong code path tested, and
+      the real put() POST-413 path untested. Finding 3: plan Phase 2 version-
+      extraction mechanism ambiguous (public get() returns string|undefined,
+      discards version — can't supply currentVersion to updateByKey). Gap
+      discovered at DoR, not caught by spec/test-plan/plan authors. Process
+      improvement: the version-extraction mechanism and the 409-error-mapping
+      table should have been cross-checked between spec and plan during authoring;
+      the test-plan ERR-002 should have been validated against the actual get()
+      error branches. DoR gate earned its keep here. PM-DEC-1 (defer property
+      Conflict→RemoteUnreachable) resolved finding 1. Took 3 DoR iterations.
+    type: retro
+    workItemRef: GH-66
+    date: "2026-07-13"
+  - text: >
+      RETRO — quality-gate run after resume found 1 failure: the coder's Phase 3
+      updated tests/unit/infra/confluence/properties.test.ts and
+      tests/integration/confluence/confluence-target.test.ts but MISSED a third
+      test file, tests/unit/infra/confluence/target.test.ts (the
+      getProperty/putProperty delegation test at L161-177), whose mock returns
+      a v2-shaped {key,value} response with no `version` field — fails the new
+      PropertyV1Response schema → RemoteUnreachable → get.ok=false. Root cause:
+      the plan/test-plan listed only the two test files, missing this third one
+      (a wiring/delegation unit test that also mocks PropertyService responses).
+      Process improvement: when a schema changes, grep ALL test files that
+      construct the affected response shape, not just the ones named in the plan.
+      Delegating to @fixer. (Also: coder task was interrupted mid-Phase-3-commit
+      last session — resume correctly detected the in-progress uncommitted tests
+      as complete, verified them, and proceeded to gates.)
+    type: retro
+    workItemRef: GH-66
+    date: "2026-07-13"

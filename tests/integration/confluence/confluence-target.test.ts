@@ -164,23 +164,28 @@ describe("TC-INT-403 (AC-F7-1) — getPage on locked page → Forbidden; 0 delet
 	});
 });
 
-describe("TC-INT-PROP-RT (AC-F4-1) — putProperty then getProperty against the v2 endpoint", () => {
+describe("TC-INT-PROP-V1-001 (AC-F4-1) — putProperty then getProperty against the v1 endpoint", () => {
 	let server: ReturnType<typeof serveMock>;
 	beforeAll(() => {
 		server = serveMock((req) => {
-			// POST creates the property; GET reads it back. The mock does NOT echo
-			// the POST body — byte-equality is the unit test's concern (a tautological
-			// store-then-echo would prove nothing). Here we only prove the v2 POST
-			// and GET actually crossed a real HTTP path (over-mocking guardrail).
+			// POST creates; GET reads back. The mock does NOT echo the POST body —
+			// byte-equality is the unit test's concern (a tautological store-then-echo
+			// would prove nothing). Here we prove the v1 POST and GET crossed a real
+			// HTTP path (over-mocking guardrail).
 			if (req.method === "POST") {
-				return json(200, { key: "marksync.metadata", value: "" });
+				return json(200, { id: PAGE_ID, key: "marksync.metadata", value: "" });
 			}
-			return json(200, { key: "marksync.metadata", value: "" });
+			return json(200, {
+				id: PAGE_ID,
+				key: "marksync.metadata",
+				value: "",
+				version: { number: 1, when: "2026-07-13T00:00:00.000Z" },
+			});
 		});
 	});
 	afterAll(() => server.stop());
 
-	test("issues a v2 POST then a GET for the property", async () => {
+	test("issues a v1 POST then a GET for the property", async () => {
 		const t = targetFor(server.origin);
 		const value = "x".repeat(8 * 1024);
 		const put = await t.putProperty(PAGE_ID, "marksync.metadata", value);
@@ -188,10 +193,74 @@ describe("TC-INT-PROP-RT (AC-F4-1) — putProperty then getProperty against the 
 		const get = await t.getProperty(PAGE_ID, "marksync.metadata");
 		expect(get.ok).toBe(true);
 		// Byte-equality is asserted in the PropertyService unit test; this
-		// integration test proves the v2 write+read path was exercised.
-		const methods = server.captured.map((c) => c.method);
-		expect(methods).toContain("POST");
-		expect(methods).toContain("GET");
+		// integration test proves the v1 write+read path crossed real HTTP.
+		const seq = server.captured.map((c) => `${c.method} ${c.path}`);
+		expect(seq).toContain(`POST /wiki/rest/api/content/${PAGE_ID}/property`);
+		expect(seq).toContain(
+			`GET /wiki/rest/api/content/${PAGE_ID}/property/marksync.metadata`,
+		);
+	});
+});
+
+describe("TC-INT-PROP-V1-002 (AC-T2-1 / NFR-2) — version flow: POST 409 → GET → PUT over v1 (no 400)", () => {
+	test("putProperty update flow issues v1 POST→GET→PUT with no 400s", async () => {
+		const statuses: number[] = [];
+		const server = serveMock((req) => {
+			const path = new URL(req.url).pathname;
+			if (
+				req.method === "POST" &&
+				path === `/wiki/rest/api/content/${PAGE_ID}/property`
+			) {
+				statuses.push(409);
+				return json(409, { errors: [{ code: "CONFLICT" }] });
+			}
+			if (
+				req.method === "GET" &&
+				path === `/wiki/rest/api/content/${PAGE_ID}/property/marksync.metadata`
+			) {
+				statuses.push(200);
+				return json(200, {
+					id: PAGE_ID,
+					key: "marksync.metadata",
+					value: "old",
+					version: { number: 5, when: "2026-07-13T00:00:00.000Z" },
+				});
+			}
+			if (
+				req.method === "PUT" &&
+				path === `/wiki/rest/api/content/${PAGE_ID}/property/marksync.metadata`
+			) {
+				statuses.push(200);
+				return json(200, {
+					id: PAGE_ID,
+					key: "marksync.metadata",
+					value: "updated",
+					version: { number: 6, when: "2026-07-13T00:00:01.000Z" },
+				});
+			}
+			statuses.push(500);
+			return json(500, {});
+		});
+		try {
+			const t = targetFor(server.origin);
+			const r = await t.putProperty(PAGE_ID, "marksync.metadata", "updated");
+			expect(r.ok).toBe(true);
+			expect(statuses).toEqual([409, 200, 200]);
+			const seq = server.captured.map((c) => `${c.method} ${c.path}`);
+			expect(seq).toEqual([
+				`POST /wiki/rest/api/content/${PAGE_ID}/property`,
+				`GET /wiki/rest/api/content/${PAGE_ID}/property/marksync.metadata`,
+				`PUT /wiki/rest/api/content/${PAGE_ID}/property/marksync.metadata`,
+			]);
+			const putBody = JSON.parse(server.captured[2]?.text ?? "{}");
+			expect(putBody).toMatchObject({
+				key: "marksync.metadata",
+				value: "updated",
+				version: { number: 6 },
+			});
+		} finally {
+			server.stop();
+		}
 	});
 });
 
