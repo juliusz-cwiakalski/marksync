@@ -19,6 +19,7 @@ phases:
   quality_gates: { started: "2026-07-13T05:40:00Z", completed: "2026-07-13T05:40:00Z" }
   dod_check: { started: "2026-07-13T05:40:00Z", completed: "2026-07-13T05:50:00Z" }
   pr_creation: { started: "2026-07-13T05:50:00Z", completed: null, url: null }
+# pr_creation.url to be filled by @pr-manager; dod_check already complete.
 
 decisions:
   - text: >
