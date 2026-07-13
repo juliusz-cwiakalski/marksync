@@ -144,7 +144,7 @@ export function applyDefaults(input: ProjectConfigInput): ProjectConfig {
 		},
 		render: {
 			mermaid: {
-				policy: input.render?.mermaid?.policy ?? "render",
+				policy: input.render?.mermaid?.policy ?? "code",
 				securityLevel: input.render?.mermaid?.securityLevel ?? "strict",
 				htmlLabels: input.render?.mermaid?.htmlLabels ?? false,
 				deterministicIds: input.render?.mermaid?.deterministicIds ?? true,

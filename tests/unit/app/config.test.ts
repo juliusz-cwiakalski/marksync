@@ -94,7 +94,7 @@ describe("loadConfig — valid fixtures (AC-F3-1)", () => {
 		expect(cfg.sync.allowBranches).toEqual(["main"]);
 		expect(cfg.sync.granularity).toBe("squash");
 		expect(cfg.sync.stalePlanMinutes).toBe(15);
-		expect(cfg.render.mermaid.policy).toBe("render");
+		expect(cfg.render.mermaid.policy).toBe("code");
 		expect(cfg.render.mermaid.securityLevel).toBe("strict");
 		expect(cfg.render.mermaid.htmlLabels).toBe(false);
 		expect(cfg.render.mermaid.deterministicIds).toBe(true);

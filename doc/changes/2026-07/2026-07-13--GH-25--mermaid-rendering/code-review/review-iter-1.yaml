@@ -1,0 +1,121 @@
+version: 1
+iteration: 1
+mode: local
+work_item_ref: GH-25
+branch: feat/GH-25/mermaid-code-policy
+base: main
+status: PASS
+summary: >
+  Small, low-risk change delivered cleanly. The MermaidPolicy enum gains "code"
+  as the primary member (type + JSON schema in lock-step), the default flips from
+  "render" to "code" in both applyDefaults and STARTER_CONFIG, and the joint
+  config tests are updated (code/render/skip accepted; svg/png/null/123 rejected
+  with correct enum/type keyword + instancePath). Golden fixture
+  mermaid-code-policy.{md,storage.xhtml} proves a ```mermaid fence is preserved
+  byte-stable as a language=mermaid code macro (N=3 renders identical). Adversarial
+  inline tests (TC-MERM-INJECT) correctly use countOutsideCdata — proving 0
+  executable <script>/on*/javascript: content survives outside CDATA while the
+  payload text remains as inert content inside CDATA. codeMacro/cdata are
+  UNCHANGED (confirmed empty diff); no renderer added; no policy-driven pipeline
+  branching (NG-6 respected). All 8 ACs satisfied; full `bun run check` green
+  (962 pass / 0 fail, 0 dependency violations). Only low/info nits remain — none
+  block merge.
+severity_breakdown:
+  critical: 0
+  high: 0
+  medium: 0
+  low: 2
+  info: 1
+spec_compliance: PASS
+plan_compliance: FAIL
+plan_gaps:
+  - DONE_BUT_UNCHECKED
+findings:
+  - id: F-1
+    severity: low
+    confidence: high
+    category: test-completeness
+    location: tests/golden/markdown/injection-safety.test.ts:152
+    message: >
+      TC-MERM-006 (CDATA-breakout `]]>`) only locks the exact split representation
+      (`Hello]]]]><![CDATA[>World`) but does NOT assert the rendered output is
+      well-formed XML. The test plan §5.2 (TC-MERM-006 step 3 + Expected Outcome
+      "The output XML remains well-formed") and plan Phase 3 ("Should: the `]]`
+      case yields parseable/well-formed XML output") both call for a parseability
+      check. The committed mermaid-code-policy golden IS validated as well-formed
+      by assert-well-formed-xml.test.ts PD-4, but that suite only covers committed
+      fixture files — the inline adversarial `]]>` string escapes that coverage.
+      The core safety (the breakout is neutralized) is proven; this is the
+      optional well-formedness "Should".
+    suggestion: >
+      Add `expect(() => assertWellFormedXml(body)).not.toThrow()` to TC-MERM-006
+      (import the helper from `../../_helpers/assert-well-formed-xml.ts`, same as
+      pipeline-roundtrip.test.ts). This both satisfies the test-plan "Should" and
+      de-couples the test from cdata()'s exact internal escaping representation.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-2
+    severity: low
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-07/2026-07-13--GH-25--mermaid-rendering/chg-GH-25-plan.md:169
+    message: >
+      All Phase 1-4 task checkboxes remain `- [ ]` (unchecked) even though the
+      Execution Log marks every phase COMPLETED with commit SHAs (40717f2, a0f22c3,
+      c1e2d9a, 5b790a1). This is a DONE_BUT_UNCHECKED plan-state gap: the work is
+      implemented and test-verified, but the plan's own task checklist does not
+      reflect completion, so a DoD reader cannot rely on the checkboxes.
+    suggestion: >
+      Flip the implemented task checkboxes to `- [x]` (tasks 1.1-1.5, 2.1-2.3,
+      3.1, 4.1-4.2; 4.3 is record-only and already accurate) so plan state matches
+      the Execution Log.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-3
+    severity: info
+    confidence: high
+    category: documentation
+    location: tests/golden/markdown/storage-renderer.test.ts:1
+    message: >
+      Boy-scout opportunity — two touched test files carry pre-existing headers
+      exceeding the <=3-line guideline: storage-renderer.test.ts (10 lines) and
+      injection-safety.test.ts (7 lines). These predate GH-25; the change only
+      appended test blocks and did not author the headers. Optional opportunistic
+      trim on touch.
+    suggestion: >
+      If desired, condense each header to <=3 lines (module + one authority link).
+      Not required — these are pre-existing and out of scope for a small story.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+reviewed_at: 2026-07-13T00:00:00Z
+next_step: PROCEED
+notes:
+  - "AC coverage verified: AC-F1-1/F1-2/F1-3 (config lock-step), AC-F2-1/F2-2
+    (preservation + byte-stability N=3), AC-F3-1 (adversarial inertness via
+    countOutsideCdata), AC-F4-1 (starter template), AC-CHECK (bun run check green)
+    — all satisfied."
+  - "Scope discipline confirmed: storage.ts codeMacro/cdata UNCHANGED (empty diff);
+    no renderer added; no switch/if on policy in src/ (NG-6 respected); the only
+    `=== \"code\"` match is the unrelated HAST tagName check in codeMacro."
+  - "Golden-count consistency confirmed: the two hard-count assertions
+    (storage-renderer.test.ts:46, pipeline-roundtrip.test.ts:48) were both bumped
+    25 -> 26. The third fixture-globber (assert-well-formed-xml.test.ts:82) uses
+    toBeGreaterThanOrEqual(25), so no bump was required."
+  - "Security assertion quality confirmed: TC-MERM-003/004/005 use countOutsideCdata
+    (strips CDATA sections before counting), so they correctly assert 0 executable
+    content OUTSIDE CDATA while the inert payload text IS present inside CDATA —
+    not a naive global absence check."
+  - "Working tree note: chg-GH-25-pm-notes.yaml is modified/uncommitted (local mode
+    does not require a clean tree). Not a blocker; left untouched."
+  - "plan_compliance is FAIL only due to F-2 (unchecked task boxes). status is PASS
+    because all findings are low/info and non-blocking; no remediation phase is
+    required. F-1 is an optional hardening the PM may route to @coder."

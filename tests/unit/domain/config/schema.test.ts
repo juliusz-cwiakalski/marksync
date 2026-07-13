@@ -72,6 +72,33 @@ describe("marksync.yml v1 schema — valid fixtures", () => {
 			true,
 		);
 	});
+
+	test("mermaid policy code is accepted (GH-25 AC-F1-3)", () => {
+		expect(
+			validate({
+				...validMinimal,
+				render: { mermaid: { policy: "code" } },
+			}),
+		).toBe(true);
+	});
+
+	test("mermaid policy render is accepted (GH-25 AC-F1-2)", () => {
+		expect(
+			validate({
+				...validMinimal,
+				render: { mermaid: { policy: "render" } },
+			}),
+		).toBe(true);
+	});
+
+	test("mermaid policy skip is accepted", () => {
+		expect(
+			validate({
+				...validMinimal,
+				render: { mermaid: { policy: "skip" } },
+			}),
+		).toBe(true);
+	});
 });
 
 describe("marksync.yml v1 schema — invalid fixtures", () => {
@@ -171,6 +198,54 @@ describe("marksync.yml v1 schema — invalid fixtures", () => {
 	test("version other than 1 is rejected", () => {
 		expect(validate({ ...validMinimal, version: 2 })).toBe(false);
 		expect(validate.errors?.some((e) => e.keyword === "const")).toBe(true);
+	});
+
+	test("mermaid policy svg is rejected (GH-25 AC-F1-3)", () => {
+		expect(
+			validate({
+				...validMinimal,
+				render: { mermaid: { policy: "svg" } },
+			}),
+		).toBe(false);
+		const enumError = validate.errors?.find((e) => e.keyword === "enum");
+		expect(enumError).toBeDefined();
+		expect(enumError?.instancePath).toBe("/render/mermaid/policy");
+	});
+
+	test("mermaid policy png is rejected (GH-25 AC-F1-3)", () => {
+		expect(
+			validate({
+				...validMinimal,
+				render: { mermaid: { policy: "png" } },
+			}),
+		).toBe(false);
+		const enumError = validate.errors?.find((e) => e.keyword === "enum");
+		expect(enumError).toBeDefined();
+		expect(enumError?.instancePath).toBe("/render/mermaid/policy");
+	});
+
+	test("mermaid policy null is rejected (wrong type — GH-25 AC-F1-3)", () => {
+		expect(
+			validate({
+				...validMinimal,
+				render: { mermaid: { policy: null } },
+			}),
+		).toBe(false);
+		const typeError = validate.errors?.find((e) => e.keyword === "type");
+		expect(typeError).toBeDefined();
+		expect(typeError?.instancePath).toBe("/render/mermaid/policy");
+	});
+
+	test("mermaid policy 123 is rejected (wrong type — GH-25 AC-F1-3)", () => {
+		expect(
+			validate({
+				...validMinimal,
+				render: { mermaid: { policy: 123 } },
+			}),
+		).toBe(false);
+		const typeError = validate.errors?.find((e) => e.keyword === "type");
+		expect(typeError).toBeDefined();
+		expect(typeError?.instancePath).toBe("/render/mermaid/policy");
 	});
 });
 

@@ -41,9 +41,9 @@ function loadFixtures(): Fixture[] {
 const fixtures = loadFixtures();
 
 describe("TC-GOLDEN (AC-F4-1 / NFR-REL-4) — remark-gfm-reachable fixtures byte-match goldens", () => {
-	test("the golden set is the re-baselined 25 (PM-DEC-1; sub/sup excluded)", () => {
-		// Locks the fidelity bar: exactly the 25 remark-gfm-reachable pairs.
-		expect(fixtures.length).toBe(25);
+	test("the golden set is the re-baselined 26 (PM-DEC-1; sub/sup excluded; GH-25 +1 mermaid-code-policy)", () => {
+		// Locks the fidelity bar: exactly the 26 remark-gfm-reachable pairs.
+		expect(fixtures.length).toBe(26);
 		expect(fixtures.map((f) => f.name).sort()).toContain("kitchensink");
 	});
 
@@ -91,5 +91,41 @@ describe("TC-CODE-MACRO-001 (AC-F4-2) — CDATA code bodies; 0× schema-version/
 		expect(mermaid?.expected).toContain(
 			'<ac:parameter ac:name="language">mermaid</ac:parameter>',
 		);
+	});
+});
+
+describe("TC-MERM-001/002 (GH-25 AC-F2-1/AC-F2-2 / NFR-2) — mermaid fence preservation + byte-stability", () => {
+	test("TC-MERM-001: mermaid fence emits code macro with language=mermaid + CDATA body", () => {
+		const mermaid = fixtures.find((f) => f.name === "mermaid-code-policy");
+		expect(mermaid).toBeDefined();
+		expect(mermaid?.expected).toContain('<ac:structured-macro ac:name="code">');
+		expect(mermaid?.expected).toContain(
+			'<ac:parameter ac:name="language">mermaid</ac:parameter>',
+		);
+		expect(mermaid?.expected).toContain("<ac:plain-text-body><![CDATA[");
+		expect(mermaid?.expected).toContain("]]></ac:plain-text-body>");
+	});
+
+	test("TC-MERM-002: same mermaid input N=3 renders → byte-identical (0 bytes diff)", () => {
+		const mermaid = fixtures.find((f) => f.name === "mermaid-code-policy");
+		expect(mermaid).toBeDefined();
+
+		const outputs: string[] = [];
+		for (let i = 0; i < 3; i++) {
+			const hast = mdastToHast(
+				parseMarkdown(mermaid!.markdown, {
+					sourcePath: "mermaid-code-policy.md",
+				}).value as never,
+			);
+			const result = renderStorage(hast, {
+				sourcePath: "mermaid-code-policy.md",
+			});
+			expect(result.ok).toBe(true);
+			if (!result.ok) throw new Error("render failed");
+			outputs.push(result.value.body);
+		}
+
+		expect(outputs[0]).toBe(outputs[1]);
+		expect(outputs[1]).toBe(outputs[2]);
 	});
 });

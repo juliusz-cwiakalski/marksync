@@ -72,7 +72,7 @@ sync:
 
 render:
   mermaid:
-    policy: render
+    policy: code
     securityLevel: strict
     htmlLabels: false
     deterministicIds: true
