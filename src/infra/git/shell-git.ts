@@ -1,8 +1,8 @@
 // Shell-git adapter implementing Repository port (TDR-0003).
 
 import type { MarkSyncError } from "#domain/errors";
-import type { Repository } from "#domain/git/port";
 import { validateRef, validateRepoRelative } from "#domain/git/paths";
+import type { Repository } from "#domain/git/port";
 import { Result } from "#domain/result";
 import { globToRegExp } from "#shared/glob";
 

@@ -1,9 +1,9 @@
 // Integration test: starter config discovery with recursive glob (GH-64, TC-GLOB-012).
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createShellGit } from "#infra/git/shell-git";
 
 describe("starter config discovery (GH-64, TC-GLOB-012)", () => {

@@ -1,8 +1,8 @@
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { tmpdir } from "node:os";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { validateRepoRelative, validateRef } from "#domain/git/paths";
+import { validateRef, validateRepoRelative } from "#domain/git/paths";
 
 describe("shell-git path validation (via test stubs)", () => {
 	test("rejects paths with ..", () => {
@@ -295,8 +295,7 @@ describe("shell-git glob pattern matching (GH-64)", () => {
 		return createShellGit(tmp);
 	};
 
-	const keys = (map: Map<string, Uint8Array>) =>
-		Array.from(map.keys()).sort();
+	const keys = (map: Map<string, Uint8Array>) => Array.from(map.keys()).sort();
 
 	// TC-GLOB-001: Recursive `**` matches nested markdown files (AC-F1-1)
 	test("TC-GLOB-001: recursive ** matches nested markdown files", async () => {
