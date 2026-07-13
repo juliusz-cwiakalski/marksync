@@ -163,59 +163,13 @@ block on failure, and dedups within-doc by source.
 
 **Tasks:**
 
- - [ ] **P2.1** Create `src/domain/mermaid/transform.ts` exporting the transform:
-   ```ts
-   import type { Renderer } from "#domain/mermaid/port";
-   import type { Artifact } from "#domain/target/port";
-   import type { MarkSyncError } from "#domain/errors";
-   import type { Result } from "#domain/result";
-   import type { Root } from "hast";
-   import type { MermaidRenderConfig } from "#domain/config/types";
-   import type { MermaidPolicy } from "#domain/config/types";
+ - [x] **P2.1** Create `src/domain/mermaid/transform.ts` exporting the transform
+   (done — recursive HAST walk reusing walkElements pattern; per-fence render/fallback/dedup; img node replacement; policy gating).
 
-   export interface TransformResult {
-     artifacts: Artifact[];
-     transformedHast: Root;
-     warnings: string[];
-   }
+ - [x] **P2.2** Write `tests/unit/domain/mermaid/transform.test.ts` with stubbed renderer
+   (done — 8 tests: TC-MERM-004 policy activation render/code/skip, TC-MERM-007 determinism 3× identical 64-char hash+filename, TC-MERM-009 in-doc dedup one Artifact renderer called once, TC-MERM-012 empty source fallback, TC-MERM-005 always-error fallback, recursive blockquote walk; 8 pass).
 
-   export async function transform(
-     hast: Root,
-     config: MermaidRenderConfig,
-     renderer: Renderer,
-   ): Promise<Result<TransformResult, MarkSyncError>> {
-     // If policy !== "render" → return ok({ artifacts: [], transformedHast: hast, warnings: [] })
-     // IMPORTANT: Recursively walk the ENTIRE HAST tree (not just top-level children) to find
-     // pre>code.language-mermaid nodes inside blockquotes, list items, table cells, etc. Reuse the
-     // recursive walk pattern from AssetResolver.walkElements() in src/domain/assets/resolver.ts.
-     // Walk HAST for element nodes with tagName === "pre"
-     // Check if pre > code child has className containing "language-mermaid"
-     // For each mermaid fence:
-     //   source = code.textContent
-     //   dedupKey = source (in-doc dedup)
-     //   if already rendered → reuse existing artifact + filename
-     //   else: result = await renderer.render(source)
-     //     On success: build img node with src = filename (full hash from artifact),
-     //                 alt = "Mermaid diagram"
-     //                 replace pre with img
-     //                 collect artifact
-     //     On RemoteUnreachable: keep pre unchanged, collect warning
-     // Return ok({ artifacts, transformedHast, warnings })
-   }
-   ```
-
- - [ ] **P2.2** Write `tests/unit/domain/mermaid/transform.test.ts` with stubbed renderer:
-   - **TC-MERM-004** (policy activation): Test `policy = "render"` → pre replaced
-     with img; `policy = "code"/"skip"` → pre unchanged.
-   - **TC-MERM-007** (determinism): Call transform 3× with same source → assert
-     all hashes identical (full sha256), all filenames identical.
-   - **TC-MERM-009** (in-doc dedup): Two identical mermaid fences → one Artifact,
-     both `pre` replaced with `img` nodes pointing to same filename.
-   - **TC-MERM-012** (empty source): stub Renderer returns error for empty/whitespace source → transform keeps pre + emits warning (fallback path).
-   - Success path: Stub renderer returns fixed SVG bytes → assert HAST has `img`
-     node with correct src/filename, artifacts array populated.
-
-- [ ] **P2.3** Commit: `feat(mermaid): GH-69 add Mermaid HAST transform`.
+ - [x] **P2.3** Commit: `feat(mermaid): gh-69 add mermaid hast transform`.
 
 ---
 
@@ -465,7 +419,7 @@ identifies the following docs that will need updating:
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
 | Phase 1 | Done | 2026-07-13 | 2026-07-13 | 5884ecf | Renderer port + Kroki adapter; 7 unit tests PASS, typecheck clean |
-| Phase 2 | Pending | - | - | - | Mermaid HAST transform |
+| Phase 2 | Done | 2026-07-13 | 2026-07-13 | (pending commit) | Mermaid HAST transform; 8 unit tests PASS, typecheck + depcruise clean |
 | Phase 3 | Pending | - | - | - | computePlan wiring + privacy warning |
 | Phase 4 | Pending | - | - | - | Golden fixture |
 | Phase 5 | Pending | - | - | - | Quality gate & cleanup |
