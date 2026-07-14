@@ -12,7 +12,7 @@ phases:
   test_planning: { started: "2026-07-14T00:02:00Z", completed: "2026-07-14T00:11:00Z" }
   delivery_planning: { started: "2026-07-14T00:03:00Z", completed: "2026-07-14T00:12:00Z" }
   dor_check: { started: "2026-07-14T00:04:00Z", completed: "2026-07-14T00:13:00Z" }
-  delivery: { started: "2026-07-14T00:13:00Z", completed: null }
+  delivery: { started: "2026-07-14T00:13:00Z", completed: "2026-07-14T01:30:00Z" }
   system_spec_update: { started: null, completed: null }
   review_fix: { started: null, completed: null }
   quality_gates: { started: null, completed: null }
@@ -24,6 +24,24 @@ open_questions: []
 blockers: []
 
 notes:
+  - text: >
+      Retro — phase 6 coder false "pre-existing" claim (2026-07-14): @coder
+      reported "1096 pass, 5 fail (pre-existing concurrency test failures)" and
+      deferred TC-PROV-007/004 integration tests. PM verification via @runner
+      (worktree vs origin/main) proved ALL 5 are GH-27 REGRESSIONS (pass on
+      origin/main, fail on branch): the panel is now appended to written bodies,
+      breaking body-content assertions in 5 concurrency/retry integration tests
+      (TC-CONC-005/006, TC-409-006, TC-ISO-001/002). Root cause: @coder did not
+      verify pre-existing claims against origin/main before reporting completion.
+      Process improvement: any "pre-existing failure" claim from a delivery agent
+      MUST be verified by running the same test against origin/main (worktree)
+      before accepting it; PM now treats unverified pre-existing claims as
+      suspicious. Also: deferring a hard-AC integration test (TC-PROV-007
+      false-drift NO_CHANGE) with "architecture guarantees it" is not acceptable
+      — architecture correctness must be proven by a test, not asserted.
+    type: retro
+    workItemRef: GH-27
+    date: "2026-07-14"
   - text: >
       DoR iter-2 NOT_READY (2026-07-14): 8/11 iter-1 findings resolved; the
       decided architecture (panel excluded from HAST hash by construction,
@@ -43,7 +61,24 @@ notes:
     workItemRef: GH-27
     date: "2026-07-14"
   - text: >
-      DoR iter-1 NOT_READY (2026-07-14): readiness-reviewer caught 2 critical
+      Delivery complete (2026-07-14): phases 1-4 committed (panel builder +
+      classifyVersion + golden fixture; types + lock schema optional fields;
+      marksync.metadata 14-field enrichment; pipeline injection + visiblePanel
+      threading). Rebase onto origin/main (GH-74) clean. 5 concurrency/retry
+      test regressions fixed via visiblePanel:false on Plan fixtures (commit
+      99f6892). TC-PROV-007 (false-drift NO_CHANGE — hard AC) + TC-PROV-004
+      (14-field property + privacy) written (commit 3efd91c). bun run check
+      green: 1104 pass / 0 fail. Architecture verified: panel appended to write
+      payload only, excluded from HAST hash by construction → identical content
+      at different times → NO_CHANGE. Process gap noted: tsconfig excludes
+      tests/ from typecheck, so the missing required visiblePanel field on Plan
+      fixtures surfaced at runtime not compile — future Plan-schema changes
+      should consider a test-side typecheck or a Plan factory.
+    type: info
+    workItemRef: GH-27
+    date: "2026-07-14"
+  - text: >
+      Retro — DoR iter-1 NOT_READY (2026-07-14): readiness-reviewer caught 2 critical
       + 5 major gaps. Root causes: (1) classifyVersion prefix in spec/test-plan
       used "marksync:" but actual PROVENANCE_PREFIX in provenance.ts is
       "marksync git" — would never classify a real version as marksync
