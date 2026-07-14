@@ -221,7 +221,7 @@ becomes both `Artifact.bytes` and the hash input (DEC-3).
 
 **Tasks**:
 
-- [ ] **2.1** Create `src/domain/mermaid/normalize.ts`: lift the
+- [x] **2.1** Create `src/domain/mermaid/normalize.ts`: lift the
   `normalizeSvg(rawSvg: string): string` function from
   `spikes/mermaid-render/normalize.ts`. This is a pure, dependency-free
   function implementing the full §3.3 rule set applied in order:
@@ -231,18 +231,18 @@ becomes both `Artifact.bytes` and the hash input (DEC-3).
   (collapse runs, drop inter-tag whitespace, trim), (5) normalize font/system
   metadata and strip time-dependent gantt `today`-line markers. Cite
   `feature-mermaid-rendering.md` §3.3 once in the file header.
-- [ ] **2.2** Create `tests/unit/domain/mermaid/normalize.test.ts` with
+- [x] **2.2** Create `tests/unit/domain/mermaid/normalize.test.ts` with
   TC-MERM-NORM-002: white-box tests isolating each normalization rule (comment
   stripping, attribute sorting, ID rewriting, whitespace canonicalization,
   font-metadata normalization). Assert semantic SVG structure (tags, paths,
   text) is unchanged.
-- [ ] **2.3** Wire normalization into `KrokiClient.render()`
+- [x] **2.3** Wire normalization into `KrokiClient.render()`
   (`src/infra/mermaid/kroki.ts`): after receiving the SVG response bytes,
   decode to UTF-8 string → `normalizeSvg()` → re-encode to `Uint8Array` →
   `hash = sha256Hex(normalizedBytes)` → `Artifact.bytes = normalizedBytes`,
   `Artifact.hash = hash` (DEC-3). The `kind: "mermaid"`, `mime: "image/svg+xml"`,
   and filename format (`marksync-mermaid-<hash>.svg`) are unchanged.
-- [ ] **2.4** Add Kroki determinism + normalization unit tests in
+- [x] **2.4** Add Kroki determinism + normalization unit tests in
   `tests/unit/infra/mermaid/kroki.test.ts`:
   - TC-MERM-DETM-001: render the same source + config twice → identical
     `Artifact.hash` (64-char sha256) and byte-identical `Artifact.bytes`. Mock
@@ -254,7 +254,7 @@ becomes both `Artifact.bytes` and the hash input (DEC-3).
   - TC-MERM-NORM-001: two SVG byte arrays differing only in non-deterministic
     elements (random IDs, marker names, comments, whitespace) → after
     normalization, byte-identical and hashes match.
-- [ ] **2.5** Add golden test TC-MERM-NORM-003 in
+- [x] **2.5** Add golden test TC-MERM-NORM-003 in
   `tests/golden/markdown/mermaid-render-golden.test.ts`: validate that the
   normalized SVG has 0 structural differences from the raw SVG;
   differences only in internal IDs/metadata). Use DOM-structural comparison

@@ -10,6 +10,7 @@ import { mdastToHast } from "#domain/markdown/mdast-to-hast";
 import { parseMarkdown } from "#domain/markdown/parse";
 import { transform } from "#domain/mermaid/transform";
 import { renderStorage } from "#infra/confluence/render/storage";
+import { normalizeSvg } from "#domain/mermaid/normalize";
 import type { Renderer } from "#domain/mermaid/port";
 import type { Artifact, MarkSyncError } from "#domain/target/port";
 import type { Result } from "#domain/result";
@@ -112,5 +113,67 @@ describe("TC-MERM-002 golden fixture — mermaid render policy (AC-1 / F-2)", ()
 		}
 		expect(outputs[0]).toBe(outputs[1]);
 		expect(outputs[1]).toBe(outputs[2]);
+	});
+});
+
+describe("TC-MERM-NORM-003 normalized SVG has 0 structural differences (AC-F2-2 / NFR-6)", () => {
+	test("normalization preserves semantic structure (paths, text, shapes)", () => {
+		const rawSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+			<!-- comment -->
+			<rect id="random-123" x="0" y="0" width="100" height="100" fill="blue"/>
+			<text x="50" y="50">Hello</text>
+			<path d="M0 0 L100 100"/>
+		</svg>`;
+
+		const normalized = normalizeSvg(rawSvg);
+
+		// Semantic elements preserved
+		expect(normalized).toContain("<rect");
+		expect(normalized).toContain("<text");
+		expect(normalized).toContain("<path");
+		expect(normalized).toContain("Hello");
+		expect(normalized).toContain("fill=\"blue\"");
+
+		// Non-deterministic elements stripped
+		expect(normalized).not.toContain("<!--");
+		expect(normalized).not.toContain("random-123");
+		expect(normalized).not.toContain("comment");
+
+		// Whitespace normalized
+		expect(normalized).not.toMatch(/\n\s*/);
+	});
+
+	test("attribute order normalized but values preserved", () => {
+		const rawSvg = `<svg><rect id="abc" x="0" y="10" width="100" height="50"/></svg>`;
+		const normalized = normalizeSvg(rawSvg);
+
+		// All attribute values preserved
+		expect(normalized).toContain('height="50"');
+		expect(normalized).toContain('width="100"');
+		expect(normalized).toContain('x="0"');
+		expect(normalized).toContain('y="10"');
+
+		// Attributes sorted alphabetically
+		expect(normalized).toMatch(/<rect height="50" id="eid\d+" width="100" x="0" y="10"\/>/);
+	});
+
+	test("ID references updated correctly", () => {
+		const rawSvg = `<svg>
+			<defs>
+				<linearGradient id="grad-abc">
+					<stop offset="0%" stop-color="red"/>
+				</linearGradient>
+			</defs>
+			<rect fill="url(#grad-abc)" x="0" y="0" width="100" height="100"/>
+		</svg>`;
+
+		const normalized = normalizeSvg(rawSvg);
+
+		// Original ID replaced
+		expect(normalized).not.toContain("grad-abc");
+		expect(normalized).toContain('id="eid0"');
+
+		// Reference updated
+		expect(normalized).toContain('fill="url(#eid0)"');
 	});
 });

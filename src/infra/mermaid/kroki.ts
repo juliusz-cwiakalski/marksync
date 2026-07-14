@@ -6,6 +6,7 @@ import type { Artifact } from "#domain/target/port";
 import type { MermaidRenderConfig } from "#domain/config/types";
 import type { MarkSyncError } from "#domain/errors";
 import { Result as Res } from "#domain/result";
+import { normalizeSvg } from "#domain/mermaid/normalize";
 
 const KROKI_ENDPOINT = "https://kroki.io/mermaid/svg";
 const TIMEOUT_MS = 30_000;
@@ -57,7 +58,10 @@ export class KrokiClient implements Renderer {
 					cause: `Kroki returned HTTP ${response.status}`,
 				});
 			}
-			const bytes = new Uint8Array(await response.arrayBuffer());
+			const rawBytes = new Uint8Array(await response.arrayBuffer());
+			const rawSvg = new TextDecoder().decode(rawBytes);
+			const normalizedSvg = normalizeSvg(rawSvg);
+			const bytes = new TextEncoder().encode(normalizedSvg);
 			const hash = await sha256Hex(bytes);
 			const artifact: Artifact = {
 				bytes,
