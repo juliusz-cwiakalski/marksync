@@ -208,28 +208,28 @@ This plan delivers provenance infrastructure for the safe publish pipeline (MS-0
 
 **Tasks**:
 
-- [ ] **4.1** In `computePlan` (around line 400), extend the `Plan` interface to include `visiblePanel: boolean` field. Store `config.provenance.visiblePanel` (default true if absent) on the plan object. This makes the flag available to `applyPlan` without threading the full config object.
-- [ ] **4.2** Locate the markdown→Storage pipeline assembly point in `src/app/push-flow.ts` where the rendered Storage body is prepared for write (after rendering, before Confluence API call). This is in `processEntry` where `entry.renderedBody` is used.
-- [ ] **4.3** Add conditional panel injection: if `visiblePanel` is `true` (default), construct `ProvenancePanelMeta` with:
+- [x] **4.1** In `computePlan` (around line 400), extend the `Plan` interface to include `visiblePanel: boolean` field. Store `config.provenance.visiblePanel` (default true if absent) on the plan object. This makes the flag available to `applyPlan` without threading the full config object.
+- [x] **4.2** Locate the markdown→Storage pipeline assembly point in `src/app/push-flow.ts` where the rendered Storage body is prepared for write (after rendering, before Confluence API call). This is in `processEntry` where `entry.renderedBody` is used.
+- [x] **4.3** Add conditional panel injection: if `visiblePanel` is `true` (default), construct `ProvenancePanelMeta` with:
   - `sourcePath`: from `entry.sourcePath`
   - `sourceBranch`: from `plan.provenance.sourceBranch`
   - `headCommit`: from `plan.provenance.headCommit`
   - `synchronizedAt`: generated at apply time as `new Date().toISOString()` (per document, just before write)
   Call `buildProvenancePanel(meta)` and append the returned Storage XHTML to the end of the rendered body. Panel becomes part of the written body but is NOT in the HAST, so `renderedBodyHash` is unaffected.
   - **Wiring**: Update `processEntry` signature to gain a `visiblePanel: boolean` parameter. In `applyPlan`, pass `plan.visiblePanel ?? true` (default true) to `processEntry` at the call site. This threads the flag from the plan through the apply function to the entry processor where panel injection occurs.
-- [ ] **4.4** Ensure the `renderedBodyHash` computation occurs BEFORE panel append (in the compute phase when `entry.renderedBody` is set). The hash is computed from HAST via `canonicalHash(hast)` and stored in `entry.hashes.renderedBodyHash`. Since the panel is appended post-render as a Storage string, the hash never includes the panel—false drift is architecturally impossible.
-- [ ] **4.5** Update the property write step to use the enriched `MetadataProperty` from Phase 3 (all 14 fields).
-- [ ] **4.6** Add unit tests to `tests/unit/push-flow.test.ts` (create if not exists) for:
+- [x] **4.4** Ensure the `renderedBodyHash` computation occurs BEFORE panel append (in the compute phase when `entry.renderedBody` is set). The hash is computed from HAST via `canonicalHash(hast)` and stored in `entry.hashes.renderedBodyHash`. Since the panel is appended post-render as a Storage string, the hash never includes the panel—false drift is architecturally impossible.
+- [x] **4.5** Update the property write step to use the enriched `MetadataProperty` from Phase 3 (all 14 fields).
+- [x] **4.6** Add unit tests to `tests/unit/push-flow.test.ts` (create if not exists) for:
   - Panel NOT injected when `plan.visiblePanel: false` (TC-PROV-002).
   - Body matches original when panel disabled.
   - Panel IS injected when `plan.visiblePanel: true` (integration test covers positive path).
-- [ ] **4.7** Create integration tests in `tests/integration/push-flow.test.ts` using `Bun.serve()` mock for Confluence API:
+- [x] **4.7** Create integration tests in `tests/integration/push-flow.test.ts` using `Bun.serve()` mock for Confluence API:
   - Full apply populates panel and property (TC-PROV-004).
   - Second sync preserves privacy (no subjects in property) (TC-PROV-005).
   - Idempotent sync: identical content at different times returns `NO_CHANGE` (TC-PROV-007). Verify that `renderedBodyHash` is identical between syncs (panel excluded by construction).
   - Zero writes to Confluence on idempotent sync.
   - Page version carries `marksync git` prefix for classification.
-- [ ] **4.8** Update golden fixtures if the panel output changes (review in PR).
+- [x] **4.8** Update golden fixtures if the panel output changes (review in PR).
 
 **Acceptance Criteria**:
 
@@ -315,14 +315,14 @@ This plan delivers provenance infrastructure for the safe publish pipeline (MS-0
 
 **Tasks**:
 
-- [ ] **6.1** Update `doc/spec/features/feature-safe-publish.md` to expand the "Provenance" capability bullet (currently says only "visible panel/footer + machine content-property metadata"):
+- [x] **6.1** Update `doc/spec/features/feature-safe-publish.md` to expand the "Provenance" capability bullet (currently says only "visible panel/footer + machine content-property metadata"):
   - Describe the delivered panel format (Storage XHTML `{info}` macro, fields: source path, Git revision, branch, last-sync timestamp).
   - Document the full `marksync.metadata` schema (all 14 fields, with note that `trimMarker` is present only when truncation occurred).
   - Document the `classifyVersion` predicate (`marksync git` prefix matching).
   - Document the false-drift prevention mechanism (panel excluded from HAST hash by construction).
-- [ ] **6.2** Reconcile spec: verify that all deliverables in spec are implemented and all open questions are resolved (spec §14: "None. All open questions were CEO-resolved").
-- [ ] **6.3** Verify all decisions in spec §15 are reflected in implementation (panel format, footer placement, timestamp exclusion from hash by construction, privacy enforcement, prefix-based classification).
-- [ ] **6.4** Review and update any ubiquitous-language or architecture-overview entries for new domain concepts if needed.
+- [x] **6.2** Reconcile spec: verify that all deliverables in spec are implemented and all open questions are resolved (spec §14: "None. All open questions were CEO-resolved").
+- [x] **6.3** Verify all decisions in spec §15 are reflected in implementation (panel format, footer placement, timestamp exclusion from hash by construction, privacy enforcement, prefix-based classification).
+- [x] **6.4** Review and update any ubiquitous-language or architecture-overview entries for new domain concepts if needed.
 
 **Acceptance Criteria**:
 
@@ -388,6 +388,38 @@ This plan delivers provenance infrastructure for the safe publish pipeline (MS-0
 
 ---
 
+### Phase 8: Code Review Remediation (Iteration 1)
+
+**Goal**: Address findings from the first code review iteration (review-iter-1.yaml).
+
+**Tasks**:
+
+- [ ] **8.1** Run `bun run format` to auto-fix formatting and import-ordering issues across all new/modified files (F-1). The primary blocker is a missing trailing newline in `tests/integration/app/provenance-apply.test.ts`; several new test files also have unsorted imports. After formatting, re-run `bun run check` and confirm a full clean pass (lint + format:check + typecheck + test + check:boundaries).
+- [ ] **8.2** Trim the file header in `src/infra/confluence/provenance.ts` to ≤3 lines per the boy-scout rule and `.ai/rules/typescript.md` Code style principle #2 (F-2). Suggested 3-line form: state the three exports + cite ADR-0006/ADR-0010 + note the privacy constraint (count+marker only).
+- [ ] **8.3** Mark Phase 4 tasks (4.1–4.8) as `[x]` in this plan — the work is fully implemented but checkboxes were left unchecked (F-3, DONE_BUT_UNCHECKED).
+- [ ] **8.4** Mark Phase 6 tasks (6.1–6.4) as `[x]` in this plan — the system documentation was synced in commit a2b8f1d but checkboxes were left unchecked (F-4, DONE_BUT_UNCHECKED).
+- [ ] **8.5** (Optional, non-blocking) Consider bundling the four provenance parameters (`sourceBranch`, `commitCount`, `trimMarker`, `visiblePanel`) passed to `processEntry` into a small context object to reduce parameter-list growth (F-5, info-level suggestion).
+
+**Acceptance Criteria**:
+
+- Must: `bun run check` passes end-to-end (lint + format:check + typecheck + test + check:boundaries) with zero errors (AC-CI-1).
+- Must: `src/infra/confluence/provenance.ts` file header is ≤3 lines.
+- Must: Phase 4 and Phase 6 task checkboxes reflect actual completion state.
+- Must: All 1104 tests still pass after formatting changes.
+
+**Affected code areas**:
+
+- `tests/integration/app/provenance-apply.test.ts` (trailing newline)
+- `tests/unit/app/push-flow.test.ts` (import sort)
+- `tests/golden/markdown/provenance-panel.test.ts` (import sort)
+- `src/infra/confluence/provenance.ts` (header trim)
+- `src/app/push-flow.ts` (import sort, if needed)
+- `chg-GH-27-plan.md` (checkbox updates)
+
+**Completion signal**: `fix(provenance): code review remediation iter-1 (GH-27)`
+
+---
+
 ## Test Scenarios
 
 | TC ID | Scenario | Phases | AC Coverage |
@@ -426,6 +458,7 @@ This plan delivers provenance infrastructure for the safe publish pipeline (MS-0
 |---------|------|--------|---------|
 | 1.0 | 2026-07-14 | Plan Writer | Initial plan for GH-27 provenance feature |
 | 1.1 | 2026-07-14 | Plan Writer | Remediation per DoR iter-1 findings: (P2) Dropped Phase 4 canonicalizer—panel excluded from HAST hash by construction; (P3) Added config wiring via `Plan.visiblePanel` field; (P4) Defined `ProvenancePanelMeta` with exact input fields and lifecycle; (P6) Updated lock schema task to use OPTIONAL fields; (P7) Added Phase 6 for system doc updates (feature-safe-publish.md); (P11) Articulated required vs optional fields; Fixed prefix to `marksync git` throughout; Updated test scenario table; Corrected field count from 13 to 14. |
+| 1.2 | 2026-07-14 | Reviewer | Added Phase 8: Code Review Remediation (Iteration 1) per review-iter-1 findings: (F-1 medium) `bun run check` fails at format:check — missing trailing newline + unsorted imports, fix via `bun run format`; (F-2 low) provenance.ts header exceeds ≤3 line rule; (F-3 low) Phase 4 tasks DONE_BUT_UNCHECKED; (F-4 low) Phase 6 tasks DONE_BUT_UNCHECKED; (F-5 info) processEntry parameter list growth suggestion. |
 
 ---
 

@@ -1,7 +1,6 @@
 // Confluence provenance: version.message formatter + visible panel builder +
-// direct-edit classifier (ADR-0006 / ADR-0010). Privacy: the marksync.metadata
-// property stores only commitCount + trimMarker — never commit subjects
-// (ADR-0010 C-2 puts subjects in version.message only).
+// direct-edit classifier (ADR-0006 / ADR-0010). Privacy: marksync.metadata
+// stores only commitCount + trimMarker — never commit subjects.
 
 /** Conservative default; tighten after empirical confirmation (PD-6 / ADR-0010). */
 export const MAX_VERSION_MESSAGE_LEN = 255;
