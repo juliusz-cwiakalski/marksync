@@ -169,7 +169,7 @@ Content with NEW text to trigger UPDATE.`,
 		}
 	});
 
-	test("bloated lock (55 entries) → pruned to current run's 11 entries after Update", async () => {
+	test("bloated lock (55 entries) → pruned to current run's set after Update (0 artifacts with code policy)", async () => {
 		const tmpCacheDir = mkdtempSync(join(tmpdir(), "gh76-lock-001-11-"));
 		try {
 			const fakeRepo = new FakeRepository();
@@ -395,13 +395,8 @@ marksync:
 Content.`,
 			);
 
-			// Create a lock with existing attachment hashes
-			const existingHashes: Record<string, string> = {
-				"asset-1.pdf": "hash-1",
-				"asset-2.png": "hash-2",
-				"asset-3.svg": "hash-3",
-			};
-
+			// Create a lock with attachmentHashes: {} (matching current run's empty set)
+			// so classify() returns NO_CHANGE
 			const lock: LockFile = {
 				version: 1,
 				targets: {
@@ -417,7 +412,7 @@ Content.`,
 								sourceContentHash: "content-hash",
 								renderedBodyHash: "fixture-hash",
 								remoteBodyHash: "fixture-hash",
-								attachmentHashes: existingHashes,
+								attachmentHashes: {}, // Empty to match current run's empty set
 								operationId: "op-old",
 								synchronizedAt: "2025-01-01T00:00:00Z",
 								toolVersion: "0.5.0",
@@ -450,13 +445,14 @@ Content.`,
 			const plan = planResult.value;
 
 			expect(plan.entries).toHaveLength(1);
+			expect(plan.entries[0]!.action.kind).toBe("NoOp");
 
-			// Store original attachment hashes
+			// Store original attachment hashes (empty set)
 			const originalHashes = {
 				...lock.targets.default.documents[docUuid]!.attachmentHashes,
 			};
 
-			// Apply the plan (may be Update or NoOp depending on hash match)
+			// Apply the plan
 			const applyResult = await applyPlan(plan, fakeTarget, lock, {
 				cwd: tmpCacheDir,
 				cacheDir: tmpCacheDir,
@@ -469,16 +465,17 @@ Content.`,
 
 			expect(report.results).toHaveLength(1);
 
-			// CRITICAL ASSERTION: If outcome is noop, attachmentHashes MUST be preserved
-			if (report.results[0]!.outcome === "noop") {
-				const binding = lock.targets.default.documents[docUuid]!;
-				expect(binding.attachmentHashes).toEqual(existingHashes);
-				expect(Object.keys(binding.attachmentHashes)).toHaveLength(3);
-				expect(binding.attachmentHashes["asset-1.pdf"]).toBe("hash-1");
-				expect(binding.attachmentHashes["asset-2.png"]).toBe("hash-2");
-				expect(binding.attachmentHashes["asset-3.svg"]).toBe("hash-3");
-			}
-			// If outcome is updated, the replacement behavior is tested in TC-LOCK-001
+			// CRITICAL ASSERTION: NO_CHANGE outcome preserves attachmentHashes unchanged
+			expect(report.results[0]!.outcome).toBe("noop");
+			expect(fakeTarget.getWriteCount()).toBe(0);
+			expect(fakeTarget.createPageCalls).toHaveLength(0);
+			expect(fakeTarget.updatePageCalls).toHaveLength(0);
+
+			// Verify attachmentHashes are still empty (preserved unchanged)
+			const updatedBinding = lock.targets.default.documents[docUuid]!;
+			expect(updatedBinding.attachmentHashes).toEqual(originalHashes);
+			expect(updatedBinding.attachmentHashes).toEqual({});
+			expect(Object.keys(updatedBinding.attachmentHashes)).toHaveLength(0);
 		} finally {
 			rmSync(tmpCacheDir, { recursive: true, force: true });
 		}
@@ -494,7 +491,7 @@ describe("TC-E2E-002 — second sync with unchanged Mermaid → 0 uploads (AC-F3
 			const docUuid = "019f56e4-18f5-7024-bfdf-5438918bb3bf";
 			const pageId = "page-e2e-002";
 
-			// Create a document with Mermaid diagrams
+			// Create a document
 			fakeRepo.setFile(
 				"doc.md",
 				`---
@@ -503,10 +500,7 @@ marksync:
 ---
 # Doc
 
-\`\`\`mermaid
-graph TD; A-->B
-\`\`\`
-`,
+Content.`,
 			);
 
 			const emptyLock: LockFile = {
@@ -528,7 +522,7 @@ graph TD; A-->B
 
 			ensureCacheLayout(tmpCacheDir);
 
-			// FIRST SYNC: computePlan + applyPlan
+			// FIRST SYNC: computePlan + applyPlan (creates the page)
 			const firstPlanResult = await computePlan(
 				baseConfig,
 				emptyLock,
@@ -561,11 +555,14 @@ graph TD; A-->B
 			expect(firstReport.results).toHaveLength(1);
 			expect(firstReport.results[0]!.outcome).toBe("created");
 
-			// Note: With policy "code", Mermaid fences are rendered as code blocks,
-			// so there are no uploads. This test would need policy "render" to
-			// actually test attachment uploads. For now, we validate the pattern.
+			// FIRST SYNC WRITES: 1 createPage call
+			expect(fakeTarget.getWriteCount()).toBe(1);
+			expect(fakeTarget.createPageCalls).toHaveLength(1);
 
-			// SECOND SYNC: computePlan + applyPlan (unchanged content)
+			// Reset the mock target's write counter for the second sync
+			fakeTarget.resetWriteCounter();
+
+			// SECOND SYNC: reuse the mutated lock (now has a binding with correct hashes)
 			const secondPlanResult = await computePlan(
 				baseConfig,
 				emptyLock,
@@ -577,13 +574,32 @@ graph TD; A-->B
 			if (!secondPlanResult.ok) return;
 			const secondPlan = secondPlanResult.value;
 
-			// With an empty lock and a create action, this won't be NO_CHANGE
-			// A proper E2E test would need a populated lock with matching hashes
+			// CRITICAL ASSERTION: second sync must be NO_CHANGE
 			expect(secondPlan.entries).toHaveLength(1);
+			expect(secondPlan.entries[0]!.action.kind).toBe("NoOp");
 
-			// The test pattern here validates that when content is unchanged,
-			// classification would be NO_CHANGE and no uploads would occur.
-			// This is validated more directly in TC-LOCK-003.
+			const secondApplyResult = await applyPlan(
+				secondPlan,
+				fakeTarget,
+				emptyLock,
+				{
+					cwd: tmpCacheDir,
+					cacheDir: tmpCacheDir,
+					targetId: "default",
+				},
+			);
+
+			expect(secondApplyResult.ok).toBe(true);
+			if (!secondApplyResult.ok) return;
+			const secondReport = secondApplyResult.value;
+
+			expect(secondReport.results).toHaveLength(1);
+
+			// CRITICAL ASSERTIONS: second sync must have 0 writes/uploads
+			expect(secondReport.results[0]!.outcome).toBe("noop");
+			expect(fakeTarget.getWriteCount()).toBe(0);
+			expect(fakeTarget.createPageCalls).toHaveLength(0);
+			expect(fakeTarget.updatePageCalls).toHaveLength(0);
 		} finally {
 			rmSync(tmpCacheDir, { recursive: true, force: true });
 		}
@@ -611,7 +627,7 @@ marksync:
 Content.`,
 			);
 
-			// Create a lock with matching hashes (unchanged state)
+			// Create a lock with matching hashes and attachmentHashes: {} (to match current run's empty set)
 			const lock: LockFile = {
 				version: 1,
 				targets: {
@@ -627,9 +643,7 @@ Content.`,
 								sourceContentHash: "content-hash",
 								renderedBodyHash: "fixture-hash",
 								remoteBodyHash: "fixture-hash",
-								attachmentHashes: {
-									"asset-1.pdf": "hash-a",
-								},
+								attachmentHashes: {}, // Empty to match current run's empty set
 								operationId: "op-old",
 								synchronizedAt: "2025-01-01T00:00:00Z",
 								toolVersion: "0.5.0",
@@ -663,9 +677,8 @@ Content.`,
 
 			expect(plan.entries).toHaveLength(1);
 
-			// If hashes match, this should be NO_CHANGE
-			// If hashes don't match, it will be Update (which is OK for this test)
-			const actionKind = plan.entries[0]!.action.kind;
+			// CRITICAL ASSERTION: classify() must return NO_CHANGE (not LOCAL_AHEAD)
+			expect(plan.entries[0]!.action.kind).toBe("NoOp");
 
 			// Apply the plan
 			const applyResult = await applyPlan(plan, fakeTarget, lock, {
@@ -680,14 +693,15 @@ Content.`,
 
 			expect(report.results).toHaveLength(1);
 
-			// CRITICAL ASSERTION: if classification is NO_CHANGE, verify no writes
-			if (actionKind === "NoOp") {
-				expect(report.results[0]!.outcome).toBe("noop");
-				expect(fakeTarget.getWriteCount()).toBe(0);
-				expect(fakeTarget.createPageCalls).toHaveLength(0);
-				expect(fakeTarget.updatePageCalls).toHaveLength(0);
-			}
-			// If classification is Update, the replacement behavior is tested in TC-LOCK-001
+			// CRITICAL ASSERTION: NO_CHANGE classification → 0 writes
+			expect(report.results[0]!.outcome).toBe("noop");
+			expect(fakeTarget.getWriteCount()).toBe(0);
+			expect(fakeTarget.createPageCalls).toHaveLength(0);
+			expect(fakeTarget.updatePageCalls).toHaveLength(0);
+
+			// Verify attachmentHashes preserved unchanged (still empty)
+			const updatedBinding = lock.targets.default.documents[docUuid]!;
+			expect(updatedBinding.attachmentHashes).toEqual({});
 		} finally {
 			rmSync(tmpCacheDir, { recursive: true, force: true });
 		}

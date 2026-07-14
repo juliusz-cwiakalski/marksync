@@ -215,7 +215,7 @@ describe("KrokiClient", () => {
 			expect(callCount).toBe(2);
 		});
 
-		test("different sources → different hashes", async () => {
+		test("same SVG output → identical hash regardless of source", async () => {
 			let callCount = 0;
 			const client = new KrokiClient({
 				fetch: async (_url) => {

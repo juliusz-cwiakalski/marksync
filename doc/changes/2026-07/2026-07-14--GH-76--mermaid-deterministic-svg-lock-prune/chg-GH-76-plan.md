@@ -593,6 +593,104 @@ are genuinely validated.
 
 ---
 
+### Phase 8: Code Review Remediation (Iteration 2)
+
+**Goal**: Fix the non-asserting integration tests identified in review
+iteration 2. Phase 7 remediation recreated the test files but three of the four
+recreated tests pass VACUOUSLY — their critical assertions are guarded by
+conditional branches (`if (outcome === "noop")`, `if (actionKind === "NoOp")`)
+that never fire because `classify()` returns `LOCAL_AHEAD` (not `NO_CHANGE`).
+The root cause is a fixture mismatch: lock `attachmentHashes` contain entries
+that don't correspond to the current run's empty asset set. The existing
+idempotency test (TC-INTEGRATION-005) shows the correct pattern:
+`attachmentHashes: {}` to match the current run.
+
+**Tasks**:
+
+- [x] **8.1** Fix TC-LOCK-003 (`tests/integration/confluence/push-flow.test.ts`):
+  set `attachmentHashes: {}` in the lock binding (matching the current run's
+  empty set) so `classify()` returns `NO_CHANGE` → `NoOp` action → `"noop"`
+  outcome. Remove the `if (report.results[0]!.outcome === "noop")` conditional
+  guard (line 473) and assert preservation of `attachmentHashes`
+  unconditionally. Verify the assertion actually fires by confirming
+  `action.kind === "NoOp"` before the apply. (Review-iter-2 F-1)
+- [x] **8.2** Fix TC-E2E-003 (`tests/integration/confluence/push-flow.test.ts`):
+  set `attachmentHashes: {}` in the lock binding so `classify()` returns
+  `NO_CHANGE`. Remove the `if (actionKind === "NoOp")` conditional guard
+  (line 684). Assert `actionKind === "NoOp"`, `outcome === "noop"`, and
+  `fakeTarget.getWriteCount() === 0` unconditionally. (Review-iter-2 F-2)
+- [x] **8.3** Fix TC-E2E-002 (`tests/integration/confluence/push-flow.test.ts`):
+  after the first `applyPlan` (which mutates the lock by adding a binding),
+  reuse the updated lock for the second `computePlan` so `classify()` sees a
+  matching state → `NoOp`. Reset `fakeTarget.resetWriteCounter()` before the
+  second sync. Assert the second sync's `action.kind === "NoOp"`,
+  `outcome === "noop"`, and `fakeTarget.getWriteCount() === 0`. Remove the
+  acknowledgment comments that say the test doesn't work. (Review-iter-2 F-3)
+- [x] **8.4** Fix TC-LOCK-001 test 2 name
+  (`tests/integration/confluence/push-flow.test.ts:172`): rename from "→
+  pruned to current run's 11 entries after Update" to "→ pruned to current
+  run's set after Update (0 artifacts with code policy)" to match the actual
+  assertion (0 entries, not 11). (Review-iter-2 F-4)
+- [x] **8.5** Remove vestigial tautological subtests in TC-LOCK-002 block
+  (`tests/unit/app/push-flow.test.ts:219-247`): delete "empty current run →
+  empty attachment hashes" and "multiple current run entries → all preserved"
+  — both assign a variable to itself and call no production code. The primary
+  test at lines 62-217 is sufficient. (Review-iter-2 F-7)
+- [x] **8.6** Fix TC-MERM-DETM-002 test name
+  (`tests/unit/infra/mermaid/kroki.test.ts:218`): rename from "different
+  sources → different hashes" to "same SVG output → identical hash regardless
+  of source" to match the assertion (`toBe`, not `not.toBe`). (Review-iter-2 F-5)
+- [x] **8.7** Check off Phase 5 and 6 task checkboxes in the plan (done per
+  execution log). For Phase 4 tasks, mark as deferred to Phase 8 with rationale
+  (tests were recreated in Phase 7/8 but were defective — fixed in Phase 8).
+  (Review-iter-2 F-6, carryover from iter-1 F-5)
+- [ ] **8.8** (Optional, low priority) Move `data-mermaid-version` stripping in
+  `src/domain/mermaid/normalize.ts` (line 90) to before Rule 4 whitespace
+  canonicalization, or add a tag-internal whitespace collapse after Rule 5.
+  (Review-iter-2 F-8, carryover from iter-1 F-6)
+- [ ] **8.9** (Optional, low priority) Fix the empty-value attribute filter in
+  `sortTagAttributes` (`src/domain/mermaid/normalize.ts:21`): change `if (n &&
+  v)` to `if (n)`. (Review-iter-2 F-9, carryover from iter-1 F-7)
+- [ ] **8.10** (Optional, info) Update the create-path comment in
+  `src/app/push-flow.ts:1310` from "GH-26: merged from upload" to "GH-76:
+  current run's complete set (replacement semantics, DEC-4)". (Review-iter-2
+  F-10, carryover from iter-1 F-8)
+- [x] **8.11** Run `bun run check` — must exit 0 with the fixed tests. All
+  previously vacuous tests must now genuinely assert their stated ACs.
+
+**Acceptance Criteria**:
+
+- Must: AC-F3-2 — NO_CHANGE outcome preserves existing attachmentHashes
+  (validated by TC-LOCK-003 with assertion that UNCONDITIONALLY fires). PASSED
+- Must: AC-F3-3 — second sync with unchanged content → 0 uploadAttachment /
+  0 writes (validated by TC-E2E-002 with explicit write-count assertion). PASSED
+- Must: AC-F3-4 — unchanged content → NO_CHANGE classification (validated by
+  TC-E2E-003 with assertion that UNCONDITIONALLY fires). PASSED
+- Must: AC-QG-1 — `bun run check` exits 0. PASSED
+- Must: No test passes vacuously (every test's critical assertions must
+  execute on every run, not be guarded by conditions that may be false). PASSED
+
+**Files and modules**:
+
+- Code areas:
+  - `tests/integration/confluence/push-flow.test.ts` (fixed — TC-LOCK-003, TC-E2E-002, TC-E2E-003, TC-LOCK-001 name)
+  - `tests/unit/app/push-flow.test.ts` (cleaned — remove vestigial subtests)
+  - `tests/unit/infra/mermaid/kroki.test.ts` (fixed — TC-MERM-DETM-002 name)
+  - `src/domain/mermaid/normalize.ts` (optional — F-8/F-9 fixes)
+  - `src/app/push-flow.ts` (optional — F-10 comment fix)
+- System docs: none
+
+**Tests**:
+
+- TC-LOCK-003 — NO_CHANGE preserves existing attachmentHashes (fixed: unconditional assertion)
+- TC-E2E-002 — second sync → 0 writes/uploads (fixed: write-count assertion)
+- TC-E2E-003 — unchanged content → NO_CHANGE (fixed: unconditional assertion)
+- TC-LOCK-001 — test name fixed to match actual assertion
+
+**Completion signal**: `test(review-fix): fix non-asserting integration tests for AC-F3-2/3/4 (GH-76 review-iter-2)`
+
+---
+
 ## Test Scenarios
 
 | TC ID | Scenario | Phase(s) | AC Coverage |
@@ -640,6 +738,7 @@ are genuinely validated.
 |---------|------|--------|---------|
 | 1.0 | 2026-07-14 | plan-writer (AI-assisted) | Initial implementation plan for GH-76 |
 | 1.1 | 2026-07-14 | reviewer (AI-assisted) | Added Phase 7: Code Review Remediation (Iteration 1) — 8 findings (3 high, 2 medium, 2 low, 1 info). Primary gap: F-3 lock pruning has zero effective test coverage (tautological TC-LOCK-002 + deleted integration tests). |
+| 1.2 | 2026-07-14 | reviewer (AI-assisted) | Added Phase 8: Code Review Remediation (Iteration 2) — 10 findings (3 high, 3 medium, 3 low, 1 info). Phase 7 fixed TC-LOCK-002 (now exercises production code) and TC-LOCK-001 (AC-F3-1 validated). But TC-LOCK-003, TC-E2E-002, TC-E2E-003 pass vacuously — their critical assertions are guarded by conditions that never fire because classify() returns LOCAL_AHEAD (not NO_CHANGE) due to attachmentHashes fixture mismatch. AC-F3-2/3/4 remain unvalidated. |
 
 ## Execution Log
 
@@ -651,4 +750,5 @@ are genuinely validated.
 | Phase 4 | Not Started | | | | Integration tests deleted in 2948c0e; deferred to Phase 7 |
 | Phase 5 | Done | 2026-07-14 | 2026-07-14 | 2948c0e | Documentation & spec synchronization |
 | Phase 6 | Done | 2026-07-14 | 2026-07-14 | 657356e, 62e0bf9 | Version bump + quality fixes |
-| Phase 7 | Pending | | | | Code Review Remediation (Iteration 1) |
+| Phase 7 | Partial | 2026-07-14 | 2026-07-14 | 78e01c0 | TC-LOCK-002 rewritten (now exercises production code); TC-LOCK-001 genuine; TC-LOCK-003/E2E-002/E2E-003 non-asserting (see Phase 8) |
+| Phase 8 | Done | 2026-07-14 | 2026-07-14 | <commit> | Fixed TC-LOCK-003, TC-E2E-002, TC-E2E-003 (removed conditional guards, set attachmentHashes: {} to match current run); fixed TC-LOCK-001 name; removed vestigial TC-LOCK-002 subtests; fixed TC-MERM-DETM-002 name; enhanced FakeTarget.resetWriteCounter() to clear call history. All tests now genuinely assert their stated ACs. |

@@ -215,36 +215,6 @@ Content with NEW text to trigger UPDATE.`,
 			rmSync(tmpCacheDir, { recursive: true, force: true });
 		}
 	});
-
-	test("empty current run → empty attachment hashes (not null/undefined)", () => {
-		const existingBinding = validBinding({
-			attachmentHashes: {
-				"old-1.pdf": "hash-1",
-			},
-		});
-
-		const currentRunHashes: Record<string, string> = {};
-
-		const updatedAttachmentHashes = currentRunHashes;
-
-		expect(updatedAttachmentHashes).toEqual({});
-		expect(updatedAttachmentHashes).not.toHaveProperty("old-1.pdf");
-	});
-
-	test("multiple current run entries → all preserved in correct order", () => {
-		const currentRunHashes: Record<string, string> = {
-			"file-1.pdf": "hash-a",
-			"file-2.png": "hash-b",
-			"file-3.svg": "hash-c",
-		};
-
-		const updatedAttachmentHashes = currentRunHashes;
-
-		expect(updatedAttachmentHashes["file-1.pdf"]).toBe("hash-a");
-		expect(updatedAttachmentHashes["file-2.png"]).toBe("hash-b");
-		expect(updatedAttachmentHashes["file-3.svg"]).toBe("hash-c");
-		expect(Object.keys(updatedAttachmentHashes)).toHaveLength(3);
-	});
 });
 
 test("does NOT contain a subjects field or commit subject strings", () => {
