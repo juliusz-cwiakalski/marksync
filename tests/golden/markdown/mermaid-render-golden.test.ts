@@ -34,7 +34,7 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 }
 
 class StubRenderer implements Renderer {
-	async render(_source: string): Promise<Result<Artifact, MarkSyncError>> {
+	async render(_source: string, _config: MermaidRenderConfig): Promise<Result<Artifact, MarkSyncError>> {
 		const hash = await sha256Hex(SVG);
 		return Res.ok({ bytes: SVG, mime: "image/svg+xml", hash, kind: "mermaid" });
 	}

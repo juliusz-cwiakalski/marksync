@@ -141,12 +141,12 @@ but hashing is still over raw bytes (normalization lands in Phase 2).
 
 **Tasks**:
 
-- [ ] **1.1** Modify the `Renderer` port (`src/domain/mermaid/port.ts`): change
+- [x] **1.1** Modify the `Renderer` port (`src/domain/mermaid/port.ts`): change
   the signature from `render(source: string)` to
   `render(source: string, config: MermaidRenderConfig)`. Import
   `MermaidRenderConfig` from `#domain/config/types`. Update the JSDoc to note
   that the config carries render options the adapter applies.
-- [ ] **1.2** Modify `KrokiClient.render()` (`src/infra/mermaid/kroki.ts`):
+- [x] **1.2** Modify `KrokiClient.render()` (`src/infra/mermaid/kroki.ts`):
   accept the `config` parameter and build a query string translating
   `config.deterministicIds` → `deterministic-ids=true` and
   `config.htmlLabels` → `html-labels=false` (kebab-case per Kroki's
@@ -154,11 +154,11 @@ but hashing is still over raw bytes (normalization lands in Phase 2).
   (DEC-1 — blocked by Kroki, enforced as `strict` by default). Append the
   query string to the endpoint URL. POST body and `Content-Type: text/plain`
   are unchanged.
-- [ ] **1.3** Modify the HAST transform (`src/domain/mermaid/transform.ts`):
+- [x] **1.3** Modify the HAST transform (`src/domain/mermaid/transform.ts`):
   in `tryRenderFence`, pass `config` to `ctx.renderer.render(source, config)`.
   The transform already receives `config: MermaidRenderConfig` as its second
   argument but currently only checks `policy` — forward it to the renderer.
-- [ ] **1.4** Update existing test stubs to accept the new `config` parameter:
+- [x] **1.4** Update existing test stubs to accept the new `config` parameter:
   `StubRenderer`, `EmptyErrorRenderer`, `AlwaysErrorRenderer` in
   `tests/unit/domain/mermaid/transform.test.ts`, `StubRenderer` in
   `tests/golden/markdown/mermaid-render-golden.test.ts`, **and** `StubRenderer`
@@ -167,11 +167,11 @@ but hashing is still over raw bytes (normalization lands in Phase 2).
   mode if the port signature changes). The stubs can ignore the config (they
   return fixed bytes), but the signature must satisfy the updated `Renderer`
   interface.
-- [ ] **1.5** Update existing Kroki unit tests
+- [x] **1.5** Update existing Kroki unit tests
   (`tests/unit/infra/mermaid/kroki.test.ts`): pass a `MermaidRenderConfig` to
   every `client.render(source, config)` call so the existing success-path,
   network-fallback, and timeout tests compile and pass.
-- [ ] **1.6** Add new Kroki unit tests:
+- [x] **1.6** Add new Kroki unit tests:
   - TC-MERM-DETM-003: assert the fetch URL contains `deterministic-ids=true`
     and `html-labels=false`, POST body is the source, `Content-Type` is
     `text/plain`.

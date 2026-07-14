@@ -3,6 +3,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { KrokiClient } from "#infra/mermaid/kroki";
+import type { MermaidRenderConfig } from "#domain/config/types";
 
 const SVG = new TextEncoder().encode(
 	'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>',
@@ -18,6 +19,13 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 		.join("");
 }
 
+const RENDER_CONFIG: MermaidRenderConfig = {
+	policy: "render",
+	securityLevel: "strict",
+	htmlLabels: false,
+	deterministicIds: true,
+};
+
 describe("KrokiClient", () => {
 	describe("TC-MERM success path (DM-6 / AC-5)", () => {
 		test("HTTP 200 → ok(Artifact) with full sha256 hash, image/svg+xml, kind=mermaid", async () => {
@@ -30,7 +38,7 @@ describe("KrokiClient", () => {
 					}),
 			});
 
-			const result = await client.render("graph TD; A-->B");
+			const result = await client.render("graph TD; A-->B", RENDER_CONFIG);
 
 			expect(result.ok).toBe(true);
 			if (!result.ok) return;
@@ -58,7 +66,7 @@ describe("KrokiClient", () => {
 				},
 			});
 
-			await client.render("graph TD; A-->B");
+			await client.render("graph TD; A-->B", RENDER_CONFIG);
 
 			expect(captured.body).toBe("graph TD; A-->B");
 			expect(captured.contentType).toBe("text/plain");
@@ -71,7 +79,7 @@ describe("KrokiClient", () => {
 				fetch: async () => new Response("Service Unavailable", { status: 503 }),
 			});
 
-			const result = await client.render("graph TD; A-->B");
+			const result = await client.render("graph TD; A-->B", RENDER_CONFIG);
 
 			expect(result.ok).toBe(false);
 			if (result.ok) return;
@@ -87,7 +95,7 @@ describe("KrokiClient", () => {
 				fetch: async () => new Response("Not Found", { status: 404 }),
 			});
 
-			const result = await client.render("graph TD; A-->B");
+			const result = await client.render("graph TD; A-->B", RENDER_CONFIG);
 
 			expect(result.ok).toBe(false);
 			if (result.ok) return;
@@ -104,7 +112,7 @@ describe("KrokiClient", () => {
 				},
 			});
 
-			const result = await client.render("graph TD; A-->B");
+			const result = await client.render("graph TD; A-->B", RENDER_CONFIG);
 
 			expect(result.ok).toBe(false);
 			if (result.ok) return;
@@ -123,7 +131,7 @@ describe("KrokiClient", () => {
 					}),
 			});
 
-			const result = await client.render("graph TD; A-->B");
+			const result = await client.render("graph TD; A-->B", RENDER_CONFIG);
 
 			expect(result.ok).toBe(false);
 			if (result.ok) return;
@@ -138,12 +146,46 @@ describe("KrokiClient", () => {
 				},
 			});
 
-			const result = await client.render("graph TD; A-->B");
+			const result = await client.render("graph TD; A-->B", RENDER_CONFIG);
 
 			expect(result.ok).toBe(false);
 			if (result.ok) return;
 			expect(result.error.kind).toBe("RemoteUnreachable");
 			expect(result.error.cause).toContain("fetch failed");
+		});
+	});
+
+	describe("TC-MERM-DETM-003 config passthrough (AC-F1-2 / NFR-5)", () => {
+		test("deterministicIds and htmlLabels passed as query params", async () => {
+			let capturedUrl: string | undefined;
+			const client = new KrokiClient({
+				fetch: async (url) => {
+					capturedUrl = url;
+					return new Response(SVG, { status: 200 });
+				},
+			});
+
+			await client.render("graph TD; A-->B", RENDER_CONFIG);
+
+			expect(capturedUrl).toBeDefined();
+			expect(capturedUrl).toContain("deterministic-ids=true");
+			expect(capturedUrl).toContain("html-labels=false");
+		});
+
+		test("securityLevel NOT passed (blocked by Kroki, DEC-1)", async () => {
+			let capturedUrl: string | undefined;
+			const client = new KrokiClient({
+				fetch: async (url) => {
+					capturedUrl = url;
+					return new Response(SVG, { status: 200 });
+				},
+			});
+
+			await client.render("graph TD; A-->B", RENDER_CONFIG);
+
+			expect(capturedUrl).toBeDefined();
+			expect(capturedUrl).not.toContain("securityLevel");
+			expect(capturedUrl).not.toContain("security-level");
 		});
 	});
 });

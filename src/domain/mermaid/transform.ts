@@ -44,7 +44,7 @@ export async function transform(
 		bySource: new Map<string, Artifact>(),
 		location: sourcePath ?? "document",
 	};
-	await processChildren(hast.children, ctx);
+	await processChildren(hast.children, ctx, config);
 	return Res.ok({
 		artifacts: ctx.artifacts,
 		transformedHast: hast,
@@ -64,18 +64,19 @@ interface RenderContext {
 async function processChildren(
 	children: Array<Root["children"][number] | Element["children"][number]>,
 	ctx: RenderContext,
+	config: MermaidRenderConfig,
 ): Promise<void> {
 	for (let i = 0; i < children.length; i++) {
 		const child = children[i];
 		if (child?.type !== "element") continue;
 		if (isMermaidFence(child)) {
-			const replacement = await tryRenderFence(child, ctx);
+			const replacement = await tryRenderFence(child, ctx, config);
 			if (replacement) {
 				children[i] = replacement;
 			}
 			// A mermaid fence's only child is <code> — no nested fences to recurse.
 		} else {
-			await processChildren(child.children, ctx);
+			await processChildren(child.children, ctx, config);
 		}
 	}
 }
@@ -92,6 +93,7 @@ function isMermaidFence(el: Element): boolean {
 async function tryRenderFence(
 	pre: Element,
 	ctx: RenderContext,
+	config: MermaidRenderConfig,
 ): Promise<Element | null> {
 	const code = pre.children.find(
 		(c): c is Element => c.type === "element" && c.tagName === "code",
@@ -103,7 +105,7 @@ async function tryRenderFence(
 		return imgNode(cached.hash);
 	}
 
-	const result = await ctx.renderer.render(source);
+	const result = await ctx.renderer.render(source, config);
 	if (!result.ok) {
 		const err = result.error;
 		const detail = err.kind === "RemoteUnreachable" ? err.cause : err.kind;
