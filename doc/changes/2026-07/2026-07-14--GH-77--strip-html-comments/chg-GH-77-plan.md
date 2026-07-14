@@ -4,9 +4,9 @@
 source: https://github.com/juliusz-cwiakalski/agentic-delivery-os/blob/main/doc/templates/implementation-plan-template.md
 ados_distribution: redistributable
 id: chg-GH-77-strip-html-comments
-status: Proposed
+status: Updated
 created: 2026-07-14T00:00:00Z
-last_updated: 2026-07-14T00:00:00Z
+last_updated: 2026-07-14T21:00:56Z
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 labels: [bug, MS-0002, priority:high]
@@ -188,6 +188,14 @@ before any pipeline wiring.
     kinds untouched; a `[//]: # (…)` source yields no `html` node at all (it
     is a `definition`, so the transformer leaves the tree unchanged and the
     bridge produces no output) — verifies TC-COMM-003's assumption.
+  - The "code/text/other node kinds untouched" case MUST include a fenced-code
+    comment (```` ```\n<!-- x -->\n``` ```` → remark `code` node, never `html`),
+    asserting the body round-trips with `<!-- x -->` intact inside the CDATA
+    body. This explicitly closes the DoR nit that a comment inside code survives
+    verbatim — safe by construction (the predicate is never consulted on a
+    `code` node), now unit-guarded. A dedicated *golden* for this is
+    intentionally out of scope (spec §7.2 NG-4 scopes code-block comments out;
+    the unit assertion here is the regression boundary).
   - Use `#domain/...` import aliases (not deep relative paths), per
     `.ai/rules/typescript.md`.
 - [ ] **A.3** Verify: `bun test tests/unit/domain/markdown/html-comment-strip.test.ts`,
@@ -286,7 +294,14 @@ byte-exact.
   instead of reading `.storage.xhtml` / asserting `result.ok`. The golden total
   remains the number of `.md` files in the fixtures dir. *(Resolves the
   TC-COMM-008 / TC-COMM-011 tension flagged in Context — confirm the convention
-  with `@reviewer` at DoR.)*
+  with `@reviewer` at DoR.)* **`Fixture.expected` must stay defined for the
+  error fixture** (set it to `""` — the `.storage.xhtml` read is simply
+  skipped/empty), because the existing `TC-CODE-MACRO-001` filter
+  (`f.expected.includes("ac:structured-macro")`, ~line 67) and the `TC-MERM`
+  lookups (`mermaid?.expected`) call `.includes(...)` / `.toContain(...)` on
+  every fixture and throw on `undefined`. Alternatively, guard those filters
+  against an absent `expected` — but keeping `expected: ""` is the lower-churn
+  choice and stays within this same edit.
 - [ ] **C.2** Add 6 golden fixture pairs under `tests/golden/fixtures/markdown/`
   with content per test-plan §5.2:
   - `html-comment-block.md` + `.storage.xhtml` — block `<!-- … -->` →
@@ -303,13 +318,51 @@ byte-exact.
   - `raw-html-block-real.md` + `.unsupported.txt` (`raw-html-block`) — real
     block raw HTML → `Result.err` / `UnsupportedConstruct` (TC-COMM-008,
     via the C.1 convention).
-- [ ] **C.3** Update the golden count assertion from `toBe(27)` to `toBe(33)`
-  and refresh the count-test description comment to cite GH-77 (+6
-  comment/regression fixtures). Verify the existing 27 fixtures remain
-  byte-exact — any snapshot diff must be intentional and reviewed (no silent
-  regeneration; AC-F4-2).
-- [ ] **C.4** Verify: `bun test tests/golden/markdown/storage-renderer.test.ts`;
-  confirm the existing 27 unchanged + the 6 new pass; `bun run lint`.
+- [ ] **C.3** In `tests/golden/markdown/storage-renderer.test.ts`, update the
+  golden count assertion from `toBe(27)` to `toBe(33)` and refresh the
+  count-test description comment to cite GH-77 (+6 comment/regression
+  fixtures). Verify the existing 27 fixtures remain byte-exact — any snapshot
+  diff must be intentional and reviewed (no silent regeneration; AC-F4-2).
+  *(This is the FIRST of two parallel count bumps — the SECOND is C.4, on the
+  integration consumer `pipeline-roundtrip.test.ts`, which iterates the same
+  fixtures dir.)*
+- [ ] **C.4** Apply the parallel harness updates to the SECOND fixtures-dir
+  consumer, `tests/integration/markdown/pipeline-roundtrip.test.ts` (DoR
+  finding `plan_code_area_coverage` / `cross_artifact_consistency`: the
+  original plan accounted only for `storage-renderer.test.ts`). This file's
+  loader — `readdirSync(fixturesDir).filter((f) => f.endsWith(".md"))`
+  (~line 27) — picks up all 6 new fixtures including `raw-html-block-real.md`,
+  so once C.2 lands two updates are mandatory or TC-ROUNDTRIP-001,
+  TC-XML-WF-001, TC-DETERM-001, and TC-DETERM-002 throw per-fixture:
+  - **Count**: bump ~line 48 `expect(fixtures.length).toBe(27)` → `toBe(33)`
+    (same +6 delta as C.3; the integration set iterates the same dir, so the
+    totals must agree). Keep the error fixture IN the count — it is a
+    legitimate member of the dir; do not exclude it from the count, only from
+    the success-round-trip iteration (below).
+  - **Iteration guard against the error fixture**: the `pipeline()` helper
+    (~lines 41-42) throws on `renderStorage` `Result.err`, so
+    `raw-html-block-real.md` (a `raw-html-block` `Result.err` case) would throw
+    inside the four `for...of` fixture loops. **Chosen approach: skip the
+    error fixture in the success loops** — introduce one filtered constant,
+    e.g. `const roundtripFixtures = fixtures.filter((f) => f.name !== "raw-html-block-real")`,
+    and iterate it in all four `describe` blocks, keeping the `fixtures.length
+    === 33` count assertion on the unfiltered array. Justification: (a) lowest
+    churn — the `pipeline()` "throws on err" contract stays intact, which is
+    the desired behavior for catching genuine future regressions; (b) the
+    round-trip suite's stated contract is the *success* round-trip (non-empty
+    body, well-formed XML, byte-identical, identical hash) — an
+    unsupported-construct case has no body to assert those against; (c) the
+    error case is already locked end-to-end by TC-COMM-008 in
+    `storage-renderer.test.ts` (C.1 sidecar), so asserting it here would
+    duplicate coverage. **Alternative (if `@reviewer` prefers)**: teach
+    `pipeline()` to return a discriminated result and assert
+    `Result.err({ kind: "UnsupportedConstruct", construct: "raw-html-block" })`
+    for that fixture — acceptable but higher-churn and redundant with
+    TC-COMM-008; pick the skip unless directed otherwise.
+- [ ] **C.5** Verify: `bun test tests/golden/markdown/storage-renderer.test.ts`
+  AND `bun test tests/integration/markdown/pipeline-roundtrip.test.ts`;
+  confirm the existing 27 unchanged + the 6 new pass and the integration suite
+  is green at the new count (33) with no per-fixture throws; `bun run lint`.
 
 **Acceptance Criteria**:
 
@@ -325,13 +378,20 @@ byte-exact.
 - Code areas: `tests/golden/markdown/storage-renderer.test.ts` (updated —
   harness extension + count);
   `tests/golden/fixtures/markdown/{html-comment-block,html-comment-inline,link-ref-comment,raw-html-inline-real,mixed-html-comment}.{md,storage.xhtml}`
-  + `raw-html-block-real.{md,unsupported.txt}` (new — 6 pairs).
+  + `raw-html-block-real.{md,unsupported.txt}` (new — 6 pairs);
+  `tests/integration/markdown/pipeline-roundtrip.test.ts` (updated — **second
+  fixtures-dir consumer**; count `toBe(27)`→`toBe(33)` + error-fixture skip
+  guard in the four `describe` loops, per C.4 — DoR finding `plan_code_area_coverage`).
 - System docs: none.
 
 **Tests**:
 
 - TC-COMM-005, TC-COMM-006, TC-COMM-007, TC-COMM-008, TC-COMM-009,
   TC-COMM-010 (golden portions), TC-COMM-011.
+- *Blast-radius maintenance (pre-existing GH-20 TCs, not new GH-77 ACs)*: C.4
+  keeps TC-ROUNDTRIP-001, TC-XML-WF-001, TC-DETERM-001, TC-DETERM-002 green at
+  the new fixture count by bumping their count assertion and skipping the
+  error fixture in their success loops.
 
 **Completion signal**: `test(golden): add HTML-comment fixtures + error-case harness (GH-77)`
 
@@ -358,7 +418,12 @@ prove idempotency for comment-bearing pages, and run the full suite green.
   through `parseMarkdown → mdastToHast → canonicalHash`
   (`src/domain/state/hashes.ts`) and assert the hash is identical across runs;
   additionally assert a comment-free equivalent yields the same hash (the
-  strip is a pure render-time elision — NFR-PERF-4 / DM-2).
+  strip is a pure render-time elision — NFR-PERF-4 / DM-2). *Coordination note:
+  C.4 already edits this same file (count bump + error-fixture skip); land the
+  TC-COMM-012 additions as a new `describe` block that constructs its own
+  inline fixtures (not the dir fixtures), so it is independent of the C.4
+  skip-filter. If a sibling file is preferred instead, C.4 and D.2 do not
+  collide.*
 - [ ] **D.3** Run the full suite + all gates:
   `bun test tests/unit/ tests/integration/ tests/golden/`,
   `bun run lint`, `bun run typecheck`, `bun run check:boundaries`. Confirm
@@ -374,8 +439,9 @@ prove idempotency for comment-bearing pages, and run the full suite green.
 **Files and modules**:
 
 - Code areas: `tests/unit/domain/markdown/unsupported.test.ts` (updated);
-  `tests/integration/markdown/pipeline-roundtrip.test.ts` (updated) or a new
-  sibling idempotency test.
+  `tests/integration/markdown/pipeline-roundtrip.test.ts` (updated — **twice**:
+  C.4 count + error-fixture skip; D.2 TC-COMM-012 idempotency `describe` block)
+  or a new sibling idempotency test.
 - System docs: none.
 
 **Tests**:
@@ -401,6 +467,14 @@ the new carve-out, and confirm release readiness.
   drop" carve-out for non-rendering annotations (HTML comments +
   link-reference comments), citing GH-77 + DEC-1 / DEC-2 (per spec §16). This
   is executed in delivery phase 7 (`system_spec_update`) by `@doc-syncer`.
+  *DoR nit (decision_capture) — PM decision confirmed: the F-5 carve-out is
+  captured as change DEC-1 + this feature-spec note, **intentionally with NO
+  separate ADR**. Rationale: strong prior art — the mermaid digest rule
+  (`doc/spec/features/feature-mermaid-rendering.md` §3.3 rule-1, comment-strip for digest
+  stability) and GH-63 (front-matter strip) both established the
+  non-rendering-annotation carve-out without an ADR, and ticket AC#7 explicitly
+  allowed "ADR/spec". The feature-spec note is the discoverable home for future
+  reviewers; cite both precedents there.*
 - [ ] **E.3** Final verification + DoD self-check: `bun run check` (lint +
   format:check + typecheck + test + check:boundaries); confirm all 9 ACs met
   (AC-F1-1, AC-F1-2, AC-F2-1, AC-F3-1, AC-F3-2, AC-F3-3, AC-F4-1, AC-F4-2,
@@ -446,6 +520,16 @@ the new carve-out, and confirm release readiness.
 | TC-COMM-012 | Idempotent rerun of comment-bearing page | D | NFR-PERF-4 (DM-2) |
 | TC-UNSUP-004 | Raw HTML classification — regression guard update | D | AC-F3-1, AC-F3-2 |
 
+> **Blast-radius note (DoR finding `plan_code_area_coverage`):** adding 6
+> fixtures to `tests/golden/fixtures/markdown/` also touches a *pre-existing*
+> integration consumer — `tests/integration/markdown/pipeline-roundtrip.test.ts`
+> — whose TC-ROUNDTRIP-001 / TC-XML-WF-001 / TC-DETERM-001 / TC-DETERM-002 are
+> GH-20 TCs (not GH-77 ACs). Phase C.4 maintains them: count `toBe(27)`→`toBe(33)`
+> + error-fixture skip in the four `describe` loops. A third consumer,
+> `tests/unit/_helpers/assert-well-formed-xml.test.ts`, was verified **not
+> affected** (it filters `.storage.xhtml`, uses `toBeGreaterThanOrEqual(25)`,
+> and the error fixture has no `.storage.xhtml`).
+
 ## Artifacts and Links
 
 | Artifact | Location | Type |
@@ -459,7 +543,7 @@ the new carve-out, and confirm release readiness.
 | Classifier regression guards | `tests/unit/domain/markdown/unsupported.test.ts` | Test (updated) |
 | Golden harness + count | `tests/golden/markdown/storage-renderer.test.ts` | Test (updated) |
 | Golden fixtures (×6 pairs) | `tests/golden/fixtures/markdown/{html-comment-block,html-comment-inline,link-ref-comment,raw-html-inline-real,mixed-html-comment,raw-html-block-real}.*` | Fixture (new) |
-| Idempotency test | `tests/integration/markdown/pipeline-roundtrip.test.ts` (or sibling) | Test (updated/new) |
+| Pipeline round-trip harness | `tests/integration/markdown/pipeline-roundtrip.test.ts` | Test (updated — C.4 count + error-fixture skip; D.2 TC-COMM-012 idempotency; or sibling) |
 | Feature spec carve-out | `doc/spec/features/feature-safe-publish.md` | System doc (updated, phase 7) |
 | Version | `package.json` (0.5.1 → 0.5.2) | Release (updated) |
 
@@ -497,11 +581,32 @@ required (flagged in Context and resolved in Phase C.1):
 Everything else (AC ↔ TC coverage, file targets, NFR mapping) is consistent
 across the spec and test plan.
 
+### Plan amendment (closes DoR iter-1 finding `plan_code_area_coverage`)
+
+The original plan flagged the TC-COMM-008/TC-COMM-011 harness tension for the
+FIRST fixtures-dir consumer (`storage-renderer.test.ts`) and resolved it in
+C.1/C.3, but missed the parallel tension in the SECOND consumer:
+`tests/integration/markdown/pipeline-roundtrip.test.ts`. Adding 6 fixtures
+(incl. `raw-html-block-real.md`) makes its `toBe(27)` count assertion fail and
+makes `pipeline()` throw per-fixture on the error case across four `describe`
+blocks (TC-ROUNDTRIP-001, TC-XML-WF-001, TC-DETERM-001, TC-DETERM-002). This
+amendment adds **C.4** (count bump + error-fixture skip, with the chosen
+approach and an `@reviewer`-override alternative documented), adds the file to
+the Phase C and D blast-radius lists, and records the coordination with D.2.
+The THIRD consumer (`tests/unit/_helpers/assert-well-formed-xml.test.ts`) was
+verified unaffected. Two non-blocking nits are also closed in place: C.1 keeps
+`Fixture.expected` defined for error fixtures (else the TC-CODE-MACRO-001 /
+TC-MERM filters throw on `undefined`), and A.2 explicitly unit-guards the
+code-block-comment case (safe by construction; spec §7.2 NG-4). The F-5
+carve-out no-separate-ADR decision (nit `decision_capture`) is confirmed
+intentional in E.2 with the mermaid §3.3 / GH-63 precedent cited.
+
 ## Plan Revision Log
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-14 | plan-writer | Initial plan — 5 phases (A–E), 9 ACs / 13 TCs covered |
+| 1.1 | 2026-07-14 | plan-writer | Close DoR iter-1 `[major] plan_code_area_coverage` finding: add Phase C.4 (count bump `toBe(27)`→`toBe(33)` + error-fixture skip guard in `tests/integration/markdown/pipeline-roundtrip.test.ts`); add the file to Phase C & D blast-radius; renumber C.4 verify→C.5. Close 3 nits in place: C.1 `Fixture.expected` stays defined for error fixtures; A.2 explicitly unit-guards fenced-code comments (NG-4); E.2 confirms F-5 carve-out = DEC-1 + spec note (no separate ADR; mermaid §3.3 / GH-63 precedent). |
 
 ## Execution Log
 
