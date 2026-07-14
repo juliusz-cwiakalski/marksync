@@ -303,19 +303,19 @@ becomes both `Artifact.bytes` and the hash input (DEC-3).
 
 **Tasks**:
 
-- [ ] **3.1** Modify `finalizeSuccessfulUpdate` in `src/app/push-flow.ts`
+- [x] **3.1** Modify `finalizeSuccessfulUpdate` in `src/app/push-flow.ts`
   (lines 766-769): change the additive merge
   `attachmentHashes: { ...binding.attachmentHashes, ...assetUploadHashes }`
   to replacement `attachmentHashes: assetUploadHashes` (DEC-4). This is the
   current run's complete set (resolved assets + Mermaid artifacts). This
   single change fixes both the normal update path (line 1181) and the
   409-reapply path (line 1116), since both call `finalizeSuccessfulUpdate`.
-- [ ] **3.2** Verify the create path (`newBinding` at line 1313) already uses
+- [x] **3.2** Verify the create path (`newBinding` at line 1313) already uses
   replacement (`attachmentHashes: assetUploadHashes`) — no change needed.
   Add a brief inline comment noting the replacement semantics are intentional
   (DEC-4) and that `NO_CHANGE` outcomes skip `finalizeSuccessfulUpdate` entirely,
   preserving existing entries.
-- [ ] **3.3** Add unit test TC-LOCK-002 in
+- [x] **3.3** Add unit test TC-LOCK-002 in
   `tests/unit/app/push-flow.test.ts` (file already exists with TC-PROV tests —
   add a new `describe` block): given an existing binding with
   `attachmentHashes: { "old-1": "hash-1", "old-2": "hash-2" }` and a current
@@ -323,7 +323,7 @@ becomes both `Artifact.bytes` and the hash input (DEC-3).
   binding's `attachmentHashes` is `{ "new-1": "hash-3" }` (replace, not merge).
   This may require extracting `finalizeSuccessfulUpdate` to be testable in
   isolation, or testing through a thin integration seam.
-- [ ] **3.4** Create `tests/integration/confluence/push-flow.test.ts` (new file)
+- [x] **3.4** Create `tests/integration/confluence/push-flow.test.ts` (new file)
   with TC-LOCK-001 and TC-LOCK-003:
   - TC-LOCK-001: a page with a bloated lock (55 stale entries) → after an
     Update outcome, `attachmentHashes` contains exactly the current run's 11
