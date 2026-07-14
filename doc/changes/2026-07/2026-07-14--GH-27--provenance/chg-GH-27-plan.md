@@ -86,15 +86,12 @@ This plan delivers provenance infrastructure for the safe publish pipeline (MS-0
 
 **Tasks**:
 
-- [ ] **1.1** Extend `ProvenanceInput` interface in `src/infra/confluence/provenance.ts` to include `sourceBranch` field (currently has `headCommit`, `commitCount`, `subjects`).
-- [ ] **1.2** Define `ProvenancePanelMeta` interface for `buildProvenancePanel` with fields: `sourcePath: string` (from PlanEntry/binding), `sourceBranch: string` (from plan.provenance), `headCommit: string` (from plan.provenance), `synchronizedAt: string` (ISO8601 timestamp generated at apply time).
-- [ ] **1.3** Implement `buildProvenancePanel(meta: ProvenancePanelMeta): string` function that returns Storage XHTML `{info}` macro showing source path, Git revision (head commit), branch, and last-sync timestamp. Format: `<ac:structured-macro ac:name="info"><ac:rich-text-body>…</ac:rich-text-body></ac:structured-macro>`. Omit `schema-version` and `macro-id` per spike rules.
-- [ ] **1.4** Implement `classifyVersion(version: { message?: string }): "marksync" | "direct"` predicate. Returns `"marksync"` if `version.message` starts with `PROVENANCE_PREFIX` ("marksync git"), otherwise `"direct"`. Handle edge cases: empty/undefined message, case sensitivity.
-- [ ] **1.5** Create `tests/unit/confluence/provenance.test.ts` (already exists; extend it) with unit tests for:
-  - `buildProvenancePanel`: valid Storage XHTML output, all fields present, no schema-version/macro-id.
-  - `classifyVersion`: returns "marksync" for `marksync git` prefix, "direct" for no prefix, edge cases (empty message, case sensitivity, whitespace).
-  - Property schema validation: all required fields present, NO `subjects` field (privacy).
-- [ ] **1.6** Create golden fixture file `tests/golden/fixtures/markdown/provenance-panel.storage.xhtml` and test file `tests/golden/markdown/provenance-panel.test.ts` using `bun:test` `toMatchSnapshot` for byte-stable panel output.
+- [x] **1.1** Extended `ProvenanceInput` with `sourceBranch?: string`.
+- [x] **1.2** Defined `ProvenancePanelMeta` interface (`sourcePath`, `sourceBranch`, `headCommit`, `synchronizedAt`).
+- [x] **1.3** Implemented `buildProvenancePanel` returning Storage XHTML `{info}` macro with stable `<!-- marksync:provenance-panel -->` marker, XML-escaped values, no schema-version/macro-id.
+- [x] **1.4** Implemented `classifyVersion` predicate matching `PROVENANCE_PREFIX = "marksync git"` (startsWith, case-sensitive).
+- [x] **1.5** Extended `tests/unit/infra/confluence/provenance.test.ts` with tests for buildProvenancePanel, classifyVersion, formatVersionMessageWithMeta (trimMarker), and privacy (TC-PROV-001/003/008/009/010). 29 tests pass.
+- [x] **1.6** Created golden fixture `tests/golden/fixtures/markdown/provenance-panel.storage.xhtml` + test `tests/golden/markdown/provenance-panel.test.ts` (byte-exact + snapshot).
 
 **Acceptance Criteria**:
 
