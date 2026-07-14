@@ -1,0 +1,49 @@
+change_id: GH-76
+title: "fix: Mermaid SVG attachments regenerated on every sync — lock file grows indefinitely"
+
+phases:
+  clarify_scope: { started: "2026-07-14T18:30:00Z", completed: "2026-07-14T18:30:00Z" }
+  specification: { started: "2026-07-14T18:30:00Z", completed: "2026-07-14T18:57:00Z" }
+  test_planning: { started: "2026-07-14T18:57:00Z", completed: "2026-07-14T19:06:00Z" }
+  delivery_planning: { started: "2026-07-14T19:06:00Z", completed: "2026-07-14T19:18:00Z" }
+  dor_check: { started: "2026-07-14T19:18:00Z", completed: null }
+  delivery: { started: null, completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+
+decisions: []
+
+open_questions: []
+
+blockers: []
+
+notes:
+  - text: >
+      Scope clarified. Ticket is detailed: problem, root cause (2 parts),
+      impact, proposed fix (A+C recommended). Cross-checked against system spec
+      (feature-mermaid-rendering.md): the spec already describes
+      deterministicIds + normalization rules (§3.3) for the in-process renderer
+      (MS-0003+) but they were never applied to the Kroki path (GH-69). The
+      attachment-reuse AC ("unchanged diagram → same hash → 0 re-uploads") is
+      currently broken for the render policy. No blocking questions — ticket
+      body is authoritative. No story file (generic bug, not MS2-B<NNN>).
+    type: info
+    workItemRef: GH-76
+    date: "2026-07-14"
+  - text: >
+      Key code locations: (1) src/infra/mermaid/kroki.ts — KrokiClient.render()
+      POSTs source as text/plain with NO Mermaid config; config is available in
+      MermaidRenderConfig (securityLevel, htmlLabels, deterministicIds) but
+      never passed to KrokiClient (constructed at push-flow.ts:204 as
+      `new KrokiClient()` with no args). (2) src/app/push-flow.ts:766-769 —
+      finalizeSuccessfulUpdate merges attachmentHashes as {...old, ...new},
+      never pruning stale entries. (3) src/domain/mermaid/transform.ts —
+      transform() receives config but only checks policy, doesn't pass config
+      to renderer.render(). The Renderer port (src/domain/mermaid/port.ts)
+      render(source) signature takes only source string.
+    type: info
+    workItemRef: GH-76
+    date: "2026-07-14"
