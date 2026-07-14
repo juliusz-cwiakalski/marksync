@@ -60,6 +60,7 @@ describe("concurrency isolation", () => {
 					subjects: ["Update"],
 				},
 				warnings: [],
+				visiblePanel: false,
 			};
 
 			// Setup: Create a FakeTarget instance
@@ -259,6 +260,7 @@ describe("concurrency isolation", () => {
 					subjects: ["Update"],
 				},
 				warnings: [],
+				visiblePanel: false,
 			};
 
 			// Setup: Create a FakeTarget instance

@@ -6,7 +6,7 @@ decision_type: adr
 status: Accepted
 created: 2026-07-04
 decision_date: null
-last_updated: 2026-07-10
+last_updated: 2026-07-14
 summary: "Squash by default: one Confluence page version per sync with a compact provenance summary in version.message. Commit-by-commit sync (Confluence history mirrors Git history) is deferred to a future milestone as an opt-in option. Rationale: simplicity of implementation, reduced rate-limit/burst risk, and sufficient end-user value (detailed history remains in Git)."
 owners:
   - Juliusz Ćwiąkalski
@@ -48,7 +48,7 @@ revisit_triggers:
   - "Atlassian changes page version/history APIs so version.message is removed, hidden, or no longer returned consistently."
   - "Reverse-sync or drift-detection requirements need a different per-version provenance shape."
 links:
-  related_changes: [GH-21]
+  related_changes: [GH-21, GH-27]
   supersedes: []
   superseded_by: []
   spec: ["../inception/system-specification-draft-from-ai-brainstorm.md"]
@@ -203,6 +203,18 @@ For each sync, MarkSync creates **one Confluence page version** per changed page
 1. The target/head commit SHA.
 2. A compact summary of included commits — commit ID plus subject at minimum — subject to the verified Confluence version-message length limit.
 3. If the included-commit list is too long for `version.message`, MarkSync writes a deterministic truncated summary (e.g. first N commit subjects + "+M more") with an explicit truncation marker. The same truncation policy applies to `marksync.metadata` — store only the head SHA + commit count + truncation marker, **not** the full commit-subject list — to prevent the full included-commit list (which may contain sensitive subjects: internal ticket URLs, customer names, incident IDs) from being published to a broader Confluence audience via a different channel. The full list is available only in local plan/apply output (terminal/JSON), never in Confluence.
+
+> **Implementation status (GH-27):** the `marksync.metadata` content property now
+> carries `sourceBranch`, `commitCount`, and `trimMarker` (14-field schema written
+> by `bindingToProperty`), enforcing the count+marker-only privacy policy above.
+> A visible provenance panel (`buildProvenancePanel` — source path + Git revision
+> + branch + last-sync as a Confluence `{info}` macro) is appended to the page
+> footer, gated by `config.provenance.visiblePanel` (default `true`); it is a
+> post-render Storage-string append excluded from the HAST-derived drift hash by
+> construction, so timestamp variance cannot trigger false drift.
+> `classifyVersion` distinguishes MarkSync-authored versions from direct edits by
+> the `marksync git` prefix (NFR-REL-9). The `version.message` length limit
+> remains **TO CONFIRM** (see Unresolved Questions — E5-S1 live smoke).
 
 Before implementation, MarkSync must run a small verification spike to determine the actual usable Confluence `version.message` / history-description length limit. This ADR intentionally does **not** guess a number.
 

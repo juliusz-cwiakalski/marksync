@@ -5,11 +5,11 @@ ados_distribution: project-generated
 id: TEST-SPEC-CONFLUENCE-ADAPTER
 status: Current
 created: 2026-07-10
-last_updated: 2026-07-13
+last_updated: 2026-07-14
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: [GH-21, GH-66, GH-71]
+  related_changes: [GH-21, GH-27, GH-66, GH-71]
   feature_spec: doc/spec/features/feature-confluence-adapter.md
   decisions: [ADR-0005, ADR-0006, ADR-0010]
 ---
@@ -48,7 +48,7 @@ guardrail in `.ai/rules/testing-strategy.md`:
 - `src/infra/confluence/properties.ts` — `PropertyService` (v1, key-based).
 - `src/infra/confluence/attachments.ts` — `AttachmentService` (v1).
 - `src/infra/confluence/search.ts` / `restrictions.ts` — minimal v1 services.
-- `src/infra/confluence/provenance.ts` — the `version.message` formatter.
+- `src/infra/confluence/provenance.ts` — the `version.message` formatter (`formatVersionMessage`/`formatVersionMessageWithMeta`), the visible panel builder (`buildProvenancePanel`), and the direct-edit classifier (`classifyVersion`) (GH-21/GH-27).
 - `src/infra/confluence/target.ts` — the assembled `ConfluenceTarget` adapter.
 - `src/infra/confluence/schemas/*.ts` — zod boundary schemas.
 
@@ -68,7 +68,7 @@ guardrail in `.ai/rules/testing-strategy.md`:
 builders, retry/backoff timing, the 409-conflict parse, the 403/404 mapping,
 schema-drift mapping, the property round-trip, the attachment 400-dup
 idempotency signal + create-response unwrap (GH-71), search/restrictions, the provenance
-formatter, the port interface, and the `ConfluenceTarget` wiring.
+formatter + panel builder + direct-edit classifier, the port interface, and the `ConfluenceTarget` wiring.
 
 **Tools:** `bun:test`; the client/service constructors accept an **injected
 `fetch`** seam (default `globalThis.fetch`) so unit tests stub `fetch`. Backoff

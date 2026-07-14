@@ -49,6 +49,7 @@ describe("409 retry policy", () => {
 					subjects: ["Update"],
 				},
 				warnings: [],
+				visiblePanel: false,
 			};
 
 			// Setup: FakeTarget with initial page at version 1
@@ -169,6 +170,7 @@ describe("409 retry policy", () => {
 					subjects: ["Update"],
 				},
 				warnings: [],
+				visiblePanel: false,
 			};
 
 			// Setup: FakeTarget with initial page at version 1
@@ -288,6 +290,7 @@ describe("409 retry policy", () => {
 					subjects: ["Update"],
 				},
 				warnings: [],
+				visiblePanel: false,
 			};
 
 			// Setup: FakeTarget with initial page at version 1

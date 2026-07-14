@@ -110,6 +110,19 @@
 					"type": "string",
 					"minLength": 1,
 					"description": "MarkSync tool version that wrote this binding."
+				},
+				"sourceBranch": {
+					"type": "string",
+					"description": "Source branch name at last sync (GH-27). Optional for backward compatibility."
+				},
+				"commitCount": {
+					"type": "number",
+					"description": "Total commit count in the last sync (GH-27, ADR-0010). Optional for backward compatibility.",
+					"minimum": 0
+				},
+				"trimMarker": {
+					"type": "string",
+					"description": "Truncation marker like \"+3 more\" (GH-27, ADR-0010). Optional for backward compatibility."
 				}
 			}
 		}

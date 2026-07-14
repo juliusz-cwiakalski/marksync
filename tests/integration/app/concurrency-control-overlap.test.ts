@@ -63,6 +63,7 @@ describe("concurrency control overlap", () => {
 					subjects: ["A"],
 				},
 				warnings: [],
+				visiblePanel: false,
 			};
 
 			// Setup: Create a plan B (newer op-id, timestamp T2 > T1)
@@ -92,6 +93,7 @@ describe("concurrency control overlap", () => {
 					subjects: ["B"],
 				},
 				warnings: [],
+				visiblePanel: false,
 			};
 
 			// Setup: Single shared FakeTarget instance
@@ -238,6 +240,7 @@ describe("concurrency control overlap", () => {
 					subjects: ["A"],
 				},
 				warnings: [],
+				visiblePanel: false,
 			};
 
 			// Setup: Create a plan B (newer op-id, timestamp T2 > T1)
@@ -266,6 +269,7 @@ describe("concurrency control overlap", () => {
 					subjects: ["B"],
 				},
 				warnings: [],
+				visiblePanel: false,
 			};
 
 			const lock: LockFile = {
