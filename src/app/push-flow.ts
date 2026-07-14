@@ -211,8 +211,11 @@ export async function computePlan(
 	}
 	const bindingsMap: LinkBindings = bindingsMutable as LinkBindings;
 
-	// Process each discovered doc
+	// Process each discovered doc (GH-74: docsWithUuid is guaranteed to have UUIDs)
 	for (const { path, uuid } of docsWithUuid) {
+		// TypeScript can't track the guarantee that uuid is defined here
+		if (uuid === undefined) continue; // Defensive guard (should never be hit)
+
 		const bytes = discovered.get(path);
 		if (!bytes) continue;
 
