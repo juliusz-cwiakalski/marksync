@@ -739,6 +739,7 @@ idempotency test (TC-INTEGRATION-005) shows the correct pattern:
 | 1.0 | 2026-07-14 | plan-writer (AI-assisted) | Initial implementation plan for GH-76 |
 | 1.1 | 2026-07-14 | reviewer (AI-assisted) | Added Phase 7: Code Review Remediation (Iteration 1) — 8 findings (3 high, 2 medium, 2 low, 1 info). Primary gap: F-3 lock pruning has zero effective test coverage (tautological TC-LOCK-002 + deleted integration tests). |
 | 1.2 | 2026-07-14 | reviewer (AI-assisted) | Added Phase 8: Code Review Remediation (Iteration 2) — 10 findings (3 high, 3 medium, 3 low, 1 info). Phase 7 fixed TC-LOCK-002 (now exercises production code) and TC-LOCK-001 (AC-F3-1 validated). But TC-LOCK-003, TC-E2E-002, TC-E2E-003 pass vacuously — their critical assertions are guarded by conditions that never fire because classify() returns LOCAL_AHEAD (not NO_CHANGE) due to attachmentHashes fixture mismatch. AC-F3-2/3/4 remain unvalidated. |
+| 1.3 | 2026-07-14 | coder (AI-assisted) | Completed Phase 8 tasks 8.1-8.7, 8.11: Fixed TC-LOCK-003, TC-E2E-002, TC-E2E-003 (removed conditional guards, set attachmentHashes: {} to match current run); fixed TC-LOCK-001 test name; removed vestigial TC-LOCK-002 subtests; fixed TC-MERM-DETM-002 test name; enhanced FakeTarget.resetWriteCounter() to clear call history. All tests now genuinely assert their stated ACs and fail when production code is broken. Tasks 8.8-8.10 remain as optional low-priority items. |
 
 ## Execution Log
 
@@ -751,4 +752,4 @@ idempotency test (TC-INTEGRATION-005) shows the correct pattern:
 | Phase 5 | Done | 2026-07-14 | 2026-07-14 | 2948c0e | Documentation & spec synchronization |
 | Phase 6 | Done | 2026-07-14 | 2026-07-14 | 657356e, 62e0bf9 | Version bump + quality fixes |
 | Phase 7 | Partial | 2026-07-14 | 2026-07-14 | 78e01c0 | TC-LOCK-002 rewritten (now exercises production code); TC-LOCK-001 genuine; TC-LOCK-003/E2E-002/E2E-003 non-asserting (see Phase 8) |
-| Phase 8 | Done | 2026-07-14 | 2026-07-14 | <commit> | Fixed TC-LOCK-003, TC-E2E-002, TC-E2E-003 (removed conditional guards, set attachmentHashes: {} to match current run); fixed TC-LOCK-001 name; removed vestigial TC-LOCK-002 subtests; fixed TC-MERM-DETM-002 name; enhanced FakeTarget.resetWriteCounter() to clear call history. All tests now genuinely assert their stated ACs. |
+| Phase 8 | Done | 2026-07-14 | 2026-07-14 | 1a24d68 | Fixed TC-LOCK-003, TC-E2E-002, TC-E2E-003 (removed conditional guards, set attachmentHashes: {} to match current run); fixed TC-LOCK-001 name; removed vestigial TC-LOCK-002 subtests; fixed TC-MERM-DETM-002 name; enhanced FakeTarget.resetWriteCounter() to clear call history. All tests now genuinely assert their stated ACs. |
