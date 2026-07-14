@@ -1,0 +1,251 @@
+version: 1
+iteration: 2
+mode: local
+work_item_ref: GH-76
+branch: fix/GH-76/mermaid-deterministic-svg-lock-prune
+status: FAIL
+summary: >
+  Iter-1 F-1 (TC-LOCK-002 tautological) is RESOLVED: the primary test now
+  exercises computePlan + applyPlan with a mock target and genuinely fails if
+  code reverts to merge semantics (verified: 55 stale entries → 0 after Update).
+  TC-LOCK-001 (AC-F3-1) is also genuinely validated. However, iter-1 F-2 and F-3
+  are NOT resolved: three of the four recreated integration tests pass
+  VACUOUSLY without validating their stated ACs. TC-LOCK-003 and TC-E2E-003 use
+  non-empty attachmentHashes in the lock that don't match the current run's
+  empty set, so classify() returns LOCAL_AHEAD (not NO_CHANGE) — verified by
+  execution trace. Their critical assertions are guarded by if(outcome==="noop")
+  / if(actionKind==="NoOp") conditions that never fire. TC-E2E-002 has no
+  upload-count assertions at all and explicitly acknowledges it doesn't test
+  NO_CHANGE. This means AC-F3-2, AC-F3-3, and AC-F3-4 remain UNVALIDATED despite
+  the green quality gate (1136 pass, 0 fail). The root cause is a fixture
+  mismatch: the existing idempotency test (TC-INTEGRATION-005) shows the correct
+  pattern (attachmentHashes: {} to match the current run).
+severity_breakdown:
+  critical: 0
+  high: 3
+  medium: 3
+  low: 3
+  info: 1
+spec_compliance: FAIL
+plan_compliance: FAIL
+findings:
+  - id: F-1
+    severity: high
+    confidence: high
+    category: testing
+    location: tests/integration/confluence/push-flow.test.ts:473
+    message: >
+      TC-LOCK-003 is non-asserting. The lock has attachmentHashes with 3 entries
+      ({ "asset-1.pdf": "hash-1", ... }) but the current run produces 0 assets.
+      classify() computes local.attachmentHash !== baseAttachmentHash → true →
+      LOCAL_AHEAD. Verified by execution trace: state is LOCAL_AHEAD, action is
+      Update, outcome is "updated". The critical assertion at line 473 is guarded
+      by `if (report.results[0]!.outcome === "noop")` which NEVER fires. The test
+      passes without testing anything about AC-F3-2 (NO_CHANGE preserves hashes).
+      This is the same gap as iter-1 F-2/F-3: AC-F3-2 is still unvalidated.
+    suggestion: >
+      Set attachmentHashes to {} in the lock (matching the current run's empty
+      set, as TC-INTEGRATION-005 does). This makes classify return NO_CHANGE →
+      NoOp → outcome "noop". Then remove the if-guard and assert
+      binding.attachmentHashes is preserved unconditionally.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-2
+    severity: high
+    confidence: high
+    category: testing
+    location: tests/integration/confluence/push-flow.test.ts:684
+    message: >
+      TC-E2E-003 is non-asserting. Same root cause as F-1: the lock has
+      attachmentHashes: { "asset-1.pdf": "hash-a" } but the current run has 0
+      assets → classify returns LOCAL_AHEAD (verified by trace). actionKind is
+      "Update", not "NoOp". The critical assertions (outcome noop, 0 writes, 0
+      createPageCalls, 0 updatePageCalls) are guarded by
+      `if (actionKind === "NoOp")` at line 684 which NEVER fires. AC-F3-4
+      (unchanged content → NO_CHANGE) is NOT validated.
+    suggestion: >
+      Set attachmentHashes to {} in the lock (matching the current run). Remove
+      the conditional guard. Assert actionKind === "NoOp" and outcome === "noop"
+      unconditionally. Assert fakeTarget.getWriteCount() === 0.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-3
+    severity: high
+    confidence: high
+    category: testing
+    location: tests/integration/confluence/push-flow.test.ts:488-591
+    message: >
+      TC-E2E-002 does not validate AC-F3-3 (second sync → 0 uploadAttachment
+      calls). The test has NO assertion about upload counts or write counts on
+      the second sync. It only asserts secondPlan.entries.toHaveLength(1). The
+      comments at lines 564-566 and 580-586 explicitly acknowledge the test
+      doesn't work: "With policy 'code', Mermaid fences are rendered as code
+      blocks, so there are no uploads" and "With an empty lock and a create
+      action, this won't be NO_CHANGE" and "This is validated more directly in
+      TC-LOCK-003" — but TC-LOCK-003 is itself non-asserting (F-1).
+    suggestion: >
+      After the first applyPlan (which mutates the lock by adding a binding),
+      reuse that updated lock for the second computePlan so classify sees a
+      matching state. Assert the second sync's actionKind is "NoOp". Assert
+      fakeTarget.getWriteCount() is 0 after the second sync. Alternatively,
+      reset the write counter between syncs and assert 0 writes on the second.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-4
+    severity: medium
+    confidence: high
+    category: testing
+    location: tests/integration/confluence/push-flow.test.ts:172
+    message: >
+      TC-LOCK-001 test 2 is named "bloated lock (55 entries) → pruned to current
+      run's 11 entries after Update" but the document uses policy "code", so
+      Mermaid fences produce 0 artifacts (not 11). The assertion at line 370
+      checks for 0 entries. The test name claims "11 entries" but validates 0.
+      The comment at lines 345-348 acknowledges this disconnect.
+    suggestion: >
+      Rename the test to "→ pruned to current run's set after Update (0
+      artifacts with code policy)" or implement with policy "render" + a mock
+      renderer stub that produces actual artifacts to validate the 11-entry
+      scenario.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-5
+    severity: medium
+    confidence: high
+    category: testing
+    location: tests/unit/infra/mermaid/kroki.test.ts:218
+    message: >
+      TC-MERM-DETM-002 fix is incomplete. The test was moved from its own
+      describe block into TC-MERM-DETM-001 (iter-1 task 7.5 was supposed to fix
+      the location but is unchecked). The test name says "different sources →
+      different hashes" but the assertion at line 242 is
+      `expect(resultA.value.hash).toBe(resultB.value.hash)` (equality, not
+      inequality). The comment at lines 240-241 acknowledges the mock returns
+      the same SVG so hashes are necessarily identical. The test name
+      contradicts the assertion. Iter-1 F-4 asked to either make the test
+      validate inequality or rename honestly — neither was fully done.
+    suggestion: >
+      Rename to "same SVG output → identical hash regardless of source" to
+      reflect the actual assertion. Or make the mock return config/source-
+      dependent SVGs so the test can assert hash inequality.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-6
+    severity: medium
+    confidence: high
+    category: plan-compliance
+    location: chg-GH-76-plan.md:368-389,426-449,485-492
+    message: >
+      Carryover from iter-1 F-5 (still open). Phase 4 tasks (4.1-4.4), Phase 5
+      tasks (5.1-5.5), and Phase 6 tasks (6.1-6.4) are all still unchecked [ ].
+      The execution log shows Phase 5/6 as "Done" with commit SHAs but the task
+      checkboxes were never reconciled. Phase 7 task 7.6 (which was supposed to
+      fix this) is also unchecked. This is a DONE_BUT_UNCHECKED gap for Phase
+      5/6, and an OPEN_TASKS gap for Phase 4.
+    suggestion: >
+      Check off Phase 5 and 6 tasks (done per execution log). For Phase 4,
+      either implement the tasks properly (fix the defective tests per F-1/F-2/
+      F-3) or document the deferral with rationale.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-7
+    severity: low
+    confidence: high
+    category: testing
+    location: tests/unit/app/push-flow.test.ts:219-247
+    message: >
+      Two vestigial tautological subtests remain in the TC-LOCK-002 describe
+      block. "empty current run → empty attachment hashes" (line 219) and
+      "multiple current run entries → all preserved in correct order" (line 234)
+      both assign `const updatedAttachmentHashes = currentRunHashes` and assert
+      properties of the self-assigned variable. They call no production code and
+      would pass even if the F-3 fix were reverted. These are leftovers from the
+      old broken TC-LOCK-002 that should have been removed when the real test
+      was added at lines 62-217.
+    suggestion: >
+      Remove both subtests. The primary test at lines 62-217 is sufficient and
+      genuinely exercises the replacement path.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-8
+    severity: low
+    confidence: medium
+    category: correctness
+    location: src/domain/mermaid/normalize.ts:90
+    message: >
+      Carryover from iter-1 F-6 (still open, optional task 7.7 unchecked). The
+      data-mermaid-version stripping at line 90 runs AFTER whitespace
+      canonicalization at line 85. Removing the attribute from inside a tag
+      leaves a double space (e.g., `<svg  height=...>`). The cleanup at line 94
+      (>\s+<) only cleans between tags, not within tags. Determinism is
+      preserved (same input always produces same double-space), but the output
+      is not a clean canonical form.
+    suggestion: >
+      Move the data-mermaid-version stripping to before Rule 4 (line 85), or
+      add a tag-internal whitespace collapse (e.g., /<(\w+)\s{2,}/ → /<$1 /)
+      after Rule 5.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-9
+    severity: low
+    confidence: medium
+    category: correctness
+    location: src/domain/mermaid/normalize.ts:21
+    message: >
+      Carryover from iter-1 F-7 (still open, optional task 7.8 unchecked). The
+      `if (n && v)` guard at line 21 drops attributes with empty values (v = ""
+      is falsy). This diverges from the GH-11 spike normalizer, which did not
+      have this filter. While Kroki SVGs are unlikely to emit empty-value
+      attributes, this is a behavioral divergence that could silently drop an
+      attribute in edge cases.
+    suggestion: >
+      Change `if (n && v)` to `if (n)` to match the spike behavior.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-10
+    severity: info
+    confidence: high
+    category: documentation
+    location: src/app/push-flow.ts:1310
+    message: >
+      Carryover from iter-1 F-8 (still open, optional task 7.9 unchecked). The
+      create-path comment still reads "GH-26: merged from upload" which is
+      misleading in the context of GH-76's replacement semantics fix. The create
+      path always used replacement, but the word "merged" is confusing now.
+    suggestion: >
+      Update to "GH-76: current run's complete set (replacement semantics,
+      DEC-4)".
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+reviewed_at: 2026-07-14T22:15:00Z
+next_step: CALL_CODER
