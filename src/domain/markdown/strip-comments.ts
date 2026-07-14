@@ -5,10 +5,10 @@ import type { Root } from "mdast";
 /**
  * Predicate: true if the value is exactly one HTML comment (optionally surrounded by whitespace).
  * Security boundary: prevents over-stripping — mixed HTML+comment nodes must be rejected.
- * Pattern matches `<!-- x -->`, `  <!-- x -->  `, multi-line, empty `<!---->`, and edge cases `<!-->` / `<!--->`.
+ * Pattern matches `<!-- x -->`, `  <!-- x -->  `, multi-line, empty `<!---->`, comments containing `>` (e.g. `<!-- a > b -->`), and edge cases `<!-->` / `<!--->`.
  */
 export function isCommentOnlyHtml(value: string): boolean {
-	return /^\s*<!--[^>]*>\s*$/.test(value);
+	return /^\s*<!--(?:[\s\S]*?-->|>|-?>)\s*$/.test(value);
 }
 
 /**

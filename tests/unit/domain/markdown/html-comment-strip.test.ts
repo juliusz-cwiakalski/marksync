@@ -19,6 +19,8 @@ describe("TC-COMM-001..002 — comment-only predicate", () => {
 		"<!---->",
 		"<!-->",
 		"<!--->",
+		"<!-- a > b -->",
+		"<!-- a >= b -->",
 	];
 
 	const falseCases = [
@@ -156,6 +158,43 @@ describe("TC-COMM-001..002 — end-to-end render path (parse → mdastToHast →
 			expect(rendered.value.body).toContain("Before");
 			expect(rendered.value.body).toContain("after");
 			expect(rendered.value.body).not.toContain("c");
+			expect(rendered.value.body).not.toContain("<!--");
+			expect(rendered.value.body).not.toContain("&lt;!--");
+		}
+	});
+
+	test("block-level comment with '>' inside syncs successfully (no UnsupportedConstruct, no leak)", () => {
+		const src = "<!-- a > b -->\n\n# H\n\nBody.";
+		const result = parseMarkdown(src, { sourcePath: "test.md" });
+		expect(result.ok).toBe(true);
+		const mdast = result.value;
+		const hast = mdastToHast(mdast);
+		const rendered = renderStorage(hast, { sourcePath: "test.md" });
+		expect(rendered.ok).toBe(true);
+		if (rendered.ok) {
+			// No `<!--` or `&lt;!--` in the body (the comment is stripped)
+			expect(rendered.value.body).not.toContain("<!--");
+			expect(rendered.value.body).not.toContain("&lt;!--");
+		}
+	});
+
+	test("inline comment with '>' inside syncs successfully and does not appear as literal text", () => {
+		const src = "Before <!-- TODO: x > 0 --> after.";
+		const result = parseMarkdown(src, { sourcePath: "test.md" });
+		expect(result.ok).toBe(true);
+		const mdast = result.value;
+		const hast = mdastToHast(mdast);
+		const rendered = renderStorage(hast, { sourcePath: "test.md" });
+		expect(rendered.ok).toBe(true);
+		if (rendered.ok) {
+			// Body should be the surrounding text only
+			expect(rendered.value.body).toContain("Before");
+			expect(rendered.value.body).toContain("after");
+			expect(rendered.value.body).not.toContain("TODO");
+			expect(rendered.value.body).not.toContain("x");
+			// The comment text including the '>' should not leak
+			expect(rendered.value.body).not.toContain("x > 0");
+			expect(rendered.value.body).not.toContain("0 -->");
 			expect(rendered.value.body).not.toContain("<!--");
 			expect(rendered.value.body).not.toContain("&lt;!--");
 		}

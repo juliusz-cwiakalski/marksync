@@ -6,7 +6,7 @@
 // TC-DETERM-001 (AC-F4-5 byte-identical output), TC-DETERM-002 (AC-F3-1 hash).
 // Real pipeline — no mocks (TDR-0004 over-mocking guardrail).
 
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { mdastToHast } from "#domain/markdown/mdast-to-hast";
@@ -32,8 +32,9 @@ const fixtures: Fixture[] = readdirSync(fixturesDir)
 	}));
 
 // Filter out error fixtures for success round-trip tests (GH-77)
+// Sidecar-based detection: a fixture with ${name}.unsupported.txt is an error case
 const roundtripFixtures = fixtures.filter(
-	(f) => f.name !== "raw-html-block-real" && f.name !== "mixed-html-comment",
+	(f) => !existsSync(join(fixturesDir, `${f.name}.unsupported.txt`)),
 );
 
 /** Run the full pipeline and return the success payload (throws on err). */

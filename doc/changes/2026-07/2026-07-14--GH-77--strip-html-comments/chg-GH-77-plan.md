@@ -164,7 +164,7 @@ before any pipeline wiring.
 
 **Tasks**:
 
-- [ ] **A.1** Create `src/domain/markdown/strip-comments.ts` exporting:
+- [x] **A.1** Create `src/domain/markdown/strip-comments.ts` exporting:
   - `isCommentOnlyHtml(value: string): boolean` — the load-bearing predicate.
     Matches an MDAST `html` node whose entire value is a single HTML comment
     (a contract like `/^\s*<!--[\s\S]*?-->\s*$/`), so it returns `true` for
@@ -178,7 +178,7 @@ before any pipeline wiring.
     deterministic, no IO, no new dependency (DEC-3).
   - File header ≤ 3 lines; cite GH-77 + DEC-2 once at the predicate (the
     load-bearing decision). Domain-only imports (`mdast` types).
-- [ ] **A.2** Create `tests/unit/domain/markdown/html-comment-strip.test.ts`
+- [x] **A.2** Create `tests/unit/domain/markdown/html-comment-strip.test.ts`
   with:
   - Predicate tests for `isCommentOnlyHtml` (true/false cases above) — the
     AC-F3-3 over-strip guard at the unit level.
@@ -198,7 +198,7 @@ before any pipeline wiring.
     the unit assertion here is the regression boundary).
   - Use `#domain/...` import aliases (not deep relative paths), per
     `.ai/rules/typescript.md`.
-- [ ] **A.3** Verify: `bun test tests/unit/domain/markdown/html-comment-strip.test.ts`,
+- [x] **A.3** Verify: `bun test tests/unit/domain/markdown/html-comment-strip.test.ts`,
   `bun run lint`, `bun run typecheck`, `bun run check:boundaries`.
 
 **Acceptance Criteria**:
@@ -236,13 +236,13 @@ nodes are removed before MDAST→HAST conversion, and prove the end-to-end
 
 **Tasks**:
 
-- [ ] **B.1** Edit `src/domain/markdown/parse.ts`: apply `stripCommentNodes`
+- [x] **B.1** Edit `src/domain/markdown/parse.ts`: apply `stripCommentNodes`
   to the parsed MDAST root inside `parseMarkdown`, after
   `processor.parse(text)` and before `Result.ok(...)`. Preserve the existing
   `Result` signature, the `ParseOptions` shape, and the front-matter-first /
   GFM ordering of the processor. No new dependency (DEC-3); the transformer
   is a domain function.
-- [ ] **B.2** Add end-to-end render assertions (in
+- [x] **B.2** Add end-to-end render assertions (in
   `tests/unit/domain/markdown/html-comment-strip.test.ts` or a sibling
   pipeline test): a block-comment page (`<!-- c -->\n\n# H\n\nBody.`) renders
   via `parseMarkdown → mdastToHast → renderStorage` to `Result.ok` with no
@@ -250,7 +250,7 @@ nodes are removed before MDAST→HAST conversion, and prove the end-to-end
   inline-comment page (`Before <!-- c --> after.`) renders to a `<p>` whose
   body is the surrounding text only (AC-F1-2). These exercise the real
   parser/bridge/renderer — no mocks (TDR-0004 over-mocking guardrail).
-- [ ] **B.3** Verify: `bun test tests/unit/domain/markdown/`,
+- [x] **B.3** Verify: `bun test tests/unit/domain/markdown/`,
   `bun run lint`, `bun run check:boundaries` (domain still imports no
   infra/app/cli — the test reaches `#infra/confluence/render/storage` only via
   the test, not via production domain code).
@@ -286,7 +286,7 @@ byte-exact.
 
 **Tasks**:
 
-- [ ] **C.1** Extend `tests/golden/markdown/storage-renderer.test.ts`:
+- [x] **C.1** Extend `tests/golden/markdown/storage-renderer.test.ts`:
   in `loadFixtures()` and the per-fixture test, support an expected-error
   fixture. Minimal convention: if `${name}.unsupported.txt` exists (containing
   the construct id, e.g. `raw-html-block`), assert
@@ -302,7 +302,7 @@ byte-exact.
   every fixture and throw on `undefined`. Alternatively, guard those filters
   against an absent `expected` — but keeping `expected: ""` is the lower-churn
   choice and stays within this same edit.
-- [ ] **C.2** Add 6 golden fixture pairs under `tests/golden/fixtures/markdown/`
+- [x] **C.2** Add 6 golden fixture pairs under `tests/golden/fixtures/markdown/`
   with content per test-plan §5.2:
   - `html-comment-block.md` + `.storage.xhtml` — block `<!-- … -->` →
     `<h1>`/`<p>` only, no comment text (TC-COMM-005).
@@ -318,7 +318,7 @@ byte-exact.
   - `raw-html-block-real.md` + `.unsupported.txt` (`raw-html-block`) — real
     block raw HTML → `Result.err` / `UnsupportedConstruct` (TC-COMM-008,
     via the C.1 convention).
-- [ ] **C.3** In `tests/golden/markdown/storage-renderer.test.ts`, update the
+- [x] **C.3** In `tests/golden/markdown/storage-renderer.test.ts`, update the
   golden count assertion from `toBe(27)` to `toBe(33)` and refresh the
   count-test description comment to cite GH-77 (+6 comment/regression
   fixtures). Verify the existing 27 fixtures remain byte-exact — any snapshot
@@ -326,7 +326,7 @@ byte-exact.
   *(This is the FIRST of two parallel count bumps — the SECOND is C.4, on the
   integration consumer `pipeline-roundtrip.test.ts`, which iterates the same
   fixtures dir.)*
-- [ ] **C.4** Apply the parallel harness updates to the SECOND fixtures-dir
+- [x] **C.4** Apply the parallel harness updates to the SECOND fixtures-dir
   consumer, `tests/integration/markdown/pipeline-roundtrip.test.ts` (DoR
   finding `plan_code_area_coverage` / `cross_artifact_consistency`: the
   original plan accounted only for `storage-renderer.test.ts`). This file's
@@ -359,7 +359,7 @@ byte-exact.
     `Result.err({ kind: "UnsupportedConstruct", construct: "raw-html-block" })`
     for that fixture — acceptable but higher-churn and redundant with
     TC-COMM-008; pick the skip unless directed otherwise.
-- [ ] **C.5** Verify: `bun test tests/golden/markdown/storage-renderer.test.ts`
+- [x] **C.5** Verify: `bun test tests/golden/markdown/storage-renderer.test.ts`
   AND `bun test tests/integration/markdown/pipeline-roundtrip.test.ts`;
   confirm the existing 27 unchanged + the 6 new pass and the integration suite
   is green at the new count (33) with no per-fixture throws; `bun run lint`.
@@ -404,7 +404,7 @@ prove idempotency for comment-bearing pages, and run the full suite green.
 
 **Tasks**:
 
-- [ ] **D.1** Update `tests/unit/domain/markdown/unsupported.test.ts`
+- [x] **D.1** Update `tests/unit/domain/markdown/unsupported.test.ts`
   (TC-UNSUP-004 block) with explicit regression guards: real block-level raw
   HTML (`<div class="x">Real block</div>`) still yields
   `UnsupportedConstruct: raw-html-block` (AC-F3-1); real inline raw HTML
@@ -412,7 +412,7 @@ prove idempotency for comment-bearing pages, and run the full suite green.
   mixed node (`<div data-x="1"><!-- note --></div>`) is still flagged at block
   level — proving the comment carve-out did not relax the classifier
   (AC-F3-3). (TC-COMM-004, TC-UNSUP-004 update.)
-- [ ] **D.2** Add an idempotency / hash-stability test (TC-COMM-012): extend
+- [x] **D.2** Add an idempotency / hash-stability test (TC-COMM-012): extend
   `tests/integration/markdown/pipeline-roundtrip.test.ts` (or add a sibling
   `comment-strip-idempotency.test.ts`). Render a comment-bearing page twice
   through `parseMarkdown → mdastToHast → canonicalHash`
@@ -424,7 +424,7 @@ prove idempotency for comment-bearing pages, and run the full suite green.
   inline fixtures (not the dir fixtures), so it is independent of the C.4
   skip-filter. If a sibling file is preferred instead, C.4 and D.2 do not
   collide.*
-- [ ] **D.3** Run the full suite + all gates:
+- [x] **D.3** Run the full suite + all gates:
   `bun test tests/unit/ tests/integration/ tests/golden/`,
   `bun run lint`, `bun run typecheck`, `bun run check:boundaries`. Confirm
   zero regressions vs. the pre-change baseline.
@@ -459,10 +459,10 @@ the new carve-out, and confirm release readiness.
 
 **Tasks**:
 
-- [ ] **E.1** Version bump `package.json` `0.5.1` → `0.5.2` (patch; consistent
+- [x] **E.1** Version bump `package.json` `0.5.1` → `0.5.2` (patch; consistent
   with GH-76's `0.5.0 → 0.5.1` patch bump). Refresh the lockfile with
   `bun install` so `bun.lock` reflects the new version.
-- [ ] **E.2** Spec reconciliation — update
+- [x] **E.2** Spec reconciliation — update
   `doc/spec/features/feature-safe-publish.md` to document the F-5 "no silent
   drop" carve-out for non-rendering annotations (HTML comments +
   link-reference comments), citing GH-77 + DEC-1 / DEC-2 (per spec §16). This
@@ -475,7 +475,7 @@ the new carve-out, and confirm release readiness.
   non-rendering-annotation carve-out without an ADR, and ticket AC#7 explicitly
   allowed "ADR/spec". The feature-spec note is the discoverable home for future
   reviewers; cite both precedents there.*
-- [ ] **E.3** Final verification + DoD self-check: `bun run check` (lint +
+- [x] **E.3** Final verification + DoD self-check: `bun run check` (lint +
   format:check + typecheck + test + check:boundaries); confirm all 9 ACs met
   (AC-F1-1, AC-F1-2, AC-F2-1, AC-F3-1, AC-F3-2, AC-F3-3, AC-F4-1, AC-F4-2,
   AC-F5-1) and every plan task box is checked.
@@ -515,7 +515,7 @@ attention.
 
 **Tasks**:
 
-- [ ] **F.1** Fix the under-strip defect (review F-1). In
+- [x] **F.1** Fix the under-strip defect (review F-1). In
   `src/domain/markdown/strip-comments.ts`, change the predicate from
   `/^\s*<!--[^>]*>\s*$/` to `/^\s*<!--[\s\S]*?-->\s*$/` (the contract documented in
   Phase A.1). The current `[^>]*` stops at the first `>`, so a valid HTML comment
@@ -523,7 +523,7 @@ attention.
   `false` and is NOT stripped — the original GH-77 bug persists for those comments
   (block-level aborts sync; inline leaks as escaped text). Empirically confirmed:
   remark yields such input as a single `html` node.
-- [ ] **F.2** Add regression coverage for the `>`-in-comment case. In
+- [x] **F.2** Add regression coverage for the `>`-in-comment case. In
   `tests/unit/domain/markdown/html-comment-strip.test.ts`:
   - Add `<!-- a > b -->` and `<!-- a >= b -->` to the predicate `trueCases`.
   - Add an end-to-end assertion that a `>`-bearing **block** comment
@@ -537,17 +537,17 @@ attention.
     predicate suite). Either (a) drop those two assertions, or (b) use the combined
     regex `/^\s*<!--(?:[\s\S]*?-->|>)\s*$/` to preserve them. Pick one and update the
     test expectations to match the chosen regex.
-- [ ] **F.3** Make the round-trip error-fixture skip robust (review F-2). In
+- [x] **F.3** Make the round-trip error-fixture skip robust (review F-2). In
   `tests/integration/markdown/pipeline-roundtrip.test.ts`, replace the hardcoded
   name filter (`f.name !== "raw-html-block-real" && f.name !== "mixed-html-comment"`)
   with sidecar-based detection: partition the fixtures dir into success vs. error
   fixtures by checking for `${name}.unsupported.txt` existence (mirroring
   `storage-renderer.test.ts` `loadFixtures()`), so a future error fixture never
   silently breaks the success `for...of` loops.
-- [ ] **F.4** Reconcile the plan (review F-3). Tick all completed task boxes
+- [x] **F.4** Reconcile the plan (review F-3). Tick all completed task boxes
   (`- [ ]` → `- [x]`) across Phases A–E and record `d177a0f` as the Phase E commit
   hash in the Execution Log.
-- [ ] **F.5** Verify: `bun run check` (lint + format:check + typecheck + test +
+- [x] **F.5** Verify: `bun run check` (lint + format:check + typecheck + test +
   check:boundaries) green; confirm the `>`-bearing comment cases pass and the
   existing 33 golden fixtures remain byte-exact.
 
