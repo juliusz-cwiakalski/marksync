@@ -15,8 +15,8 @@ phases:
   delivery: { started: "2026-07-14T00:13:00Z", completed: "2026-07-14T01:30:00Z" }
   system_spec_update: { started: "2026-07-14T01:30:00Z", completed: "2026-07-14T01:40:00Z" }
   review_fix: { started: "2026-07-14T01:40:00Z", completed: "2026-07-14T02:00:00Z" }
-  quality_gates: { started: null, completed: null }
-  dod_check: { started: null, completed: null }
+  quality_gates: { started: "2026-07-14T02:00:00Z", completed: "2026-07-14T02:10:00Z" }
+  dod_check: { started: "2026-07-14T02:10:00Z", completed: "2026-07-14T02:15:00Z" }
   pr_creation: { started: null, completed: null, url: null }
 
 decisions: []
@@ -58,6 +58,21 @@ notes:
       primary section — the phantom canonicalizer refs survived because each
       author only fixed their main section.
     type: retro
+    workItemRef: GH-27
+    date: "2026-07-14"
+  - text: >
+      DoD PASS (2026-07-14): all 6 story ACs satisfied (NFR-A11Y-3 panel ✓,
+      NFR-REL-9 classifyVersion ✓, privacy no-subjects ✓, false-drift NO_CHANGE
+      TC-PROV-007 ✓, 100% managed pages provenance ✓, bun run check green ✓).
+      All plan tasks checked (Phase 5 review-analysis done by @reviewer iter-1/2;
+      Phase 7 finalize done; Phase 8 remediation done; 8.5 optional/non-blocking
+      left unchecked). Version bump 0.4.2→0.5.0 (minor, per spec version_impact).
+      Quality gates GREEN (1104 pass/0 fail, format/typecheck/boundaries clean),
+      independently verified by @runner. Doc-syncer reconciled 7 docs, no
+      residual gaps. Review iter-2 PASS. Note: a husky/lint-staged hook
+      corrupted provenance.ts header during one commit (stray 'n' prefix,
+      uncommitted) — restored from HEAD; worth investigating the hook config.
+    type: info
     workItemRef: GH-27
     date: "2026-07-14"
   - text: >

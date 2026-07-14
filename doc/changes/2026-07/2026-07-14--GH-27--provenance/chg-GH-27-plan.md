@@ -271,15 +271,15 @@ This plan delivers provenance infrastructure for the safe publish pipeline (MS-0
 
 **Tasks**:
 
-- [ ] **5.1** Review `src/infra/confluence/provenance.ts` for self-documenting code, minimal comments (≤3 line header), no spec restatements, ADR references at load-bearing points only.
-- [ ] **5.2** Review all test files for coverage of all ACs and TCs, proper mocking strategy (no over-mocking), and clear test descriptions.
-- [ ] **5.3** Review privacy enforcement: verify no code paths write commit subjects to `marksync.metadata` property. Verify that `trimMarker` correctly indicates truncation state without exposing subjects.
-- [ ] **5.4** Review panel injection architecture: verify that panel is appended post-render as a Storage string, that `renderedBodyHash` is computed from HAST before append, and that false drift prevention is by construction.
-- [ ] **5.5** Review type safety: all exported functions have annotated return types and parameter types, no `any` in production code.
-- [ ] **5.6** Review backward compatibility: new property fields and lock fields are optional, lock schema accepts old and new bindings.
-- [ ] **5.7** Review `classifyVersion` implementation: verify it matches `PROVENANCE_PREFIX = "marksync git"` (not `marksync:`).
-- [ ] **5.8** Run `bun run check` (lint, format check, typecheck, test) and ensure all checks pass.
-- [ ] **5.9** Review commit history for Conventional Commits format and meaningful messages.
+- [x] **5.1** Review `src/infra/confluence/provenance.ts` for self-documenting code, minimal comments (≤3 line header), no spec restatements, ADR references at load-bearing points only.
+- [x] **5.2** Review all test files for coverage of all ACs and TCs, proper mocking strategy (no over-mocking), and clear test descriptions.
+- [x] **5.3** Review privacy enforcement: verify no code paths write commit subjects to `marksync.metadata` property. Verify that `trimMarker` correctly indicates truncation state without exposing subjects.
+- [x] **5.4** Review panel injection architecture: verify that panel is appended post-render as a Storage string, that `renderedBodyHash` is computed from HAST before append, and that false drift prevention is by construction.
+- [x] **5.5** Review type safety: all exported functions have annotated return types and parameter types, no `any` in production code.
+- [x] **5.6** Review backward compatibility: new property fields and lock fields are optional, lock schema accepts old and new bindings.
+- [x] **5.7** Review `classifyVersion` implementation: verify it matches `PROVENANCE_PREFIX = "marksync git"` (not `marksync:`).
+- [x] **5.8** Run `bun run check` (lint, format check, typecheck, test) and ensure all checks pass.
+- [x] **5.9** Review commit history for Conventional Commits format and meaningful messages.
 
 **Acceptance Criteria**:
 
@@ -354,9 +354,9 @@ This plan delivers provenance infrastructure for the safe publish pipeline (MS-0
 
 **Tasks**:
 
-- [ ] **7.1** Update version in `package.json` (minor version bump per `version_impact: minor` from spec).
-- [ ] **7.2** Final test run: `bun run check` (full suite including unit, integration, golden fixtures).
-- [ ] **7.3** Verify all findings from DoR iter-1 are addressed:
+- [x] **7.1** Update version in `package.json` (minor version bump per `version_impact: minor` from spec).
+- [x] **7.2** Final test run: `bun run check` (full suite including unit, integration, golden fixtures).
+- [x] **7.3** Verify all findings from DoR iter-1 are addressed:
   - P2: Canonicalizer phase removed, panel excluded from HAST hash by construction ✓
   - P3: Config wired via `Plan.visiblePanel` ✓
   - P4: Panel input fields defined with `ProvenancePanelMeta`, lifecycle specified ✓
