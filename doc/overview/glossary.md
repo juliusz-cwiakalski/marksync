@@ -12,7 +12,7 @@ area: domain
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0005, ADR-0006, ADR-0010, ADR-0011, PDR-0001]
-  related_changes: [GH-15, GH-17, GH-18, GH-22, GH-66, GH-74]
+  related_changes: [GH-15, GH-17, GH-18, GH-22, GH-66, GH-74, GH-77]
   summary: "Reader-friendly glossary of terms and acronyms used across the MarkSync repository."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -76,6 +76,7 @@ Documentation Handbook §9 for the glossary-vs-UL distinction._
 | **Mermaid** | A diagram-as-code language (flowcharts, sequence diagrams, etc.). MS-0002 preserves it as a code block by default (`code` policy); the opt-in `render` policy renders it to SVG via the public Kroki API (ADR-0002 rung 6); the in-process official-library renderer (rung 1) is the design target for MS-0003+. | Domain | — |
 | **NDJSON** | Newline-Delimited JSON — one JSON object per line. A machine-readable output format. | Operability | — |
 | **NSM** | North Star Metric — the primary success measure. MarkSync's NSM is "automation coverage of documentation publishing." | Strategy | — |
+| **Non-rendering annotation** | Authored Markdown content that produces no visible output and is stripped at the parse stage (MDAST), before MDAST→HAST conversion — treating sync-to-Confluence as a render step. Members: YAML front-matter (GH-63), HTML comments (`<!-- … -->`), and link-reference comments (`[//]: # (…)`). The same principle as Mermaid SVG comment-stripping for digest stability (feature-mermaid-rendering.md §3.3). A narrow carve-out from the no-silent-drop obligation — the unsupported-node classifier still flags every unsupported *rendering* construct; only comment-only raw nodes are removed, so real/mixed raw HTML keeps its escape/flag behavior unchanged (GH-77). | Domain | — |
 | **OAuth 3LO** | OAuth 2.0 three-legged authorization — Atlassian's modern auth flow. Deferred beyond `MS-0002`; API token is the `MS-0002` path. | Auth | — |
 | **Operation ID** | A per-run identifier used for decentralized concurrency dedup: if two runners submit the same operation ID, the stale one is rejected. | Safety | Operation ID |
 | **Operator** | Any entity that runs MarkSync: human, AI agent, or CI pipeline. All share identical core behaviour; only auth differs. | Product | — |
