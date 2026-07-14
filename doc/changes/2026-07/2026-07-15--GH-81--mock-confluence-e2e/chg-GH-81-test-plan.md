@@ -65,7 +65,7 @@ This test plan defines a new secrets-free e2e mock tier (`tests/e2e-mock/`) that
 | AC-F2-5 | Provenance panel visible in body sent to mock | TC-E2EMOCK-006 | Covered |
 | AC-F2-6 | Stretch scenarios (conflict recovery, Mermaid determinism, HTML-comment strip, UUID-less warning) | Deferred | Deferred per spec §7.3 |
 | AC-3 | CI job `e2e-mock` exists, is mandatory, and requires no secrets | TC-E2EMOCK-007 | Covered |
-| AC-4 | GH-71 attachment-unwrap regression caught; GH-66 property-API regression caught | TC-E2EMOCK-002 (GH-71), TC-E2EMOCK-005 (GH-71), TC-E2EMOCK-006 (GH-66), TC-E2EMOCK-008 (GH-66) | Covered |
+| AC-4 | GH-71 attachment-unwrap regression caught; GH-66 property-API regression caught | TC-E2EMOCK-002 (GH-71 unwrap during real uploads), TC-E2EMOCK-005 (GH-71 dedup signal handling), TC-E2EMOCK-006 (GH-66 property read for provenance), TC-E2EMOCK-008 (GH-66 property POST→409→GET→PUT flow) | Covered |
 
 ### 3.2 Interface Coverage (API-#, EVT-#, DM-#)
 
@@ -79,9 +79,9 @@ This test plan defines a new secrets-free e2e mock tier (`tests/e2e-mock/`) that
 | API-F1-6 | `PUT /wiki/rest/api/content/{pageId}/property/{key}` — update property | TC-E2EMOCK-008 | Version bump asserted |
 | API-F1-7 | `POST /wiki/rest/api/content/{pageId}/child/attachment` — multipart upload (GH-71 `{ results: [...] }` shape) | TC-E2EMOCK-002, TC-E2EMOCK-005 | GH-71 unwrap class asserted |
 | API-F1-8 | `GET /wiki/rest/api/content/{pageId}/child/attachment` — list attachments | TC-E2EMOCK-002, TC-E2EMOCK-005 | Captured in dedup flow |
-| API-F1-9 | `GET /wiki/api/v2/user/by-me` — credential validation | TC-E2EMOCK-002 | Captured (not on e2e critical path) |
-| API-F1-10 | `GET /wiki/rest/api/search?cql=...` — search (stub) | TC-E2EMOCK-002 | Stubbed (returns empty) |
-| API-F1-11 | `GET /wiki/rest/api/content/{pageId}/restriction` — restrictions (stub) | TC-E2EMOCK-002 | Stubbed (default permitted) |
+| API-F1-9 | `GET /wiki/api/v2/user/by-me` — credential validation | Phase-1 mock smoke probe | Verified via direct mock request (not on e2e critical path; DEC-1 bypasses `resolveCredentials`) |
+| API-F1-10 | `GET /wiki/rest/api/search?cql=...` — search (stub) | Phase-1 mock smoke probe | Verified via direct mock request (stubbed, returns empty) |
+| API-F1-11 | `GET /wiki/rest/api/content/{pageId}/restriction` — restrictions (stub) | Phase-1 mock smoke probe | Verified via direct mock request (default permitted) |
 | DM-1 | In-memory mock state model (pages, properties, attachments) | All scenarios | State reset per scenario asserted |
 | DM-2 | Captured-request log (method, path, Authorization, body) | All scenarios | Used for assertions |
 
@@ -192,10 +192,9 @@ This change introduces a **new test tier** to the testing strategy model: **E2E-
 3. Invoke `applyPlan` with the computed plan
 4. Assert `ApplyReport.writes == 3` (3 pages created)
 5. Assert captured requests include:
-   - 3× `POST /wiki/api/v2/pages` (one per page)
-   - 3× `POST /wiki/rest/api/content/{pageId}/property` with `key: "marksync.metadata"`
-   - 2× `POST /wiki/rest/api/content/{pageId}/child/attachment` (multipart uploads)
-   - 1× `GET /wiki/api/v2/user/by-me` (credential validation)
+    - 3× `POST /wiki/api/v2/pages` (one per page)
+    - 3× `POST /wiki/rest/api/content/{pageId}/property` with `key: "marksync.metadata"` (create returns 2xx on fresh mock)
+    - 2× `POST /wiki/rest/api/content/{pageId}/child/attachment` (multipart uploads)
 6. Assert the attachment create responses are consumed through the `{ results: [...] }` unwrap path (GH-71 class) — verify the attachment IDs are extracted from `results[0].id`
 7. Assert mock's server-side state: 3 pages stored, 3 properties set, 2 attachments tracked
 
@@ -207,6 +206,7 @@ This change introduces a **new test tier** to the testing strategy model: **E2E-
 **Notes / Clarifications**:
 - This scenario directly tests the GH-71 regression class (attachment unwrap bug)
 - The corpus fixtures are committed under `tests/e2e-mock/fixtures/corpus/create-flow/`
+- `validateCredentials` (which calls `GET /wiki/api/v2/user/by-me`) is NEVER called during this pipeline run per DEC-1 — scenarios call `computePlan` + `applyPlan` directly, bypassing `resolveCredentials`. The `user/by-me` endpoint is still implemented by the mock for AC-F1 completeness but is verified via the Phase-1 mock smoke probe (a direct request), not via any pipeline scenario
 
 ---
 
@@ -290,33 +290,38 @@ This change introduces a **new test tier** to the testing strategy model: **E2E-
 **Scenario Type**: Edge Case
 **Impact Level**: Important
 **Priority**: High
-**Related IDs**: AC-F2-4, AC-4 (GH-71), F-2, F-4
+**Related IDs**: AC-F2-4, AC-4 (GH-71 dedup signal), F-2, F-4
 **Test Type(s)**: E2E-Mock
 **Automation Level**: Automated
 **Target Layer / Location**: `tests/e2e-mock/attachment-dedup.test.ts`
 **Tags**: @backend, @e2e-mock, @edge-case, @regression
 
 **Preconditions**:
-- Mock server state populated by a first `applyPlan` (1 page with 1 attachment uploaded)
-- Source Markdown is unchanged (same attachment hash)
+- Fresh mock server instance (state reset)
+- First sync has completed: run `computePlan` + `applyPlan` over a corpus with 1 page containing 1 attachment
+- Source Markdown is then modified (title or body change) to trigger an update flow, while keeping the SAME asset file unchanged
 
 **Steps**:
-1. Invoke `computePlan` over the unchanged corpus
+1. Invoke `computePlan` over the modified corpus (same attachment hash)
 2. Invoke `applyPlan` with the computed plan
-3. Assert `ApplyReport.writes == 0` (no new attachment upload)
-4. Assert captured requests on second run contain NO attachment upload:
-   - 0× `POST /wiki/rest/api/content/{pageId}/child/attachment`
-5. Assert mock's server-side attachment state is unchanged (same attachment ID, version unchanged)
-6. (Optional) Verify the mock's dedup path: if attachment upload attempted, mock returns 400 "same file name" or adapter pre-checks hash
+3. Assert `ApplyReport.writes == 1` (1 page updated)
+4. Assert captured requests on this run include the dedup path:
+    - 1× `PUT /wiki/api/v2/pages/{id}` (page update)
+    - 1× `POST /wiki/rest/api/content/{pageId}/child/attachment` (attempts upload)
+    - Mock returns 400 "Cannot add a new attachment with same file name"
+    - 1× `GET /wiki/rest/api/content/{pageId}/child/attachment` (list to resolve existing)
+5. Assert mock's server-side attachment state is unchanged (same attachment ID, same version)
+6. Assert the dedup signal (400 "same file name") correctly triggers the resolve-existing path, proving the GH-71 dedup signal handling
 
 **Expected Outcome**:
-- Duplicate attachment is resolved idempotently
-- No re-upload occurs (catching GH-71 unwrap class if dedup path mishandles `{ results: [...] }`)
-- Attachment remains at the correct server-side version
+- Attachment deduplication is exercised via the 400 → list → resolve path
+- The attachment is NOT re-uploaded despite the update flow (GH-71 dedup signal handling)
+- The existing attachment reference is correctly reused
 
 **Notes / Clarifications**:
-- This scenario validates attachment deduplication, which depends on the GH-71 unwrap class working correctly
-- The dedup signal is either a mock 400 "same file name" or a hash precheck in the adapter
+- This scenario validates the dedup signal path (400 → list → resolve), which depends on the GH-71 unwrap class working correctly
+- TC-E2EMOCK-002 proves the GH-71 unwrap of `{ results: [...] }` during real uploads; this TC proves the dedup signal that prevents re-uploads
+- The update flow is necessary because NoOp short-circuits before `uploadAssets`, so the dedup path would never be reached
 
 ---
 
@@ -400,18 +405,20 @@ This change introduces a **new test tier** to the testing strategy model: **E2E-
 
 **Preconditions**:
 - Fresh mock server instance (state reset)
-- Committed Markdown corpus with 1 page
+- First sync has completed: run `computePlan` + `applyPlan` over the corpus, creating the page and setting the initial `marksync.metadata` property
+- Source Markdown is then modified (title or body change) to trigger an update flow
 
 **Steps**:
-1. Invoke `computePlan` over the corpus
+1. Invoke `computePlan` over the modified corpus
 2. Invoke `applyPlan` with the computed plan
-3. Assert captured requests include the correct v1 content-property REST flow:
-   - First `POST /wiki/rest/api/content/{pageId}/property` (attempt create)
-   - Mock returns 409 (property already exists)
-   - Adapter re-fetches with `GET /wiki/rest/api/content/{pageId}/property/{key}` to get current version
-   - Adapter retries with `PUT /wiki/rest/api/content/{pageId}/property/{key}` carrying incremented version
-4. Assert the `/api/jsongraphs/property-service/property` endpoint is NOT called (GH-66 removed this endpoint)
-5. Assert the property is successfully set in the mock's server-side state
+3. Assert captured requests include the correct v1 content-property REST flow (update path):
+   - `POST /wiki/rest/api/content/{pageId}/property` with `key: "marksync.metadata"` (attempt create)
+   - Mock returns 409 (property already exists from first sync)
+   - Adapter re-fetches with `GET /wiki/rest/api/content/{pageId}/property/marksync.metadata` to get current version
+   - Adapter retries with `PUT /wiki/rest/api/content/{pageId}/property/marksync.metadata` carrying incremented version
+4. Assert the property response shape includes `id`, `key`, `value`, and `version:{number}` per `PropertyV1Response` schema
+5. Assert the `/api/jsongraphs/property-service/property` endpoint is NOT called (GH-66 removed this endpoint)
+6. Assert the property is successfully updated in the mock's server-side state (version incremented)
 
 **Expected Outcome**:
 - The v1 content-property REST flow is correctly exercised (POST-409→GET→PUT)
@@ -421,6 +428,8 @@ This change introduces a **new test tier** to the testing strategy model: **E2E-
 **Notes / Clarifications**:
 - This scenario directly tests the GH-66 regression class (wrong property-API endpoint/shape)
 - The mock must NOT implement the jsongraphs endpoint (per DEC-3)
+- On a fresh mock, `POST /property` returns 2xx (create succeeds). The POST→409→GET→PUT path only fires when the key ALREADY exists, so this scenario runs a first sync (creates the property) then a second sync (modifies content) to trigger the update path
+- The v1 content-property API returns `{ id, key, value, version:{number} }` — the `id` field is required by the `PropertyV1Response` schema
 
 ---
 
@@ -439,6 +448,7 @@ This change introduces a **new test tier** to the testing strategy model: **E2E-
 - **Mock server state**: In-memory `Map<pageId, PageState>` with property and attachment maps; reset per scenario (fresh `Bun.serve` or explicit reset)
 - **Captured requests**: Append-only `CapturedRequest[]` (method, path, Authorization present, body); cleared per scenario
 - **Isolation strategy**: Each scenario instantiates a fresh mock server on an ephemeral port (`Bun.serve({ port: 0 })`) to prevent state leakage (RSK-3 mitigation)
+- **Phase-1 mock smoke probe**: Before the scenario suite runs, a direct request test verifies the `user/by-me`, search, and restrictions endpoints return the correct response shapes. These endpoints are NOT on the sync critical path (DEC-1 bypasses `resolveCredentials`), so they are tested via direct requests rather than through pipeline scenarios
 
 ### 6.3 Determinism Guarantees
 
@@ -501,6 +511,7 @@ This change introduces a **new test tier** to the testing strategy model: **E2E-
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-15 | Test Plan Writer | Initial test plan — 8 test cases covering all mandatory ACs, regression checks for GH-71/GH-66, CI job verification, and state reset strategy |
+| 1.1 | 2026-07-15 | Test Plan Writer | DoR iter-1 fixes: (1) Removed `user/by-me` assertion from TC-E2EMOCK-002 (DEC-1 bypasses `resolveCredentials`, so endpoint never called during pipeline); (2) Fixed TC-E2EMOCK-008 to exercise POST→409→GET→PUT path via first-sync + update flow (previously unreachable on fresh mock); (3) Added `id` field to property response shape per `PropertyV1Response` schema; (4) Re-traced `user/by-me`, search, restrictions coverage to Phase-1 mock smoke probe (not pipeline scenarios); (5) Reframed TC-E2EMOCK-005 to exercise dedup path via update flow (unchanged source short-circuits before `uploadAssets`) |
 
 ## 10. Test Execution Log
 
