@@ -47,8 +47,8 @@ Because the safe publish pipeline lacks visible provenance on published pages, c
 - **G-1**: Every managed page renders a visible provenance panel with source path, Git revision, branch, and last-sync timestamp (NFR-A11Y-3).
 - **G-2**: The `marksync.metadata` content property is fully populated with all required fields, including `sourceBranch`, `commitCount`, and `trimMarker`.
 - **G-3**: A programmatic predicate classifies Confluence page versions as MarkSync-authored or direct edit based on `version.message` prefix (NFR-REL-9).
-- **G-4**: Updating the last-sync timestamp does not trigger false drift—content-hash canonicalization normalizes the timestamp marker.
-- **G-5**: Privacy is enforced—commit subjects are stored only in local plan/apply output, never in Confluence (ADR-0010).
+- **G-4**: Updating the last-sync timestamp does not trigger false drift—the panel is appended post-render as a Storage string; the drift classifier compares HAST hashes which exclude the panel, so timestamp variance cannot affect drift detection.
+- **G-5**: Privacy is enforced—commit subjects are not stored in the `marksync.metadata` content property (only `commitCount` + `trimMarker` per ADR-0010).
 
 ### 4.1 Success Metrics / KPIs
 
@@ -58,7 +58,7 @@ Because the safe publish pipeline lacks visible provenance on published pages, c
 | Managed pages with complete `marksync.metadata` property | 100% |
 | Direct-edit classification accuracy | 100% |
 | False drift from timestamp-only updates | 0% |
-| Commit subjects in Confluence (`version.message` or property) | 0% |
+| Commit subjects in `marksync.metadata` property | 0% (per ADR-0010) |
 
 ### 4.2 Non-Goals
 
@@ -66,7 +66,7 @@ Because the safe publish pipeline lacks visible provenance on published pages, c
 - **NG-2**: Reverse-sync provenance (MS-0005+).
 - **NG-3**: A GUI/editor for provenance.
 - **NG-4**: Modifying ADR-0006 drift-detection safety—provenance is metadata on a safe update, never a bypass around version checks.
-- **NG-5**: Storing commit subjects in Confluence—privacy constraint (ADR-0010).
+- **NG-5**: Storing commit subjects in `marksync.metadata` content property—privacy constraint (ADR-0010).
 
 ## 5. FUNCTIONAL CAPABILITIES
 
@@ -88,7 +88,7 @@ Because the safe publish pipeline lacks visible provenance on published pages, c
 
 **F-4: Enrich `marksync.metadata` property** — After a successful Confluence page update, the system stores a JSON string in the `marksync.metadata` content property containing: `{schemaVersion, projectId, targetId, documentId(uuid), sourcePath, sourceCommit, sourceBranch, sourceContentHash, renderedBodyHash, operationId, synchronizedAt, toolVersion, commitCount, trimMarker}`. The property contains NO commit subjects—only the count and a truncation marker (ADR-0010 privacy constraint).
 
-**F-5: Classify version as MarkSync or direct** — Given a Confluence page version object, the system returns `"marksync"` if `version.message` contains the `marksync:` prefix, otherwise `"direct"`. This predicate is consumed by `doctor` and future reverse-sync (MS-0005+) to identify versions that were not authored by MarkSync.
+**F-5: Classify version as MarkSync or direct** — Given a Confluence page version object, the system returns `"marksync"` if `version.message` starts with the prefix `marksync git` (space, not colon), otherwise `"direct"`. This predicate is consumed by `doctor` and future reverse-sync (MS-0005+) to identify versions that were not authored by MarkSync. The prefix matches the actual `PROVENANCE_PREFIX` constant implemented in `src/infra/confluence/provenance.ts`.
 
 ## 6. USER & SYSTEM FLOWS
 
@@ -97,7 +97,7 @@ Flow 1: Publish with visible provenance
   User runs `marksync push` → Markdown renders to Storage → Provenance panel built (if enabled) → Panel appended to body → Timestamp canonicalized for hash → Confluence write → `marksync.metadata` enriched → Page version includes MarkSync prefix
 
 Flow 2: Idempotent sync (same content, different time)
-  User runs `marksync push` again → Body unchanged → Panel rebuilt with new timestamp → Canonicalizer strips timestamp → Hash matches → NO_CHANGE → 0 writes to Confluence
+  User runs `marksync push` again → Body unchanged (HAST identical) → Panel rebuilt with new timestamp as Storage string append → Classifier compares HAST hashes (no panel in HAST) → Hash matches → NO_CHANGE → 0 writes to Confluence
 
 Flow 3: Direct Confluence edit classification
   User edits page directly in Confluence → Version lacks MarkSync prefix → `classifyVersion` returns "direct" → `doctor` flags as non-MarkSync-authored
@@ -122,7 +122,7 @@ Flow 3: Direct Confluence edit classification
 - [OUT] Reverse-sync provenance (MS-0005+).
 - [OUT] GUI or editor for provenance.
 - [OUT] Modifying ADR-0006 drift-detection safety or no-silent-overwrite behavior.
-- [OUT] Storing commit subjects in Confluence (`version.message` or property).
+- [OUT] Storing commit subjects in `marksync.metadata` content property (per ADR-0010 privacy constraint).
 - [OUT] Provenance panel customization beyond minimal `{info}` macro.
 - [OUT] Panel placement other than footer (end of body).
 
@@ -164,16 +164,15 @@ N/A — no new events or message types.
 - Existing pages without panels or incomplete properties continue to function.
 - The `provenance.visiblePanel` knob defaults to true but can be disabled.
 - Direct-edit classification operates on `version.message` prefix, which is already present from MS2-E3-S4.
-- No changes to ADR-0006 drift detection, concurrency controls, or lock format.
+- Lock-schema.json is extended with OPTIONAL fields (`sourceBranch`, `commitCount`, `trimMarker`) added to the PageBinding definition. Existing locks without these fields remain valid (backward-compatible reading).
 
 ## 9. NON-FUNCTIONAL REQUIREMENTS (NFRs)
 
 | ID | Requirement | Threshold |
 |----|-------------|-----------|
-| NFR-REL-9 | Per-version provenance | Every MarkSync-applied page version carries `marksync:` prefix + head SHA + path in `version.message`; direct edits lack prefix → `classifyVersion` returns "direct". |
+| NFR-REL-9 | Per-version provenance | Every MarkSync-applied page version carries `marksync git` prefix + head SHA + path in `version.message`; direct edits lack prefix → `classifyVersion` returns "direct". |
 | NFR-A11Y-3 | Visible provenance accessibility | Every managed page shows a readable panel/footer with source path + Git revision + last-sync; uses plain text within stable marker, no color-dependency. |
-| NFR-PERF-4 | Idempotent rerun (no false drift) | Two syncs at different times with identical content → `NO_CHANGE` (timestamp canonicalization prevents false drift). |
-| NFR-PRIV-1 | Local-first provenance | Commit subjects appear only in local plan/apply output (terminal/JSON), never in Confluence `version.message` or `marksync.metadata` property (ADR-0010). |
+| NFR-PERF-4 | Idempotent rerun (no false drift) | Two syncs at different times with identical content → `NO_CHANGE` (panel is appended post-render as Storage string; classifier compares HAST hashes which exclude the panel, so timestamp variance does not affect drift detection). |
 
 ## 10. TELEMETRY & OBSERVABILITY REQUIREMENTS
 
@@ -192,9 +191,10 @@ No new telemetry or observability requirements. Provenance is visible on-page an
 
 - The `provenance.visiblePanel` configuration knob exists in `src/app/config.ts` (default true) and is ready for consumption.
 - The Git adapter's `currentBranch()` port is available and already called for the branch gate (MS2-E3-S6).
-- The `formatVersionMessage` function (MS2-E3-S4) already prefixes `version.message` with `marksync:`.
+- The `formatVersionMessage` function (MS2-E3-S4) already prefixes `version.message` with `marksync git` (space, not colon — see `PROVENANCE_PREFIX` constant in `src/infra/confluence/provenance.ts:9`).
 - The `marksync.metadata` content property accepts JSON string values (verified in spike H2 v2).
 - Confluence Storage XHTML `{info}` macro format is stable and does not require `schema-version` or `macro-id`.
+- The provenance panel is appended post-render as a Storage XHTML string, never injected into the HAST. The drift classifier compares HAST hashes (`local.canonicalHash` vs `base.renderedBodyHash`), which inherently exclude the panel, so timestamp updates cannot trigger false drift.
 
 ## 13. DEPENDENCIES
 
@@ -218,7 +218,7 @@ None. All open questions were CEO-resolved before this story (see Risks §11).
 | DEC-2 | Place panel at footer (end of body) | Non-disruptive to page content; consistent with provenance-as-footer mental model. | 2026-07-14 (CEO-resolved) |
 | DEC-3 | Exclude timestamp from content hash | Prevents false drift on idempotent reruns; timestamp is metadata, not content. | 2026-07-14 (from story) |
 | DEC-4 | Store only count + marker in property, not subjects | Privacy constraint from ADR-0010 prevents leaking sensitive commit subjects to Confluence. | 2026-07-14 (ADR-0010) |
-| DEC-5 | Prefix-based classification for direct edits | Simple, reliable: MarkSync versions have `marksync:` prefix; direct edits do not. | 2026-07-14 (NFR-REL-9) |
+| DEC-5 | Prefix-based classification for direct edits | Simple, reliable: MarkSync versions have `marksync git` prefix; direct edits do not. | 2026-07-14 (NFR-REL-9) |
 
 ## 16. AFFECTED COMPONENTS (HIGH-LEVEL)
 
@@ -240,9 +240,9 @@ None. All open questions were CEO-resolved before this story (see Risks §11).
 | AC-F1-2 | **Given** `provenance.visiblePanel` is `false`, **when** a document is published, **then** the page body does NOT contain the provenance panel. | F-2 |
 | AC-F3-1 | **Given** a document is published at time T1, **when** the same document is published again at time T2 with identical content, **then** the classifier returns `NO_CHANGE` (timestamp canonicalization prevents false drift). | F-3, NFR-PERF-4 |
 | AC-F4-1 | **Given** a document is published successfully, **when** the `marksync.metadata` property is read, **then** it contains all required fields: `schemaVersion, projectId, targetId, documentId, sourcePath, sourceCommit, sourceBranch, sourceContentHash, renderedBodyHash, operationId, synchronizedAt, toolVersion, commitCount, trimMarker`. | F-4, DM-1 |
-| AC-F4-2 | **Given** a document is published successfully, **when** the `marksync.metadata` property is read, **then** it contains NO commit subjects—only `commitCount` and `trimMarker`. | F-4, NFR-PRIV-1, ADR-0010 |
-| AC-F5-1 | **Given** a Confluence page version with `version.message` starting with `marksync:`, **when** `classifyVersion` is called, **then** it returns `"marksync"`. | F-5, NFR-REL-9 |
-| AC-F5-2 | **Given** a Confluence page version without the `marksync:` prefix, **when** `classifyVersion` is called, **then** it returns `"direct"`. | F-5, NFR-REL-9 |
+| AC-F4-2 | **Given** a document is published successfully, **when** the `marksync.metadata` property is read, **then** it contains NO commit subjects—only `commitCount` and `trimMarker`. | F-4, ADR-0010 |
+| AC-F5-1 | **Given** a Confluence page version with `version.message` starting with `marksync git`, **when** `classifyVersion` is called, **then** it returns `"marksync"`. | F-5, NFR-REL-9 |
+| AC-F5-2 | **Given** a Confluence page version without the `marksync git` prefix, **when** `classifyVersion` is called, **then** it returns `"direct"`. | F-5, NFR-REL-9 |
 | AC-INT-1 | **Given** a sync completes, **when** all managed pages are inspected, **then** 100% have valid visible provenance panels and complete `marksync.metadata` properties. | F-1, F-4, integration |
 | AC-CI-1 | **Given** the codebase is complete, **when** `bun run check` is executed, **then** all tests pass (unit + integration + golden). | story requirement |
 
@@ -261,7 +261,7 @@ N/A — no data migration required. Existing pages gain panels and enriched meta
 
 ## 20. PRIVACY / COMPLIANCE REVIEW
 
-**Privacy impact: LOW.** This change enforces the ADR-0010 privacy constraint—commit subjects are stored only in local plan/apply output, never in Confluence (`version.message` or `marksync.metadata` property). Only count and truncation marker are stored remotely. No personal data, credentials, or sensitive information is introduced.
+**Privacy impact: LOW.** This change enforces the ADR-0010 privacy constraint. The `marksync.metadata` content property stores only `commitCount` and `trimMarker` (a truncation indicator string like `"+3 more"`), never commit subjects. Commit subjects are intentionally included in `version.message` per ADR-0010 C-2 to provide a compact provenance summary in the version history. No personal data, credentials, or sensitive information is introduced.
 
 **Compliance: MIT License** — no changes to licensing or attribution.
 
@@ -298,7 +298,7 @@ N/A — no data migration required. Existing pages gain panels and enriched meta
 | Timestamp canonicalization | Normalizing out the timestamp/marker block from Storage body before content-hash computation. |
 | Direct edit | A Confluence page version not authored by MarkSync (lacks `marksync:` prefix). |
 | Commit subjects | Text descriptions of Git commits; stored only locally, not in Confluence (ADR-0010). |
-| Trim marker | Indicator in `marksync.metadata` that the commit list was truncated for length (e.g., `"+3 more"`). |
+| Trim marker | Indicator in `marksync.metadata` that the commit list was truncated for length (a string like `"+3 more"`). |
 
 ## 24. APPENDICES
 
@@ -333,7 +333,7 @@ Storage XHTML snippet (simplified):
   "synchronizedAt": "2026-07-14T12:34:56Z",
   "toolVersion": "0.1.0",
   "commitCount": 5,
-  "trimMarker": false
+  "trimMarker": "+3 more"
 }
 ```
 
