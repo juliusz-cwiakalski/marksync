@@ -217,12 +217,13 @@ This plan delivers provenance infrastructure for the safe publish pipeline (MS-0
 
 - [ ] **4.1** In `computePlan` (around line 400), extend the `Plan` interface to include `visiblePanel: boolean` field. Store `config.provenance.visiblePanel` (default true if absent) on the plan object. This makes the flag available to `applyPlan` without threading the full config object.
 - [ ] **4.2** Locate the markdown→Storage pipeline assembly point in `src/app/push-flow.ts` where the rendered Storage body is prepared for write (after rendering, before Confluence API call). This is in `processEntry` where `entry.renderedBody` is used.
-- [ ] **4.3** Add conditional panel injection: if `plan.visiblePanel` is `true` (default), construct `ProvenancePanelMeta` with:
+- [ ] **4.3** Add conditional panel injection: if `visiblePanel` is `true` (default), construct `ProvenancePanelMeta` with:
   - `sourcePath`: from `entry.sourcePath`
   - `sourceBranch`: from `plan.provenance.sourceBranch`
   - `headCommit`: from `plan.provenance.headCommit`
   - `synchronizedAt`: generated at apply time as `new Date().toISOString()` (per document, just before write)
   Call `buildProvenancePanel(meta)` and append the returned Storage XHTML to the end of the rendered body. Panel becomes part of the written body but is NOT in the HAST, so `renderedBodyHash` is unaffected.
+  - **Wiring**: Update `processEntry` signature to gain a `visiblePanel: boolean` parameter. In `applyPlan`, pass `plan.visiblePanel ?? true` (default true) to `processEntry` at the call site. This threads the flag from the plan through the apply function to the entry processor where panel injection occurs.
 - [ ] **4.4** Ensure the `renderedBodyHash` computation occurs BEFORE panel append (in the compute phase when `entry.renderedBody` is set). The hash is computed from HAST via `canonicalHash(hast)` and stored in `entry.hashes.renderedBodyHash`. Since the panel is appended post-render as a Storage string, the hash never includes the panel—false drift is architecturally impossible.
 - [ ] **4.5** Update the property write step to use the enriched `MetadataProperty` from Phase 3 (all 14 fields).
 - [ ] **4.6** Add unit tests to `tests/unit/push-flow.test.ts` (create if not exists) for:
