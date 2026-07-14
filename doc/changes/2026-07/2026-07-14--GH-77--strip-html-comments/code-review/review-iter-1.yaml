@@ -1,0 +1,111 @@
+version: 1
+iteration: 1
+mode: local
+work_item_ref: GH-77
+branch: fix/GH-77/strip-html-comments
+status: FAIL
+summary: >
+  The implementation is structurally sound: the parse-stage strip is correctly
+  wired (DEC-2), the DEC-4/F-5 infra files (unsupported.ts, canonicalize.ts,
+  storage.ts) are untouched, the golden fixtures + error-case harness are well
+  designed, the regression guards and idempotency tests are thorough, and all
+  gates pass green (1184 tests, lint, format, typecheck, boundaries). However,
+  the load-bearing predicate `isCommentOnlyHtml` uses `[^>]*` instead of the
+  plan-documented `[\s\S]*?`, which causes valid HTML comments containing a `>`
+  character (e.g. `<!-- a > b -->`) to be UNDER-STRIPPED — they are left in the
+  tree and the original bug persists (block-level aborts sync, inline leaks as
+  literal text). This was confirmed empirically: remark produces such comments
+  as single `html` nodes and the predicate returns `false` for them. Two minor
+  issues round out the iteration: the round-trip filter hardcodes error-fixture
+  names instead of detecting the sidecar, and all plan task checkboxes remain
+  unchecked despite every phase being COMPLETED.
+severity_breakdown:
+  critical: 0
+  high: 1
+  medium: 0
+  low: 1
+  info: 1
+spec_compliance: FAIL
+plan_compliance: FAIL
+findings:
+  - id: F-1
+    severity: high
+    confidence: high
+    category: correctness
+    location: src/domain/markdown/strip-comments.ts:11
+    message: >
+      The predicate `isCommentOnlyHtml` uses the regex `/^\s*<!--[^>]*>\s*$/`.
+      The `[^>]*` character class stops at the first `>`, so a valid HTML
+      comment whose body contains a `>` (e.g. `<!-- a > b -->`,
+      `<!-- TODO: x > 0 -->`) returns `false` and is NOT stripped. Empirically
+      confirmed: remark parses such input as a single `html` node (verified via
+      `remark().parse()`), so the comment survives the parse stage and the
+      original GH-77 bug persists — block-level aborts sync with
+      `UnsupportedConstruct: raw-html-block`; inline leaks as escaped literal
+      text (`&lt;!-- a &gt; b --&gt;`). This deviates from the plan's documented
+      predicate contract in Phase A.1 (`/^\s*<!--[\s\S]*?-->\s*$/`, which would
+      handle `>` correctly) and leaves RSK-2 (under-strip) unmitigated for this
+      form. The predicate is explicitly the "load-bearing security/correctness
+      boundary" per the plan.
+    suggestion: >
+      Replace `[^>]*` with the plan-documented `[\s\S]*?`:
+      `/^\s*<!--[\s\S]*?-->\s*$/`. Add a unit-true-case for `<!-- a > b -->`
+      and an end-to-end assertion that a `>`-bearing block comment syncs
+      (Result.ok, no leak) and a `>`-bearing inline comment does not appear in
+      the body. Note: this changes behavior for the obscure HTML5 edge cases
+      `<!-->` / `<!--->` (currently tested as `true`) — either drop those two
+      test assertions or use a combined regex
+      `/^\s*<!--(?:[\s\S]*?-->|>)\s*$/` to preserve them while fixing the
+      `>`-in-body case.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-2
+    severity: low
+    confidence: high
+    category: maintainability
+    location: tests/integration/markdown/pipeline-roundtrip.test.ts:35-36
+    message: >
+      The `roundtripFixtures` filter hardcodes error-fixture names
+      (`f.name !== "raw-html-block-real" && f.name !== "mixed-html-comment"`)
+      rather than detecting the `.unsupported.txt` sidecar the way the golden
+      harness (`storage-renderer.test.ts` `loadFixtures()`) does. A future
+      fixture that adds a `.unsupported.txt` sidecar would be picked up by the
+      fixtures-dir loader, counted toward the `toBe(33)` total, but would cause
+      `pipeline()` to throw inside the four success `for...of` loops with a
+      confusing per-fixture error. The error-fixture knowledge is duplicated by
+      name in two places.
+    suggestion: >
+      Derive the skip set from sidecar existence (e.g. read the fixtures dir
+      once, partition into success vs. error fixtures by checking for
+      `${name}.unsupported.txt`), so adding a new error fixture never silently
+      breaks the round-trip success loops. Alternatively, expose an
+      `isErrorFixture` flag from the loader and filter on it.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-3
+    severity: info
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-07/2026-07-14--GH-77--strip-html-comments/chg-GH-77-plan.md
+    message: >
+      Every task checkbox across Phases A–E remains `- [ ]` (unchecked) even
+      though the Execution Log records all five phases as COMPLETED with
+      corresponding commits, and Phase E's commit column still reads "TBD"
+      despite commit `d177a0f` matching its completion signal. This is a
+      DONE_BUT_UNCHECKED gap — the work is done but the plan was not reconciled.
+    suggestion: >
+      Tick all completed task boxes (`- [x]`) and record `d177a0f` as the Phase
+      E commit hash in the Execution Log.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+reviewed_at: 2026-07-14T22:30:00Z
+next_step: CALL_CODER

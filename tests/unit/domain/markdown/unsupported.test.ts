@@ -129,4 +129,35 @@ describe("TC-UNSUP-004 — raw inline HTML is escaped (not flagged); raw HTML bl
 			sourcePath: SRC,
 		});
 	});
+
+	test("GH-77 TC-COMM-004: real block-level raw HTML still flagged (AC-F3-1)", () => {
+		// Regression guard: real block-level raw HTML still yields UnsupportedConstruct.
+		const src = '<div class="x">Real block</div>\n';
+		const hast = mdastToHast(parseMarkdown(src).value as never);
+		const hit = findUnsupported(hast, SRC);
+		expect(hit).toEqual({
+			kind: "UnsupportedConstruct",
+			construct: "raw-html-block",
+			sourcePath: SRC,
+		});
+	});
+
+	test("GH-77 TC-COMM-004: real inline raw HTML still escaped, not flagged (AC-F3-2)", () => {
+		// Regression guard: real inline raw HTML is still escaped and not flagged.
+		const src = "Text <b>raw</b> inline.\n";
+		const hast = mdastToHast(parseMarkdown(src).value as never);
+		expect(findUnsupported(hast, SRC)).toBeNull();
+	});
+
+	test("GH-77 TC-COMM-004: mixed HTML+comment node still flagged (AC-F3-3)", () => {
+		// Regression guard: mixed HTML+comment node is still flagged at block level.
+		const src = '<div data-x="1"><!-- note --></div>\n';
+		const hast = mdastToHast(parseMarkdown(src).value as never);
+		const hit = findUnsupported(hast, SRC);
+		expect(hit).toEqual({
+			kind: "UnsupportedConstruct",
+			construct: "raw-html-block",
+			sourcePath: SRC,
+		});
+	});
 });

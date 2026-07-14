@@ -1,0 +1,75 @@
+version: 1
+iteration: 2
+mode: local
+work_item_ref: GH-77
+branch: fix/GH-77/strip-html-comments
+base: main
+head: 20e82fd
+status: PASS
+summary: >
+  Re-review after Phase F remediation (commit 20e82fd). The F-1 under-strip
+  defect is genuinely closed: the predicate changed from `[^>]*` to the combined
+  regex `/^\s*<!--(?:[\s\S]*?-->|>|-?>)\s*$/`, which was verified empirically
+  across 26 cases — the previously-broken `<!-- a > b -->` and
+  `<!-- TODO: x > 0 -->` forms now return `true`, while the security boundary
+  (mixed HTML+comment nodes like `<div><!-- c --></div>` and pure raw HTML like
+  `<div>`) correctly returns `false`. The `^<!--` opener and `\s*$` closer
+  anchors make over-matching of a non-comment node impossible by construction,
+  and the regex is ReDoS-safe (a 170 KB adversarial non-terminating input
+  resolves in 1 ms). The F-2 sidecar-based skip partitions the 33 golden
+  fixtures into 31 success / 2 error cases correctly and the `toBe(33)` count is
+  unchanged. The F-3 plan reconcile is complete: all task boxes ticked and
+  Phase F recorded. All five gates are green (1188 pass / 0 fail, typecheck,
+  lint exit 0, format:check, check:boundaries). The DEC-2 parse-stage wiring,
+  the DEC-4/F-5 infra files (unsupported.ts, canonicalize.ts, storage.ts), the
+  33 golden fixtures, and the spec reconciliation (feature-safe-publish.md) all
+  remain sound. No new issues were introduced by the remediation. The change is
+  ready for PR.
+severity_breakdown:
+  critical: 0
+  high: 0
+  medium: 0
+  low: 0
+  info: 0
+spec_compliance: PASS
+plan_compliance: PASS
+iter1_finding_closure:
+  F-1:
+    iter1_severity: high
+    iter1_category: correctness
+    status: CLOSED
+    evidence: >
+      src/domain/markdown/strip-comments.ts:11 — predicate changed from
+      `/^\s*<!--[^>]*>\s*$/` to `/^\s*<!--(?:[\s\S]*?-->|>|-?>)\s*$/`. Verified
+      empirically: `<!-- a > b -->`, `<!-- a >= b -->`, `<!-- TODO: x > 0 -->`
+      now return `true` (were `false`). All 13 false-cases (raw `<div>`, `<b>`,
+      `<div><!-- c --></div>`, `<!-- c --> <div>x</div>`, unclosed `<!-- x`,
+      `<!-`, `<!---`, `<!-- c -->x`) correctly return `false`. HTML5 edges
+      `<!-->` / `<!--->` preserved via the `>|-?>` alternatives. No over-match
+      hole: the `^\s*<!--` opener anchor rejects any node not beginning with a
+      comment, and `\s*$` rejects trailing real HTML. ReDoS-safe (lazy
+      `[\s\S]*?-->` terminated by a single literal; 170 KB adversarial input in
+      1 ms).
+  F-2:
+    iter1_severity: low
+    iter1_category: maintainability
+    status: CLOSED
+    evidence: >
+      tests/integration/markdown/pipeline-roundtrip.test.ts:36-38 —
+      roundtripFixtures filter now uses
+      `!existsSync(join(fixturesDir, `${f.name}.unsupported.txt`))` instead of
+      hardcoded names. The fixtures dir contains exactly 33 `.md` fixtures and
+      2 `.unsupported.txt` sidecars (mixed-html-comment, raw-html-block-real),
+      so the partition is 31 success / 2 error. `toBe(33)` unchanged; all four
+      success `for...of` loops iterate the 31 set.
+  F-3:
+    iter1_severity: info
+    iter1_category: plan-compliance
+    status: CLOSED
+    evidence: >
+      chg-GH-77-plan.md — every task box across Phases A–F is `- [x]`. Execution
+      Log records Phase F COMPLETED with commit 20e82fd and Phase E with
+      d177a0f.
+findings: []
+reviewed_at: 2026-07-15T12:00:00Z
+next_step: PROCEED
