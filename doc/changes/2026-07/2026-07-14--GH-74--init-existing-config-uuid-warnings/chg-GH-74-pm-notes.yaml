@@ -13,7 +13,7 @@ phases:
   review_fix: { started: "2026-07-14T15:10:00Z", completed: "2026-07-14T15:15:00Z" }
   quality_gates: { started: "2026-07-14T15:15:00Z", completed: "2026-07-14T15:28:00Z" }
   dod_check: { started: "2026-07-14T15:28:00Z", completed: "2026-07-14T15:30:00Z" }
-  pr_creation: { started: "2026-07-14T15:30:00Z", completed: null, url: null }
+  pr_creation: { started: "2026-07-14T15:30:00Z", completed: "2026-07-14T15:32:00Z", url: "https://github.com/juliusz-cwiakalski/marksync/pull/75" }
 decisions:
   - text: "Preserve an existing marksync.yml and continue UUID assignment; only create the starter config when the file is absent, as required by GH-74."
     date: "2026-07-14"
