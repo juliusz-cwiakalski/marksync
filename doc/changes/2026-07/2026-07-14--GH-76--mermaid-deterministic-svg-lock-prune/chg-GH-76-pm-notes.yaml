@@ -14,7 +14,9 @@ phases:
   dod_check: { started: null, completed: null }
   pr_creation: { started: null, completed: null, url: null }
 
-decisions: []
+decisions:
+  - text: "OQ-1 resolved: Use full §3.3 normalization rule set for Kroki path (renderer-agnostic, defense-in-depth, proven from GH-11, avoids divergence with MS-0003+ in-process renderer). Recorded as DEC-5 in spec."
+    date: "2026-07-14"
 
 open_questions: []
 

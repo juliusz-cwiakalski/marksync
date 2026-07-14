@@ -44,7 +44,7 @@ The three functional capabilities (F-1, F-2, F-3) map to three independently
 committable core phases, followed by integration validation, documentation
 reconciliation, and release.
 
-**Resolved decisions** (from spec DEC-1 through DEC-4):
+**Resolved decisions** (from spec DEC-1 through DEC-5):
 
 - DEC-1: `securityLevel` is not passed to Kroki (blocked by Kroki; enforced as
   `strict` by default — matches ADR-0002 Security Requirements).
@@ -54,12 +54,10 @@ reconciliation, and release.
 
 **Open questions**:
 
-- **OQ-1**: Whether to reuse the full §3.3 normalization rule set or a
-  simplified subset for Kroki output. Recommendation (from spec): start with
-  the full rules — they are proven from the GH-11 spike
-  (`spikes/mermaid-render/normalize.ts`) and are renderer-agnostic. Simplify
-  only if tests show unnecessary complexity. Decision needed: consult
-  `@decision-advisor` if simplification is warranted after Phase 2 validation.
+- **OQ-1**: Resolved (PM-decided, DEC-5): Use the full §3.3 normalization
+  rule set for the Kroki path. Rationale: rules are renderer-agnostic, provide
+  defense-in-depth, are proven from the GH-11 spike, and avoid divergence with
+  the future in-process renderer (MS-0003+).
 - **OQ-2**: Orphaned attachment cleanup (delete pre-fix orphaned attachments
   from Confluence) — deferred to maybe-later; out of scope for this change.
 
@@ -107,7 +105,7 @@ reconciliation, and release.
 - **RSK-1**: SVG normalization strips elements that affect visual output.
   Mitigated by: §3.3 rules strip only non-deterministic metadata (IDs,
   comments, whitespace, font declarations); golden-fixture comparison
-  (TC-MERM-NORM-003) validates 0 visual differences. Residual: L.
+  (TC-MERM-NORM-003) validates 0 structural differences. Residual: L.
 - **RSK-2**: Kroki changes diagram-options convention or blocks additional
   options. Mitigated by: Kroki's API is documented and stable; if
   `deterministicIds` is blocked, SVG normalization (F-2) alone rewrites random
@@ -196,6 +194,7 @@ but hashing is still over raw bytes (normalization lands in Phase 2).
   - `tests/unit/infra/mermaid/kroki.test.ts` (updated — existing + new tests)
   - `tests/unit/domain/mermaid/transform.test.ts` (updated — stub signatures)
   - `tests/golden/markdown/mermaid-render-golden.test.ts` (updated — stub signature)
+  - `tests/integration/app/mermaid/mermaid-render.test.ts` (updated — StubRenderer + SelectiveRenderer signatures)
 - System docs: none (documentation reconciliation is Phase 5)
 
 **Tests**:
@@ -257,7 +256,7 @@ becomes both `Artifact.bytes` and the hash input (DEC-3).
     normalization, byte-identical and hashes match.
 - [ ] **2.5** Add golden test TC-MERM-NORM-003 in
   `tests/golden/markdown/mermaid-render-golden.test.ts`: validate that the
-  normalized SVG renders identically to the raw SVG (0 visual differences;
+  normalized SVG has 0 structural differences from the raw SVG;
   differences only in internal IDs/metadata). Use DOM-structural comparison
   (paths, text, positions) via happy-dom preload if feasible; otherwise
   validate structural-element equivalence.
@@ -268,12 +267,11 @@ becomes both `Artifact.bytes` and the hash input (DEC-3).
   `Artifact.hash` (sha256 of normalized SVG).
 - Must: AC-F2-1 — two SVGs differing only in non-deterministic elements →
   byte-identical normalized forms, matching hashes.
-- Must: AC-F2-2 — normalized SVG renders identically to raw SVG (0 visual
-  differences).
+- Must: AC-F2-2 — normalized SVG has 0 structural differences from raw SVG.
 - Must: DM-3 — `Artifact.bytes` is the normalized SVG; `hash` is
   `sha256(normalizedSVG)`.
 - Should: NFR-1 — 100% determinism across syncs.
-- Should: NFR-6 — normalization safety (0 visual differences).
+- Should: NFR-6 — normalization safety (0 structural differences).
 
 **Files and modules**:
 
@@ -291,7 +289,7 @@ becomes both `Artifact.bytes` and the hash input (DEC-3).
 - TC-MERM-DETM-002 — different configs → different hashes
 - TC-MERM-NORM-001 — SVG normalization → stable hash for non-deterministic differences
 - TC-MERM-NORM-002 — normalization rules (white-box, each rule isolated)
-- TC-MERM-NORM-003 — normalized SVG renders identically to raw SVG
+- TC-MERM-NORM-003 — normalized SVG has 0 structural differences from raw SVG
 
 **Completion signal**: `fix(mermaid): normalize SVG before hashing for deterministic digests (GH-76 F-2)`
 
@@ -527,7 +525,7 @@ and confirm all acceptance criteria are met.
 | TC-MERM-DETM-004 | `securityLevel` NOT passed to Kroki | Phase 1 | AC-F1-2, NFR-5, DEC-1 |
 | TC-MERM-NORM-001 | SVG normalization → stable hash for non-deterministic differences | Phase 2 | AC-F2-1, NFR-1, NFR-6, DM-3 |
 | TC-MERM-NORM-002 | Normalization rules (strip comments, sort attributes, rewrite IDs) | Phase 2 | AC-F2-1, NFR-6 |
-| TC-MERM-NORM-003 | Normalized SVG renders identically to raw SVG | Phase 2 | AC-F2-2, NFR-6 |
+| TC-MERM-NORM-003 | Normalized SVG has 0 structural differences from raw SVG | Phase 2 | AC-F2-2, NFR-6 |
 | TC-MERM-NORM-004 | Network fallback → code block + warning (existing, no change) | — | NFR-8 |
 | TC-LOCK-001 | Bloated lock (55 entries) → pruned on Update | Phase 3 | AC-F3-1, NFR-3, DM-2 |
 | TC-LOCK-002 | Replace vs merge semantics in `finalizeSuccessfulUpdate` | Phase 3 | AC-F3-1, DM-2 |

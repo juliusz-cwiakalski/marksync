@@ -54,7 +54,7 @@ Data integrity risks addressed:
 | AC-F1-1 | Same source + config ×2 renders → identical hash | TC-MERM-DETM-001, TC-MERM-DETM-002 | ✅ Covered |
 | AC-F1-2 | Config passthrough to Kroki (deterministic-ids, html-labels) | TC-MERM-DETM-003, TC-MERM-DETM-004 | ✅ Covered |
 | AC-F2-1 | SVG normalization → stable hash for non-deterministic differences | TC-MERM-NORM-001, TC-MERM-NORM-002 | ✅ Covered |
-| AC-F2-2 | Normalized SVG renders identically to raw SVG | TC-MERM-NORM-003 | ✅ Covered |
+| AC-F2-2 | Normalized SVG has 0 structural differences from raw SVG | TC-MERM-NORM-003 | ✅ Covered |
 | AC-F3-1 | Bloated lock → pruned on Update outcome | TC-LOCK-001, TC-LOCK-002 | ✅ Covered |
 | AC-F3-2 | NO_CHANGE outcome → preserves existing attachmentHashes | TC-LOCK-003 | ✅ Covered |
 | AC-F3-3 | Second sync unchanged → 0 uploadAttachment calls | TC-E2E-001, TC-E2E-002 | ✅ Covered |
@@ -79,7 +79,7 @@ Data integrity risks addressed:
 | NFR-3 | Lock pruning (count == current) | TC-LOCK-001, TC-LOCK-002 | ✅ Covered |
 | NFR-4 | No-op classification (NO_CHANGE) | TC-E2E-003 | ✅ Covered |
 | NFR-5 | Config passthrough (deterministicIds, htmlLabels) | TC-MERM-DETM-003, TC-MERM-DETM-004 | ✅ Covered |
-| NFR-6 | Normalization safety (0 visual differences) | TC-MERM-NORM-003 | ✅ Covered |
+| NFR-6 | Normalization safety (0 structural differences) | TC-MERM-NORM-003 | ✅ Covered |
 | NFR-7 | Per-document isolation | TC-E2E-004 | ✅ Covered |
 | NFR-8 | Network fallback | TC-MERM-NORM-004 | ✅ Covered |
 | NFR-9 | Quality gate (bun run check) | TC-QG-001 | ✅ Covered |
@@ -131,7 +131,7 @@ This test plan follows the 6-tier testing strategy from `.ai/rules/testing-strat
 | TC-MERM-DETM-004 | securityLevel NOT passed to Kroki | Negative | Important | Medium | AC-F1-2 |
 | TC-MERM-NORM-001 | SVG normalization → stable hash for non-deterministic differences | Happy Path | Critical | High | AC-F2-1 |
 | TC-MERM-NORM-002 | Normalization rules (strip comments, sort attributes, rewrite IDs) | Happy Path | Important | Medium | AC-F2-1 |
-| TC-MERM-NORM-003 | Normalized SVG renders identically to raw SVG | Happy Path | Critical | High | AC-F2-2 |
+| TC-MERM-NORM-003 | Normalized SVG has 0 structural differences from raw SVG | Happy Path | Critical | High | AC-F2-2 |
 | TC-MERM-NORM-004 | Network fallback → code block + warning | Negative | Important | Medium | NFR-8 |
 | TC-LOCK-001 | Bloated lock (55 entries) → pruned on Update | Happy Path | Critical | High | AC-F3-1 |
 | TC-LOCK-002 | Replace vs merge semantics in finalizeSuccessfulUpdate | Happy Path | Critical | High | AC-F3-1 |
@@ -343,7 +343,7 @@ This test plan follows the 6-tier testing strategy from `.ai/rules/testing-strat
 
 ---
 
-#### TC-MERM-NORM-003 - Normalized SVG renders identically to raw SVG
+#### TC-MERM-NORM-003 - Normalized SVG has 0 structural differences from raw SVG
 
 **Scenario Type**: Happy Path
 **Impact Level**: Critical
@@ -365,7 +365,7 @@ This test plan follows the 6-tier testing strategy from `.ai/rules/testing-strat
 3. Compare the two renders visually (via screenshot or DOM inspection)
 
 **Expected Outcome**:
-- 0 visual differences (identical layout, colors, text)
+- 0 structural differences (identical elements, attributes, text content)
 - Differences only in internal IDs and metadata (not visible)
 
 **Notes / Clarifications**:
@@ -736,7 +736,7 @@ This test plan follows the 6-tier testing strategy from `.ai/rules/testing-strat
 #### `tests/golden/markdown/mermaid-render-golden.test.ts`
 - **Existing tests**: TC-MERM-002 golden fixture, snapshot layer stability
 - **New tests**:
-  - TC-MERM-NORM-003: Normalized SVG renders identically to raw SVG
+  - TC-MERM-NORM-003: Normalized SVG has 0 structural differences from raw SVG
 - **Dependencies**: happy-dom (via preload script)
 
 #### `tests/integration/confluence/push-flow.test.ts`
@@ -789,7 +789,7 @@ bun test tests/e2e/sandbox-publish.test.ts
 
 | Risk | Impact | Probability | Mitigation | Residual Risk |
 |------|--------|-------------|------------|---------------|
-| SVG normalization strips semantic elements | High | Low | Normalization rules (§3.3) validated via golden fixture and visual comparison (TC-MERM-NORM-003). Rule set is conservative (only strip known non-deterministic elements). | Low |
+| SVG normalization strips semantic elements | High | Low | Normalization rules (§3.3) validated via golden fixture and structural comparison (TC-MERM-NORM-003). Rule set is conservative (only strip known non-deterministic elements). | Low |
 | Kroki changes diagram-options API | Medium | Low | Kroki docs indicate stable API. If blocked, normalization alone provides defense-in-depth. | Low |
 | Lock pruning drops needed entries | Medium | Low | Pruning replaces with current run's complete set (assets + Mermaid artifacts), not empty set. NO_CHANGE outcomes preserve existing entries. Self-healing on next sync. | Low |
 | happy-dom cannot render Mermaid SVG reliably | Medium | Low | Escalation path: use Vitest or Playwright for TC-MERM-NORM-003 if happy-dom fails. | Low |
@@ -808,7 +808,7 @@ bun test tests/e2e/sandbox-publish.test.ts
 
 | Question | Context | Status | Owner |
 |----------|---------|--------|-------|
-| OQ-1 | Should the SVG normalization for the Kroki path reuse the full §3.3 rule set, or a simplified subset? | §3.3 includes gantt `today`-line stripping (Rule 5) which may not be relevant for Kroki output. A subset focusing on ID rewriting + attribute sorting + whitespace canonicalization may suffice. | Open (deferred to @decision-advisor) | @decision-advisor |
+| OQ-1 | Should the SVG normalization for the Kroki path reuse the full §3.3 rule set, or a simplified subset? | §3.3 includes gantt `today`-line stripping (Rule 5) which may not be relevant for Kroki output. A subset focusing on ID rewriting + attribute sorting + whitespace canonicalization may suffice. | Resolved (PM-decided, DEC-5): Use full §3.3 rule set | N/A |
 | OQ-2 | Should orphaned attachments from pre-fix syncs be cleaned up (deleted from Confluence)? | Pre-fix syncs uploaded attachments under non-deterministic hashes. These remain on Confluence as orphans. | Open (deferred to maybe-later) | @pm |
 
 ## 9. Plan Revision Log

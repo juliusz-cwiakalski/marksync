@@ -212,7 +212,7 @@ N/A — no event bus. No changes to the conceptual signals (Mermaid Rendered / M
 | NFR-3 | Lock pruning (F-3) | After sync, `attachmentHashes` per page contains only the current run's entries (count == current attachment count, not cumulative) |
 | NFR-4 | No-op classification (F-1, F-2, F-3) | Sync with unchanged content (body + attachments) → `NO_CHANGE`, not `LOCAL_AHEAD` |
 | NFR-5 | Config passthrough (F-1) | `deterministicIds` and `htmlLabels` from `marksync.yml` reach Kroki as diagram options; `securityLevel` enforced by Kroki default (`strict`) |
-| NFR-6 | Normalization safety (F-2) | Normalized SVG renders identically to raw SVG (**0** visual differences; normalization strips only non-deterministic metadata/IDs) |
+| NFR-6 | Normalization safety (F-2) | Normalized SVG has **0** structural differences from raw SVG in visual elements (paths, text, shapes); normalization strips only non-deterministic metadata/IDs. Structural comparison via XML diff — pixel-level visual comparison not available (GH-11). |
 | NFR-7 | Per-document isolation (carry-over) | A render failure on one doc's fences → that doc falls back to code; the run continues |
 | NFR-8 | Network fallback (carry-over, ADR-0002 C-2) | Kroki HTTP error → code block + warning; never silent drop (unchanged from GH-69) |
 | NFR-9 | Quality gate | `bun run check` exits **0** |
@@ -229,7 +229,7 @@ No product telemetry (NFR-SEC-3). Observability is structural:
 
 | ID | Risk | Impact | Probability | Mitigation | Residual Risk |
 |----|------|--------|-------------|------------|---------------|
-| RSK-1 | SVG normalization strips elements that affect visual output | M | L | Normalization rules (§3.3) are designed for digest stability, not semantic alteration — they strip only non-deterministic metadata (IDs, comments, whitespace, font declarations). Golden-fixture comparison validates normalized SVG renders identically. | L |
+| RSK-1 | SVG normalization strips elements that affect visual output | M | L | Normalization rules (§3.3) are designed for digest stability, not semantic alteration — they strip only non-deterministic metadata (IDs, comments, whitespace, font declarations). Golden-fixture comparison validates normalized SVG has 0 structural differences in visual elements. | L |
 | RSK-2 | Kroki changes diagram-options convention or blocks additional options | M | L | Kroki's diagram-options API is documented and stable. If `deterministicIds` is blocked, SVG normalization (F-2) alone can rewrite random IDs deterministically — defense-in-depth. | L |
 | RSK-3 | `securityLevel` cannot be passed to Kroki (blocked) | L | H (confirmed) | Kroki enforces `securityLevel: strict` by default — matches required posture (ADR-0002). No action needed; documented as DEC-1. | L |
 | RSK-4 | Lock pruning drops legitimately needed attachment entries | M | L | Pruning replaces with the current run's complete set (assets + Mermaid artifacts), not an empty set. `NO_CHANGE` outcomes preserve existing entries. Self-healing: any error is corrected on the next sync. | L |
@@ -405,7 +405,7 @@ This spec was authored using the following context:
 - GH-69 spec (the feature being fixed): `doc/changes/2026-07/2026-07-13--GH-69--mermaid-kroki-render/chg-GH-69-spec.md`
 - Kroki API documentation: https://docs.kroki.io/kroki/setup/diagram-options/ — research on Mermaid config passing (Appendix A)
 
-Design decisions (DEC-1 through DEC-4) resolve the key questions: `securityLevel` handling (blocked by Kroki, enforced as `strict` by default), A+C combination, SVG normalization approach, and lock pruning semantics.
+Design decisions (DEC-1 through DEC-5) resolve the key questions: `securityLevel` handling (blocked by Kroki, enforced as `strict` by default), A+C combination, SVG normalization approach, lock pruning semantics, and the full §3.3 rule set for the Kroki path.
 
 The spec follows the template at `doc/templates/change-spec-template.md` and the house style from the GH-69 spec.
 
