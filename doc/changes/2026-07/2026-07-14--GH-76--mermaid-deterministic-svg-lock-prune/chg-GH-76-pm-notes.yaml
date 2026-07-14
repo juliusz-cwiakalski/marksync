@@ -12,7 +12,7 @@ phases:
   review_fix: { started: "2026-07-14T21:00:00Z", completed: "2026-07-14T21:45:00Z" }
   quality_gates: { started: "2026-07-14T20:30:00Z", completed: "2026-07-14T22:00:00Z" }
   dod_check: { started: "2026-07-14T22:00:00Z", completed: "2026-07-14T22:05:00Z" }
-  pr_creation: { started: "2026-07-14T22:05:00Z", completed: null, url: null }
+  pr_creation: { started: "2026-07-14T22:05:00Z", completed: "2026-07-14T22:15:00Z", url: "https://github.com/juliusz-cwiakalski/marksync/pull/79" }
 
 decisions:
   - text: "OQ-1 resolved: Use full §3.3 normalization rule set for Kroki path (renderer-agnostic, defense-in-depth, proven from GH-11, avoids divergence with MS-0003+ in-process renderer). Recorded as DEC-5 in spec."
