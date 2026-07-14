@@ -6,7 +6,7 @@ phases:
     completed: "2026-07-14T06:08:12Z"
   specification: { started: "2026-07-14T06:09:00Z", completed: "2026-07-14T06:11:03Z" }
   test_planning: { started: "2026-07-14T06:11:03Z", completed: "2026-07-14T13:59:00Z" }
-  delivery_planning: { started: null, completed: null }
+  delivery_planning: { started: "2026-07-14T14:06:00Z", completed: "2026-07-14T14:10:00Z" }
   dor_check: { started: null, completed: null }
   delivery: { started: null, completed: null }
   system_spec_update: { started: null, completed: null }
@@ -31,4 +31,19 @@ notes:
     date: "2026-07-14"
   - text: "GH-27 was active on another branch and is parked at the user's explicit request to deliver GH-74. No GH-27 files or commits are part of this change."
     type: info
+    date: "2026-07-14"
+  - text: >
+      Retro — @plan-writer found a completeness gap in the test plan during
+      delivery_planning: TC-REG-001 claimed 'all existing tests pass without
+      modification (except those explicitly changed by spec)' and only enumerated
+      the unit-level overwrite-refusal test. Two additional existing tests assert
+      the old refused-overwrite behavior (tests/integration/identity/identity-assign.test.ts
+      TC-ASSIGN-005 at line 124, and the DEC-5 redaction test at init.test.ts:65).
+      TC-ASSIGN-005 will hard-fail after F-1. Plan-writer compensated by adding
+      Phase 1 tasks 1.4 and 1.5 to modify both tests. Test plan TC-REG-001 should
+      have enumerated these. Root cause: test-plan-writer did not scan integration
+      tests for assertions tied to the old behavior. Process improvement:
+      test-plan-writer should grep for assertions referencing the behavior being
+      changed, not just unit tests.
+    type: retro
     date: "2026-07-14"
