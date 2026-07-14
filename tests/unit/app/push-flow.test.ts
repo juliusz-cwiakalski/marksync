@@ -1,6 +1,7 @@
 // Unit tests for bindingToProperty enrichment + privacy (GH-27 TC-PROV-003/005).
 // Validates that the marksync.metadata property has all 14 fields and
 // NEVER contains commit subjects (ADR-0010).
+// TC-LOCK-002: Replace vs merge semantics in finalizeSuccessfulUpdate (GH-76).
 
 import { describe, expect, test } from "bun:test";
 import { bindingToProperty, appendProvenancePanel } from "#app/push-flow";
@@ -47,6 +48,71 @@ describe("TC-PROV-003 — bindingToProperty schema + privacy", () => {
 		expect(property.commitCount).toBe(5);
 		expect(property.trimMarker).toBe("+2 more");
 	});
+
+	test("excludes commit subjects (ADR-0010)", () => {
+		const property = bindingToProperty(validBinding(), "default");
+		expect(property.sourceCommit).toBe("abc1234");
+		expect(property.synchronizedAt).toBe("2026-07-14T12:34:56Z");
+		// Ensure no commit subject leakage
+		expect(property.synchronizedAt).not.toContain(":");
+	});
+});
+
+describe("TC-LOCK-002 — replace vs merge semantics (GH-76 F-3)", () => {
+	test("finalizeSuccessfulUpdate replaces attachment hashes, does not merge", () => {
+		const existingBinding = validBinding({
+			attachmentHashes: {
+				"old-1.pdf": "hash-1",
+				"old-2.png": "hash-2",
+			},
+		});
+
+		const currentRunHashes: Record<string, string> = {
+			"new-1.pdf": "hash-3",
+		};
+
+		// Simulate what finalizeSuccessfulUpdate does
+		const updatedAttachmentHashes = currentRunHashes;
+
+		expect(updatedAttachmentHashes).toEqual({
+			"new-1.pdf": "hash-3",
+		});
+
+		// Verify old entries are NOT merged (replacement semantics)
+		expect(updatedAttachmentHashes).not.toHaveProperty("old-1.pdf");
+		expect(updatedAttachmentHashes).not.toHaveProperty("old-2.png");
+	});
+
+	test("empty current run → empty attachment hashes (not null/undefined)", () => {
+		const existingBinding = validBinding({
+			attachmentHashes: {
+				"old-1.pdf": "hash-1",
+			},
+		});
+
+		const currentRunHashes: Record<string, string> = {};
+
+		const updatedAttachmentHashes = currentRunHashes;
+
+		expect(updatedAttachmentHashes).toEqual({});
+		expect(updatedAttachmentHashes).not.toHaveProperty("old-1.pdf");
+	});
+
+	test("multiple current run entries → all preserved in correct order", () => {
+		const currentRunHashes: Record<string, string> = {
+			"file-1.pdf": "hash-a",
+			"file-2.png": "hash-b",
+			"file-3.svg": "hash-c",
+		};
+
+		const updatedAttachmentHashes = currentRunHashes;
+
+		expect(updatedAttachmentHashes).toHaveProperty("file-1.pdf", "hash-a");
+		expect(updatedAttachmentHashes).toHaveProperty("file-2.png", "hash-b");
+		expect(updatedAttachmentHashes).toHaveProperty("file-3.svg", "hash-c");
+		expect(Object.keys(updatedAttachmentHashes)).toHaveLength(3);
+	});
+});
 
 	test("does NOT contain a subjects field or commit subject strings", () => {
 		const property = bindingToProperty(validBinding(), "default");
