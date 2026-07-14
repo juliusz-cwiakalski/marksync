@@ -502,6 +502,82 @@ the new carve-out, and confirm release readiness.
 
 ---
 
+### Phase F: Code Review Remediation (Iteration 1)
+
+**Goal**: Fix the code-review findings from `review-iter-1.yaml` — the load-bearing
+under-strip defect in the comment-only predicate (F-1, high) and two lower-severity
+items (F-2 maintainability, F-3 plan reconciliation). The structural implementation
+(parse-stage wiring, golden fixtures, regression guards, idempotency, spec
+reconciliation) is sound; only the predicate regex and two test/process items need
+attention.
+
+**Source**: `code-review/review-iter-1.yaml` (FAIL — 1 high / 0 medium / 1 low / 1 info).
+
+**Tasks**:
+
+- [ ] **F.1** Fix the under-strip defect (review F-1). In
+  `src/domain/markdown/strip-comments.ts`, change the predicate from
+  `/^\s*<!--[^>]*>\s*$/` to `/^\s*<!--[\s\S]*?-->\s*$/` (the contract documented in
+  Phase A.1). The current `[^>]*` stops at the first `>`, so a valid HTML comment
+  whose body contains `>` (e.g. `<!-- a > b -->`, `<!-- TODO: x > 0 -->`) returns
+  `false` and is NOT stripped — the original GH-77 bug persists for those comments
+  (block-level aborts sync; inline leaks as escaped text). Empirically confirmed:
+  remark yields such input as a single `html` node.
+- [ ] **F.2** Add regression coverage for the `>`-in-comment case. In
+  `tests/unit/domain/markdown/html-comment-strip.test.ts`:
+  - Add `<!-- a > b -->` and `<!-- a >= b -->` to the predicate `trueCases`.
+  - Add an end-to-end assertion that a `>`-bearing **block** comment
+    (`<!-- a > b -->\n\n# H`) renders to `Result.ok` with no `<!--` / `&lt;!--` in
+    the body (closes AC-F1-1 for the `>` edge).
+  - Add an end-to-end assertion that a `>`-bearing **inline** comment
+    (`Before <!-- a > b --> after.`) does not leak the comment text (closes
+    AC-F1-2 for the `>` edge).
+  - **Edge-case reconciliation**: switching to `[\s\S]*?` changes behavior for the
+    obscure HTML5 edge cases `<!-->` / `<!--->` (currently asserted `true` in the
+    predicate suite). Either (a) drop those two assertions, or (b) use the combined
+    regex `/^\s*<!--(?:[\s\S]*?-->|>)\s*$/` to preserve them. Pick one and update the
+    test expectations to match the chosen regex.
+- [ ] **F.3** Make the round-trip error-fixture skip robust (review F-2). In
+  `tests/integration/markdown/pipeline-roundtrip.test.ts`, replace the hardcoded
+  name filter (`f.name !== "raw-html-block-real" && f.name !== "mixed-html-comment"`)
+  with sidecar-based detection: partition the fixtures dir into success vs. error
+  fixtures by checking for `${name}.unsupported.txt` existence (mirroring
+  `storage-renderer.test.ts` `loadFixtures()`), so a future error fixture never
+  silently breaks the success `for...of` loops.
+- [ ] **F.4** Reconcile the plan (review F-3). Tick all completed task boxes
+  (`- [ ]` → `- [x]`) across Phases A–E and record `d177a0f` as the Phase E commit
+  hash in the Execution Log.
+- [ ] **F.5** Verify: `bun run check` (lint + format:check + typecheck + test +
+  check:boundaries) green; confirm the `>`-bearing comment cases pass and the
+  existing 33 golden fixtures remain byte-exact.
+
+**Acceptance Criteria**:
+
+- Must (F-1/F-2): `isCommentOnlyHtml("<!-- a > b -->")` returns `true`; a
+  `>`-bearing block comment syncs (`Result.ok`, no leak) and a `>`-bearing inline
+  comment does not appear as literal text. AC-F1-1 / AC-F1-2 satisfied for the
+  `>`-containing edge.
+- Must (F-3): the round-trip suite's error-fixture skip is derived from sidecar
+  existence, not hardcoded names.
+- Should (F-4): all plan task boxes ticked; Phase E commit recorded.
+
+**Files and modules**:
+
+- Code areas: `src/domain/markdown/strip-comments.ts` (updated — predicate regex);
+  `tests/unit/domain/markdown/html-comment-strip.test.ts` (updated — `>` cases +
+  edge-case reconciliation);
+  `tests/integration/markdown/pipeline-roundtrip.test.ts` (updated — sidecar-based
+  skip).
+- System docs: none.
+
+**Tests**:
+
+- TC-COMM-001, TC-COMM-002 (extended for `>`-in-comment edge).
+
+**Completion signal**: `fix(markdown): handle '>' inside HTML comments in strip predicate (GH-77)`
+
+---
+
 ## Test Scenarios
 
 | ID | Scenario | Phases | AC |
@@ -607,6 +683,7 @@ intentional in E.2 with the mermaid §3.3 / GH-63 precedent cited.
 |---------|------|--------|---------|
 | 1.0 | 2026-07-14 | plan-writer | Initial plan — 5 phases (A–E), 9 ACs / 13 TCs covered |
 | 1.1 | 2026-07-14 | plan-writer | Close DoR iter-1 `[major] plan_code_area_coverage` finding: add Phase C.4 (count bump `toBe(27)`→`toBe(33)` + error-fixture skip guard in `tests/integration/markdown/pipeline-roundtrip.test.ts`); add the file to Phase C & D blast-radius; renumber C.4 verify→C.5. Close 3 nits in place: C.1 `Fixture.expected` stays defined for error fixtures; A.2 explicitly unit-guards fenced-code comments (NG-4); E.2 confirms F-5 carve-out = DEC-1 + spec note (no separate ADR; mermaid §3.3 / GH-63 precedent). |
+| 1.2 | 2026-07-14 | reviewer | Code-review iter-1 (`review-iter-1.yaml`, FAIL): add **Phase F — Code Review Remediation (Iteration 1)**. F.1/F.2 fix the `[high]` under-strip defect — predicate uses `[^>]*` instead of the documented `[\s\S]*?`, so valid comments containing `>` (e.g. `<!-- a > b -->`) are NOT stripped and the bug persists; add `>` regression coverage + reconcile the `<!-->`/`<!--->` edge cases. F.3 `[low]` — make the round-trip error-fixture skip sidecar-based instead of hardcoded names. F.4 `[info]` — tick unchecked task boxes + record Phase E commit hash. |
 
 ## Execution Log
 
@@ -616,4 +693,5 @@ intentional in E.2 with the mermaid §3.3 / GH-63 precedent cited.
 | B | COMPLETED | 2026-07-14 | 2026-07-14 | e75df4b | fix(markdown): strip HTML comments at parse stage (GH-77) |
 | C | COMPLETED | 2026-07-14 | 2026-07-14 | 26e04bf | test(golden): add HTML-comment fixtures + error-case harness (GH-77) |
 | D | COMPLETED | 2026-07-14 | 2026-07-14 | 62afc69 | test(markdown): regression guards + comment-strip idempotency (GH-77) |
-| E | COMPLETED | 2026-07-14 | 2026-07-14 | TBD | chore(release): bump version to 0.5.2 + sync safe-publish spec (GH-77) |
+| E | COMPLETED | 2026-07-14 | 2026-07-14 | d177a0f | chore(release): bump version to 0.5.2 + sync safe-publish spec (GH-77) |
+| F | PENDING | 2026-07-14 | — | — | Code Review Remediation (Iteration 1) — under-strip `>` defect (F-1) + round-trip skip (F-2) + plan reconcile (F-3) |
