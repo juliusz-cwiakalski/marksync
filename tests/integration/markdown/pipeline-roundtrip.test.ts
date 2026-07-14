@@ -115,7 +115,9 @@ describe("TC-COMM-012 (GH-77 NFR-PERF-4) — idempotency and hash stability for 
 		const withCommentHast = mdastToHast(withComment.value as never);
 		const withCommentHash = canonicalHash(withCommentHast);
 
-		const withoutComment = parseMarkdown(commentFreePage, { sourcePath: "test.md" });
+		const withoutComment = parseMarkdown(commentFreePage, {
+			sourcePath: "test.md",
+		});
 		const withoutCommentHast = mdastToHast(withoutComment.value as never);
 		const withoutCommentHash = canonicalHash(withoutCommentHast);
 

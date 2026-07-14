@@ -127,3 +127,19 @@ exports[`TC-GOLDEN (AC-F4-1 / NFR-REL-4) — remark-gfm-reachable fixtures byte-
 
 <p>This is the page body after front-matter.</p>"
 `;
+
+exports[`TC-GOLDEN (AC-F4-1 / NFR-REL-4) — remark-gfm-reachable fixtures byte-match goldens byte-exact + snapshot — html-comment-block: html-comment-block.storage 1`] = `
+"<h1>Heading</h1>
+
+<p>Paragraph.</p>"
+`;
+
+exports[`TC-GOLDEN (AC-F4-1 / NFR-REL-4) — remark-gfm-reachable fixtures byte-match goldens byte-exact + snapshot — html-comment-inline: html-comment-inline.storage 1`] = `"<p>Before  after.</p>"`;
+
+exports[`TC-GOLDEN (AC-F4-1 / NFR-REL-4) — remark-gfm-reachable fixtures byte-match goldens byte-exact + snapshot — raw-html-inline-real: raw-html-inline-real.storage 1`] = `"<p>Text &lt;b&gt;raw&lt;/b&gt; inline.</p>"`;
+
+exports[`TC-GOLDEN (AC-F4-1 / NFR-REL-4) — remark-gfm-reachable fixtures byte-match goldens byte-exact + snapshot — link-ref-comment: link-ref-comment.storage 1`] = `
+"<h1>Heading</h1>
+
+<p>Paragraph.</p>"
+`;

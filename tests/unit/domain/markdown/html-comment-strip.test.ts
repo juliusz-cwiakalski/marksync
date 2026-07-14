@@ -6,7 +6,10 @@ import type { Root } from "mdast";
 import { mdastToHast } from "#domain/markdown/mdast-to-hast";
 import { parseMarkdown } from "#domain/markdown/parse";
 import { renderStorage } from "#infra/confluence/render/storage";
-import { isCommentOnlyHtml, stripCommentNodes } from "#domain/markdown/strip-comments";
+import {
+	isCommentOnlyHtml,
+	stripCommentNodes,
+} from "#domain/markdown/strip-comments";
 
 describe("TC-COMM-001..002 — comment-only predicate", () => {
 	const trueCases = [
@@ -21,7 +24,7 @@ describe("TC-COMM-001..002 — comment-only predicate", () => {
 	const falseCases = [
 		"<div>real HTML</div>",
 		"<b>",
-		"<div data-x=\"1\"><!-- note --></div>",
+		'<div data-x="1"><!-- note --></div>',
 		"",
 		"plain text",
 		"<!-- comment --> <div>mixed</div>",
@@ -76,12 +79,12 @@ describe("TC-COMM-001..003, TC-COMM-010 — stripCommentNodes transformer", () =
 	});
 
 	test("does NOT remove mixed HTML+comment node (AC-F3-3)", () => {
-		const root = parse("<div data-x=\"1\"><!-- note --></div>");
+		const root = parse('<div data-x="1"><!-- note --></div>');
 		const after = stripCommentNodes(root);
 		expect(countHtmlNodes(after)).toBe(1);
 		const html = after.children[0] as { type?: string; value?: string };
 		expect(html?.type).toBe("html");
-		expect(html?.value).toBe("<div data-x=\"1\"><!-- note --></div>");
+		expect(html?.value).toBe('<div data-x="1"><!-- note --></div>');
 	});
 
 	test("code/text/other node kinds untouched", () => {
@@ -109,9 +112,15 @@ describe("TC-COMM-001..003, TC-COMM-010 — stripCommentNodes transformer", () =
 	test("nested comment inside blockquote removed", () => {
 		const root = parse("> <!-- comment -->\n> text");
 		const after = stripCommentNodes(root);
-		const blockquote = after.children[0] as { type?: string; children?: unknown[] };
+		const blockquote = after.children[0] as {
+			type?: string;
+			children?: unknown[];
+		};
 		expect(blockquote?.type).toBe("blockquote");
-		const para = blockquote?.children?.[0] as { type?: string; children?: unknown[] };
+		const para = blockquote?.children?.[0] as {
+			type?: string;
+			children?: unknown[];
+		};
 		expect(para?.type).toBe("paragraph");
 		// Only "text" node remains
 		expect(para?.children?.length).toBe(1);
