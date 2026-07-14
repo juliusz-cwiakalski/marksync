@@ -50,9 +50,7 @@ export function isPageBinding(value: unknown): value is PageBinding {
 	const v = value as Record<string, unknown>;
 	const hashes = v.attachmentHashes;
 	return (
-		PAGE_BINDING_REQUIRED_STRING_KEYS.every(
-			(k) => typeof v[k] === "string",
-		) &&
+		PAGE_BINDING_REQUIRED_STRING_KEYS.every((k) => typeof v[k] === "string") &&
 		typeof v.pageVersion === "number" &&
 		PAGE_BINDING_OPTIONAL_STRING_KEYS.every(
 			(k) => v[k] === undefined || typeof v[k] === "string",

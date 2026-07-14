@@ -102,14 +102,10 @@ describe("PageBinding", () => {
 	});
 
 	test("GH-27: isPageBinding rejects wrong-typed optional fields", () => {
-		expect(
-			isPageBinding({ ...validBinding(), sourceBranch: 123 }),
-		).toBe(false);
-		expect(
-			isPageBinding({ ...validBinding(), commitCount: "five" }),
-		).toBe(false);
-		expect(
-			isPageBinding({ ...validBinding(), trimMarker: false }),
-		).toBe(false);
+		expect(isPageBinding({ ...validBinding(), sourceBranch: 123 })).toBe(false);
+		expect(isPageBinding({ ...validBinding(), commitCount: "five" })).toBe(
+			false,
+		);
+		expect(isPageBinding({ ...validBinding(), trimMarker: false })).toBe(false);
 	});
 });
