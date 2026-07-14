@@ -56,7 +56,9 @@ export function formatVersionMessage(input: ProvenanceInput): string {
  * how many subjects were dropped by length truncation. The marker goes into the
  * `marksync.metadata` content property (ADR-0010 privacy: count + marker only).
  */
-export function formatVersionMessageWithMeta(input: ProvenanceInput): VersionMessageMeta {
+export function formatVersionMessageWithMeta(
+	input: ProvenanceInput,
+): VersionMessageMeta {
 	const head = input.headCommit;
 	const count = input.commitCount ?? input.subjects?.length ?? 0;
 	const subjects = (input.subjects ?? [])
@@ -74,7 +76,11 @@ export function formatVersionMessageWithMeta(input: ProvenanceInput): VersionMes
 		return { message: full, trimMarker: "" };
 	}
 
-	const { message, keptCount } = trimToLimit(header, subjects, MAX_VERSION_MESSAGE_LEN);
+	const { message, keptCount } = trimToLimit(
+		header,
+		subjects,
+		MAX_VERSION_MESSAGE_LEN,
+	);
 	const dropped = subjects.length - keptCount;
 	return {
 		message,

@@ -35,7 +35,10 @@ import { assertOperationFresh } from "#domain/state/operation-freshness";
 import { assertPlanNotExpired } from "#domain/state/plan-expiry";
 import { decideOnConflict } from "#domain/state/conflict-policy";
 import type { ProvenanceInput } from "#infra/confluence/provenance";
-import { formatVersionMessageWithMeta } from "#infra/confluence/provenance";
+import {
+	formatVersionMessageWithMeta,
+	buildProvenancePanel,
+} from "#infra/confluence/provenance";
 import { saveLock } from "#app/lock";
 import { openJournal, type JournalWriter } from "#app/journal";
 import type { MetadataProperty } from "#domain/state/reconcile";
@@ -87,6 +90,8 @@ export interface Plan {
 	entries: PlanEntry[];
 	provenance: ProvenanceInput;
 	warnings: string[];
+	/** Whether to append a visible provenance panel to written bodies (GH-27). */
+	visiblePanel: boolean;
 }
 
 /** Apply outcome per entry. */
@@ -421,6 +426,7 @@ export async function computePlan(
 		entries,
 		provenance,
 		warnings: allWarnings,
+		visiblePanel: config.provenance.visiblePanel,
 	});
 }
 
@@ -576,6 +582,33 @@ export function bindingToProperty(
 		commitCount: binding.commitCount ?? 0,
 		trimMarker: binding.trimMarker ?? "",
 	};
+}
+
+/**
+ * Append a provenance panel to the rendered body for the write payload.
+ * The panel is appended post-render as a Storage string — the canonical hash
+ * (computed from HAST in computePlan) never includes the panel, so timestamp
+ * variance cannot trigger false drift (NFR-PERF-4).
+ *
+ * Exported for unit testing (GH-27 TC-PROV-002).
+ */
+export function appendProvenancePanel(
+	body: string,
+	sourcePath: string,
+	sourceBranch: string,
+	headCommit: string,
+	visiblePanel: boolean,
+): string {
+	if (!visiblePanel) return body;
+	return (
+		body +
+		buildProvenancePanel({
+			sourcePath,
+			sourceBranch,
+			headCommit,
+			synchronizedAt: new Date().toISOString(),
+		})
+	);
 }
 
 /**
@@ -819,6 +852,7 @@ export async function applyPlan(
 			sourceBranch,
 			commitCount,
 			trimMarker,
+			plan.visiblePanel ?? true,
 		);
 
 		results.push(outcome);
@@ -869,6 +903,7 @@ async function processEntry(
 	sourceBranch: string,
 	commitCount: number,
 	trimMarker: string,
+	visiblePanel: boolean,
 ): Promise<ApplyResultEntry & { warnings?: string[] }> {
 	const { uuid, action } = entry;
 	const now = Date.now();
@@ -960,11 +995,21 @@ async function processEntry(
 			};
 		}
 
+		// Append provenance panel to the write body (post-render; hash excludes
+		// panel by construction since canonicalHash is from HAST, not this string)
+		const writeBody = appendProvenancePanel(
+			entry.renderedBody,
+			entry.sourcePath,
+			sourceBranch,
+			headSha,
+			visiblePanel,
+		);
+
 		// Attempt updatePage with 409 re-fetch-once policy
 		const result = await target.updatePage({
 			pageId: binding.pageId,
 			title: entry.hashes.title,
-			body: entry.renderedBody,
+			body: writeBody,
 			baseVersion: binding.pageVersion,
 			message,
 		});
@@ -1030,7 +1075,7 @@ async function processEntry(
 					const reapplyResult = await target.updatePage({
 						pageId: binding.pageId,
 						title: entry.hashes.title,
-						body: entry.renderedBody,
+						body: writeBody,
 						baseVersion: page.version, // Use refreshed version
 						message,
 					});
@@ -1080,7 +1125,7 @@ async function processEntry(
 						headSha,
 						operationId,
 						binding,
-						entry.renderedBody, // GH-62: for fetch-back fallback
+						writeBody, // GH-62: for fetch-back fallback (body+panel sent)
 						entry.hashes.canonicalHash, // GH-62: refresh renderedBodyHash in binding
 						reapplyAssetHashes, // GH-26: pass asset hashes for merge
 						sourceBranch,
@@ -1145,7 +1190,7 @@ async function processEntry(
 			headSha,
 			operationId,
 			binding,
-			entry.renderedBody, // GH-62: for fetch-back fallback
+			writeBody, // GH-62: for fetch-back fallback (body+panel sent)
 			entry.hashes.canonicalHash, // GH-62: refresh renderedBodyHash in binding
 			assetUploadHashes, // GH-26: pass asset hashes for merge
 			sourceBranch,
@@ -1187,10 +1232,20 @@ async function processEntry(
 			}
 		}
 
+		// Append provenance panel to the write body (post-render; hash excludes
+		// panel by construction since canonicalHash is from HAST, not this string)
+		const writeBody = appendProvenancePanel(
+			action.body,
+			entry.sourcePath,
+			sourceBranch,
+			headSha,
+			visiblePanel,
+		);
+
 		const result = await target.createPage({
 			parentId: action.parentId,
 			title: action.title,
-			body: action.body,
+			body: writeBody,
 			message,
 		});
 
@@ -1232,7 +1287,7 @@ async function processEntry(
 			remoteBodyHash = rawHash(fetchResult.value.body);
 		} else {
 			// Fallback: raw hash of what we sent (same domain; next sync recovers)
-			remoteBodyHash = rawHash(action.body);
+			remoteBodyHash = rawHash(writeBody);
 			if (!fetchResult.ok) {
 				warnings.push(
 					`Fetch-back failed for ${page.id}: ${fetchResult.error.kind}; using rendered body hash as fallback`,

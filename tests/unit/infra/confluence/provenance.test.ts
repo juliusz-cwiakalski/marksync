@@ -213,15 +213,11 @@ describe("TC-PROV-009 — classifyVersion returns direct", () => {
 	});
 
 	test("case sensitivity — MarkSync git is not marksync git", () => {
-		expect(
-			classifyVersion({ message: "MarkSync git abc123" }),
-		).toBe("direct");
+		expect(classifyVersion({ message: "MarkSync git abc123" })).toBe("direct");
 	});
 
 	test("hyphen variant — marksync-git is not marksync git", () => {
-		expect(
-			classifyVersion({ message: "marksync-git abc123" }),
-		).toBe("direct");
+		expect(classifyVersion({ message: "marksync-git abc123" })).toBe("direct");
 	});
 
 	test("colon variant — marksync: is not marksync git", () => {
@@ -229,9 +225,7 @@ describe("TC-PROV-009 — classifyVersion returns direct", () => {
 	});
 
 	test("leading whitespace — must start with prefix", () => {
-		expect(
-			classifyVersion({ message: " marksync git abc123" }),
-		).toBe("direct");
+		expect(classifyVersion({ message: " marksync git abc123" })).toBe("direct");
 	});
 });
 

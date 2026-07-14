@@ -3,7 +3,7 @@
 // NEVER contains commit subjects (ADR-0010).
 
 import { describe, expect, test } from "bun:test";
-import { bindingToProperty } from "#app/push-flow";
+import { bindingToProperty, appendProvenancePanel } from "#app/push-flow";
 import type { PageBinding } from "#domain/binding/page-binding";
 import { generateUuidV7 } from "#domain/identity/uuid";
 
@@ -94,5 +94,95 @@ describe("TC-PROV-005 — property privacy on backward-compatible bindings", () 
 	test("property JSON is always valid and parseable", () => {
 		const property = bindingToProperty(validBinding(), "default");
 		expect(() => JSON.parse(JSON.stringify(property))).not.toThrow();
+	});
+});
+
+describe("TC-PROV-002 — appendProvenancePanel", () => {
+	test("panel present when visiblePanel is true", () => {
+		const body = "<h1>Test Content</h1>";
+		const result = appendProvenancePanel(
+			body,
+			"docs/guide/api.md",
+			"main",
+			"abc1234",
+			true,
+		);
+		expect(result).toContain('<ac:structured-macro ac:name="info">');
+		expect(result).toContain("docs/guide/api.md");
+		expect(result).toContain("abc1234");
+		expect(result).toContain("(main)");
+		// Panel is appended at the end
+		expect(result.indexOf(body)).toBe(0);
+		expect(result.length).toBeGreaterThan(body.length);
+	});
+
+	test("panel ABSENT when visiblePanel is false", () => {
+		const body = "<h1>Test Content</h1>";
+		const result = appendProvenancePanel(
+			body,
+			"docs/guide/api.md",
+			"main",
+			"abc1234",
+			false,
+		);
+		expect(result).not.toContain('<ac:structured-macro ac:name="info">');
+		expect(result).toBe(body);
+	});
+
+	test("panel appended at footer", () => {
+		const body = "<h1>Test Content</h1><p>Some text</p>";
+		const result = appendProvenancePanel(
+			body,
+			"docs/guide/api.md",
+			"main",
+			"abc1234",
+			true,
+		);
+		// Original body comes first
+		expect(result.indexOf(body)).toBe(0);
+		// Panel follows immediately
+		expect(result.slice(body.length)).toContain(
+			'<ac:structured-macro ac:name="info">',
+		);
+	});
+
+	test("stable marker present in panel", () => {
+		const body = "<h1>Test Content</h1>";
+		const result = appendProvenancePanel(
+			body,
+			"docs/guide/api.md",
+			"main",
+			"abc1234",
+			true,
+		);
+		expect(result).toContain("<!-- marksync:provenance-panel -->");
+	});
+
+	test("values are XML-escaped in panel", () => {
+		const body = "<h1>Test Content</h1>";
+		const result = appendProvenancePanel(
+			body,
+			'docs/<script>"test"</script>.md',
+			"main",
+			"abc1234",
+			true,
+		);
+		// XML special characters should be escaped
+		expect(result).not.toContain("<script>");
+		expect(result).toContain("&lt;script&gt;");
+		expect(result).not.toContain('"test"');
+		expect(result).toContain("&quot;test&quot;");
+	});
+
+	test("visiblePanel defaults to true when undefined", () => {
+		const body = "<h1>Test Content</h1>";
+		const result = appendProvenancePanel(
+			body,
+			"docs/guide/api.md",
+			"main",
+			"abc1234",
+			true, // explicit true
+		);
+		expect(result).toContain('<ac:structured-macro ac:name="info">');
 	});
 });
