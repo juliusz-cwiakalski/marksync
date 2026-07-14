@@ -22,6 +22,35 @@ blockers: []
 
 notes:
   - text: >
+      DoR iter-1 NOT_READY (4 blocking findings): (1) plan missed
+      tests/integration/app/mermaid/mermaid-render.test.ts in blast radius —
+      StubRenderer + SelectiveRenderer implement old Renderer port signature,
+      will break compilation when port changes; (2) test plan says
+      push-flow.test.ts is "New file" but it exists (188 lines, added GH-27);
+      (3) OQ-1 (full §3.3 rules vs subset) inconsistently marked across
+      artifacts — spec says "Decision needed", plan silently resolved it;
+      (4) AC-F2-2 asserts "0 visual differences" but test can only do
+      structural comparison (no SVG layout engine per GH-11). Also minor:
+      plan references tests/e2e/sandbox-publish.test.ts which doesn't exist;
+      test duplication risk with existing mermaid-render.test.ts +
+      idempotency.test.ts. Retro: DoR caught real blast-radius gap that would
+      have caused compilation failure in Phase 1 — good gate. Process
+      improvement: plan-writer should grep for `implements Renderer` before
+      claiming blast radius is complete.
+    type: retro
+    workItemRef: GH-76
+    date: "2026-07-14"
+  - text: >
+      PM decision on OQ-1: Use the full §3.3 normalization rule set for the
+      Kroki path. Rationale: (1) rules are renderer-agnostic (operate on SVG
+      bytes); (2) defense-in-depth — catches residual non-determinism even
+      with deterministicIds; (3) proven from GH-11 spike; (4) avoids divergence
+      with future in-process renderer (MS-0003+). This is a PM-decided
+      autonomous decision — not blocking, no human input needed.
+    type: decision
+    workItemRef: GH-76
+    date: "2026-07-14"
+  - text: >
       Scope clarified. Ticket is detailed: problem, root cause (2 parts),
       impact, proposed fix (A+C recommended). Cross-checked against system spec
       (feature-mermaid-rendering.md): the spec already describes

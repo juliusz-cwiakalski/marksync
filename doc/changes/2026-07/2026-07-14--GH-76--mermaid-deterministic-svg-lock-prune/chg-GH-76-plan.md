@@ -162,10 +162,13 @@ but hashing is still over raw bytes (normalization lands in Phase 2).
   argument but currently only checks `policy` — forward it to the renderer.
 - [ ] **1.4** Update existing test stubs to accept the new `config` parameter:
   `StubRenderer`, `EmptyErrorRenderer`, `AlwaysErrorRenderer` in
-  `tests/unit/domain/mermaid/transform.test.ts` and `StubRenderer` in
-  `tests/golden/markdown/mermaid-render-golden.test.ts`. The stubs can ignore
-  the config (they return fixed bytes), but the signature must satisfy the
-  updated `Renderer` interface.
+  `tests/unit/domain/mermaid/transform.test.ts`, `StubRenderer` in
+  `tests/golden/markdown/mermaid-render-golden.test.ts`, **and** `StubRenderer`
+  + `SelectiveRenderer` in `tests/integration/app/mermaid/mermaid-render.test.ts`
+  (both implement `Renderer` at lines 46/54 — will fail to compile under TS strict
+  mode if the port signature changes). The stubs can ignore the config (they
+  return fixed bytes), but the signature must satisfy the updated `Renderer`
+  interface.
 - [ ] **1.5** Update existing Kroki unit tests
   (`tests/unit/infra/mermaid/kroki.test.ts`): pass a `MermaidRenderConfig` to
   every `client.render(source, config)` call so the existing success-path,
@@ -380,7 +383,8 @@ mock TargetSystem, and add the live-sandbox E2E scenario.
   renders successfully. Assert the run continues (per-document isolation,
   NFR-7) and Doc B's `img` node is injected.
 - [ ] **4.4** Add E2E sandbox scenario TC-E2E-001 in
-  `tests/e2e/sandbox-publish.test.ts`: real Confluence test space, test page
+  `tests/e2e/sandbox-publish.test.ts` (**create file** — `tests/e2e/` currently
+  has only `.gitkeep`): real Confluence test space, test page
   with 3 Mermaid diagrams under `render` policy. First sync creates pages +
   uploads attachments. Second sync (unchanged source) → `NO_CHANGE` + 0 writes
   + 0 uploads + lock `attachmentHashes` unchanged (3 entries, not cumulative).
@@ -399,7 +403,7 @@ mock TargetSystem, and add the live-sandbox E2E scenario.
 
 - Code areas:
   - `tests/integration/confluence/push-flow.test.ts` (updated — TC-E2E-002/003/004)
-  - `tests/e2e/sandbox-publish.test.ts` (updated — TC-E2E-001 scenario)
+  - `tests/e2e/sandbox-publish.test.ts` (created — TC-E2E-001 scenario)
 - System docs: none
 
 **Tests**:

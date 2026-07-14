@@ -740,7 +740,8 @@ This test plan follows the 6-tier testing strategy from `.ai/rules/testing-strat
 - **Dependencies**: happy-dom (via preload script)
 
 #### `tests/integration/confluence/push-flow.test.ts`
-- **New file**: Create this file for integration tests (may already exist from GH-26/GH-69)
+- **New file**: Create this file for integration tests
+- **Overlapping tests**: `tests/integration/app/mermaid/mermaid-render.test.ts` has attachment-reuse tests (TC-MERM-003) and `tests/integration/app/idempotency.test.ts` has no-op classification tests (TC-INTEGRATION-005). Extend those files for mermaid-specific/idempotency scenarios; use this new file for lock-pruning and multi-sync-sequence integration tests that need mock TargetSystem with call tracking.
 - **New tests**:
   - TC-LOCK-001: Bloated lock pruning
   - TC-LOCK-003: NO_CHANGE preserves attachmentHashes
@@ -750,13 +751,13 @@ This test plan follows the 6-tier testing strategy from `.ai/rules/testing-strat
 - **Mocking**: Mock TargetSystem with call tracking (`attachmentExists`, `uploadAttachment`)
 
 #### `tests/unit/app/push-flow.test.ts`
-- **New file**: Create this file for unit tests of `finalizeSuccessfulUpdate`
+- **Existing file** (added in GH-27, 188 lines): Add TC-LOCK-002 to this file alongside existing provenance tests
 - **New tests**:
   - TC-LOCK-002: Replace vs merge semantics
 - **Mocking**: In-memory lock file, mock TargetSystem
 
 #### `tests/e2e/sandbox-publish.test.ts`
-- **Existing tests**: May exist from MS-0002
+- **Does not exist** (`tests/e2e/` has only `.gitkeep`). Create this file for TC-E2E-001, or defer to live-sandbox E2E via `run-e2e.yml` workflow.
 - **New tests**:
   - TC-E2E-001: End-to-end no-op sync with Mermaid diagrams
 - **Environment**: Real Confluence test space
