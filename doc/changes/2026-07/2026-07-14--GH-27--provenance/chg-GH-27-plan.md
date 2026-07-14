@@ -130,10 +130,10 @@ This plan delivers provenance infrastructure for the safe publish pipeline (MS-0
 
 **Tasks**:
 
-- [ ] **2.1** Extend `MetadataProperty` interface in `src/domain/state/reconcile.ts` to add optional `sourceBranch?: string`, `commitCount?: number`, `trimMarker?: string` fields. Keep existing fields required. Note: Fields are optional in the type for backward-compatible reading of pre-GH-27 properties; Phase 3 always writes all 14 fields on new syncs per AC-F4-1.
-- [ ] **2.2** Extend `PageBinding` interface in `src/domain/binding/page-binding.ts` to add optional `sourceBranch?: string`, `commitCount?: number`, `trimMarker?: string` fields. Update `PAGE_BINDING_STRING_KEYS` array to include these new field names (for backward-compatible reading).
-- [ ] **2.3** Update `src/domain/config/lock-schema.json` to add optional `sourceBranch`, `commitCount`, `trimMarker` fields to the `pageBinding` definition (same names as TypeScript types). Keep them optional (not in `required` array) to maintain backward compatibility with existing lock files. The schema has `additionalProperties: false`, so these must be explicitly listed.
-- [ ] **2.4** Add unit tests to `tests/unit/domain/binding/page-binding.test.ts` to verify that `isPageBinding` accepts both old bindings (without new fields) and new bindings (with new fields).
+- [x] **2.1** Extended `MetadataProperty` with optional `sourceBranch?`, `commitCount?`, `trimMarker?` fields (14 total: 11 required + 3 optional).
+- [x] **2.2** Extended `PageBinding` with optional `sourceBranch?`, `commitCount?`, `trimMarker?`. Separated `PAGE_BINDING_REQUIRED_STRING_KEYS` from `PAGE_BINDING_OPTIONAL_STRING_KEYS` so `isPageBinding` accepts both old and new bindings.
+- [x] **2.3** Updated `lock-schema.json` to add `sourceBranch`, `commitCount`, `trimMarker` as optional (not in `required`) under `pageBinding` with `additionalProperties: false`.
+- [x] **2.4** Added backward-compat unit tests: old bindings accepted, new bindings accepted, wrong-typed optional fields rejected. All pass.
 
 **Acceptance Criteria**:
 

@@ -23,6 +23,12 @@ export interface MetadataProperty {
 	toolVersion: string;
 	synchronizedAt: string;
 	operationId: string;
+	/** Source branch name (GH-27; optional for backward-compatible reading). */
+	sourceBranch?: string;
+	/** Total commit count in this sync (GH-27; ADR-0010 privacy). */
+	commitCount?: number;
+	/** Truncation marker like "+3 more" (GH-27; ADR-0010 privacy). */
+	trimMarker?: string;
 }
 
 /**

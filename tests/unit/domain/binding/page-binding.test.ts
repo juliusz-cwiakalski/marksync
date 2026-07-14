@@ -81,4 +81,35 @@ describe("PageBinding", () => {
 		expect(isPageBinding(undefined)).toBe(false);
 		expect(isPageBinding(42)).toBe(false);
 	});
+
+	test("GH-27 backward compat: old bindings without new optional fields are accepted", () => {
+		const oldBinding = validBinding();
+		// Ensure no new fields are present
+		const asRecord = oldBinding as Record<string, unknown>;
+		expect(asRecord.sourceBranch).toBeUndefined();
+		expect(asRecord.commitCount).toBeUndefined();
+		expect(asRecord.trimMarker).toBeUndefined();
+		expect(isPageBinding(oldBinding)).toBe(true);
+	});
+
+	test("GH-27: new bindings with optional provenance fields are accepted", () => {
+		const newBinding = validBinding({
+			sourceBranch: "main",
+			commitCount: 5,
+			trimMarker: "+2 more",
+		});
+		expect(isPageBinding(newBinding)).toBe(true);
+	});
+
+	test("GH-27: isPageBinding rejects wrong-typed optional fields", () => {
+		expect(
+			isPageBinding({ ...validBinding(), sourceBranch: 123 }),
+		).toBe(false);
+		expect(
+			isPageBinding({ ...validBinding(), commitCount: "five" }),
+		).toBe(false);
+		expect(
+			isPageBinding({ ...validBinding(), trimMarker: false }),
+		).toBe(false);
+	});
 });
