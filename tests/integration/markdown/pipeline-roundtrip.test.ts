@@ -14,6 +14,7 @@ import { parseMarkdown } from "#domain/markdown/parse";
 import { canonicalize, contentHash } from "#domain/render/canonicalize";
 import { renderStorage } from "#infra/confluence/render/storage";
 import { assertWellFormedXml } from "../../_helpers/assert-well-formed-xml.ts";
+import { canonicalHash } from "#domain/state/hashes";
 
 const here = dirname(new URL(import.meta.url).pathname);
 const fixturesDir = join(here, "..", "..", "golden", "fixtures", "markdown");
@@ -91,4 +92,46 @@ describe("TC-DETERM-002 (AC-F3-1) — two renders report the identical hash", ()
 			expect(a.hash).toBe(b.hash);
 		});
 	}
+});
+
+describe("TC-COMM-012 (GH-77 NFR-PERF-4) — idempotency and hash stability for comment-bearing pages", () => {
+	const commentPage = "<!-- c -->\n\n# H\n\nBody.";
+	const commentFreePage = "# H\n\nBody.";
+
+	test("second render of an unchanged comment-bearing page produces an identical canonical hash", () => {
+		const first = parseMarkdown(commentPage, { sourcePath: "test.md" });
+		const firstHast = mdastToHast(first.value as never);
+		const firstHash = canonicalHash(firstHast);
+
+		const second = parseMarkdown(commentPage, { sourcePath: "test.md" });
+		const secondHast = mdastToHast(second.value as never);
+		const secondHash = canonicalHash(secondHast);
+
+		expect(firstHash).toBe(secondHash);
+	});
+
+	test("a comment-bearing page yields the same hash as its comment-free equivalent (strip is pure render-time elision)", () => {
+		const withComment = parseMarkdown(commentPage, { sourcePath: "test.md" });
+		const withCommentHast = mdastToHast(withComment.value as never);
+		const withCommentHash = canonicalHash(withCommentHast);
+
+		const withoutComment = parseMarkdown(commentFreePage, { sourcePath: "test.md" });
+		const withoutCommentHast = mdastToHast(withoutComment.value as never);
+		const withoutCommentHash = canonicalHash(withoutCommentHast);
+
+		expect(withCommentHash).toBe(withoutCommentHash);
+	});
+
+	test("inline comment also produces hash stability", () => {
+		const inlineCommentPage = "Before <!-- c --> after.";
+		const first = parseMarkdown(inlineCommentPage, { sourcePath: "test.md" });
+		const firstHast = mdastToHast(first.value as never);
+		const firstHash = canonicalHash(firstHast);
+
+		const second = parseMarkdown(inlineCommentPage, { sourcePath: "test.md" });
+		const secondHast = mdastToHast(second.value as never);
+		const secondHash = canonicalHash(secondHast);
+
+		expect(firstHash).toBe(secondHash);
+	});
 });
