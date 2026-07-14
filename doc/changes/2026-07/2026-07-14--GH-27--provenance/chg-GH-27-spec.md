@@ -70,11 +70,11 @@ Because the safe publish pipeline lacks visible provenance on published pages, c
 
 ## 5. FUNCTIONAL CAPABILITIES
 
-| ID | Capability | Rationale |
+ | ID | Capability | Rationale |
 |----|------------|-----------|
 | F-1 | Build visible provenance panel | Enables non-technical stakeholders to verify document origin without CLI access (NFR-A11Y-3). |
-| F-2 | Inject panel into Storage body | Appends panel to rendered content before Confluence write, gated by `provenance.visiblePanel` knob. |
-| F-3 | Canonicalize timestamp for content hash | Normalizes out the timestamp marker so identical content at different times produces `NO_CHANGE`. |
+| F-2 | Inject panel into Storage body | Appends panel to rendered content before Confluence write, gated by `provenance.visiblePanel` knob. The panel is excluded from drift-detection hash by construction (appended post-render to Storage string; classifier compares HAST hashes which exclude the panel). |
+| F-3 | Exclude panel from drift hash by construction | The panel is appended post-render as a Storage string; the drift classifier compares HAST hashes which exclude the panel, so timestamp variance cannot affect drift detection. No canonicalizer change is needed. |
 | F-4 | Enrich `marksync.metadata` property | Populates complete metadata including `sourceBranch`, `commitCount`, `trimMarker` for cross-checks and future reverse-sync. |
 | F-5 | Classify version as MarkSync or direct | Predicate reads `version.message` prefix to distinguish MarkSync-authored versions from direct edits (NFR-REL-9). |
 
@@ -82,9 +82,9 @@ Because the safe publish pipeline lacks visible provenance on published pages, c
 
 **F-1: Build visible provenance panel** — Given a set of provenance metadata (source path, head commit, branch, last-sync timestamp), the system constructs a minimal, accessible Confluence `{info}` macro in Storage XHTML format showing these fields. The panel uses plain text within a stable marker class, omits `schema-version` and `macro-id` per spike rules, and is placed at the footer (end of body) by default.
 
-**F-2: Inject panel into Storage body** — During the markdown→Storage pipeline, before writing to Confluence, the system appends the provenance panel to the rendered Storage body when `config.provenance.visiblePanel` is true (default). The panel becomes part of the written body but is excluded from content-hash comparison via canonicalization.
+**F-2: Inject panel into Storage body** — During the markdown→Storage pipeline, before writing to Confluence, the system appends the provenance panel to the rendered Storage body when `config.provenance.visiblePanel` is true (default). The panel is excluded from drift-detection hash by construction (appended post-render to Storage string; classifier compares HAST hashes which exclude the panel).
 
-**F-3: Canonicalize timestamp for content hash** — Before computing the canonical hash for drift detection, the system normalizes out the timestamp/marker block from the Storage body. This ensures that two syncs with identical content at different times produce the same canonical hash, resulting in `NO_CHANGE` classification rather than false drift.
+**F-3: Exclude panel from drift hash by construction** — The provenance panel is appended post-render as a Storage string to the body payload. The drift classifier compares HAST hashes (`local.canonicalHash` vs `base.renderedBodyHash`), which inherently exclude the panel because the panel never enters the HAST. This ensures that two syncs with identical content at different times produce the same HAST hash, resulting in `NO_CHANGE` classification rather than false drift. No canonicalizer change is needed—exclusion is by construction.
 
 **F-4: Enrich `marksync.metadata` property** — After a successful Confluence page update, the system stores a JSON string in the `marksync.metadata` content property containing: `{schemaVersion, projectId, targetId, documentId(uuid), sourcePath, sourceCommit, sourceBranch, sourceContentHash, renderedBodyHash, operationId, synchronizedAt, toolVersion, commitCount, trimMarker}`. The property contains NO commit subjects—only the count and a truncation marker (ADR-0010 privacy constraint).
 
@@ -94,7 +94,7 @@ Because the safe publish pipeline lacks visible provenance on published pages, c
 
 ```
 Flow 1: Publish with visible provenance
-  User runs `marksync push` → Markdown renders to Storage → Provenance panel built (if enabled) → Panel appended to body → Timestamp canonicalized for hash → Confluence write → `marksync.metadata` enriched → Page version includes MarkSync prefix
+  User runs `marksync push` → Markdown renders to Storage → Provenance panel built (if enabled) → Panel appended to Storage body → Confluence write → `marksync.metadata` enriched → Page version includes MarkSync prefix
 
 Flow 2: Idempotent sync (same content, different time)
   User runs `marksync push` again → Body unchanged (HAST identical) → Panel rebuilt with new timestamp as Storage string append → Classifier compares HAST hashes (no panel in HAST) → Hash matches → NO_CHANGE → 0 writes to Confluence
@@ -109,7 +109,7 @@ Flow 3: Direct Confluence edit classification
 
 - Visible provenance panel builder (`buildProvenancePanel`) returning Storage XHTML `{info}` macro.
 - Pipeline injection of panel into rendered Storage body, gated by `provenance.visiblePanel` configuration.
-- Content-hash canonicalization to exclude timestamp/marker block.
+- Panel exclusion from drift-detection hash by construction (appended post-render to Storage string; classifier compares HAST hashes).
 - Full enrichment of `marksync.metadata` content property with all required fields.
 - Direct-edit classification predicate (`classifyVersion`) based on `version.message` prefix.
 - Privacy enforcement: commit subjects stored only in local output, not in Confluence (ADR-0010).
@@ -180,11 +180,11 @@ No new telemetry or observability requirements. Provenance is visible on-page an
 
 ## 11. RISKS & MITIGATIONS
 
-| ID | Risk | Impact | Probability | Mitigation | Residual Risk |
+ | ID | Risk | Impact | Probability | Mitigation | Residual Risk |
 |----|------|--------|-------------|------------|---------------|
 | RSK-1 | Panel bloats small pages | L | L | Minimal `{info}` macro; configurable disable via `provenance.visiblePanel: false` (CEO-resolved). | L |
 | RSK-2 | Panel placement disrupts content | M | L | Footer placement (end of body) by default; non-disruptive (CEO-resolved). | L |
-| RSK-3 | Timestamp normalization misses edge cases | M | L | Golden fixture tests cover panel with timestamps; canonicalizer strips known marker block before hashing. | L |
+| RSK-3 | Timestamp updates trigger false drift | M | L | Panel is excluded from drift-detection hash by construction (appended post-render to Storage string; classifier compares HAST hashes). Golden fixture tests cover idempotent sync. | L |
 | RSK-4 | Privacy violation if commit subjects leak | H | L | Hard constraint from ADR-0010: only count + marker in property; subjects stored only locally; test coverage enforces. | L |
 
 ## 12. ASSUMPTIONS
@@ -202,7 +202,7 @@ No new telemetry or observability requirements. Provenance is visible on-page an
 |-----------|------|-------|
 | Depends on | MS2-E3-S6 (GH-23) | Sync engine must be complete for provenance injection path. **RESOLVED** (MERGED). |
 | Depends on | MS2-E3-S5 | Canonical hash and content-hash computation must exist. **RESOLVED** (part of GH-23). |
-| Depends on | MS2-E3-S4 (GH-21) | `formatVersionMessage` provides `marksync:` prefix. **RESOLVED** (MERGED). |
+| Depends on | MS2-E3-S4 (GH-21) | `formatVersionMessage` provides `marksync git` prefix. **RESOLVED** (MERGED). |
 | Blocks | E5-S2 (doctor) | Direct-edit classification predicate consumed by doctor. |
 | Blocks | MS-0005+ | Reverse-sync relies on complete provenance. |
 
@@ -222,11 +222,10 @@ None. All open questions were CEO-resolved before this story (see Risks §11).
 
 ## 16. AFFECTED COMPONENTS (HIGH-LEVEL)
 
-| Component | Impact |
+ | Component | Impact |
 |-----------|--------|
 | `src/infra/confluence/provenance.ts` | Extended: adds `buildProvenancePanel`, `classifyVersion`; `formatVersionMessage` unchanged. |
 | `src/app/push-flow.ts` | Updated: panel injection into pipeline, property enrichment with complete metadata. |
-| `src/domain/render/canonicalize.ts` | Extended: timestamp/marker normalization for content hash. |
 | `src/app/config.ts` | No change: `provenance.visiblePanel` knob consumed (already exists). |
 | `src/domain/git/port.ts` | No change: `currentBranch()` already available. |
 | `src/domain/state/reconcile.ts` | No change: `marksync.metadata` cross-check logic unchanged. |
@@ -234,11 +233,11 @@ None. All open questions were CEO-resolved before this story (see Risks §11).
 
 ## 17. ACCEPTANCE CRITERIA
 
-| ID | Criterion | Linked |
+ | ID | Criterion | Linked |
 |----|-----------|--------|
 | AC-F1-1 | **Given** a managed document is published, **when** the page is viewed in Confluence, **then** it displays a visible provenance panel showing source path, Git revision, branch, and last-sync timestamp. | F-1, F-2, NFR-A11Y-3 |
 | AC-F1-2 | **Given** `provenance.visiblePanel` is `false`, **when** a document is published, **then** the page body does NOT contain the provenance panel. | F-2 |
-| AC-F3-1 | **Given** a document is published at time T1, **when** the same document is published again at time T2 with identical content, **then** the classifier returns `NO_CHANGE` (timestamp canonicalization prevents false drift). | F-3, NFR-PERF-4 |
+| AC-F3-1 | **Given** a document is published at time T1, **when** the same document is published again at time T2 with identical content, **then** the classifier returns `NO_CHANGE` (panel excluded from HAST hash by construction prevents false drift). | F-3, NFR-PERF-4 |
 | AC-F4-1 | **Given** a document is published successfully, **when** the `marksync.metadata` property is read, **then** it contains all required fields: `schemaVersion, projectId, targetId, documentId, sourcePath, sourceCommit, sourceBranch, sourceContentHash, renderedBodyHash, operationId, synchronizedAt, toolVersion, commitCount, trimMarker`. | F-4, DM-1 |
 | AC-F4-2 | **Given** a document is published successfully, **when** the `marksync.metadata` property is read, **then** it contains NO commit subjects—only `commitCount` and `trimMarker`. | F-4, ADR-0010 |
 | AC-F5-1 | **Given** a Confluence page version with `version.message` starting with `marksync git`, **when** `classifyVersion` is called, **then** it returns `"marksync"`. | F-5, NFR-REL-9 |
@@ -280,7 +279,7 @@ N/A — no data migration required. Existing pages gain panels and enriched meta
 **Low maintenance impact:**
 - Panel format is simple and unlikely to change.
 - Property schema is stable; future extensions would be additive.
-- Timestamp canonicalization logic is isolated and covered by golden fixtures.
+- Panel exclusion from drift-detection hash by construction requires no ongoing maintenance (post-render append, HAST-based classifier).
 - Direct-edit classification is a pure predicate with no external dependencies.
 
 **Operational notes:**
@@ -290,13 +289,13 @@ N/A — no data migration required. Existing pages gain panels and enriched meta
 
 ## 23. GLOSSARY
 
-| Term | Definition |
+ | Term | Definition |
 |------|------------|
 | Provenance panel | A visible footer on a Confluence page showing source path, Git revision, branch, and last-sync timestamp. |
 | `marksync.metadata` | Confluence content property storing machine-readable metadata (JSON string). |
-| `marksync:` prefix | Conventional prefix in `version.message` identifying MarkSync-authored versions. |
-| Timestamp canonicalization | Normalizing out the timestamp/marker block from Storage body before content-hash computation. |
-| Direct edit | A Confluence page version not authored by MarkSync (lacks `marksync:` prefix). |
+| `marksync git` prefix | Conventional prefix in `version.message` identifying MarkSync-authored versions (space, not colon). |
+| Panel exclusion by construction | The provenance panel is appended post-render to the Storage body; the drift classifier compares HAST hashes which exclude the panel, so timestamp updates cannot trigger false drift. |
+| Direct edit | A Confluence page version not authored by MarkSync (lacks `marksync git` prefix). |
 | Commit subjects | Text descriptions of Git commits; stored only locally, not in Confluence (ADR-0010). |
 | Trim marker | Indicator in `marksync.metadata` that the commit list was truncated for length (a string like `"+3 more"`). |
 
