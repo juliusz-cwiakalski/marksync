@@ -44,8 +44,8 @@ This test plan validates two focused bug fixes: (1) `marksync init` must preserv
 - [Change Specification](./chg-GH-74-spec.md) — complete requirements and AC definitions
 - [Implementation Plan](./chg-GH-74-plan.md) — phased delivery approach
 - [Testing Strategy](.ai/rules/testing-strategy.md) — test tiers, coverage rules, CI wiring
-- [CLI Feature Specification](doc/spec/cli.md) — initialization behavior and configuration handling
-- [Safe-Publish Feature Specification](doc/spec/safe-publish.md) — planning, Plan warnings, duplicate-UUID safety
+- [CLI Feature Specification](doc/spec/features/feature-cli.md) — initialization behavior and configuration handling
+- [Safe-Publish Feature Specification](doc/spec/features/feature-safe-publish.md) — planning, Plan warnings, duplicate-UUID safety
 - [ADR-0006](doc/decisions/ADR-0006-document-identity-and-shared-base-state-model.md) — immutable source-side UUID identity model
 - Existing tests: `tests/unit/cli/commands/init.test.ts`, `tests/unit/app/compute-plan.test.ts`
 
@@ -522,7 +522,10 @@ This test plan validates two focused bug fixes: (1) `marksync init` must preserv
 **Expected Outcome**:
 
 - All existing tests pass without modification (except those explicitly changed by spec)
-- The overwrite-refusal test in `tests/unit/cli/commands/init.test.ts` is updated to expect config preservation instead of INVALID_CONFIG error
+- THREE existing tests are deliberately modified to reflect new behavior:
+  - The overwrite-refusal test in `tests/unit/cli/commands/init.test.ts` (line ~54) is updated to expect config preservation instead of INVALID_CONFIG error
+  - TC-ASSIGN-005 in `tests/integration/identity/identity-assign.test.ts` (line ~124) is rewritten to assert successful UUID assignment when config already exists (exit 0, no error, config unchanged, doc receives UUID)
+  - The DEC-5 redaction test in `tests/unit/cli/commands/init.test.ts` (line ~65) is reviewed and updated to reflect the new error path (config validation failure, not overwrite refusal)
 - New test scenarios (TC-INIT-001 through TC-PLAN-005) all pass
 - No unexpected test failures or deprecations
 
@@ -534,7 +537,10 @@ This test plan validates two focused bug fixes: (1) `marksync init` must preserv
 **Notes / Clarifications**:
 
 - This scenario validates that the fixes do not introduce regressions
-- The overwrite-refusal test change is documented: it previously expected INVALID_CONFIG error code and exit 10; new behavior preserves config and proceeds
+- THREE existing tests are deliberately modified:
+  1. The overwrite-refusal test in `tests/unit/cli/commands/init.test.ts` (line ~54): previously expected INVALID_CONFIG error code and exit 10; new behavior preserves config and proceeds
+  2. TC-ASSIGN-005 in `tests/integration/identity/identity-assign.test.ts` (line ~124): previously asserted exit 10, INVALID_CONFIG error, and byte-unchanged doc; new behavior expects exit 0, no error, and doc receives UUID
+  3. The DEC-5 redaction test in `tests/unit/cli/commands/init.test.ts` (line ~65): previously tested overwrite-refusal path; after F-1 it still errors but via config-validation failure, requiring review and update to reflect the correct error path
 - If any existing tests fail unexpectedly, this is a gap requiring investigation before delivery
 
 ## 6. Environments and Test Data
@@ -564,10 +570,10 @@ This test plan validates two focused bug fixes: (1) `marksync init` must preserv
 
 | TC ID | Test File | Execution Command | Mocking Requirements | Implementation Status |
 |-------|-----------|-------------------|---------------------|----------------------|
-| TC-INIT-001 | `tests/unit/cli/commands/init.test.ts` | `bun test tests/unit/cli/commands/init.test.ts` | Temp file system, Git repo mock | To Implement |
-| TC-INIT-002 | `tests/unit/cli/commands/init.test.ts` | `bun test tests/unit/cli/commands/init.test.ts` | Temp file system, Git repo mock | To Implement |
-| TC-INIT-003 | `tests/unit/cli/commands/init.test.ts` | `bun test tests/unit/cli/commands/init.test.ts` | Temp file system, Git repo mock | To Implement |
-| TC-INIT-004 | `tests/unit/cli/commands/init.test.ts` | `bun test tests/unit/cli/commands/init.test.ts` | Temp file system, Git repo mock | Existing – Update (replace overwrite-refusal test) |
+| TC-INIT-001 | `tests/unit/cli/commands/init.test.ts` | `bun test tests/unit/cli/commands/init.test.ts` | Temp file system, Git repo mock | Existing – Replace overwrite-refusal test |
+| TC-INIT-002 | `tests/unit/cli/commands/init.test.ts` | `bun test tests/unit/cli/commands/init.test.ts` | Temp file system, Git repo mock | Existing – Replace overwrite-refusal test |
+| TC-INIT-003 | `tests/unit/cli/commands/init.test.ts` | `bun test tests/unit/cli/commands/init.test.ts` | Temp file system, Git repo mock | Existing – Replace overwrite-refusal test |
+| TC-INIT-004 | `tests/unit/cli/commands/init.test.ts` | `bun test tests/unit/cli/commands/init.test.ts` | Temp file system, Git repo mock | Existing – Verify (no-config path) |
 | TC-PLAN-001 | `tests/unit/app/compute-plan.test.ts` | `bun test tests/unit/app/compute-plan.test.ts` | Git repo mock, document discovery mock | To Implement |
 | TC-PLAN-002 | `tests/unit/app/compute-plan.test.ts` | `bun test tests/unit/app/compute-plan.test.ts` | Git repo mock, document discovery mock | To Implement |
 | TC-PLAN-003 | `tests/unit/app/compute-plan.test.ts` | `bun test tests/unit/app/compute-plan.test.ts` | Git repo mock, document discovery mock | To Implement |
@@ -577,7 +583,9 @@ This test plan validates two focused bug fixes: (1) `marksync init` must preserv
 
 ### Implementation Notes
 
-- **TC-INIT-004 Update**: The existing test "overwrite-refusal (OQ-TP-1)" in `tests/unit/cli/commands/init.test.ts` expects an INVALID_CONFIG error and exit code 10. This test must be updated to verify configuration preservation and successful UUID assignment instead. This is a deliberate test modification driven by the spec change.
+- **TC-INIT-001, TC-INIT-002, TC-INIT-003 Update**: These three scenarios replace the existing "overwrite-refusal (OQ-TP-1)" test in `tests/unit/cli/commands/init.test.ts` (line ~54), which previously expected an INVALID_CONFIG error and exit code 10. The replacement tests verify configuration preservation and successful UUID assignment when an existing config is present. This is a deliberate test modification driven by the spec change.
+- **TC-INIT-004**: The no-config path (first-time initialization) test behavior is preserved; the existing "success → exitCode 0" test already covers this and should pass without modification. This test verifies that the fix does not break first-time init.
+- **TC-REG-001**: THREE existing tests require modification: (1) the unit-level overwrite-refusal test replaced by TC-INIT-001/002/003, (2) TC-ASSIGN-005 in `tests/integration/identity/identity-assign.test.ts` (line ~124) which must be rewritten to assert successful UUID assignment, and (3) the DEC-5 redaction test in `tests/unit/cli/commands/init.test.ts` (line ~65) which requires review and update to reflect the new error path.
 - **TC-PLAN-005**: The existing duplicate-UUID fatal safeguard (INV-SAFE-3) likely already has test coverage. This scenario verifies that coverage remains intact after the fixes; no new implementation may be required, only regression verification.
 - **Golden Fixtures**: No changes required for this fix (no rendering or output format changes).
 - **BDD Tests**: No new BDD scenarios required for this fix; existing lifecycle invariant tests (INV-SAFE-1/2/3) should continue to pass.
