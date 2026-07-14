@@ -8,20 +8,29 @@ function sortTagAttributes(tag: string): string {
 	const match = /^<(?<name>[a-zA-Z][\w:-]*)(?<rest>.*?)(?<selfclose>\/?)>$/.exec(
 		tag,
 	);
-	if (!match || !match.groups) return tag;
+	if (!match?.groups) return tag;
 	const { name, rest, selfclose } = match.groups;
+	if (!rest) return `<${name}${selfclose}>`;
 	if (rest.trim() === "") return `<${name}${selfclose}>`;
 	const attrRegex = /([\w:-]+)\s*=\s*"([^"]*)"/g;
 	const attrs: Array<{ n: string; v: string }> = [];
 	let am: RegExpExecArray | null;
+	// biome-ignore lint/suspicious/noAssignInExpressions: regex.exec loop pattern
 	while ((am = attrRegex.exec(rest)) !== null) {
-		attrs.push({ n: am[1], v: am[2] });
+		const n = am[1];
+		const v = am[2];
+		if (n && v) attrs.push({ n, v });
 	}
-	attrs.sort((a, b) =>
-		a.n === b.n ? a.v < b.v ? -1 : a.v > b.v ? 1 : 0 : a.n < b.n ? -1 : 1,
-	);
+	attrs.sort((a, b) => {
+		if (a.n === b.n) {
+			if (a.v < b.v) return -1;
+			if (a.v > b.v) return 1;
+			return 0;
+		}
+		return a.n < b.n ? -1 : 1;
+	});
 	const reconcat = attrs.map((a) => `${a.n}="${a.v}"`).join(" ");
-	return `<${name}${reconcat ? " " + reconcat : ""}${selfclose}>`;
+	return `<${name}${reconcat ? ` ${reconcat}` : ""}${selfclose}>`;
 }
 
 /**
@@ -63,7 +72,8 @@ export function normalizeSvg(rawSvg: string): string {
 			`id="${idMap.get(original) ?? original}"`,
 		);
 		for (const original of byLongest) {
-			const replacement = idMap.get(original)!;
+			const replacement = idMap.get(original);
+			if (!replacement) continue;
 			const esc = original.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 			s = s.replace(new RegExp(`url\\(#${esc}\\)`, "g"), `url(#${replacement})`);
 			s = s.replace(new RegExp(`href="#${esc}"`, "g"), `href="#${replacement}`);
