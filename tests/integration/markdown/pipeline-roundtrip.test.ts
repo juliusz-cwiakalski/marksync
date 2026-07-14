@@ -30,6 +30,11 @@ const fixtures: Fixture[] = readdirSync(fixturesDir)
 		markdown: readFileSync(join(fixturesDir, f), "utf8"),
 	}));
 
+// Filter out error fixtures for success round-trip tests (GH-77)
+const roundtripFixtures = fixtures.filter(
+	(f) => f.name !== "raw-html-block-real" && f.name !== "mixed-html-comment",
+);
+
 /** Run the full pipeline and return the success payload (throws on err). */
 function pipeline(src: string, sourcePath: string) {
 	const mdast = parseMarkdown(src, { sourcePath });
@@ -44,11 +49,11 @@ function pipeline(src: string, sourcePath: string) {
 }
 
 describe("TC-ROUNDTRIP-001 — full pipeline round-trips every fixture (F-1..F-4)", () => {
-	test("the fixture set covers all 27 golden constructs (GH-25 +1 mermaid-code-policy; GH-63 +1 frontmatter)", () => {
-		expect(fixtures.length).toBe(27);
+	test("the fixture set covers all 33 golden constructs (GH-25 +1 mermaid-code-policy; GH-63 +1 frontmatter; GH-77 +6 comment/regression fixtures)", () => {
+		expect(fixtures.length).toBe(33);
 	});
 
-	for (const fixture of fixtures) {
+	for (const fixture of roundtripFixtures) {
 		test(`round-trips ok with a non-empty body + lowercase-hex-64 hash — ${fixture.name}`, () => {
 			const out = pipeline(fixture.markdown, `${fixture.name}.md`);
 			expect(out.body.length).toBeGreaterThan(0);
@@ -58,7 +63,7 @@ describe("TC-ROUNDTRIP-001 — full pipeline round-trips every fixture (F-1..F-4
 });
 
 describe("TC-XML-WF-001 (AC-F4-3) — every rendered body is well-formed XML", () => {
-	for (const fixture of fixtures) {
+	for (const fixture of roundtripFixtures) {
 		test(`well-formed — ${fixture.name}`, () => {
 			const out = pipeline(fixture.markdown, `${fixture.name}.md`);
 			expect(() => assertWellFormedXml(out.body)).not.toThrow();
@@ -67,7 +72,7 @@ describe("TC-XML-WF-001 (AC-F4-3) — every rendered body is well-formed XML", (
 });
 
 describe("TC-DETERM-001 (AC-F4-5) — same input → byte-identical output across runs", () => {
-	for (const fixture of fixtures) {
+	for (const fixture of roundtripFixtures) {
 		test(`byte-identical across 3 renders — ${fixture.name}`, () => {
 			const runs = [0, 1, 2].map(
 				() => pipeline(fixture.markdown, `${fixture.name}.md`).body,
@@ -79,7 +84,7 @@ describe("TC-DETERM-001 (AC-F4-5) — same input → byte-identical output acros
 });
 
 describe("TC-DETERM-002 (AC-F3-1) — two renders report the identical hash", () => {
-	for (const fixture of fixtures) {
+	for (const fixture of roundtripFixtures) {
 		test(`identical hash across renders — ${fixture.name}`, () => {
 			const a = pipeline(fixture.markdown, `${fixture.name}.md`);
 			const b = pipeline(fixture.markdown, `${fixture.name}.md`);

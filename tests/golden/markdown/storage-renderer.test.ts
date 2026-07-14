@@ -22,6 +22,8 @@ interface Fixture {
 	name: string;
 	markdown: string;
 	expected: string;
+	isErrorFixture?: boolean;
+	errorConstruct?: string;
 }
 
 /** Load every committed `.md` + `.storage.xhtml` pair as a golden fixture. */
@@ -29,21 +31,34 @@ function loadFixtures(): Fixture[] {
 	const mds = readdirSync(fixturesDir).filter((f) => f.endsWith(".md"));
 	return mds.map((md) => {
 		const name = md.replace(/\.md$/, "");
-		const expected = readFileSync(
-			join(fixturesDir, `${name}.storage.xhtml`),
-			"utf8",
-		);
+		const errorPath = join(fixturesDir, `${name}.unsupported.txt`);
+		let expected = "";
+		let isErrorFixture = false;
+		let errorConstruct = "";
+
+		try {
+			// Try to read the error sidecar
+			errorConstruct = readFileSync(errorPath, "utf8").trim();
+			isErrorFixture = true;
+		} catch {
+			// No error sidecar: read the expected storage XHTML
+			expected = readFileSync(
+				join(fixturesDir, `${name}.storage.xhtml`),
+				"utf8",
+			);
+		}
+
 		const markdown = readFileSync(join(fixturesDir, md), "utf8");
-		return { name, markdown, expected };
+		return { name, markdown, expected, isErrorFixture, errorConstruct };
 	});
 }
 
 const fixtures = loadFixtures();
 
 describe("TC-GOLDEN (AC-F4-1 / NFR-REL-4) — remark-gfm-reachable fixtures byte-match goldens", () => {
-	test("the golden set is the re-baselined 27 (PM-DEC-1; sub/sup excluded; GH-25 +1 mermaid-code-policy; GH-63 +1 frontmatter)", () => {
-		// Locks the fidelity bar: exactly the 27 remark-gfm-reachable pairs.
-		expect(fixtures.length).toBe(27);
+	test("the golden set is the re-baselined 33 (PM-DEC-1; sub/sup excluded; GH-25 +1 mermaid-code-policy; GH-63 +1 frontmatter; GH-77 +6 comment/regression fixtures)", () => {
+		// Locks the fidelity bar: exactly the 33 remark-gfm-reachable pairs.
+		expect(fixtures.length).toBe(33);
 		expect(fixtures.map((f) => f.name).sort()).toContain("kitchensink");
 	});
 
@@ -54,10 +69,21 @@ describe("TC-GOLDEN (AC-F4-1 / NFR-REL-4) — remark-gfm-reachable fixtures byte
 					.value as never,
 			);
 			const result = renderStorage(hast, { sourcePath: `${fixture.name}.md` });
-			expect(result.ok).toBe(true);
-			if (!result.ok) throw new Error(`render failed for ${fixture.name}`);
-			expect(result.value.body).toBe(fixture.expected);
-			expect(result.value.body).toMatchSnapshot(`${fixture.name}.storage`);
+
+			if (fixture.isErrorFixture) {
+				// Error fixture: assert the expected UnsupportedConstruct error
+				expect(result.ok).toBe(false);
+				if (!result.ok) {
+					expect(result.error.kind).toBe("UnsupportedConstruct");
+					expect(result.error.construct).toBe(fixture.errorConstruct);
+				}
+			} else {
+				// Success fixture: assert byte-exact match + snapshot
+				expect(result.ok).toBe(true);
+				if (!result.ok) throw new Error(`render failed for ${fixture.name}`);
+				expect(result.value.body).toBe(fixture.expected);
+				expect(result.value.body).toMatchSnapshot(`${fixture.name}.storage`);
+			}
 		});
 	}
 });
