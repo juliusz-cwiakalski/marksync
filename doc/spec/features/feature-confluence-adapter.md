@@ -5,11 +5,11 @@ ados_distribution: project-generated
 id: SPEC-CONFLUENCE-ADAPTER
 status: Current
 created: 2026-07-06
-last_updated: 2026-07-13
+last_updated: 2026-07-14
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: [GH-21, GH-26, GH-66, GH-71]
+  related_changes: [GH-21, GH-26, GH-27, GH-66, GH-71]
   decisions: [ADR-0005, ADR-0006, ADR-0010]
   contracts: []
 ---
@@ -72,8 +72,18 @@ transport surface — client, per-surface services, and the provenance formatter
 - **Restrictions:** read page restrictions (v1-only).
 - **Labels:** add, delete, list (v1-only) — **deferred to post-MS-0002** (no
   MS-0002 flow uses labels; DEC-8 / NFR-MAINT-2).
-- **Provenance:** the `version.message` formatter produces the per-version
-  provenance string (ADR-0010).
+- **Provenance:** `src/infra/confluence/provenance.ts` provides three exports.
+  `formatVersionMessage`/`formatVersionMessageWithMeta` produce the per-version
+  provenance string (ADR-0010) — `formatVersionMessageWithMeta` also returns a
+  `trimMarker` (`"+N more"` when subjects are truncated) for the
+  `marksync.metadata` property. `buildProvenancePanel(meta)` emits the visible
+  Storage XHTML `{info}` macro panel (source path + Git revision + branch +
+  last-sync) carrying the `marksync:provenance-panel` marker.
+  `classifyVersion(version)` returns `"marksync"` when `version.message` starts
+  with the `marksync git` prefix, otherwise `"direct"` (NFR-REL-9). The panel is
+  injected into the write body by `appendProvenancePanel` in the push executor,
+  gated by `config.provenance.visiblePanel` (GH-27). *(delivered — GH-21; panel +
+  classifier + trimMarker — GH-27)*
 - **Optimistic concurrency:** 409 on stale `version.number` is parsed into a
   typed `Conflict` with the version numbers extracted from the response title.
 
@@ -135,7 +145,7 @@ adapter-agnostic value types (`Page`, `CreatePageRequest`, `UpdatePageRequest`
 | AttachmentService | `src/infra/confluence/attachments.ts` | Multipart upload (v1); 400-duplicate-filename idempotency signal → "already exists"; existence + list. `/data` update removed (hash-naming makes it unnecessary: changed bytes → new filename → fresh create) |
 | SearchService | `src/infra/confluence/search.ts` | CQL page discovery via v1 (minimal) |
 | RestrictionsService | `src/infra/confluence/restrictions.ts` | Page restrictions read via v1 (minimal) |
-| Provenance formatter | `src/infra/confluence/provenance.ts` | `version.message` formatter (ADR-0010); deterministic trim to `MAX_VERSION_MESSAGE_LEN` |
+| Provenance formatter | `src/infra/confluence/provenance.ts` | `version.message` formatter (`formatVersionMessage`/`formatVersionMessageWithMeta`, ADR-0010); deterministic trim to `MAX_VERSION_MESSAGE_LEN` + `trimMarker`; visible panel builder (`buildProvenancePanel` → `{info}` macro); direct-edit classifier (`classifyVersion` → `"marksync"` \| `"direct"`) *(GH-21; panel + classifier — GH-27)* |
 | ConfluenceTarget | `src/infra/confluence/target.ts` | The `TargetSystem` port implementor; composes the client + all services; `renderBody` delegates to `renderStorage` |
 | Boundary schemas | `src/infra/confluence/schemas/*.ts` | zod schemas validating every Confluence response before it crosses into a typed return |
 

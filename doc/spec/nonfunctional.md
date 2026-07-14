@@ -5,7 +5,7 @@ ados_distribution: redistributable
 id: NONFUNCTIONAL
 status: Draft
 created: 2026-07-04
-last_updated: 2026-07-13
+last_updated: 2026-07-14
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
@@ -14,7 +14,7 @@ links:
     - doc/overview/02-roadmap.md
     - doc/overview/architecture-overview.md
     - doc/inception/analysis/risks.md
-  related_changes: ["GH-69"]
+  related_changes: ["GH-27", "GH-69"]
   summary: "Non-functional requirements — performance, security, reliability, operability, compatibility, privacy, maintainability, accessibility for MS-0002 and beyond."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -33,7 +33,7 @@ binding. `MS-0002` NFRs are release-blocking guardrails unless marked
 | NFR-PERF-1 | Binary size | ~90 MB per OS/arch (**desired**, not hard — larger acceptable if the job gets done) | ADR-0001 accepted tradeoff; owner direction (PR #4) |
 | NFR-PERF-2 | Cold-start time | ~2 s on reference hardware (**desired**, not hard — longer acceptable for intermittent CLI / async CI) | Owner direction (PR #4) |
 | NFR-PERF-3 | Managed-page scale | ≤ ~500 managed pages per target in `MS-0002` | A-FEA-10; correctness first; large-repo incremental deferred |
-| NFR-PERF-4 | Idempotent rerun | A second semantically-unchanged push performs 0 writes | Roadmap metric; R-FEA-8 |
+| NFR-PERF-4 | Idempotent rerun | A second semantically-unchanged push performs 0 writes. **Implemented:** asset reuse-on-exists (GH-26) skips re-uploads; the visible provenance panel is appended post-render as a Storage string and never enters the HAST, so timestamp variance cannot perturb the canonical hash → `NO_CHANGE` with 0 writes (GH-27). | Roadmap metric; R-FEA-8 |
 | NFR-PERF-5 | Conversion latency | Per-page Markdown→Storage render ≤ 200 ms (p95) at ≤500 pages | informational; validates subset performance |
 
 ## Security (`MS-0002` binding — release-blocking)
@@ -60,7 +60,7 @@ binding. `MS-0002` NFRs are release-blocking guardrails unless marked
 | NFR-REL-6 | REMOTE_MISSING invariant | A remotely-deleted managed page is never silently re-created | INV-SAFE-2; roadmap invariant |
 | NFR-REL-7 | Partial-apply recoverability | An interrupted apply is recoverable via journal replay / `repair-state` without duplicates | R-FEA-4; spec §9.3/§9.8 |
 | NFR-REL-8 | Duplicate-UUID fatal | Two source docs with the same UUID halt before any write | INV-SAFE-3; ADR-0006 |
-| NFR-REL-9 | Per-version provenance | Each MarkSync-applied page version carries a clear MarkSync/Git prefix, head commit id, and compact commit summary in `version.message`; direct Confluence edits are identifiable (no marker). **Squash mode only for `MS-0002`**; commit-by-commit deferred to a future milestone. | ADR-0006; ADR-0010 (revised) |
+| NFR-REL-9 | Per-version provenance | Each MarkSync-applied page version carries a clear MarkSync/Git prefix, head commit id, and compact commit summary in `version.message`; direct Confluence edits are identifiable (no marker). **Squash mode only for `MS-0002`**; commit-by-commit deferred to a future milestone. **Implemented (GH-21/GH-27):** `formatVersionMessageWithMeta` produces the `marksync git <sha> (<count>): <subjects>` prefix (GH-21); `classifyVersion(version)` returns `"marksync"` for the prefix, `"direct"` otherwise (GH-27). | ADR-0006; ADR-0010 (revised) |
 | NFR-REL-10 | Decentralized concurrency | Two runners on separate machines (no shared service) cannot silently overwrite (409 gates stale write) | ADR-0006 C-6 |
 | NFR-REL-11 | Version-message length handling | Confluence `version.message` / history-description length limit is verified before implementation; commit-by-commit and squashed messages trim deterministically with a clear marker when required | ADR-0010 |
 
@@ -108,7 +108,7 @@ binding. `MS-0002` NFRs are release-blocking guardrails unless marked
 |---|---|---|---|
 | NFR-A11Y-1 | No color dependency | Output readable without color; `--no-color`/`--color` flag respected; **non-interactive/scripted env (CI) auto-detected → color disabled by default** | North star / spec NFR; owner direction (PR #4) |
 | NFR-A11Y-2 | Plain-log compatible | Screen-reader/plain-text output mode | North star / spec NFR |
-| NFR-A11Y-3 | Visible provenance | Every managed page shows source path + Git revision + last-sync (panel/footer) | North star; A-USA-3 |
+| NFR-A11Y-3 | Visible provenance | Every managed page shows source path + Git revision + last-sync (panel/footer). **Implemented (GH-27):** `buildProvenancePanel` emits a Confluence `{info}` macro (plain text, no color dependency) appended at the page footer, gated by `config.provenance.visiblePanel` (default `true`). | North star; A-USA-3 |
 
 ## Trademark & legal (binding before `MS-0008`)
 
