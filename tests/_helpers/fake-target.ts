@@ -82,6 +82,8 @@ export class FakeTarget implements TargetSystem {
 	 */
 	resetWriteCounter(): void {
 		this.writeCounter = 0;
+		this.createPageCalls = [];
+		this.updatePageCalls = [];
 	}
 
 	/**

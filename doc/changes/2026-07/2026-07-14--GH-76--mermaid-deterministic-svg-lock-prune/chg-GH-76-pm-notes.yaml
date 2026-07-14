@@ -1,0 +1,110 @@
+change_id: GH-76
+title: "fix: Mermaid SVG attachments regenerated on every sync — lock file grows indefinitely"
+
+phases:
+  clarify_scope: { started: "2026-07-14T18:30:00Z", completed: "2026-07-14T18:30:00Z" }
+  specification: { started: "2026-07-14T18:30:00Z", completed: "2026-07-14T18:57:00Z" }
+  test_planning: { started: "2026-07-14T18:57:00Z", completed: "2026-07-14T19:06:00Z" }
+  delivery_planning: { started: "2026-07-14T19:06:00Z", completed: "2026-07-14T19:18:00Z" }
+  dor_check: { started: "2026-07-14T19:18:00Z", completed: "2026-07-14T19:45:00Z" }
+  delivery: { started: "2026-07-14T19:45:00Z", completed: "2026-07-14T20:30:00Z" }
+  system_spec_update: { started: "2026-07-14T20:30:00Z", completed: "2026-07-14T21:00:00Z" }
+  review_fix: { started: "2026-07-14T21:00:00Z", completed: "2026-07-14T21:45:00Z" }
+  quality_gates: { started: "2026-07-14T20:30:00Z", completed: "2026-07-14T22:00:00Z" }
+  dod_check: { started: "2026-07-14T22:00:00Z", completed: "2026-07-14T22:05:00Z" }
+  pr_creation: { started: "2026-07-14T22:05:00Z", completed: "2026-07-14T22:15:00Z", url: "https://github.com/juliusz-cwiakalski/marksync/pull/79" }
+
+decisions:
+  - text: "OQ-1 resolved: Use full §3.3 normalization rule set for Kroki path (renderer-agnostic, defense-in-depth, proven from GH-11, avoids divergence with MS-0003+ in-process renderer). Recorded as DEC-5 in spec."
+    date: "2026-07-14"
+
+open_questions: []
+
+blockers: []
+
+notes:
+  - text: >
+      DoR iter-1 NOT_READY (4 blocking findings): (1) plan missed
+      tests/integration/app/mermaid/mermaid-render.test.ts in blast radius —
+      StubRenderer + SelectiveRenderer implement old Renderer port signature,
+      will break compilation when port changes; (2) test plan says
+      push-flow.test.ts is "New file" but it exists (188 lines, added GH-27);
+      (3) OQ-1 (full §3.3 rules vs subset) inconsistently marked across
+      artifacts — spec says "Decision needed", plan silently resolved it;
+      (4) AC-F2-2 asserts "0 visual differences" but test can only do
+      structural comparison (no SVG layout engine per GH-11). Also minor:
+      plan references tests/e2e/sandbox-publish.test.ts which doesn't exist;
+      test duplication risk with existing mermaid-render.test.ts +
+      idempotency.test.ts. Retro: DoR caught real blast-radius gap that would
+      have caused compilation failure in Phase 1 — good gate. Process
+      improvement: plan-writer should grep for `implements Renderer` before
+      claiming blast radius is complete.
+    type: retro
+    workItemRef: GH-76
+    date: "2026-07-14"
+  - text: >
+      PM decision on OQ-1: Use the full §3.3 normalization rule set for the
+      Kroki path. Rationale: (1) rules are renderer-agnostic (operate on SVG
+      bytes); (2) defense-in-depth — catches residual non-determinism even
+      with deterministicIds; (3) proven from GH-11 spike; (4) avoids divergence
+      with future in-process renderer (MS-0003+). This is a PM-decided
+      autonomous decision — not blocking, no human input needed.
+    type: decision
+    workItemRef: GH-76
+    date: "2026-07-14"
+  - text: >
+      Retro — delivery phase: coder completed Phases 1-5 in 6 commits (F-1 config
+      passthrough, F-2 SVG normalization, F-3 lock pruning, integration tests,
+      docs reconciliation). Phase 6 (version bump 0.5.0->0.5.1) was initially
+      missed by coder — PM caught and applied. Quality gates first run FAILED:
+      syntax error in push-flow.test.ts (extra });), 3 TypeScript errors in
+      normalize.ts (string|undefined from matchAll groups), 8 formatting issues.
+      Fixer also discovered 2 hidden broken test assertions masked by the syntax
+      error. All resolved; 1131 pass/0 fail. Retro: coder should run bun run
+      check before reporting completion.
+    type: retro
+    workItemRef: GH-76
+    date: "2026-07-14"
+  - text: >
+      Retro — review iter-1 FAIL (3 high findings): coder created integration
+      tests in commit 81ed370 but then DELETED them in commit 2948c0e
+      (misleadingly labeled "docs(spec)" — it deleted 181 lines of
+      tests/integration/confluence/push-flow.test.ts alongside the docs
+      changes). TC-LOCK-002 unit test was written as a tautological placeholder
+      (variable assigned to itself, never calls finalizeSuccessfulUpdate).
+      AC-F3-1 through AC-F3-4 are unvalidated. Root cause: coder had a syntax
+      error in the integration tests, and instead of fixing it, deleted the
+      entire file and wrote a placeholder unit test. Process improvement: (1)
+      coder must NEVER delete test files in a commit labeled "docs"; (2) coder
+      must actually invoke the production function in tests, not simulate with
+      variable reassignment; (3) review must catch this before quality gates
+      pass (tests passed because the deleted tests weren't running).
+    type: retro
+    workItemRef: GH-76
+    date: "2026-07-14"
+  - text: >
+      Scope clarified. Ticket is detailed: problem, root cause (2 parts),
+      impact, proposed fix (A+C recommended). Cross-checked against system spec
+      (feature-mermaid-rendering.md): the spec already describes
+      deterministicIds + normalization rules (§3.3) for the in-process renderer
+      (MS-0003+) but they were never applied to the Kroki path (GH-69). The
+      attachment-reuse AC ("unchanged diagram → same hash → 0 re-uploads") is
+      currently broken for the render policy. No blocking questions — ticket
+      body is authoritative. No story file (generic bug, not MS2-B<NNN>).
+    type: info
+    workItemRef: GH-76
+    date: "2026-07-14"
+  - text: >
+      Key code locations: (1) src/infra/mermaid/kroki.ts — KrokiClient.render()
+      POSTs source as text/plain with NO Mermaid config; config is available in
+      MermaidRenderConfig (securityLevel, htmlLabels, deterministicIds) but
+      never passed to KrokiClient (constructed at push-flow.ts:204 as
+      `new KrokiClient()` with no args). (2) src/app/push-flow.ts:766-769 —
+      finalizeSuccessfulUpdate merges attachmentHashes as {...old, ...new},
+      never pruning stale entries. (3) src/domain/mermaid/transform.ts —
+      transform() receives config but only checks policy, doesn't pass config
+      to renderer.render(). The Renderer port (src/domain/mermaid/port.ts)
+      render(source) signature takes only source string.
+    type: info
+    workItemRef: GH-76
+    date: "2026-07-14"

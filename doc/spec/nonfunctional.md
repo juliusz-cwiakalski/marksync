@@ -14,7 +14,7 @@ links:
     - doc/overview/02-roadmap.md
     - doc/overview/architecture-overview.md
     - doc/inception/analysis/risks.md
-  related_changes: ["GH-27", "GH-69"]
+  related_changes: ["GH-27", "GH-69", "GH-76"]
   summary: "Non-functional requirements — performance, security, reliability, operability, compatibility, privacy, maintainability, accessibility for MS-0002 and beyond."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -33,7 +33,7 @@ binding. `MS-0002` NFRs are release-blocking guardrails unless marked
 | NFR-PERF-1 | Binary size | ~90 MB per OS/arch (**desired**, not hard — larger acceptable if the job gets done) | ADR-0001 accepted tradeoff; owner direction (PR #4) |
 | NFR-PERF-2 | Cold-start time | ~2 s on reference hardware (**desired**, not hard — longer acceptable for intermittent CLI / async CI) | Owner direction (PR #4) |
 | NFR-PERF-3 | Managed-page scale | ≤ ~500 managed pages per target in `MS-0002` | A-FEA-10; correctness first; large-repo incremental deferred |
-| NFR-PERF-4 | Idempotent rerun | A second semantically-unchanged push performs 0 writes. **Implemented:** asset reuse-on-exists (GH-26) skips re-uploads; the visible provenance panel is appended post-render as a Storage string and never enters the HAST, so timestamp variance cannot perturb the canonical hash → `NO_CHANGE` with 0 writes (GH-27). | Roadmap metric; R-FEA-8 |
+| NFR-PERF-4 | Idempotent rerun | A second semantically-unchanged push performs 0 writes. **Implemented:** asset reuse-on-exists (GH-26) skips re-uploads; the visible provenance panel is appended post-render as a Storage string and never enters the HAST, so timestamp variance cannot perturb the canonical hash → `NO_CHANGE` with 0 writes (GH-27). Under the `render` Mermaid policy, normalized SVG hashing + config passthrough + per-page lock pruning ensure unchanged diagrams produce stable attachment hashes → 0 re-uploads and `NO_CHANGE` (GH-76, restoring this invariant after the GH-69 non-determinism regression). | Roadmap metric; R-FEA-8 |
 | NFR-PERF-5 | Conversion latency | Per-page Markdown→Storage render ≤ 200 ms (p95) at ≤500 pages | informational; validates subset performance |
 
 ## Security (`MS-0002` binding — release-blocking)

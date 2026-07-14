@@ -5,11 +5,11 @@ ados_distribution: project-generated
 id: SPEC-MERMAID-RENDERING
 status: Current
 created: 2026-07-06
-last_updated: 2026-07-13
+last_updated: 2026-07-14
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: ["GH-11", "GH-25", "GH-69"]
+  related_changes: ["GH-11", "GH-25", "GH-69", "GH-76"]
   decisions: [ADR-0001, ADR-0002, TDR-0004]
   contracts: []
 ---
@@ -113,13 +113,21 @@ output-format + theme + security-config + font-policy + scale + background
 
 Unchanged logical render input → same hash → same attachment → no re-upload.
 
-> **Implemented Kroki path (GH-69).** The remote render path hashes the SVG bytes
-> returned by Kroki (full sha256) rather than the logical-input formula above —
-> Kroki's output is the artifact content, so hashing it directly drives both
-> dedup (`attachmentExists`) and the `marksync-mermaid-<fullhash>.svg` filename.
+> **Implemented Kroki path (GH-69, GH-76).** The remote render path now (a) forwards
+> `deterministicIds` and `htmlLabels` as Kroki diagram-options query parameters
+> (`deterministic-ids=true`, `html-labels=false`), and (b) normalizes the SVG via
+> §3.3 rules before hashing — `Artifact.bytes` is the normalized SVG and
+> `hash = sha256(normalizedSVG)` (DEC-3). `securityLevel` is not passed (blocked
+> by Kroki, enforced as `strict` by default, DEC-1). This ensures deterministic
+> digests across syncs, restoring NFR-PERF-4 idempotent rerun.
 > The logical-input formula applies to the in-process renderer (Part B, MS-0003+).
 
 ### 3.3 Normalization rules (digest stability)
+
+> **Implemented for Kroki path (GH-76).** The §3.3 normalization rules are now
+> implemented in `src/domain/mermaid/normalize.ts` and applied to SVG output
+> from Kroki before hashing (DEC-5). The function is pure and reusable for the
+> in-process renderer (MS-0003+).
 
 The renderer's **digest** form (the bytes used for golden-fixture comparison and
 as the cache/determinism check) is produced by a pure, dependency-free
@@ -189,9 +197,10 @@ remote render path, MS-0002 wires the `render` policy to the public Kroki API
 
 | Component | Responsibility | Status |
 |---|---|---|
-| `Renderer` port (`src/domain/mermaid/port.ts`) | Domain interface: `render(source): Promise<Result<Artifact, MarkSyncError>>` | Implemented (GH-69) |
-| `KrokiClient` (`src/infra/mermaid/kroki.ts`) | HTTP adapter: POSTs source to `https://kroki.io/mermaid/svg`, 30 s timeout, maps HTTP/network errors → `RemoteUnreachable`, hashes SVG bytes → `Artifact` | Implemented (GH-69) |
-| HAST transform (`src/domain/mermaid/transform.ts`) | Discovers `language-mermaid` fences, calls `Renderer.render()` under `render` policy, replaces `pre` with synthetic `img` node, in-doc dedup, per-fence fallback on error | Implemented (GH-69) |
+| `Renderer` port (`src/domain/mermaid/port.ts`) | Domain interface: `render(source, config): Promise<Result<Artifact, MarkSyncError>>` — contract carries `MermaidRenderConfig` (DM-1, GH-76) | Implemented (GH-69, GH-76) |
+| `KrokiClient` (`src/infra/mermaid/kroki.ts`) | HTTP adapter: POSTs source with diagram options (`deterministic-ids`, `html-labels`), normalizes SVG before hashing (§3.3 rules, DEC-5), 30 s timeout, maps HTTP/network errors → `RemoteUnreachable` | Implemented (GH-69, GH-76) |
+| HAST transform (`src/domain/mermaid/transform.ts`) | Discovers `language-mermaid` fences, calls `Renderer.render(source, config)` under `render` policy, replaces `pre` with synthetic `img` node, in-doc dedup, per-fence fallback on error | Implemented (GH-69, GH-76) |
+| `normalizeSvg` (`src/domain/mermaid/normalize.ts`) | Pure SVG normalizer implementing §3.3 rules for digest stability (strip comments, sort attrs, rewrite IDs, canonicalize whitespace, strip metadata) | Implemented (GH-76) |
 | `AttachmentService` (`src/infra/confluence/attachments.ts`) | `attachmentFilename()` → `marksync-mermaid-<fullhash>.svg`; `uploadAssets` / `attachmentExists` reuse path (GH-26) | Implemented (GH-26) |
 | `MermaidRenderer` (in-process) | Loads official Mermaid, renders source → SVG in headless DOM | Deferred — MS-0003+ (GH-11 H4 FAIL) |
 | `DOMEnvironment` | happy-dom headless environment (TDR-0004) | Deferred — MS-0003+ |
@@ -236,9 +245,10 @@ remote render path, MS-0002 wires the `render` policy to the public Kroki API
       implemented, tested, and correctly defaulted under GH-25 (CEO-DEC-1).**
 - [x] **Attachment reuse:** unchanged diagram → same full-sha256 hash → same
       `marksync-mermaid-<hash>.svg` → 0 re-uploads on the second run
-      (`attachmentExists` short-circuits). *Render-policy dedup evidenced by
-      GH-69; the in-process renderer's cross-OS hash formula applies when Part B
-      lands (MS-0003+).*
+      (`attachmentExists` short-circuits). *Render-policy dedup restored by
+      GH-76 (normalized SVG hashing + config passthrough); the original GH-69
+      path was non-deterministic. The in-process renderer's cross-OS hash
+      formula applies when Part B lands (MS-0003+).*
 - [x] **Fallback (MS-0002, implemented GH-25 + GH-69):** the `code` policy is the
       implemented default — a mermaid fence is preserved as a code macro with
       `language=mermaid`, byte-stable across runs. Under the `render` policy, a

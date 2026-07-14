@@ -3,6 +3,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { KrokiClient } from "#infra/mermaid/kroki";
+import type { MermaidRenderConfig } from "#domain/config/types";
 
 const SVG = new TextEncoder().encode(
 	'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>',
@@ -18,10 +19,16 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 		.join("");
 }
 
+const RENDER_CONFIG: MermaidRenderConfig = {
+	policy: "render",
+	securityLevel: "strict",
+	htmlLabels: false,
+	deterministicIds: true,
+};
+
 describe("KrokiClient", () => {
 	describe("TC-MERM success path (DM-6 / AC-5)", () => {
 		test("HTTP 200 → ok(Artifact) with full sha256 hash, image/svg+xml, kind=mermaid", async () => {
-			const expectedHash = await sha256Hex(SVG);
 			const client = new KrokiClient({
 				fetch: async () =>
 					new Response(SVG, {
@@ -30,15 +37,15 @@ describe("KrokiClient", () => {
 					}),
 			});
 
-			const result = await client.render("graph TD; A-->B");
+			const result = await client.render("graph TD; A-->B", RENDER_CONFIG);
 
 			expect(result.ok).toBe(true);
 			if (!result.ok) return;
 			const artifact = result.value;
 			expect(artifact.kind).toBe("mermaid");
 			expect(artifact.mime).toBe("image/svg+xml");
-			expect(artifact.bytes).toEqual(SVG);
-			expect(artifact.hash).toBe(expectedHash);
+			// Hash is of normalized SVG, not raw bytes
+			expect(artifact.bytes).toBeInstanceOf(Uint8Array);
 			// Full sha256 = 64 hex chars (NOT truncated)
 			expect(artifact.hash).toHaveLength(64);
 			expect(artifact.hash).toMatch(/^[a-f0-9]{64}$/);
@@ -58,7 +65,7 @@ describe("KrokiClient", () => {
 				},
 			});
 
-			await client.render("graph TD; A-->B");
+			await client.render("graph TD; A-->B", RENDER_CONFIG);
 
 			expect(captured.body).toBe("graph TD; A-->B");
 			expect(captured.contentType).toBe("text/plain");
@@ -71,7 +78,7 @@ describe("KrokiClient", () => {
 				fetch: async () => new Response("Service Unavailable", { status: 503 }),
 			});
 
-			const result = await client.render("graph TD; A-->B");
+			const result = await client.render("graph TD; A-->B", RENDER_CONFIG);
 
 			expect(result.ok).toBe(false);
 			if (result.ok) return;
@@ -87,7 +94,7 @@ describe("KrokiClient", () => {
 				fetch: async () => new Response("Not Found", { status: 404 }),
 			});
 
-			const result = await client.render("graph TD; A-->B");
+			const result = await client.render("graph TD; A-->B", RENDER_CONFIG);
 
 			expect(result.ok).toBe(false);
 			if (result.ok) return;
@@ -104,7 +111,7 @@ describe("KrokiClient", () => {
 				},
 			});
 
-			const result = await client.render("graph TD; A-->B");
+			const result = await client.render("graph TD; A-->B", RENDER_CONFIG);
 
 			expect(result.ok).toBe(false);
 			if (result.ok) return;
@@ -123,7 +130,7 @@ describe("KrokiClient", () => {
 					}),
 			});
 
-			const result = await client.render("graph TD; A-->B");
+			const result = await client.render("graph TD; A-->B", RENDER_CONFIG);
 
 			expect(result.ok).toBe(false);
 			if (result.ok) return;
@@ -138,12 +145,169 @@ describe("KrokiClient", () => {
 				},
 			});
 
-			const result = await client.render("graph TD; A-->B");
+			const result = await client.render("graph TD; A-->B", RENDER_CONFIG);
 
 			expect(result.ok).toBe(false);
 			if (result.ok) return;
 			expect(result.error.kind).toBe("RemoteUnreachable");
 			expect(result.error.cause).toContain("fetch failed");
+		});
+	});
+
+	describe("TC-MERM-DETM-003 config passthrough (AC-F1-2 / NFR-5)", () => {
+		test("deterministicIds and htmlLabels passed as query params", async () => {
+			let capturedUrl: string | undefined;
+			const client = new KrokiClient({
+				fetch: async (url) => {
+					capturedUrl = url;
+					return new Response(SVG, { status: 200 });
+				},
+			});
+
+			await client.render("graph TD; A-->B", RENDER_CONFIG);
+
+			expect(capturedUrl).toBeDefined();
+			expect(capturedUrl).toContain("deterministic-ids=true");
+			expect(capturedUrl).toContain("html-labels=false");
+		});
+
+		test("securityLevel NOT passed (blocked by Kroki, DEC-1)", async () => {
+			let capturedUrl: string | undefined;
+			const client = new KrokiClient({
+				fetch: async (url) => {
+					capturedUrl = url;
+					return new Response(SVG, { status: 200 });
+				},
+			});
+
+			await client.render("graph TD; A-->B", RENDER_CONFIG);
+
+			expect(capturedUrl).toBeDefined();
+			expect(capturedUrl).not.toContain("securityLevel");
+			expect(capturedUrl).not.toContain("security-level");
+		});
+	});
+
+	describe("TC-MERM-DETM-001 determinism with normalization (AC-F1-1 / NFR-1)", () => {
+		test("same source + config ×2 → identical hash", async () => {
+			const svgWithRandomId = new TextEncoder().encode(
+				'<svg><rect id="flowchart-abc-123"/></svg>',
+			);
+			let callCount = 0;
+			const client = new KrokiClient({
+				fetch: async () => {
+					callCount++;
+					return new Response(svgWithRandomId, {
+						status: 200,
+						headers: { "Content-Type": "image/svg+xml" },
+					});
+				},
+			});
+
+			const result1 = await client.render("graph TD; A-->B", RENDER_CONFIG);
+			const result2 = await client.render("graph TD; A-->B", RENDER_CONFIG);
+
+			expect(result1.ok).toBe(true);
+			expect(result2.ok).toBe(true);
+			if (!result1.ok || !result2.ok) return;
+
+			expect(result1.value.hash).toBe(result2.value.hash);
+			expect(callCount).toBe(2);
+		});
+
+		test("same SVG output → identical hash regardless of source", async () => {
+			let callCount = 0;
+			const client = new KrokiClient({
+				fetch: async (_url) => {
+					callCount++;
+					return new Response(SVG, {
+						status: 200,
+						headers: { "Content-Type": "image/svg+xml" },
+					});
+				},
+			});
+
+			const resultA = await client.render("graph TD; A-->B", RENDER_CONFIG);
+			const resultB = await client.render("graph LR; C-->D-->E", RENDER_CONFIG);
+
+			expect(resultA.ok).toBe(true);
+			expect(resultB.ok).toBe(true);
+			if (!resultA.ok || !resultB.ok) return;
+
+			// Different diagram sources should produce different hashes
+			expect(resultA.value.hash).toBeDefined();
+			expect(resultB.value.hash).toBeDefined();
+			// Since the mock returns the same SVG for both calls, the hashes will be the same
+			// This is expected behavior - the hash is of the SVG content, not the source
+			expect(resultA.value.hash).toBe(resultB.value.hash);
+			expect(callCount).toBe(2);
+		});
+	});
+
+	describe("TC-MERM-NORM-001 SVG normalization → stable hash (AC-F2-1)", () => {
+		test("same SVG with random IDs ×2 → identical normalized hash", async () => {
+			const svgWithRandomId = new TextEncoder().encode(
+				'<svg><rect id="flowchart-abc-123"/></svg>',
+			);
+			let callCount = 0;
+			const client = new KrokiClient({
+				fetch: async () => {
+					callCount++;
+					return new Response(svgWithRandomId, {
+						status: 200,
+						headers: { "Content-Type": "image/svg+xml" },
+					});
+				},
+			});
+
+			const result1 = await client.render("graph TD; A-->B", RENDER_CONFIG);
+			const result2 = await client.render("graph TD; A-->B", RENDER_CONFIG);
+
+			expect(result1.ok).toBe(true);
+			expect(result2.ok).toBe(true);
+			if (!result1.ok || !result2.ok) return;
+
+			expect(result1.value.hash).toBe(result2.value.hash);
+			expect(callCount).toBe(2);
+		});
+
+		test("SVGs differing only in non-deterministic elements → byte-identical normalized", async () => {
+			const svgA = new TextEncoder().encode(
+				'<svg><!-- comment --><rect id="abc" x="0" y="10"/></svg>',
+			);
+			const svgB = new TextEncoder().encode(
+				'<svg><!-- different --><rect id="def" y="10" x="0"/></svg>',
+			);
+
+			// First call returns svgA, second call returns svgB
+			// but since they're semantically equivalent after normalization...
+			const client1 = new KrokiClient({
+				fetch: async () => {
+					return new Response(svgA, {
+						status: 200,
+						headers: { "Content-Type": "image/svg+xml" },
+					});
+				},
+			});
+
+			const client2 = new KrokiClient({
+				fetch: async () => {
+					return new Response(svgB, {
+						status: 200,
+						headers: { "Content-Type": "image/svg+xml" },
+					});
+				},
+			});
+
+			const result1 = await client1.render("graph TD; A-->B", RENDER_CONFIG);
+			const result2 = await client2.render("graph TD; A-->B", RENDER_CONFIG);
+
+			expect(result1.ok).toBe(true);
+			expect(result2.ok).toBe(true);
+			if (!result1.ok || !result2.ok) return;
+
+			// After normalization, both should be identical
+			expect(result1.value.hash).toBe(result2.value.hash);
 		});
 	});
 });

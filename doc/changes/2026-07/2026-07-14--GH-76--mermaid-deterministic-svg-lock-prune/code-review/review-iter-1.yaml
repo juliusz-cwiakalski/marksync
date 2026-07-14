@@ -1,0 +1,206 @@
+version: 1
+iteration: 1
+mode: local
+work_item_ref: GH-76
+branch: fix/GH-76/mermaid-deterministic-svg-lock-prune
+status: FAIL
+summary: >
+  The three core code changes (F-1 config passthrough, F-2 SVG normalization,
+  F-3 lock pruning) are correctly implemented, well-structured, and the quality
+  gate passes (1131/0). The normalize.ts is a faithful lift from the GH-11 spike.
+  However, the review FAILS due to critically deficient test coverage for F-3:
+  the TC-LOCK-002 unit test is tautological (tests a variable against itself,
+  never calls finalizeSuccessfulUpdate), and the TC-LOCK-001/003 + TC-E2E-002/003/004
+  integration tests were created in commit 81ed370 then deleted in commit 2948c0e
+  (a "docs" commit) and never restored. This leaves AC-F3-1 through AC-F3-4 with
+  no effective test coverage. Additionally, TC-MERM-DETM-002 does not validate
+  its stated AC (checks toBeDefined instead of hash inequality). Phase 4 is
+  entirely unimplemented; Phases 5-6 are done-but-unchecked in the plan.
+severity_breakdown:
+  critical: 0
+  high: 3
+  medium: 2
+  low: 2
+  info: 1
+spec_compliance: FAIL
+plan_compliance: FAIL
+findings:
+  - id: F-1
+    severity: high
+    confidence: high
+    category: testing
+    location: tests/unit/app/push-flow.test.ts:62-84
+    message: >
+      TC-LOCK-002 is tautological — it never calls finalizeSuccessfulUpdate or
+      any production code. The test body assigns `const updatedAttachmentHashes
+      = currentRunHashes` then asserts the variable equals itself. This would
+      pass even if the F-3 fix were reverted to additive merge. The F-3 lock
+      pruning change (the core bug fix) has zero effective test coverage at the
+      unit level.
+    suggestion: >
+      Extract finalizeSuccessfulUpdate (or test through applyPlan/uploadAssets
+      + lock-state inspection) so the test exercises the actual replacement
+      path. Assert that after an Update, the lock binding's attachmentHashes
+      contains ONLY the current run's entries and NOT the old binding's stale
+      entries.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-2
+    severity: high
+    confidence: high
+    category: testing
+    location: tests/integration/confluence/push-flow.test.ts (deleted)
+    message: >
+      The integration test file tests/integration/confluence/push-flow.test.ts
+      was created in commit 81ed370 (with a syntax error — duplicated closing
+      brackets) then deleted in commit 2948c0e (labeled "docs(spec)" but also
+      removing 181 lines of tests). It was never recreated. This eliminates
+      TC-LOCK-001, TC-LOCK-003, TC-E2E-002, TC-E2E-003, and TC-E2E-004 — the
+      entire Phase 4 end-to-end integration validation. AC-F3-1 (bloated lock
+      pruning), AC-F3-2 (NO_CHANGE preserves hashes), AC-F3-3 (second sync → 0
+      uploads), and AC-F3-4 (unchanged → NO_CHANGE) are all unvalidated.
+    suggestion: >
+      Recreate the integration test file with correct syntax. The tests must
+      exercise the full pipeline: computePlan → applyPlan (Update outcome) →
+      verify lock binding attachmentHashes is replaced (not merged). Add the
+      multi-sync scenario (second sync → 0 uploads, NO_CHANGE classification)
+      and the per-document isolation test (TC-E2E-004).
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-3
+    severity: high
+    confidence: high
+    category: plan-compliance
+    location: chg-GH-76-plan.md:368-413
+    message: >
+      Phase 4 (End-to-end integration validation) is entirely unimplemented.
+      All four tasks (4.1–4.4) are unchecked [ ] and no corresponding test code
+      exists. Phase 4 was planned as the validation layer for AC-F3-3, AC-F3-4,
+      NFR-2, NFR-4, and NFR-7. Without it, the idempotent-rerun invariant
+      (NFR-PERF-4 — the core motivation for this entire change) is not validated
+      end-to-end.
+    suggestion: >
+      Implement Phase 4 tasks 4.1–4.3 (integration tests with mock TargetSystem)
+      before this change can pass review. Task 4.4 (live-sandbox E2E) can be
+      deferred if documented as such, but the mock-based integration tests are
+      mandatory for AC validation.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-4
+    severity: medium
+    confidence: high
+    category: testing
+    location: tests/unit/infra/mermaid/kroki.test.ts:218-253
+    message: >
+      TC-MERM-DETM-002 ("different configs → different hashes") does not
+      validate its stated AC. The mock fetch returns the same SVG regardless of
+      config, so both hashes are necessarily identical. The test only asserts
+      `toBeDefined()` on both hashes — it never checks `hashA !== hashB`. The
+      inline comment even acknowledges this: "normalized output is the same but
+      configs themselves differ."
+    suggestion: >
+      Either make the mock fetch return config-dependent SVGs (so hashes
+      genuinely differ), or remove the hash-inequality claim from the test name
+      and document it as "config → query param passthrough only" (the actual
+      behavior being tested is already covered by TC-MERM-DETM-003).
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-5
+    severity: medium
+    confidence: high
+    category: plan-compliance
+    location: chg-GH-76-plan.md:426-516
+    message: >
+      Phase 5 (Documentation) and Phase 6 (Finalize/Release) tasks are all
+      unchecked [ ] despite being completed via commits 2948c0e, 8d71a7a, 657356e,
+      and 62e0bf9. The execution log at the bottom also shows all phases as
+      "Pending". This is a DONE_BUT_UNCHECKED gap — the work was done but the
+      plan was never reconciled.
+    suggestion: >
+      Check off Phase 5 and 6 tasks and update the execution log to reflect
+      actual completion status with commit SHAs.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-6
+    severity: low
+    confidence: medium
+    category: correctness
+    location: src/domain/mermaid/normalize.ts:90
+    message: >
+      The data-mermaid-version stripping regex removes the attribute but leaves
+      a dangling space inside the tag. For example, after attribute sorting a
+      tag becomes `<svg data-mermaid-version="10.9.1" height="100" width="100">`;
+      after stripping the attribute at line 90, it becomes
+      `<svg  height="100" width="100">` (double space). Whitespace
+      canonicalization (Rule 4) already ran, so the double space persists. This
+      is still deterministic (same input always produces same double-space) so
+      hash stability is not affected, but the output is not a clean canonical
+      form.
+    suggestion: >
+      Move the data-mermaid-version stripping to BEFORE attribute sorting (Rule
+      2), or add a final whitespace-in-tag cleanup pass after Rule 5. Low
+      priority since determinism is preserved.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-7
+    severity: low
+    confidence: medium
+    category: correctness
+    location: src/domain/mermaid/normalize.ts:21
+    message: >
+      The attribute-sorting regex skips attributes with empty values due to the
+      `if (n && v)` guard (v = "" is falsy). For example, `class=""` would be
+      silently dropped from the tag. The spike implementation did not have this
+      filter. While Mermaid/Kroki SVGs are unlikely to emit empty-value
+      attributes, this is a behavioral divergence from the proven GH-11 spike
+      normalizer, and dropping an attribute is technically a structural
+      difference (AC-F2-2).
+    suggestion: >
+      Use `if (n !== undefined && n !== null)` instead of truthiness check, or
+      match the spike by removing the filter entirely (the regex guarantees both
+      capture groups are non-empty via `[^"]+`... actually `[^"]*` allows empty,
+      so keep a name check only: `if (n)`).
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-8
+    severity: info
+    confidence: high
+    category: documentation
+    location: src/app/push-flow.ts:1310
+    message: >
+      The create path comment still reads "GH-26: merged from upload" — plan
+      task 3.2 asked for an update noting the replacement semantics are
+      intentional (DEC-4). The create path always used replacement, but the
+      word "merged" is now misleading in the context of the GH-76 additive-vs-
+      replace fix.
+    suggestion: >
+      Update the comment to "GH-76: current run's complete set (replacement
+      semantics, DEC-4)" for clarity.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+reviewed_at: 2026-07-14T21:30:00Z
+next_step: CALL_CODER

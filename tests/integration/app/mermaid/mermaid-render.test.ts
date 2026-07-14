@@ -21,7 +21,11 @@ import type {
 import type { MarkSyncError } from "#domain/errors";
 import type { Result } from "#domain/result";
 import { Result as Res } from "#domain/result";
-import type { LockFile, ProjectConfig } from "#domain/config/types";
+import type {
+	LockFile,
+	ProjectConfig,
+	MermaidRenderConfig,
+} from "#domain/config/types";
 import { computePlan, uploadAssets } from "#app/push-flow";
 import { FakeRepository } from "#tests/_helpers/fake-repository";
 import { renderStorage } from "#infra/confluence/render/storage";
@@ -44,7 +48,10 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 
 /** Stub renderer returning deterministic fixed SVG for every source. */
 class StubRenderer implements Renderer {
-	async render(_source: string): Promise<Result<Artifact, MarkSyncError>> {
+	async render(
+		_source: string,
+		_config: MermaidRenderConfig,
+	): Promise<Result<Artifact, MarkSyncError>> {
 		const hash = await sha256Hex(SVG);
 		return Res.ok({ bytes: SVG, mime: "image/svg+xml", hash, kind: "mermaid" });
 	}
@@ -52,7 +59,10 @@ class StubRenderer implements Renderer {
 
 /** Stub renderer that fails for sources containing "FAIL". */
 class SelectiveRenderer implements Renderer {
-	async render(source: string): Promise<Result<Artifact, MarkSyncError>> {
+	async render(
+		source: string,
+		config: MermaidRenderConfig,
+	): Promise<Result<Artifact, MarkSyncError>> {
 		if (source.includes("FAIL")) {
 			return Res.err({
 				kind: "RemoteUnreachable",

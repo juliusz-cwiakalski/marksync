@@ -3,8 +3,10 @@
 
 import type { Renderer } from "#domain/mermaid/port";
 import type { Artifact } from "#domain/target/port";
+import type { MermaidRenderConfig } from "#domain/config/types";
 import type { MarkSyncError } from "#domain/errors";
 import { Result as Res } from "#domain/result";
+import { normalizeSvg } from "#domain/mermaid/normalize";
 
 const KROKI_ENDPOINT = "https://kroki.io/mermaid/svg";
 const TIMEOUT_MS = 30_000;
@@ -29,11 +31,21 @@ export class KrokiClient implements Renderer {
 		this.doFetch = opts.fetch ?? globalThis.fetch;
 	}
 
-	async render(source: string) {
+	async render(source: string, config: MermaidRenderConfig) {
 		const controller = new AbortController();
 		const timer = setTimeout(() => controller.abort(), this.timeoutMs);
 		try {
-			const response = await this.doFetch(this.endpoint, {
+			const params = new URLSearchParams();
+			if (config.deterministicIds) {
+				params.append("deterministic-ids", "true");
+			}
+			if (!config.htmlLabels) {
+				params.append("html-labels", "false");
+			}
+			const query = params.toString();
+			const url = query ? `${this.endpoint}?${query}` : this.endpoint;
+
+			const response = await this.doFetch(url, {
 				method: "POST",
 				headers: { "Content-Type": "text/plain" },
 				body: source,
@@ -46,7 +58,10 @@ export class KrokiClient implements Renderer {
 					cause: `Kroki returned HTTP ${response.status}`,
 				});
 			}
-			const bytes = new Uint8Array(await response.arrayBuffer());
+			const rawBytes = new Uint8Array(await response.arrayBuffer());
+			const rawSvg = new TextDecoder().decode(rawBytes);
+			const normalizedSvg = normalizeSvg(rawSvg);
+			const bytes = new TextEncoder().encode(normalizedSvg);
 			const hash = await sha256Hex(bytes);
 			const artifact: Artifact = {
 				bytes,
@@ -72,9 +87,6 @@ export class KrokiClient implements Renderer {
 }
 
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
-	// Uint8Array<ArrayBufferLike> isn't assignable to BufferSource under the
-	// current lib types (TS 6, lib ESNext); assert to the backed-by-ArrayBuffer
-	// subtype — runtime is always a real ArrayBuffer (response.arrayBuffer()).
 	const d = await crypto.subtle.digest(
 		"SHA-256",
 		bytes as Uint8Array<ArrayBuffer>,

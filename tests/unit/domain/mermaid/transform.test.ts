@@ -36,7 +36,10 @@ const RENDER_CONFIG: MermaidRenderConfig = {
 class StubRenderer implements Renderer {
 	calls: string[] = [];
 	constructor(private readonly svg: Uint8Array = SVG) {}
-	async render(source: string): Promise<Result<Artifact, MarkSyncError>> {
+	async render(
+		source: string,
+		_config: MermaidRenderConfig,
+	): Promise<Result<Artifact, MarkSyncError>> {
 		this.calls.push(source);
 		const hash = await sha256Hex(this.svg);
 		return Res.ok({
@@ -51,7 +54,10 @@ class StubRenderer implements Renderer {
 /** Stub renderer that errors on empty/whitespace source, succeeds otherwise. */
 class EmptyErrorRenderer implements Renderer {
 	calls: string[] = [];
-	async render(source: string): Promise<Result<Artifact, MarkSyncError>> {
+	async render(
+		source: string,
+		_config: MermaidRenderConfig,
+	): Promise<Result<Artifact, MarkSyncError>> {
 		this.calls.push(source);
 		if (source.trim() === "") {
 			return Res.err({
@@ -66,7 +72,10 @@ class EmptyErrorRenderer implements Renderer {
 
 /** Stub renderer that always errors (network-failure simulation). */
 class AlwaysErrorRenderer implements Renderer {
-	async render(): Promise<Result<Artifact, MarkSyncError>> {
+	async render(
+		_source: string,
+		_config: MermaidRenderConfig,
+	): Promise<Result<Artifact, MarkSyncError>> {
 		return Res.err({
 			kind: "RemoteUnreachable",
 			status: 503,
