@@ -4,9 +4,9 @@
 source: https://github.com/juliusz/cwiakalski-agentic-delivery-os/blob/main/doc/templates/implementation-plan-template.md
 ados_distribution: redistributable
 id: chg-GH-81-mock-confluence-e2e
-status: Proposed
+status: Updated
 created: 2026-07-15T00:00:00Z
-last_updated: 2026-07-15T00:00:00Z
+last_updated: 2026-07-15T00:30:00Z
 owners: ["@cwiakalski"]
 service: marksync-cli
 labels: ["test", "MS-0002", "priority:high", "ci"]
@@ -53,7 +53,7 @@ Per **DEC-1 (Option B)**, scenarios exercise the full pipeline **programmaticall
 - **F-2** — Full-pipeline e2e scenario suite (`tests/e2e-mock/*.test.ts`) running `computePlan` + `applyPlan` against the mock via `ConfluenceTarget.fromCredentials`; ≥ 5 mandatory scenarios + the property-API regression scenario.
 - **F-3** — Mandatory, secrets-free `e2e-mock` CI job in `.github/workflows/ci.yml` running `bun test tests/e2e-mock/`.
 - **F-4** — Adapter-regression lock: scenarios that fail if the GH-71 unwrap or GH-66 property-API shapes regress, plus the mock-409 self-check (AC-F1-2 / RSK-1).
-- Shared helpers (corpus fixtures with `marksync:uuid` front-matter, target builder, instant `delay` seam) and the mock-409 self-check test.
+- Shared helpers (corpus fixtures with `marksync:uuid` front-matter, target builder, instant `delay` seam), the mock-409 self-check test, and the Phase-1 mock smoke probe (direct-request shape check for `user/by-me`/`search`/`restrictions` — API-F1-9/10/11; these endpoints are implemented for AC-F1-1 completeness but are NOT driven by any pipeline scenario per DEC-1).
 
 ### Out of Scope
 
@@ -108,7 +108,7 @@ Per **DEC-1 (Option B)**, scenarios exercise the full pipeline **programmaticall
 **Tasks**:
 
 - [ ] **1.1** Create `tests/e2e-mock/mock-confluence-server.ts`: a `Bun.serve({ port: 0 })` factory returning `{ origin, stop, captured, reset }`, mirroring the `serveMock`/`CapturedRequest[]` pattern in `tests/integration/confluence/confluence-target.test.ts`. The recorder captures `{ host, path, method, authorization, text }` per request. Accept any `Authorization` header (mock only). (F-1, DM-1, DM-2)
-- [ ] **1.2** Add the in-memory state model: `Map<pageId, PageState>` (id, title, version, body storage, parentId), `Map<"pageId::key", { value, version }>` for content properties, `Map<pageId, AttachmentState[]>` (id, filename, version). Server assigns a new monotonic id + version 1 on page create; advances version on successful PUT. (F-1, DM-1)
+- [ ] **1.2** Add the in-memory state model: `Map<pageId, PageState>` (id, title, version, body storage, parentId), `Map<"pageId::key", { id, value, version }>` for content properties (`id` is the property id the mock assigns and is **required** by `PropertyV1Response` — a GET response omitting `id` fails `safeParse` → `RemoteUnreachable`, breaking the property flow; mirrors spec §5.1/§8.1), `Map<pageId, AttachmentState[]>` (id, filename, version). Server assigns a new monotonic id + version 1 on page create; advances version on successful PUT. (F-1, DM-1)
 - [ ] **1.3** Implement the **credential-validation** endpoint (realism only, not on the e2e critical path): `GET /wiki/api/v2/user/by-me` → 200 `{ accountId, displayName }` (fixed identity). (AC-F1-1, §8.1)
 - [ ] **1.4** Implement the **v2 pages** endpoints (per §8.1; adapter: `src/infra/confluence/pages.ts`):
   - `POST /wiki/api/v2/pages` — create; response 2xx `PageV2Response` `{ id, title, status:"current", version:{number:1, message}, body:{storage:{value}} }`.
@@ -116,7 +116,7 @@ Per **DEC-1 (Option B)**, scenarios exercise the full pipeline **programmaticall
   - `PUT /wiki/api/v2/pages/{id}` — update/move; on stale version return **409** with the exact envelope `{ errors:[{ code:"CONFLICT", title:"...Current Version: [N]...Provided version: [M]..." }] }` where `N` = current server version and `M` = the version the caller sent. Title MUST match `VERSION_RE = /Current Version:\s*\[(\d+)\].*?Provided version:\s*\[(\d+)\]/`. On success, respond 200 with the bumped version.
   (AC-F1-1, AC-F1-2, F-1)
 - [ ] **1.5** Implement the **v1 content-property REST** endpoints (per §8.1; adapter: `src/infra/confluence/properties.ts`; **not** jsongraphs — DEC-3):
-  - `GET /wiki/rest/api/content/{pageId}/property/{key}` → 200 `{ key, value, version:{number} }` (value is a string); 404 (→ property absent).
+  - `GET /wiki/rest/api/content/{pageId}/property/{key}` → 200 `{ id, key, value, version:{number} }` (`id` is the property id the mock assigns — required by `PropertyV1Response`; `value` is a string); 404 (→ property absent).
   - `POST /wiki/rest/api/content/{pageId}/property` body `{ key, value }` — create; if the key exists → **409** (triggers the adapter's GET-version → PUT-incremented flow).
   - `PUT /wiki/rest/api/content/{pageId}/property/{key}` body `{ key, value, version:{number: currentVersion+1} }` — update; 409 on stale version.
   (AC-F1-1, F-1)
@@ -130,20 +130,23 @@ Per **DEC-1 (Option B)**, scenarios exercise the full pipeline **programmaticall
 - [ ] **1.10** Create `tests/e2e-mock/helpers.ts`: a `targetFor(origin, { logs? })` builder using `ConfluenceTarget.fromCredentials(creds(origin), spaceId, { delay: () => Promise.resolve(), log })` (the instant `delay` seam, no sleeps), plus a corpus loader. Import `ConfluenceCredentials` from `#domain/credentials` and `ConfluenceTarget` from `#infra/confluence/target`, mirroring `confluence-target.test.ts`. (F-2, NFR-CI-1)
 - [ ] **1.11** Create corpus fixtures under `tests/e2e-mock/fixtures/corpus/`: small committed Markdown pages with `marksync:uuid` front-matter (3 pages for create/no-op; 1 modified page for update; 1 page with an attachment for dedup; 1 page configured for the visible provenance panel). (F-2)
 - [ ] **1.12** Verify the mock's JSON responses use `Content-Type: application/json` exactly as `ConfluenceClient.parseJsonIfPossible` consumes them (RSK-4). (RSK-4)
+- [ ] **1.13** Add the **Phase-1 mock smoke probe** (`tests/e2e-mock/mock-smoke-probe.test.ts`). The three off-critical-path endpoints (`GET /wiki/api/v2/user/by-me`, `GET /wiki/rest/api/search?cql=...`, `GET /wiki/rest/api/content/{pageId}/restriction`) are implemented for AC-F1-1 completeness but are **NOT driven by any pipeline scenario** — `validateCredentials` (the sole caller of `user/by-me`) is never invoked by `computePlan`/`applyPlan` per DEC-1. The probe therefore issues a **direct `fetch`** to each against a fresh mock and asserts the response shapes directly: `user/by-me` → 200 `{ accountId, displayName }`; `search` → 200 `{ results:[] }`; `restriction` → 200 default (empty `results` → not restricted). This is how **API-F1-9 / API-F1-10 / API-F1-11** coverage is satisfied (test-plan §3.2, §6.2). (AC-F1-1, §8.1)
 
 **Acceptance Criteria**:
 
-- Must: The mock implements every corrected endpoint in §8.1 (v2 pages create/get/put, v1 property get/post/put, v1 attachment post/get, user/by-me, search, restrictions) with status + JSON envelopes that satisfy the adapter's zod schemas (`PageV2Response`, `PropertyV1Response`, `AttachmentCreateResponse`/`AttachmentListResponse`). (AC-F1-1)
+- Must: The mock implements every corrected endpoint in §8.1 (v2 pages create/get/put, v1 property get/post/put, v1 attachment post/get, user/by-me, search, restrictions) with status + JSON envelopes that satisfy the adapter's zod schemas (`PageV2Response`, `PropertyV1Response` — including the **required `id`** field, `AttachmentCreateResponse`/`AttachmentListResponse`). (AC-F1-1)
 - Must: The page-PUT stale-version path returns the exact `parseConflict` 409 envelope with a title matching `VERSION_RE`. (AC-F1-1, AC-F1-2)
 - Must: The duplicate-attachment path returns the 400 "same file name" signal, and create responses are `{ results: [...] }`-wrapped (GH-71 shape). (AC-F1-1, F-4)
 - Must: The jsongraphs endpoint is NOT implemented. (DEC-3)
 - Must: State resets per scenario; the captured-request recorder works. (RSK-3, DM-2)
+- Must: The Phase-1 smoke probe directly verifies the three off-critical-path endpoints (`user/by-me`, `search`, `restrictions`) return correct shapes — satisfying API-F1-9/10/11 without driving them through a pipeline scenario (DEC-1). (AC-F1-1)
 - Should: The skeleton compiles and `bun run typecheck` + `bun run lint` are clean for the new files.
 
 **Affected code areas**:
 
 - `tests/e2e-mock/mock-confluence-server.ts` (new — stateful mock + recorder)
 - `tests/e2e-mock/helpers.ts` (new — target builder + corpus loader)
+- `tests/e2e-mock/mock-smoke-probe.test.ts` (new — Phase-1 smoke probe for `user/by-me`/`search`/`restrictions`, API-F1-9/10/11)
 - `tests/e2e-mock/fixtures/corpus/**` (new — Markdown fixtures)
 
 **System docs to update**:
@@ -153,7 +156,7 @@ Per **DEC-1 (Option B)**, scenarios exercise the full pipeline **programmaticall
 **Tests**:
 
 - `bun run typecheck`; `bun run lint` (new files only).
-- Smoke: instantiate the mock, fire one request per endpoint with `fetch`, confirm status + envelope shape (ad-hoc; the real assertions land in Phases 2–4).
+- `bun test tests/e2e-mock/mock-smoke-probe.test.ts` — direct-request assertions for the three off-critical-path endpoints (API-F1-9/10/11). The pipeline-critical endpoints get their real assertions in Phases 2–4.
 
 **Completion signal**: `test(e2e-mock): GH-81 add stateful mock Confluence server + helpers`
 
@@ -196,10 +199,10 @@ Per **DEC-1 (Option B)**, scenarios exercise the full pipeline **programmaticall
 
 **Tasks**:
 
-- [ ] **3.1** Create `tests/e2e-mock/create-flow.test.ts` (TC-E2EMOCK-002, AC-F2-1, AC-F1-1, AC-4 GH-71). Fresh mock; corpus = 3 UUID'd pages (2 with attachments). Run `computePlan` then `applyPlan` (use `ensureCacheLayout` from `#app/cache` on a tmp dir, mirroring `push-flow.test.ts`). Assert `ApplyReport.writes == 3`; captured requests include 3× `POST /wiki/api/v2/pages`, 3× `POST .../property` with `key:"marksync.metadata"`, 2× `POST .../child/attachment`, 1× `GET .../user/by-me`; assert attachment ids are extracted from `results[0].id` (GH-71 unwrap class); assert mock state (3 pages, 3 properties, 2 attachments). (F-2, F-4)
+- [ ] **3.1** Create `tests/e2e-mock/create-flow.test.ts` (TC-E2EMOCK-002, AC-F2-1, AC-F1-1, AC-4 GH-71). Fresh mock; corpus = 3 UUID'd pages (2 with attachments). Run `computePlan` then `applyPlan` (use `ensureCacheLayout` from `#app/cache` on a tmp dir, mirroring `push-flow.test.ts`). Assert `ApplyReport.writes == 3`; captured requests include 3× `POST /wiki/api/v2/pages`, 3× `POST .../property` with `key:"marksync.metadata"` (POST returns 2xx on the fresh mock — create succeeds), 2× `POST .../child/attachment`; assert attachment ids are extracted from `results[0].id` (GH-71 unwrap class); assert mock state (3 pages, 3 properties, 2 attachments). (F-2, F-4)
 - [ ] **3.2** Create `tests/e2e-mock/noop-idempotency.test.ts` (TC-E2EMOCK-003, AC-F2-2, NFR-PERF-4). Populate state with a first `applyPlan`, then run a second `applyPlan` over unchanged source. Assert `ApplyReport.writes == 0` and `skips > 0`; assert 0× of every write verb (`POST /pages`, `PUT /pages/{id}`, `POST/PUT .../property`, `POST .../child/attachment`); assert server-side state unchanged. (F-2, NFR-PERF-4)
 - [ ] **3.3** Create `tests/e2e-mock/update-flow.test.ts` (TC-E2EMOCK-004, AC-F2-3). First sync creates 1 page (version 1); modify the Markdown; second `applyPlan`. Assert `ApplyReport.writes == 1`; captured `PUT /wiki/api/v2/pages/{id}` carries `version.number == 2` (= baseVersion+1); a `GET .../pages/{id}?body-format=storage` (comparison) is captured; assert the mock's server-side page version advanced 1 → 2 and the body matches the new content. (F-2)
-- [ ] **3.4** Create `tests/e2e-mock/attachment-dedup.test.ts` (TC-E2EMOCK-005, AC-F2-4, AC-4 GH-71). First sync uploads an attachment; second `applyPlan` over the same asset. Assert `ApplyReport.writes == 0`; assert 0× `POST .../child/attachment` for that asset on run 2; verify the dedup path (mock 400 "same file name" or adapter hash precheck); assert the attachment's server-side id/version unchanged. (F-2, F-4)
+- [ ] **3.4** Create `tests/e2e-mock/attachment-dedup.test.ts` (TC-E2EMOCK-005, AC-F2-4, AC-4 GH-71 dedup signal). Fresh mock; corpus = 1 page with 1 attachment. **Run 1:** `computePlan` + `applyPlan` (uploads the attachment). **Then MODIFY the markdown page** (triggering an Update flow) while keeping the SAME asset file unchanged — unchanged source would short-circuit as NoOp *before* `uploadAssets`, so the dedup path would never be reached. **Run 2:** second `computePlan` + `applyPlan` re-runs `uploadAssets`, so `POST .../child/attachment` is attempted → mock returns **400 "Cannot add a new attachment with same file name"** → adapter resolves the existing attachment via `GET .../child/attachment` (list). Assert `ApplyReport.writes == 1` (page updated); assert the captured run-2 sequence includes `PUT /wiki/api/v2/pages/{id}`, one attempted `POST .../child/attachment` (400), and `GET .../child/attachment`; assert the mock's server-side attachment id/version is unchanged (no new attachment created). (F-2, F-4)
 - [ ] **3.5** Create `tests/e2e-mock/provenance-panel.test.ts` (TC-E2EMOCK-006, AC-F2-5, AC-4 GH-66). Fresh mock; 1 page configured for the visible provenance panel. Run `applyPlan`; assert the captured create/update page body contains the visible provenance panel (the `{info}` macro / `marksync.metadata` content); assert the mock's server-side page body reflects the panel. (F-2, F-4)
 - [ ] **3.6** In every scenario, use the instant `delay` seam and a fresh mock (or explicit `reset()`) so no sleeps and no cross-scenario leakage occur (RSK-3, NFR-CI-1). (RSK-3, NFR-CI-1)
 - [ ] **3.7** For each scenario, if a genuine adapter bug is observed (assertions fail for reasons other than a test/mock defect), **STOP and escalate to the PM** — do NOT edit `src/**` (RSK-5). Record the finding in the Execution Log. (RSK-5)
@@ -207,7 +210,7 @@ Per **DEC-1 (Option B)**, scenarios exercise the full pipeline **programmaticall
 **Acceptance Criteria**:
 
 - Must: All five scenarios pass; `ApplyReport.writes` counts match expectations; captured-request sequences match the expected pipeline order; mock server-side state advances/holds as specified. (AC-F2-1, AC-F2-2, AC-F2-3, AC-F2-4, AC-F2-5)
-- Must: GH-71 unwrap is asserted (attachment ids read from `results[0].id`) and dedup holds (no re-upload on run 2). (AC-4, F-4)
+- Must: GH-71 unwrap is asserted in the create scenario (attachment ids read from `results[0].id`, TC-E2EMOCK-002) and the dedup signal is handled in the update-driven dedup scenario (TC-E2EMOCK-005: POST 400 → list → resolve; existing attachment reused, server-side attachment id/version unchanged). (AC-4, F-4)
 - Should: Each scenario's runtime is tracked (collectively contributing to the ≤ 60 s budget, NFR-CI-1).
 
 **Affected code areas**:
@@ -232,19 +235,20 @@ Per **DEC-1 (Option B)**, scenarios exercise the full pipeline **programmaticall
 
 ### Phase 4: Property-API Regression Scenario (D)
 
-**Goal**: Add the dedicated property-API regression scenario covering the v1 content-property create → 409 → GET → PUT flow and asserting the obsolete jsongraphs endpoint is never called — anchoring the GH-66 regression lock where it is not already covered by the create scenario.
+**Goal**: Add the dedicated property-API regression scenario covering the v1 content-property update flow — POST → 409 (key already exists) → GET-version → PUT-incremented — driven by a two-sync sequence, and asserting the obsolete jsongraphs endpoint is never called — anchoring the GH-66 regression lock where it is not already covered by the create scenario.
 
 **Tasks**:
 
-- [ ] **4.1** Create `tests/e2e-mock/property-api-flow.test.ts` (TC-E2EMOCK-008, AC-F2-1, AC-4 GH-66). Fresh mock; 1 UUID'd page. Run `computePlan` + `applyPlan`. Assert the captured request sequence exercises the v1 content-property flow: `POST /wiki/rest/api/content/{pageId}/property` (attempt create) → mock 409 → adapter `GET .../property/{key}` (fetch current version) → adapter `PUT .../property/{key}` carrying `{ value, version:{ number: currentVersion+1 } }`. (F-2, F-4)
-- [ ] **4.2** Assert the `/api/jsongraphs/property-service/property` endpoint is **never** requested across the whole scenario (DEC-3) — proving a GH-66 regression that re-targets jsongraphs fails this scenario. (DEC-3, F-4)
-- [ ] **4.3** Assert the property is successfully set in the mock's server-side state (`marksync.metadata` present with the expected value/version). (F-2)
+- [ ] **4.1** Create `tests/e2e-mock/property-api-flow.test.ts` (TC-E2EMOCK-008, AC-F2-1, AC-4 GH-66). The POST→409→GET→PUT path is **unreachable on a fresh mock** (the property key does not yet exist, so `POST .../property` returns 2xx and creates it), so the scenario uses a **two-sync flow**: **Run 1:** `computePlan` + `applyPlan` over 1 UUID'd page (creates the page + sets `marksync.metadata` via `POST .../property` → 2xx, holding the GH-66 lock that v1 content-property endpoints — not jsongraphs — are used). **Then MODIFY the markdown page** (title/body change). **Run 2:** second `computePlan` + `applyPlan` hits the EXISTING property key → adapter attempts `POST /wiki/rest/api/content/{pageId}/property` → mock **409** → adapter `GET .../property/{key}` (fetch current version) → adapter `PUT .../property/{key}` carrying `{ value, version:{ number: currentVersion+1 } }`. Assert the captured run-2 sequence is POST-409 → GET → PUT in that order; assert every property response body satisfies `PropertyV1Response` (includes the required `id` + `key` + `value` + `version:{number}`). (F-2, F-4)
+- [ ] **4.2** Assert the `/api/jsongraphs/property-service/property` endpoint is **never** requested across both runs (DEC-3) — proving a GH-66 regression that re-targets jsongraphs fails this scenario. (DEC-3, F-4)
+- [ ] **4.3** Assert the property is successfully updated in the mock's server-side state (`marksync.metadata` present with the expected value and incremented version). (F-2)
 - [ ] **4.4** If a genuine adapter bug is observed, **STOP and escalate to the PM** — do NOT edit `src/**` (RSK-5). (RSK-5)
 
 **Acceptance Criteria**:
 
-- Must: The v1 content-property POST-409 → GET → PUT flow is captured in the correct order with the PUT carrying the incremented version number. (AC-F2-1, F-2)
-- Must: The jsongraphs endpoint is never called. (DEC-3, AC-4 GH-66)
+- Must: The v1 content-property POST-409 → GET → PUT update flow is captured in the correct order on run 2 (after a run-1 create via POST-2xx), with the PUT carrying the incremented version number. (AC-F2-1, F-2)
+- Must: The jsongraphs endpoint is never called across either run. (DEC-3, AC-4 GH-66)
+- Must: Property responses satisfy `PropertyV1Response` (include the required `id` field). (AC-F1-1)
 - Should: The PUT body's `version.number == currentVersion + 1` is asserted. (F-2)
 
 **Affected code areas**:
@@ -343,10 +347,11 @@ Per **DEC-1 (Option B)**, scenarios exercise the full pipeline **programmaticall
 | TC-E2EMOCK-002 | Create Flow — Pages with Properties and Attachments (GH-71 unwrap) | `tests/e2e-mock/create-flow.test.ts` | 3, 6 | AC-F2-1, AC-F1-1, AC-4 (GH-71) |
 | TC-E2EMOCK-003 | No-Op Idempotency — Second Run Zero Writes | `tests/e2e-mock/noop-idempotency.test.ts` | 3, 6 | AC-F2-2, NFR-PERF-4 |
 | TC-E2EMOCK-004 | Update Flow — Version Bump and Server State Advance | `tests/e2e-mock/update-flow.test.ts` | 3, 6 | AC-F2-3 |
-| TC-E2EMOCK-005 | Attachment Deduplication — No Re-upload on Duplicate (GH-71) | `tests/e2e-mock/attachment-dedup.test.ts` | 3, 6 | AC-F2-4, AC-4 (GH-71) |
+| TC-E2EMOCK-005 | Attachment Deduplication — Update-driven 400→list→resolve (GH-71 dedup signal) | `tests/e2e-mock/attachment-dedup.test.ts` | 3, 6 | AC-F2-4, AC-4 (GH-71) |
 | TC-E2EMOCK-006 | Provenance Panel — Visible in Body (GH-66) | `tests/e2e-mock/provenance-panel.test.ts` | 3, 6 | AC-F2-5, AC-4 (GH-66) |
 | TC-E2EMOCK-007 | CI Job Verification — `e2e-mock` Present and Secrets-Free | `.github/workflows/ci.yml` | 5, 6 | AC-3, NFR-CI-1/2 |
-| TC-E2EMOCK-008 | Property API Flow — v1 create→409→GET→PUT, no jsongraphs (GH-66) | `tests/e2e-mock/property-api-flow.test.ts` | 4, 6 | AC-F2-1, AC-4 (GH-66) |
+| TC-E2EMOCK-008 | Property API Flow — two-sync update: POST→409→GET→PUT, no jsongraphs (GH-66) | `tests/e2e-mock/property-api-flow.test.ts` | 4, 6 | AC-F2-1, AC-4 (GH-66) |
+| — (Phase-1 smoke probe) | Direct-request shape check for off-critical-path endpoints | `tests/e2e-mock/mock-smoke-probe.test.ts` | 1 | AC-F1-1 (API-F1-9/10/11) |
 | — | Stretch scenarios (conflict recovery, Mermaid determinism, HTML-comment strip, UUID-less warning) | — | Deferred | AC-F2-6 (deferred per spec §7.3 / OQ-1) |
 
 ## Artifacts and Links
@@ -362,6 +367,7 @@ Per **DEC-1 (Option B)**, scenarios exercise the full pipeline **programmaticall
 | CI workflow (NOT touched) | .github/workflows/run-e2e.yml | CI (live-sandbox tier — unchanged, DEC-2) |
 | Mock server | tests/e2e-mock/mock-confluence-server.ts | Test infra (new) |
 | Test helpers | tests/e2e-mock/helpers.ts | Test infra (new) |
+| Phase-1 smoke probe | tests/e2e-mock/mock-smoke-probe.test.ts | Test (new — API-F1-9/10/11) |
 | Corpus fixtures | tests/e2e-mock/fixtures/corpus/ | Fixtures (new) |
 | 409 self-check | tests/e2e-mock/mock-server-409-parse.test.ts | Test (new) |
 | Mandatory scenarios | tests/e2e-mock/{create-flow,noop-idempotency,update-flow,attachment-dedup,provenance-panel}.test.ts | Tests (new) |
@@ -376,6 +382,7 @@ Per **DEC-1 (Option B)**, scenarios exercise the full pipeline **programmaticall
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-15 | plan-writer | Initial plan for GH-81. 6 commit-sized phases (A–F): mock skeleton + helpers, mock-409 self-check, 5 mandatory scenarios, property-API regression scenario, mandatory secrets-free CI job, verification + finalize. Enforces DEC-1 (0 `src/**` changes; STOP+escalate adapter bugs to PM), DEC-2 (`tests/e2e-mock/` only), DEC-3 (corrected endpoints; no jsongraphs). Traced to TC-E2EMOCK-001..008 and AC-F1-1/2, AC-F2-1..6, AC-3, AC-4. Helper module named `mock-confluence-server.ts` (reconciled vs. test-plan §7 `mock-server.ts` — non-contract naming, see OQ-P1). |
+| 1.1 | 2026-07-15 | plan-writer | DoR iter-1 realignment with corrected spec (commit 77d193b) + test-plan (commit 59597f2). Targeted fixes only — phase letters/structure (A–F) and TC↔AC mappings preserved. (1) Property GET response shape + in-memory state now include the required `id` field (`{ id, key, value, version:{number} }` per `PropertyV1Response`, spec §8.1/§5.1) — Phase 1 tasks 1.2/1.5 + AC. (2) Removed the `1× GET .../user/by-me` pipeline-run assertion from TC-E2EMOCK-002/Phase 3 task 3.1 (`validateCredentials` is never called by `computePlan`/`applyPlan` per DEC-1). (3) Added a Phase-1 mock smoke probe task (1.13, `mock-smoke-probe.test.ts`) that directly requests `user/by-me`/`search`/`restrictions` — satisfying API-F1-9/10/11 without a pipeline scenario. (4) TC-E2EMOCK-008/Phase 4 rewritten to a two-sync flow (run-1 create via POST-2xx, modify markdown, run-2 update hits the existing key → POST-409→GET→PUT); GH-66 v1-endpoint + no-jsongraphs lock preserved. (5) TC-E2EMOCK-005/Phase 3 task 3.4 rewritten to exercise the dedup path via an update flow (run-1 upload, modify markdown keeping the same asset, run-2 Update re-runs `uploadAssets` → POST-400 "same file name" → list-resolve); GH-71 unwrap lock stays with TC-E2EMOCK-002's real uploads. Guardrails intact: `src/**` untouched (DEC-1), `tests/e2e-mock/` only (DEC-2), corrected endpoints/no jsongraphs (DEC-3), escalate-adapter-bugs-to-PM (RSK-5), `git diff --stat main -- src/` empty check in Phase F. |
 
 ## Execution Log
 
