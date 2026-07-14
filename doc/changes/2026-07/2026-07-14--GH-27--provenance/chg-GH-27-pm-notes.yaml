@@ -1,0 +1,94 @@
+change_id: GH-27
+title: "[MS2-E4-S3] Provenance"
+branch: feat/GH-27/provenance
+story_file: doc/planning/milestones/MS-2/MS2-E4--features/MS2-E4-S3--provenance.md
+feature_spec: doc/spec/features/feature-safe-publish.md
+decisions: [ADR-0010]
+nfrs: [NFR-REL-9, NFR-A11Y-3]
+
+phases:
+  clarify_scope: { started: "2026-07-14T00:00:00Z", completed: "2026-07-14T00:01:00Z" }
+  specification: { started: "2026-07-14T00:01:00Z", completed: "2026-07-14T00:10:00Z" }
+  test_planning: { started: "2026-07-14T00:02:00Z", completed: "2026-07-14T00:11:00Z" }
+  delivery_planning: { started: "2026-07-14T00:03:00Z", completed: "2026-07-14T00:12:00Z" }
+  dor_check: { started: "2026-07-14T00:04:00Z", completed: "2026-07-14T00:13:00Z" }
+  delivery: { started: "2026-07-14T00:13:00Z", completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+
+decisions: []
+open_questions: []
+blockers: []
+
+notes:
+  - text: >
+      DoR iter-2 NOT_READY (2026-07-14): 8/11 iter-1 findings resolved; the
+      decided architecture (panel excluded from HAST hash by construction,
+      canonicalizer dropped) was verified sound against source. Remaining are
+      partial-remediation sweep gaps: (1) spec still has 9 locations describing
+      the dropped canonicalizer (F-3, AC-F3-1, §16, Flow 1, §7.1, RSK-3, §22,
+      §23) — phantom capability contradicting the spec's own G-4/NFR-PERF-4;
+      (2) test-plan still references the removed NFR-PRIV-1 in 3 places;
+      minors: spec glossary/dep-table still use marksync: colon, TC-PROV-003
+      trimMarker example includes boolean false, plan nit on visiblePanel→
+      processEntry threading. Reopening specification + test_planning (sweep).
+      Process improvement: when an architecture decision drops a mechanism,
+      authors must grep-sweep ALL artifacts for the dropped term, not just the
+      primary section — the phantom canonicalizer refs survived because each
+      author only fixed their main section.
+    type: retro
+    workItemRef: GH-27
+    date: "2026-07-14"
+  - text: >
+      DoR iter-1 NOT_READY (2026-07-14): readiness-reviewer caught 2 critical
+      + 5 major gaps. Root causes: (1) classifyVersion prefix in spec/test-plan
+      used "marksync:" but actual PROVENANCE_PREFIX in provenance.ts is
+      "marksync git" — would never classify a real version as marksync
+      (NFR-REL-9 broken); (2) false-drift architecture contradiction — plan
+      appends panel post-render (string, not HAST) but classifier compares
+      HAST-canonical hashes, making the canonicalizer normalization dead code;
+      spec's "panel in hash except excluded" claim is ambiguous. Plus: privacy
+      NFR-PRIV-1 ID collision + incorrect claim that subjects never in
+      version.message (ADR-0010 C-2 intentionally includes compact subject
+      summary in version.message; privacy constraint is specifically about
+      marksync.metadata property); lock-format contradiction (spec says "no
+      changes" but plan extends lock-schema.json); config.visiblePanel wiring
+      unspecified at apply point; ProvenanceInput missing sourcePath/
+      synchronizedAt for the panel; no system-doc updates planned. Reopening
+      specification + test_planning + delivery_planning. Process improvement:
+      spec/plan authors should ground interface claims in actual source
+      (prefix string, hashing layer) before asserting them — the prefix
+      mismatch was a 1-line grep away.
+    type: retro
+    workItemRef: GH-27
+    date: "2026-07-14"
+  - text: >
+      Intake (2026-07-14): clean new delivery on main, no resume-sync needed.
+      Dependency MS2-E3-S6 (GH-23 sync engine) is MERGED — resolved. Ticket +
+      story file + ADR-0010 + NFR-REL-9/NFR-A11Y-3 give unambiguous scope;
+      CEO-resolved risks R1 (panel bloat → minimal {info}, configurable off)
+      and Q1 (panel placement → footer by default). No blocking questions for
+      the human.
+    type: info
+    workItemRef: GH-27
+    date: "2026-07-14"
+  - text: >
+      Existing state (seeded by E3-S4 / earlier stories): formatVersionMessage
+      already produces the marksync git <head> (<count>): <subjects> version
+      message (trimmed to 255). bindingToProperty writes marksync.metadata with
+      {schemaVersion, projectId, targetId, documentId, sourcePath, sourceCommit,
+      sourceContentHash, renderedBodyHash, toolVersion, synchronizedAt,
+      operationId}. config.provenance.visiblePanel knob exists (default true)
+      but is NOT consumed. git.currentBranch() port exists (already used by
+      branch gate). plan.provenance carries {headCommit, commitCount, subjects}
+      but NOT branch. The four deliverables for GH-27: (1) buildProvenancePanel
+      XHTML {info} macro; (2) pipeline injection gated by visiblePanel +
+      canonicalizer strips timestamp marker; (3) marksync.metadata enrichment
+      with sourceBranch + commitCount + trimMarker (NO commit subjects); (4)
+      classifyVersion predicate.
+    type: info
+    workItemRef: GH-27
+    date: "2026-07-14"
