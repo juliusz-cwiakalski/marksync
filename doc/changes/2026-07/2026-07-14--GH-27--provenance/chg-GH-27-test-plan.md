@@ -3,16 +3,17 @@
 # MIT License - see LICENSE file for full terms
 ados_distribution: project-generated
 id: chg-GH-27-test-plan
-status: Proposed
+status: Updated
 created: 2026-07-14
 last_updated: 2026-07-14
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 labels: [MS-0002, provenance, metadata, accessibility]
 version_impact: minor
-summary: "Provenance infrastructure: visible panel/footer on managed pages with complete marksync.metadata property enrichment and direct-edit classification, enforcing privacy via ADR-0010 and preventing false drift through timestamp canonicalization."
+summary: "Provenance infrastructure: visible panel/footer on managed pages with complete marksync.metadata property enrichment and direct-edit classification, enforcing privacy via ADR-0010 and preventing false drift through panel exclusion from HAST hash comparison."
 links:
   change_spec: ./chg-GH-27-spec.md
+  implementation_plan: ./chg-GH-27-plan.md
   testing_strategy: .ai/rules/testing-strategy.md
 ---
 
@@ -20,17 +21,17 @@ links:
 
 ## 1. Scope and Objectives
 
-This test plan validates provenance infrastructure for the safe publish pipeline: ensuring every managed Confluence page carries visible provenance (source path, Git revision, branch, last-sync timestamp) readable by non-technical stakeholders, complete machine-readable `marksync.metadata` property enrichment, and programmatic direct-edit classification. The plan enforces the privacy constraint from ADR-0010 (commit subjects stored only locally, never in Confluence) and prevents false drift through timestamp canonicalization. Key risks covered: privacy violations if commit subjects leak to Confluence, false-positive drift from timestamp-only updates, incorrect classification of direct edits, and incomplete metadata populating the property.
+This test plan validates provenance infrastructure for the safe publish pipeline: ensuring every managed Confluence page carries visible provenance (source path, Git revision, branch, last-sync timestamp) readable by non-technical stakeholders, complete machine-readable `marksync.metadata` property enrichment, and programmatic direct-edit classification. The plan enforces the privacy constraint from ADR-0010 (commit subjects stored only in `marksync.metadata` property count+marker, never subjects; version.message may contain subjects per ADR-0010 C-2) and prevents false drift through panel exclusion from HAST hash comparison (panel is appended post-render as Storage string, never enters HAST). Key risks covered: privacy violations if commit subjects leak to `marksync.metadata` property, false-positive drift from timestamp-only updates, incorrect classification of direct edits, and incomplete metadata populating the property.
 
 ### 1.1 In Scope
 
 - Visible provenance panel builder (`buildProvenancePanel`) generating Storage XHTML `{info}` macro
-- Panel injection into Storage body gated by `provenance.visiblePanel` configuration
-- Content-hash canonicalization excluding timestamp/marker block to prevent false drift
+- Panel injection into Storage body gated by `provenance.visiblePanel` configuration (appended post-render, never enters HAST)
+- Content-hash comparison excludes panel by construction (panel is post-render Storage string append; HAST hash never includes panel)
 - Full enrichment of `marksync.metadata` content property with all required fields
 - Direct-edit classification predicate (`classifyVersion`) based on `version.message` prefix
-- Privacy enforcement: commit subjects in local output only, not in Confluence
-- Idempotent sync behavior: identical content at different times returns `NO_CHANGE`
+- Privacy enforcement: commit subjects in `marksync.metadata` property are excluded (only `commitCount` + `trimMarker` per ADR-0010); `version.message` may contain compact subject summary per ADR-0010 C-2
+- Idempotent sync behavior: identical content at different times returns `NO_CHANGE` (panel excluded from HAST hash by construction)
 - Footer placement of panel (end of body) by default
 
 ### 1.2 Out of Scope & Known Gaps
@@ -61,10 +62,10 @@ This test plan validates provenance infrastructure for the safe publish pipeline
 |-------|-------------|----------|--------|
 | AC-F1-1 | Panel displays with source path, Git revision, branch, last-sync timestamp | TC-PROV-001, TC-PROV-004 | Covered |
 | AC-F1-2 | Panel not displayed when `provenance.visiblePanel: false` | TC-PROV-002 | Covered |
-| AC-F3-1 | Idempotent sync (identical content, different time) returns NO_CHANGE | TC-PROV-006, TC-PROV-007 | Covered |
+| AC-F3-1 | Idempotent sync (identical content, different time) returns NO_CHANGE | TC-PROV-007 | Covered |
 | AC-F4-1 | `marksync.metadata` contains all required fields | TC-PROV-003, TC-PROV-005 | Covered |
 | AC-F4-2 | `marksync.metadata` contains NO commit subjects (privacy) | TC-PROV-003, TC-PROV-005 | Covered |
-| AC-F5-1 | `classifyVersion` returns "marksync" for `marksync:` prefix | TC-PROV-008 | Covered |
+| AC-F5-1 | `classifyVersion` returns "marksync" for `marksync git` prefix | TC-PROV-008 | Covered |
 | AC-F5-2 | `classifyVersion` returns "direct" for no prefix | TC-PROV-009 | Covered |
 | AC-INT-1 | 100% managed pages have valid panel + complete property | TC-PROV-004, TC-PROV-005 | Covered |
 | AC-CI-1 | `bun run check` passes (unit + integration + golden) | All TCs | Covered |
@@ -82,10 +83,10 @@ This test plan validates provenance infrastructure for the safe publish pipeline
 
 | NFR ID | Description | TC ID(s) |
 |--------|-------------|----------|
-| NFR-REL-9 | Per-version provenance: MarkSync versions have `marksync:` prefix, direct edits do not | TC-PROV-008, TC-PROV-009 |
+| NFR-REL-9 | Per-version provenance: MarkSync versions have `marksync git` prefix, direct edits do not | TC-PROV-008, TC-PROV-009 |
 | NFR-A11Y-3 | Visible provenance accessibility: readable panel with plain text | TC-PROV-001 |
-| NFR-PERF-4 | Idempotent rerun: no false drift from timestamp updates | TC-PROV-006, TC-PROV-007 |
-| NFR-PRIV-1 | Local-first provenance: commit subjects only in local output, not in Confluence | TC-PROV-003, TC-PROV-005 |
+| NFR-PERF-4 | Idempotent rerun: no false drift from timestamp updates (panel excluded from HAST hash by construction) | TC-PROV-007 |
+| NFR-PRIV-1 (ADR-0010) | Privacy: `marksync.metadata` property contains only commitCount + trimMarker, never subjects | TC-PROV-003, TC-PROV-005 |
 
 ## 4. Test Types and Layers
 
@@ -110,12 +111,11 @@ This story focuses on **Unit** and **Integration** test tiers per the testing st
 |-------|-------|------|-------|----------|-------------|
 | TC-PROV-001 | Panel builder generates valid Storage XHTML with all fields | Happy Path | Important | High | AC-F1-1, F-1, NFR-A11Y-3 |
 | TC-PROV-002 | Panel not injected when `provenance.visiblePanel: false` | Negative | Important | High | AC-F1-2, F-2 |
-| TC-PROV-003 | Property schema validates all required fields, excludes commit subjects | Happy Path | Critical | High | AC-F4-1, AC-F4-2, F-4, NFR-PRIV-1 |
+| TC-PROV-003 | Property schema validates all required fields, excludes commit subjects | Happy Path | Critical | High | AC-F4-1, AC-F4-2, F-4, ADR-0010 |
 | TC-PROV-004 | Integration: full apply populates panel and property | Happy Path | Critical | High | AC-F1-1, AC-F4-1, AC-INT-1 |
-| TC-PROV-005 | Integration: second sync preserves privacy (no subjects in property) | Happy Path | Critical | High | AC-F4-2, AC-INT-1, NFR-PRIV-1 |
-| TC-PROV-006 | Canonicalizer strips timestamp from body before hash | Edge Case | Important | High | AC-F3-1, F-3, NFR-PERF-4 |
+| TC-PROV-005 | Integration: second sync preserves privacy (no subjects in property) | Happy Path | Critical | High | AC-F4-2, AC-INT-1, ADR-0010 |
 | TC-PROV-007 | Integration: idempotent sync returns NO_CHANGE (same content, different time) | Happy Path | Critical | High | AC-F3-1, NFR-PERF-4 |
-| TC-PROV-008 | `classifyVersion` returns "marksync" for `marksync:` prefix | Happy Path | Important | High | AC-F5-1, F-5, NFR-REL-9 |
+| TC-PROV-008 | `classifyVersion` returns "marksync" for `marksync git` prefix | Happy Path | Important | High | AC-F5-1, F-5, NFR-REL-9 |
 | TC-PROV-009 | `classifyVersion` returns "direct" for no prefix (edge cases) | Edge Case | Important | High | AC-F5-2, F-5, NFR-REL-9 |
 | TC-PROV-010 | Panel builder handles edge cases (empty message, case sensitivity) | Corner Case | Minor | Medium | F-1, robustness |
 
@@ -133,7 +133,8 @@ This story focuses on **Unit** and **Integration** test tiers per the testing st
 **Tags**: @backend, @golden
 
 **Preconditions**:
-- `ProvenanceInput` object with `sourcePath`, `headCommit`, `sourceBranch`, `synchronizedAt` is provided
+- `ProvenanceInput`-derived object with `sourcePath`, `headCommit`, `sourceBranch`, `synchronizedAt` fields is provided
+- `synchronizedAt` is an ISO8601 timestamp string (e.g., `"2026-07-14T12:34:56Z"`)
 
 **Steps**:
 1. Call `buildProvenancePanel(input)` with sample provenance data (e.g., `sourcePath: "docs/guide/api.md"`, `headCommit: "a1b2c3d"`, `sourceBranch: "main"`, `synchronizedAt: "2026-07-14T12:34:56Z"`)
@@ -201,28 +202,28 @@ This story focuses on **Unit** and **Integration** test tiers per the testing st
 - Complete provenance metadata object available after sync
 
 **Steps**:
-1. Create a sample `marksync.metadata` property value JSON string with all required fields: `{schemaVersion, projectId, targetId, documentId, sourcePath, sourceCommit, sourceBranch, sourceContentHash, renderedBodyHash, operationId, synchronizedAt, toolVersion, commitCount, trimMarker}`
+1. Create a sample `marksync.metadata` property value JSON string with all 14 required fields: `{schemaVersion, projectId, targetId, documentId, sourcePath, sourceCommit, sourceBranch, sourceContentHash, renderedBodyHash, operationId, synchronizedAt, toolVersion, commitCount, trimMarker}`
 2. Parse the JSON string
 3. Assert all required fields are present and have correct types:
-   - `schemaVersion`: number
-   - `projectId`, `targetId`: string
-   - `documentId`: string (UUID v7)
-   - `sourcePath`, `sourceCommit`, `sourceBranch`: string
-   - `sourceContentHash`, `renderedBodyHash`: string (hash format)
-   - `operationId`: string (UUID v7)
-   - `synchronizedAt`: string (ISO8601 timestamp)
-   - `toolVersion`: string
-   - `commitCount`: number
-   - `trimMarker`: boolean
+    - `schemaVersion`: number
+    - `projectId`, `targetId`: string
+    - `documentId`: string (UUID v7)
+    - `sourcePath`, `sourceCommit`, `sourceBranch`: string
+    - `sourceContentHash`, `renderedBodyHash`: string (hash format)
+    - `operationId`: string (UUID v7)
+    - `synchronizedAt`: string (ISO8601 timestamp)
+    - `toolVersion`: string
+    - `commitCount`: number
+    - `trimMarker`: string (e.g., `"+3 more"` or `false` if no truncation)
 4. **Privacy assertion**: Assert the JSON does NOT contain a `subjects` field or any commit subject strings
-5. Assert `commitCount` is a number (e.g., 5) and `trimMarker` is a boolean (e.g., false)
+5. Assert `commitCount` is a number (e.g., 5) and `trimMarker` is a string indicating truncation state
 6. Verify the JSON string is valid JSON (parseable without errors)
 
 **Expected Outcome**:
-- All 13 required fields are present with correct types
+- All 14 required fields are present with correct types
 - NO `subjects` field or commit subject strings exist in the property (ADR-0010 privacy constraint)
 - JSON is valid and parseable
-- `commitCount` and `trimMarker` provide truncation metadata without exposing subject content
+- `commitCount` (number) and `trimMarker` (string) provide truncation metadata without exposing subject content
 
 ---
 
@@ -250,15 +251,15 @@ This story focuses on **Unit** and **Integration** test tiers per the testing st
 5. Assert the page body contains the provenance panel (`<ac:structured-macro ac:name="info">`)
 6. Verify panel fields: source path, Git revision, branch, last-sync timestamp
 7. Read the `marksync.metadata` content property from mock server
-8. Parse the property JSON and assert all 13 required fields are present
+8. Parse the property JSON and assert all 14 required fields are present
 9. Verify `sourceBranch`, `commitCount`, `trimMarker` fields are populated correctly
-10. Assert the page version created has `version.message` starting with `marksync:` prefix
+10. Assert the page version created has `version.message` starting with `marksync git` prefix (space, not colon)
 
 **Expected Outcome**:
 - Page body written to Confluence contains the visible provenance panel
-- `marksync.metadata` property is fully populated with all required fields
+- `marksync.metadata` property is fully populated with all 14 required fields
 - Panel and property values match the provenance data from the sync
-- Page version carries `marksync:` prefix for classification
+- Page version carries `marksync git` prefix (e.g., `marksync git abc1234 (2): feat: add panel; fix: typo`) for classification
 - No errors or warnings in the sync execution
 
 ---
@@ -268,7 +269,7 @@ This story focuses on **Unit** and **Integration** test tiers per the testing st
 **Scenario Type**: Happy Path
 **Impact Level**: Critical
 **Priority**: High
-**Related IDs**: F-4, AC-F4-2, AC-INT-1, NFR-PRIV-1, ADR-0010
+**Related IDs**: F-4, AC-F4-2, AC-INT-1, ADR-0010
 **Test Type(s)**: Integration
 **Automation Level**: Automated
 **Target Layer / Location**: `src/app/push-flow.ts` → `tests/integration/push-flow.test.ts`
@@ -299,45 +300,12 @@ This story focuses on **Unit** and **Integration** test tiers per the testing st
 
 ---
 
-#### TC-PROV-006 - Canonicalizer strips timestamp from body before hash
-
-**Scenario Type**: Edge Case
-**Impact Level**: Important
-**Priority**: High
-**Related IDs**: F-3, AC-F3-1, NFR-PERF-4
-**Test Type(s)**: Unit
-**Automation Level**: Automated
-**Target Layer / Location**: `src/domain/render/canonicalize.ts` → `tests/unit/render/canonicalize.test.ts`
-**Tags**: @backend, @hashing, @normalization
-
-**Preconditions**:
-- Storage body containing provenance panel with timestamp is available
-
-**Steps**:
-1. Create two Storage body strings with identical content but different timestamps:
-   - Body A: `<body><p>Content</p><ac:structured-macro ac:name="info"><ac:rich-text-body><p><strong>Last sync:</strong> 2026-07-14T12:34:56Z</p></ac:rich-text-body></ac:structured-macro></body>`
-   - Body B: `<body><p>Content</p><ac:structured-macro ac:name="info"><ac:rich-text-body><p><strong>Last sync:</strong> 2026-07-14T13:45:67Z</p></ac:rich-text-body></ac:structured-macro></body>`
-2. Apply canonicalizer function to Body A, capturing the normalized output
-3. Apply canonicalizer function to Body B, capturing the normalized output
-4. Assert the timestamp/marker block is stripped from both normalized outputs
-5. Compute content hash of normalized Body A
-6. Compute content hash of normalized Body B
-7. Assert both hashes are identical (NO_CHANGE classification)
-
-**Expected Outcome**:
-- Canonicalizer removes the timestamp/marker block from the body
-- Normalized outputs are identical (timestamps stripped)
-- Hash computation on normalized outputs produces identical results
-- This enables idempotent sync behavior (TC-PROV-007)
-
----
-
 #### TC-PROV-007 - Integration: idempotent sync returns NO_CHANGE (same content, different time)
 
 **Scenario Type**: Happy Path
 **Impact Level**: Critical
 **Priority**: High
-**Related IDs**: F-3, AC-F3-1, NFR-PERF-4
+**Related IDs**: AC-F3-1, NFR-PERF-4
 **Test Type(s)**: Integration
 **Automation Level**: Automated
 **Target Layer / Location**: `src/app/push-flow.ts` → `tests/integration/push-flow.test.ts`
@@ -347,28 +315,30 @@ This story focuses on **Unit** and **Integration** test tiers per the testing st
 - Mock Confluence server set up via `Bun.serve()`
 - First sync has completed successfully
 - Markdown source content has NOT changed
+- Architecture: panel is appended post-render as Storage string; HAST hash never includes panel
 
 **Steps**:
 1. Set up mock Confluence server with endpoints for page update, content property read/write, page version history
 2. Execute first sync with sample Markdown document at time T1
-3. Capture the page version created (version number, content hash)
-4. Wait or simulate time passage (different timestamp)
-5. Execute second sync with identical Markdown content at time T2
-6. Assert the sync result returns `NO_CHANGE` classification
-7. Assert NO page update request was sent to the mock server (0 writes to Confluence)
-8. Assert NO content property update request was sent (no drift)
-9. Assert the page version number is unchanged (no new version created)
-10. Verify the timestamp canonicalization logic was applied (canonical hash identical)
+3. Capture the page version created (version number, content hash, written body)
+4. Assert the written body contains the provenance panel with timestamp T1
+5. Wait or simulate time passage (different timestamp)
+6. Execute second sync with identical Markdown content at time T2
+7. Assert the sync result returns `NO_CHANGE` classification
+8. Assert NO page update request was sent to the mock server (0 writes to Confluence)
+9. Assert NO content property update request was sent (no drift)
+10. Assert the page version number is unchanged (no new version created)
+11. Verify that `renderedBodyHash` (HAST hash) is identical between syncs (panel excluded by construction)
 
 **Expected Outcome**:
 - Second sync returns `NO_CHANGE` (no false drift from timestamp update)
 - Zero writes to Confluence (page body and property unchanged)
 - Page version number remains the same (no new version)
-- Idempotent behavior ensures minimal rate-limit impact and avoids unnecessary updates
+- Idempotent behavior ensured: HAST hash is stable because panel is post-render append, never enters HAST
 
 ---
 
-#### TC-PROV-008 - `classifyVersion` returns "marksync" for `marksync:` prefix
+#### TC-PROV-008 - `classifyVersion` returns "marksync" for `marksync git` prefix
 
 **Scenario Type**: Happy Path
 **Impact Level**: Important
@@ -381,19 +351,20 @@ This story focuses on **Unit** and **Integration** test tiers per the testing st
 
 **Preconditions**:
 - Confluence page version object with `version.message` field is available
+- `PROVENANCE_PREFIX` constant is `"marksync git"` (space, not colon) — matches actual `formatVersionMessage` output
 
 **Steps**:
-1. Create a mock page version object with `version.message: "marksync:squash commit=a1b2c3d source=docs/guide/api.md"`
+1. Create a mock page version object with `version.message: "marksync git abc1234 (2): feat: add panel; fix: typo"`
 2. Call `classifyVersion(version)` with the mock version
 3. Assert the function returns `"marksync"`
-4. Test with additional valid prefix variants:
-   - `"marksync:squash commit=abc123 source=test.md +2 more"`
-   - `"marksync:prefix with additional metadata"`
+4. Test with additional valid prefix variants matching real `formatVersionMessage` output:
+    - `"marksync git abc123 source=test.md"` (count omitted if 0 or 1)
+    - `"marksync git def5678 (5): feat: A; fix: B; docs: C; refactor: D; chore: E"`
 5. Assert all return `"marksync"`
 
 **Expected Outcome**:
-- `classifyVersion` correctly identifies MarkSync-authored versions by the `marksync:` prefix
-- Function returns `"marksync"` for any version message containing the prefix
+- `classifyVersion` correctly identifies MarkSync-authored versions by the `marksync git` prefix (space, not colon)
+- Function returns `"marksync"` for any version message starting with the exact prefix
 - This enables `doctor` and future reverse-sync to distinguish MarkSync versions from direct edits
 
 ---
@@ -411,20 +382,22 @@ This story focuses on **Unit** and **Integration** test tiers per the testing st
 
 **Preconditions**:
 - Confluence page version object with `version.message` field is available
+- `PROVENANCE_PREFIX` constant is `"marksync git"` (case-sensitive exact match)
 
 **Steps**:
-1. Create a mock page version object with `version.message: "Manual edit by user"`
+1. Create a mock page version object with `version.message: "Edited via Confluence UI"`
 2. Call `classifyVersion(version)` with the mock version
 3. Assert the function returns `"direct"`
 4. Test edge cases:
-   - Empty message: `version.message: ""`
-   - Case sensitivity: `"MarkSync:squash commit=abc"` (should return "direct"—prefix is case-sensitive)
-   - Similar but not exact: `"marksync-squash commit=abc"` (should return "direct")
-   - Whitespace variants: `" marksync:squash commit=abc"` (leading space, should return "direct")
+    - Empty message: `version.message: ""` → returns "direct"
+    - Case sensitivity: `"MarkSync git abc123"` → returns "direct" (prefix is case-sensitive)
+    - Similar but not exact: `"marksync-git abc123"` → returns "direct" (no space)
+    - Similar but not exact: `"marksync:abc123"` → returns "direct" (colon, not space)
+    - Leading whitespace: `" marksync git abc123"` → returns "direct" (must start with prefix)
 5. Assert all edge cases return `"direct"`
 
 **Expected Outcome**:
-- `classifyVersion` correctly identifies direct Confluence edits (no `marksync:` prefix)
+- `classifyVersion` correctly identifies direct Confluence edits (no `marksync git` prefix)
 - Function returns `"direct"` for all edge cases without the exact prefix
 - Prefix is case-sensitive and must appear at the start of the message (no leading whitespace)
 - This ensures `doctor` and future reverse-sync can reliably flag non-MarkSync-authored versions
@@ -495,14 +468,13 @@ This story focuses on **Unit** and **Integration** test tiers per the testing st
 | TC-PROV-001 | `tests/unit/confluence/provenance.test.ts` | New | None (pure function) | To Implement |
 | TC-PROV-002 | `tests/unit/push-flow.test.ts` | New | Config object, rendered body | To Implement |
 | TC-PROV-003 | `tests/unit/confluence/provenance.test.ts` | New | None (JSON parsing) | To Implement |
-| TC-PROV-006 | `tests/unit/render/canonicalize.test.ts` | New | None (string normalization) | To Implement |
 | TC-PROV-008 | `tests/unit/confluence/provenance.test.ts` | New | None (pure predicate) | To Implement |
 | TC-PROV-009 | `tests/unit/confluence/provenance.test.ts` | New | None (pure predicate) | To Implement |
 | TC-PROV-010 | `tests/unit/confluence/provenance.test.ts` | New | None (pure function) | To Implement |
 
 **Execution Command:**
 ```bash
-bun test tests/unit/confluence/provenance.test.ts tests/unit/push-flow.test.ts tests/unit/render/canonicalize.test.ts
+bun test tests/unit/confluence/provenance.test.ts tests/unit/push-flow.test.ts
 ```
 
 ### 7.2 Integration Test Implementation
@@ -552,10 +524,10 @@ All tests run in the fast loop CI (`.github/workflows/ci.yml`):
 
 ### 7.5 Test Coverage Summary
 
-- **Unit tests**: 7 test files covering panel builder, property schema, canonicalizer, classifier, and config gate
+- **Unit tests**: 6 test files covering panel builder, property schema, classifier, and config gate
 - **Integration tests**: 1 test file covering full apply, idempotent sync, and privacy preservation
 - **Golden fixtures**: 1 snapshot file for panel XHTML output
-- **Total test scenarios**: 10 TCs covering all ACs and NFRs
+- **Total test scenarios**: 9 TCs covering all ACs and NFRs
 
 ## 8. Risks, Assumptions, and Open Questions
 
@@ -564,17 +536,18 @@ All tests run in the fast loop CI (`.github/workflows/ci.yml`):
 | Risk | Impact | Probability | Mitigation | Residual Risk |
 |------|--------|-------------|------------|---------------|
 | Panel HTML injection or malformed Storage XHTML | M | L | Golden snapshot tests validate correct Storage format; spike confirmed `{info}` macro structure is stable | L |
-| Timestamp canonicalization misses edge cases (e.g., panel placement changes) | M | L | Golden fixture tests cover panel with timestamps; canonicalizer strips known marker block before hashing | L |
-| Privacy violation if commit subjects leak to Confluence property | H | L | Explicit test assertions (TC-PROV-003, TC-PROV-005) enforce no `subjects` field; ADR-0010 hard constraint | L |
-| False drift from canonicalization bug (different content produces same hash) | M | L | Integration test (TC-PROV-007) ensures identical content → NO_CHANGE; golden snapshots cover panel format | L |
+| Privacy violation if commit subjects leak to `marksync.metadata` property | H | L | Explicit test assertions (TC-PROV-003, TC-PROV-005) enforce no `subjects` field; ADR-0010 hard constraint | L |
+| False drift from HAST hash bug (different content produces same hash) | M | L | Integration test (TC-PROV-007) ensures identical content → NO_CHANGE; golden snapshots cover panel format | L |
 
 ### 8.2 Assumptions
 
 - The `provenance.visiblePanel` configuration knob exists in `src/app/config.ts` (default true) and is ready for consumption (from spec §12)
 - The Git adapter's `currentBranch()` port is available and already called for the branch gate (MS2-E3-S6) (from spec §12)
-- The `formatVersionMessage` function (MS2-E3-S4) already prefixes `version.message` with `marksync:` (from spec §12)
+- The `formatVersionMessage` function (MS2-E3-S4) already prefixes `version.message` with `marksync git ` (space, not colon) — matches `PROVENANCE_PREFIX` constant in `src/infra/confluence/provenance.ts:9` (from spec §12)
 - The `marksync.metadata` content property accepts JSON string values (verified in spike H2 v2) (from spec §12)
 - Confluence Storage XHTML `{info}` macro format is stable and does not require `schema-version` or `macro-id` (from spec §12)
+- Panel is appended post-render as Storage string; HAST hash never includes panel, so timestamp variance cannot trigger false drift (from spec §12)
+- `buildProvenancePanel` requires `sourcePath`, `sourceBranch`, `headCommit`, `synchronizedAt` fields; `synchronizedAt` is generated at apply time as ISO timestamp
 - `Bun.serve()` mock adequately simulates Confluence API behavior for integration tests (no unexpected divergence)
 
 ### 8.3 Open Questions
@@ -586,6 +559,7 @@ None. All open questions were CEO-resolved before this story (see spec §14: "Al
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-14 | Change Test Plan Writer | Initial test plan creation for GH-27 |
+| 1.1 | 2026-07-14 | Change Test Plan Writer | Remediation per DoR iter-1 findings: (T1) Fixed `classifyVersion` test inputs to use real `marksync git ` prefix; (T2) Removed TC-PROV-006 (canonicalizer), rewrote TC-PROV-007 to reflect post-render panel exclusion from HAST hash; (T3) Corrected field count from 13 to 14, clarified privacy assertion targets property not version.message; (T4) Documented ProvenanceInput preconditions; (T5) Fixed AC→TC traceability |
 
 ## 10. Test Execution Log
 
@@ -596,7 +570,6 @@ None. All open questions were CEO-resolved before this story (see spec §14: "Al
 | TC-PROV-003 | TBD | TBD | Pending implementation |
 | TC-PROV-004 | TBD | TBD | Pending implementation |
 | TC-PROV-005 | TBD | TBD | Pending implementation |
-| TC-PROV-006 | TBD | TBD | Pending implementation |
 | TC-PROV-007 | TBD | TBD | Pending implementation |
 | TC-PROV-008 | TBD | TBD | Pending implementation |
 | TC-PROV-009 | TBD | TBD | Pending implementation |
