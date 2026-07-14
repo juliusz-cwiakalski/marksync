@@ -59,28 +59,161 @@ describe("TC-PROV-003 — bindingToProperty schema + privacy", () => {
 });
 
 describe("TC-LOCK-002 — replace vs merge semantics (GH-76 F-3)", () => {
-	test("finalizeSuccessfulUpdate replaces attachment hashes, does not merge", () => {
-		const existingBinding = validBinding({
-			attachmentHashes: {
-				"old-1.pdf": "hash-1",
-				"old-2.png": "hash-2",
-			},
-		});
+	test("finalizeSuccessfulUpdate replaces attachment hashes, does not merge", async () => {
+		// Integration-style test: verify replacement semantics by calling
+		// computePlan + applyPlan with a mock target and inspecting the lock.
+		// If the code reverts to merge semantics, this test will FAIL.
 
-		const currentRunHashes: Record<string, string> = {
-			"new-1.pdf": "hash-3",
-		};
+		const { tmpdir } = await import("node:os");
+		const { join } = await import("node:path");
+		const { mkdtempSync, rmSync } = await import("node:fs");
+		const { computePlan, applyPlan } = await import("#app/push-flow");
+		const { FakeRepository } = await import("#tests/_helpers/fake-repository");
+		const { FakeTarget } = await import("#tests/_helpers/fake-target");
+		const { ensureCacheLayout } = await import("#app/cache");
 
-		// Simulate what finalizeSuccessfulUpdate does
-		const updatedAttachmentHashes = currentRunHashes;
+		const tmpCacheDir = mkdtempSync(join(tmpdir(), "gh76-lock-002-"));
+		try {
+			const fakeRepo = new FakeRepository();
+			const fakeTarget = new FakeTarget();
+			const docUuid = "019f56e4-18f5-7024-bfdf-5438918bb3bc";
+			const pageId = "page-123";
 
-		expect(updatedAttachmentHashes).toEqual({
-			"new-1.pdf": "hash-3",
-		});
+			// Create a document with unchanged content (will result in NO_CHANGE)
+			fakeRepo.setFile(
+				"doc.md",
+				`---
+marksync:
+  uuid: ${docUuid}
+---
+# Doc
 
-		// Verify old entries are NOT merged (replacement semantics)
-		expect(updatedAttachmentHashes).not.toHaveProperty("old-1.pdf");
-		expect(updatedAttachmentHashes).not.toHaveProperty("old-2.png");
+Content.`,
+			);
+
+			// Create a lock with bloated attachment hashes (55 stale entries)
+			const bloatedHashes: Record<string, string> = {};
+			for (let i = 0; i < 55; i++) {
+				bloatedHashes[`stale-${i}.pdf`] = `old-hash-${i}`;
+			}
+
+			const lock = {
+				version: 1,
+				targets: {
+					default: {
+						documents: {
+							[docUuid]: {
+								uuid: docUuid,
+								sourcePath: "doc.md",
+								pageId,
+								parentPageId: "ROOT",
+								pageVersion: 1,
+								sourceCommit: "old-commit",
+								sourceContentHash: "old-content-hash",
+								renderedBodyHash: "old-render-hash",
+								remoteBodyHash: "old-remote-hash",
+								attachmentHashes: bloatedHashes, // Bloated with 55 stale entries
+								operationId: "op-old",
+								synchronizedAt: "2025-01-01T00:00:00Z",
+								toolVersion: "0.5.0",
+							},
+						},
+					},
+				},
+			};
+
+			// Add fixture page
+			fakeTarget.addFixture({
+				id: pageId,
+				title: "Doc",
+				version: 1,
+				spaceId: "TEST-SPACE",
+			});
+
+			// Modify the content to trigger an UPDATE
+			fakeRepo.setFile(
+				"doc.md",
+				`---
+marksync:
+  uuid: ${docUuid}
+---
+# Doc
+
+Content with NEW text to trigger UPDATE.`,
+			);
+
+			ensureCacheLayout(tmpCacheDir);
+
+			// First sync: computePlan + applyPlan
+			const planResult = await computePlan(
+				{
+					version: 1,
+					root: ".",
+					select: ["**/*.md"],
+					exclude: [],
+					hierarchy: "flat",
+					targets: {
+						default: {
+							type: "confluence",
+							spaceKey: "TEST",
+							parentPageId: "ROOT",
+						},
+					},
+					sync: {
+						allowBranches: ["main"],
+						granularity: "squash",
+						stalePlanMinutes: 15,
+					},
+					render: {
+						mermaid: {
+							policy: "code",
+							securityLevel: "strict",
+							htmlLabels: false,
+							deterministicIds: true,
+						},
+					},
+					output: { format: "storage", color: "auto" },
+					provenance: { visiblePanel: true },
+				},
+				lock,
+				fakeRepo,
+				fakeTarget,
+			);
+
+			expect(planResult.ok).toBe(true);
+			if (!planResult.ok) return;
+			const plan = planResult.value;
+
+			// Should be an Update (content changed)
+			expect(plan.entries).toHaveLength(1);
+			expect(plan.entries[0]!.action.kind).toBe("Update");
+
+			// Apply the plan
+			const applyResult = await applyPlan(plan, fakeTarget, lock, {
+				cwd: tmpCacheDir,
+				cacheDir: tmpCacheDir,
+				targetId: "default",
+			});
+
+			expect(applyResult.ok).toBe(true);
+			if (!applyResult.ok) return;
+			const report = applyResult.value;
+
+			expect(report.results).toHaveLength(1);
+			expect(report.results[0]!.outcome).toBe("updated");
+
+			// CRITICAL ASSERTION: attachmentHashes must be REPLACED, not merged
+			const updatedBinding = lock.targets.default.documents[docUuid]!;
+			expect(updatedBinding.attachmentHashes).toEqual({}); // No assets in this run
+			expect(Object.keys(updatedBinding.attachmentHashes)).toHaveLength(0);
+
+			// If the code had merge semantics, we would have 55 entries here
+			// With replacement semantics, we have 0 entries (no assets in current run)
+			expect(updatedBinding.attachmentHashes).not.toHaveProperty("stale-0.pdf");
+			expect(updatedBinding.attachmentHashes).not.toHaveProperty("stale-1.pdf");
+		} finally {
+			rmSync(tmpCacheDir, { recursive: true, force: true });
+		}
 	});
 
 	test("empty current run → empty attachment hashes (not null/undefined)", () => {

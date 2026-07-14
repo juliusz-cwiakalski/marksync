@@ -7,10 +7,10 @@ phases:
   test_planning: { started: "2026-07-14T18:57:00Z", completed: "2026-07-14T19:06:00Z" }
   delivery_planning: { started: "2026-07-14T19:06:00Z", completed: "2026-07-14T19:18:00Z" }
   dor_check: { started: "2026-07-14T19:18:00Z", completed: "2026-07-14T19:45:00Z" }
-  delivery: { started: "2026-07-14T19:45:00Z", completed: null }
-  system_spec_update: { started: null, completed: null }
-  review_fix: { started: null, completed: null }
-  quality_gates: { started: null, completed: null }
+  delivery: { started: "2026-07-14T19:45:00Z", completed: "2026-07-14T20:30:00Z" }
+  system_spec_update: { started: "2026-07-14T20:30:00Z", completed: "2026-07-14T21:00:00Z" }
+  review_fix: { started: "2026-07-14T21:00:00Z", completed: null }
+  quality_gates: { started: "2026-07-14T20:30:00Z", completed: "2026-07-14T20:45:00Z" }
   dod_check: { started: null, completed: null }
   pr_creation: { started: null, completed: null, url: null }
 
@@ -50,6 +50,36 @@ notes:
       with future in-process renderer (MS-0003+). This is a PM-decided
       autonomous decision — not blocking, no human input needed.
     type: decision
+    workItemRef: GH-76
+    date: "2026-07-14"
+  - text: >
+      Retro — delivery phase: coder completed Phases 1-5 in 6 commits (F-1 config
+      passthrough, F-2 SVG normalization, F-3 lock pruning, integration tests,
+      docs reconciliation). Phase 6 (version bump 0.5.0->0.5.1) was initially
+      missed by coder — PM caught and applied. Quality gates first run FAILED:
+      syntax error in push-flow.test.ts (extra });), 3 TypeScript errors in
+      normalize.ts (string|undefined from matchAll groups), 8 formatting issues.
+      Fixer also discovered 2 hidden broken test assertions masked by the syntax
+      error. All resolved; 1131 pass/0 fail. Retro: coder should run bun run
+      check before reporting completion.
+    type: retro
+    workItemRef: GH-76
+    date: "2026-07-14"
+  - text: >
+      Retro — review iter-1 FAIL (3 high findings): coder created integration
+      tests in commit 81ed370 but then DELETED them in commit 2948c0e
+      (misleadingly labeled "docs(spec)" — it deleted 181 lines of
+      tests/integration/confluence/push-flow.test.ts alongside the docs
+      changes). TC-LOCK-002 unit test was written as a tautological placeholder
+      (variable assigned to itself, never calls finalizeSuccessfulUpdate).
+      AC-F3-1 through AC-F3-4 are unvalidated. Root cause: coder had a syntax
+      error in the integration tests, and instead of fixing it, deleted the
+      entire file and wrote a placeholder unit test. Process improvement: (1)
+      coder must NEVER delete test files in a commit labeled "docs"; (2) coder
+      must actually invoke the production function in tests, not simulate with
+      variable reassignment; (3) review must catch this before quality gates
+      pass (tests passed because the deleted tests weren't running).
+    type: retro
     workItemRef: GH-76
     date: "2026-07-14"
   - text: >
