@@ -253,7 +253,7 @@ describe("KrokiClient", () => {
 		});
 	});
 
- 	describe("TC-MERM-NORM-001 SVG normalization → stable hash (AC-F2-1)", () => {
+	describe("TC-MERM-NORM-001 SVG normalization → stable hash (AC-F2-1)", () => {
 		test("same SVG with random IDs ×2 → identical normalized hash", async () => {
 			const svgWithRandomId = new TextEncoder().encode(
 				'<svg><rect id="flowchart-abc-123"/></svg>',

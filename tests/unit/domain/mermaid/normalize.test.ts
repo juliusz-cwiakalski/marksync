@@ -5,7 +5,7 @@ import { normalizeSvg } from "#domain/mermaid/normalize";
 
 describe("TC-MERM-NORM-002 normalization rules (AC-F2-1 / NFR-6)", () => {
 	test("Rule 1: strip XML comments", () => {
-		const raw = '<svg><!-- comment --><rect/></svg>';
+		const raw = "<svg><!-- comment --><rect/></svg>";
 		const norm = normalizeSvg(raw);
 		expect(norm).not.toContain("<!--");
 		expect(norm).not.toContain("-->");
@@ -28,7 +28,8 @@ describe("TC-MERM-NORM-002 normalization rules (AC-F2-1 / NFR-6)", () => {
 	});
 
 	test("Rule 3: update url(#...) references", () => {
-		const raw = '<defs><clipPath id="flowchart-abc-123"/></defs><rect clip-path="url(#flowchart-abc-123)"/>';
+		const raw =
+			'<defs><clipPath id="flowchart-abc-123"/></defs><rect clip-path="url(#flowchart-abc-123)"/>';
 		const norm = normalizeSvg(raw);
 		expect(norm).toContain('id="eid0"');
 		expect(norm).toContain('clip-path="url(#eid0)"');
@@ -36,13 +37,14 @@ describe("TC-MERM-NORM-002 normalization rules (AC-F2-1 / NFR-6)", () => {
 	});
 
 	test("Rule 4: canonicalize whitespace", () => {
-		const raw = '<svg>  \n\n  <rect>  </rect>  </svg>';
+		const raw = "<svg>  \n\n  <rect>  </rect>  </svg>";
 		const norm = normalizeSvg(raw);
 		expect(norm).toBe("<svg><rect></rect></svg>");
 	});
 
 	test("Rule 5: normalize font-family metadata", () => {
-		const raw = '<style>font-family: Arial, sans-serif;</style><rect font-family="monospace"/>';
+		const raw =
+			'<style>font-family: Arial, sans-serif;</style><rect font-family="monospace"/>';
 		const norm = normalizeSvg(raw);
 		expect(norm).toContain("font-family:NORM");
 		expect(norm).toContain('font-family="NORM"');
@@ -96,16 +98,16 @@ describe("TC-MERM-NORM-001 stability for non-deterministic differences (AC-F2-1 
 	});
 
 	test("same SVG with different whitespace → identical normalized forms", () => {
-		const svgA = '<svg><rect/></svg>';
-		const svgB = '<svg><rect/></svg>';
+		const svgA = "<svg><rect/></svg>";
+		const svgB = "<svg><rect/></svg>";
 		const normA = normalizeSvg(svgA);
 		const normB = normalizeSvg(svgB);
 		expect(normA).toBe(normB);
 	});
 
 	test("same SVG with different comments → identical normalized forms", () => {
-		const svgA = '<svg><!-- comment A --><rect/></svg>';
-		const svgB = '<svg><!-- comment B --><rect/></svg>';
+		const svgA = "<svg><!-- comment A --><rect/></svg>";
+		const svgB = "<svg><!-- comment B --><rect/></svg>";
 		const normA = normalizeSvg(svgA);
 		const normB = normalizeSvg(svgB);
 		expect(normA).toBe(normB);

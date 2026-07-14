@@ -12,5 +12,8 @@ import type { Result } from "#domain/result";
  * domain transform depends on this port, never on a concrete adapter.
  */
 export interface Renderer {
-	render(source: string, config: MermaidRenderConfig): Promise<Result<Artifact, MarkSyncError>>;
+	render(
+		source: string,
+		config: MermaidRenderConfig,
+	): Promise<Result<Artifact, MarkSyncError>>;
 }

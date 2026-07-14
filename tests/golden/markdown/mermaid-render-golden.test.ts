@@ -35,7 +35,10 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 }
 
 class StubRenderer implements Renderer {
-	async render(_source: string, _config: MermaidRenderConfig): Promise<Result<Artifact, MarkSyncError>> {
+	async render(
+		_source: string,
+		_config: MermaidRenderConfig,
+	): Promise<Result<Artifact, MarkSyncError>> {
 		const hash = await sha256Hex(SVG);
 		return Res.ok({ bytes: SVG, mime: "image/svg+xml", hash, kind: "mermaid" });
 	}
@@ -132,7 +135,7 @@ describe("TC-MERM-NORM-003 normalized SVG has 0 structural differences (AC-F2-2 
 		expect(normalized).toContain("<text");
 		expect(normalized).toContain("<path");
 		expect(normalized).toContain("Hello");
-		expect(normalized).toContain("fill=\"blue\"");
+		expect(normalized).toContain('fill="blue"');
 
 		// Non-deterministic elements stripped
 		expect(normalized).not.toContain("<!--");
@@ -154,7 +157,9 @@ describe("TC-MERM-NORM-003 normalized SVG has 0 structural differences (AC-F2-2 
 		expect(normalized).toContain('y="10"');
 
 		// Attributes sorted alphabetically
-		expect(normalized).toMatch(/<rect height="50" id="eid\d+" width="100" x="0" y="10"\/>/);
+		expect(normalized).toMatch(
+			/<rect height="50" id="eid\d+" width="100" x="0" y="10"\/>/,
+		);
 	});
 
 	test("ID references updated correctly", () => {

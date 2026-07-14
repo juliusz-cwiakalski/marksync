@@ -5,9 +5,8 @@
  * Sort the attributes of a single element tag string deterministically.
  */
 function sortTagAttributes(tag: string): string {
-	const match = /^<(?<name>[a-zA-Z][\w:-]*)(?<rest>.*?)(?<selfclose>\/?)>$/.exec(
-		tag,
-	);
+	const match =
+		/^<(?<name>[a-zA-Z][\w:-]*)(?<rest>.*?)(?<selfclose>\/?)>$/.exec(tag);
 	if (!match?.groups) return tag;
 	const { name, rest, selfclose } = match.groups;
 	if (!rest) return `<${name}${selfclose}>`;
@@ -51,9 +50,7 @@ export function normalizeSvg(rawSvg: string): string {
 	s = s.replace(/<!--[\s\S]*?-->/g, "");
 
 	// Rule 2: attributes sorted deterministically per element
-	s = s.replace(/<[a-zA-Z][\w:-]*[^>]*>/g, (tag) =>
-		sortTagAttributes(tag),
-	);
+	s = s.replace(/<[a-zA-Z][\w:-]*[^>]*>/g, (tag) => sortTagAttributes(tag));
 
 	// Rule 3: ephemeral / instance-specific ids rewritten deterministically
 	const idMatches = [...s.matchAll(/\bid="([^"]+)"/g)];
@@ -61,21 +58,25 @@ export function normalizeSvg(rawSvg: string): string {
 	const idMap = new Map<string, string>();
 	for (const m of idMatches) {
 		const original = m[1];
-		if (!idMap.has(original)) {
+		if (original && !idMap.has(original)) {
 			idMap.set(original, `eid${idOrder.length}`);
 			idOrder.push(original);
 		}
 	}
 	if (idOrder.length > 0) {
 		const byLongest = [...idOrder].sort((a, b) => b.length - a.length);
-		s = s.replace(/\bid="([^"]+)"/g, (_full, original: string) =>
-			`id="${idMap.get(original) ?? original}"`,
+		s = s.replace(
+			/\bid="([^"]+)"/g,
+			(_full, original: string) => `id="${idMap.get(original) ?? original}"`,
 		);
 		for (const original of byLongest) {
 			const replacement = idMap.get(original);
 			if (!replacement) continue;
 			const esc = original.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-			s = s.replace(new RegExp(`url\\(#${esc}\\)`, "g"), `url(#${replacement})`);
+			s = s.replace(
+				new RegExp(`url\\(#${esc}\\)`, "g"),
+				`url(#${replacement})`,
+			);
 			s = s.replace(new RegExp(`href="#${esc}"`, "g"), `href="#${replacement}`);
 		}
 	}

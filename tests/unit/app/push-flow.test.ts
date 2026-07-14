@@ -54,7 +54,7 @@ describe("TC-PROV-003 — bindingToProperty schema + privacy", () => {
 		expect(property.sourceCommit).toBe("abc1234");
 		expect(property.synchronizedAt).toBe("2026-07-14T12:34:56Z");
 		// Ensure no commit subject leakage
-		expect(property.synchronizedAt).not.toContain(":");
+		expect(property).not.toHaveProperty("subjects");
 	});
 });
 
@@ -107,35 +107,34 @@ describe("TC-LOCK-002 — replace vs merge semantics (GH-76 F-3)", () => {
 
 		const updatedAttachmentHashes = currentRunHashes;
 
-		expect(updatedAttachmentHashes).toHaveProperty("file-1.pdf", "hash-a");
-		expect(updatedAttachmentHashes).toHaveProperty("file-2.png", "hash-b");
-		expect(updatedAttachmentHashes).toHaveProperty("file-3.svg", "hash-c");
+		expect(updatedAttachmentHashes["file-1.pdf"]).toBe("hash-a");
+		expect(updatedAttachmentHashes["file-2.png"]).toBe("hash-b");
+		expect(updatedAttachmentHashes["file-3.svg"]).toBe("hash-c");
 		expect(Object.keys(updatedAttachmentHashes)).toHaveLength(3);
 	});
 });
 
-	test("does NOT contain a subjects field or commit subject strings", () => {
-		const property = bindingToProperty(validBinding(), "default");
-		const json = JSON.stringify(property);
-		expect(json).not.toContain('"subjects"');
-		// No commit subject content leaks into the property
-		expect(json).not.toContain("feat:");
-		expect(json).not.toContain("fix:");
-	});
+test("does NOT contain a subjects field or commit subject strings", () => {
+	const property = bindingToProperty(validBinding(), "default");
+	const json = JSON.stringify(property);
+	expect(json).not.toContain('"subjects"');
+	// No commit subject content leaks into the property
+	expect(json).not.toContain("feat:");
+	expect(json).not.toContain("fix:");
+});
 
-	test("commitCount and trimMarker provide truncation metadata without subjects", () => {
-		const property = bindingToProperty(
-			validBinding({ commitCount: 50, trimMarker: "+47 more" }),
-			"default",
-		);
-		expect(property.commitCount).toBe(50);
-		expect(property.trimMarker).toBe("+47 more");
-		// The property is valid JSON
-		const parsed = JSON.parse(JSON.stringify(property));
-		expect(parsed.commitCount).toBe(50);
-		expect(parsed.trimMarker).toBe("+47 more");
-		expect(parsed.subjects).toBeUndefined();
-	});
+test("commitCount and trimMarker provide truncation metadata without subjects", () => {
+	const property = bindingToProperty(
+		validBinding({ commitCount: 50, trimMarker: "+47 more" }),
+		"default",
+	);
+	expect(property.commitCount).toBe(50);
+	expect(property.trimMarker).toBe("+47 more");
+	// The property is valid JSON
+	const parsed = JSON.parse(JSON.stringify(property));
+	expect(parsed.commitCount).toBe(50);
+	expect(parsed.trimMarker).toBe("+47 more");
+	expect(parsed.subjects).toBeUndefined();
 });
 
 describe("TC-PROV-005 — property privacy on backward-compatible bindings", () => {
