@@ -98,7 +98,9 @@ provenance:
 
 		// Assert doc now has a UUID
 		const docContent = await Bun.file(join(dir, "doc.md")).text();
-		expect(docContent).toMatch(/uuid:\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+		expect(docContent).toMatch(
+			/uuid:\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+		);
 
 		// Assert IDENTITY_ASSIGNED warning
 		expect(result.warnings).toBeDefined();
@@ -161,9 +163,15 @@ provenance:
 		const docB = await Bun.file(join(docsDir, "b.md")).text();
 		const docC = await Bun.file(join(docsDir, "c.md")).text();
 
-		expect(docA).toMatch(/uuid:\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
-		expect(docB).toMatch(/uuid:\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
-		expect(docC).toMatch(/uuid:\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+		expect(docA).toMatch(
+			/uuid:\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+		);
+		expect(docB).toMatch(
+			/uuid:\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+		);
+		expect(docC).toMatch(
+			/uuid:\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+		);
 
 		// Assert UUIDs are unique
 		const uuidA = docA.match(/uuid:\s*([0-9a-f-]{36})/i)?.[1];
@@ -244,8 +252,12 @@ marksync:
 		expect(withUuidAfter).toBe(docWithUuid);
 
 		// Assert UUID-less doc now has a UUID
-		const withoutUuidAfter = await Bun.file(join(dir, "without-uuid.md")).text();
-		expect(withoutUuidAfter).toMatch(/uuid:\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+		const withoutUuidAfter = await Bun.file(
+			join(dir, "without-uuid.md"),
+		).text();
+		expect(withoutUuidAfter).toMatch(
+			/uuid:\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+		);
 
 		// Assert the new UUID is different from the existing UUID
 		const newUuid = withoutUuidAfter.match(/uuid:\s*([0-9a-f-]{36})/i)?.[1];
@@ -282,7 +294,9 @@ marksync:
 
 		// Assert doc now has a UUID
 		const docContent = await Bun.file(join(docsDir, "doc.md")).text();
-		expect(docContent).toMatch(/uuid:\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+		expect(docContent).toMatch(
+			/uuid:\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+		);
 
 		// Assert IDENTITY_ASSIGNED warning
 		expect(result.warnings).toBeDefined();

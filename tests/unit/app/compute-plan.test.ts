@@ -466,7 +466,9 @@ marksync:
 		const docContent = "# Doc without UUID\n";
 		const mockRepo: Repository = {
 			readCommitted: () =>
-				Res.ok(new Map([["doc-no-uuid.md", new TextEncoder().encode(docContent)]])),
+				Res.ok(
+					new Map([["doc-no-uuid.md", new TextEncoder().encode(docContent)]]),
+				),
 			headSha: () => Res.ok("abc123"),
 			currentBranch: () => Res.ok("main"),
 			listCommitSubjects: () => Res.ok(["init"]),
@@ -517,7 +519,8 @@ marksync:
 				}),
 			attachmentExists: async () => Res.ok(false),
 			listAttachments: async () => Res.ok([]),
-			searchPages: async () => Res.ok([{ id: "123", title: "Doc without UUID" }]),
+			searchPages: async () =>
+				Res.ok([{ id: "123", title: "Doc without UUID" }]),
 			getRestrictions: async () =>
 				Res.ok({
 					pageId: "123",
@@ -525,7 +528,12 @@ marksync:
 				}),
 		};
 
-		const result = await computePlan(baseConfig, baseLock, mockRepo, mockTarget);
+		const result = await computePlan(
+			baseConfig,
+			baseLock,
+			mockRepo,
+			mockTarget,
+		);
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
@@ -612,7 +620,12 @@ marksync:
 				}),
 		};
 
-		const result = await computePlan(baseConfig, baseLock, mockRepo, mockTarget);
+		const result = await computePlan(
+			baseConfig,
+			baseLock,
+			mockRepo,
+			mockTarget,
+		);
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
@@ -627,7 +640,9 @@ marksync:
 
 			// Assert exact text format for each warning
 			for (const warning of result.value.warnings) {
-				expect(warning).toMatch(/^[^:]+: no marksync:uuid — run 'marksync init' to assign identity, then commit and re-sync$/);
+				expect(warning).toMatch(
+					/^[^:]+: no marksync:uuid — run 'marksync init' to assign identity, then commit and re-sync$/,
+				);
 			}
 
 			// Assert no entries for UUID-less docs
@@ -711,7 +726,12 @@ marksync:
 				}),
 		};
 
-		const result = await computePlan(baseConfig, baseLock, mockRepo, mockTarget);
+		const result = await computePlan(
+			baseConfig,
+			baseLock,
+			mockRepo,
+			mockTarget,
+		);
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
@@ -723,7 +743,9 @@ marksync:
 
 			// Assert one entry for the UUID-bearing doc only
 			expect(result.value.entries).toHaveLength(1);
-			expect(result.value.entries[0].uuid).toBe("01234567-89ab-7def-8123-456789abcdef");
+			expect(result.value.entries[0].uuid).toBe(
+				"01234567-89ab-7def-8123-456789abcdef",
+			);
 			expect(result.value.entries[0].sourcePath).toBe("with-uuid.md");
 
 			// Assert no overlap
@@ -804,7 +826,12 @@ marksync:
 				}),
 		};
 
-		const result = await computePlan(baseConfig, baseLock, mockRepo, mockTarget);
+		const result = await computePlan(
+			baseConfig,
+			baseLock,
+			mockRepo,
+			mockTarget,
+		);
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {

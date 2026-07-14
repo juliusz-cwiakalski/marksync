@@ -138,7 +138,9 @@ describe("assignUuidsFromDisk", () => {
 
 		// Config must be byte-for-byte unchanged
 		expect(Buffer.from(after).equals(Buffer.from(before))).toBe(false); // Doc should have UUID now
-		expect(Buffer.from(configAfter).equals(Buffer.from(configBefore))).toBe(true); // Config unchanged
+		expect(Buffer.from(configAfter).equals(Buffer.from(configBefore))).toBe(
+			true,
+		); // Config unchanged
 
 		// Doc should now have a UUID
 		expect(after).toMatch(
