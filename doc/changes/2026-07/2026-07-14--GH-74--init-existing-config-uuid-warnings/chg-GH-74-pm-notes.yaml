@@ -1,0 +1,34 @@
+change_id: GH-74
+title: "fix: marksync init fails on existing config + sync silently skips UUID-less files"
+phases:
+  clarify_scope:
+    started: "2026-07-14T06:08:12Z"
+    completed: "2026-07-14T06:08:12Z"
+  specification: { started: "2026-07-14T06:09:00Z", completed: "2026-07-14T06:11:03Z" }
+  test_planning: { started: "2026-07-14T06:11:03Z", completed: null }
+  delivery_planning: { started: null, completed: null }
+  dor_check: { started: null, completed: null }
+  delivery: { started: null, completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+decisions:
+  - text: "Preserve an existing marksync.yml and continue UUID assignment; only create the starter config when the file is absent, as required by GH-74."
+    date: "2026-07-14"
+open_questions: []
+blockers: []
+notes:
+  - text: "Scope is complete and testable. The ticket specifies both fixes, exact warning text, and four acceptance criteria; no human clarification is required."
+    type: info
+    date: "2026-07-14"
+  - text: "Current feature-cli spec says init refuses to overwrite an existing config before assigning UUIDs. The implementation must continue preserving the file while the current-truth wording is updated to state that an existing config is retained and UUID assignment proceeds."
+    type: risk
+    date: "2026-07-14"
+  - text: "Safe-publish current truth documents Plan warnings generally but does not state UUID-less committed files are warned and skipped; doc-sync must reconcile this behavior."
+    type: risk
+    date: "2026-07-14"
+  - text: "GH-27 was active on another branch and is parked at the user's explicit request to deliver GH-74. No GH-27 files or commits are part of this change."
+    type: info
+    date: "2026-07-14"
