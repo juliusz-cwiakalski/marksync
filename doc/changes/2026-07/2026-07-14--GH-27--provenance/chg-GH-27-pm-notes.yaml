@@ -13,8 +13,8 @@ phases:
   delivery_planning: { started: "2026-07-14T00:03:00Z", completed: "2026-07-14T00:12:00Z" }
   dor_check: { started: "2026-07-14T00:04:00Z", completed: "2026-07-14T00:13:00Z" }
   delivery: { started: "2026-07-14T00:13:00Z", completed: "2026-07-14T01:30:00Z" }
-  system_spec_update: { started: null, completed: null }
-  review_fix: { started: null, completed: null }
+  system_spec_update: { started: "2026-07-14T01:30:00Z", completed: "2026-07-14T01:40:00Z" }
+  review_fix: { started: "2026-07-14T01:40:00Z", completed: "2026-07-14T02:00:00Z" }
   quality_gates: { started: null, completed: null }
   dod_check: { started: null, completed: null }
   pr_creation: { started: null, completed: null, url: null }
@@ -57,6 +57,19 @@ notes:
       authors must grep-sweep ALL artifacts for the dropped term, not just the
       primary section — the phantom canonicalizer refs survived because each
       author only fixed their main section.
+    type: retro
+    workItemRef: GH-27
+    date: "2026-07-14"
+  - text: >
+      Review iter-1 FAIL (2026-07-14): all 6 critical invariants PASS, but
+      bun run check fails at format:check (missing trailing newline + unsorted
+      imports in tests/integration/app/provenance-apply.test.ts — @coder added
+      the file without running bun run format). Plus provenance.ts header >3
+      lines + unchecked plan checkboxes. 2nd occurrence of an inaccurate "green"
+      claim from a delivery agent (1st: @coder's false "pre-existing failures").
+      Process improvement: PM must run bun run check via @runner (not trust
+      delivery-agent self-reports) before marking quality_gates complete. F-5
+      (processEntry 14 positional params) noted as non-blocking future refactor.
     type: retro
     workItemRef: GH-27
     date: "2026-07-14"

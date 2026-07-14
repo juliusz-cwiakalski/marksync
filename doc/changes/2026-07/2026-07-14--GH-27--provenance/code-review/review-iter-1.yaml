@@ -1,0 +1,144 @@
+version: 1
+iteration: 1
+mode: local
+work_item_ref: GH-27
+branch: feat/GH-27/provenance
+status: FAIL
+summary: >
+  All six critical correctness invariants hold: the provenance panel is excluded
+  from the drift hash by construction at every create/update/reapply site;
+  classifyVersion uses the correct "marksync git" prefix; ADR-0010 privacy is
+  enforced (bindingToProperty writes 14 fields with count+marker, never subjects);
+  visiblePanel defaults to true; backward compat is preserved (optional fields,
+  lock-schema additionalProperties:false intact); and the panel XHTML is
+  well-formed (info macro, no schema-version/macro-id, XML-escaped, stable
+  marker, footer placement). All 1104 tests pass, typecheck passes, and
+  dependency-cruiser reports no violations. However, bun run check fails at
+  format:check because the new integration test file is missing a trailing
+  newline and several new files have unsorted imports — this blocks AC-CI-1.
+  Additionally, Phase 4 and Phase 6 plan tasks are implemented but left unchecked,
+  and the provenance.ts file header exceeds the 3-line limit. Remediation is
+  trivial (run bun run format, trim header, update plan checkboxes).
+severity_breakdown:
+  critical: 0
+  high: 0
+  medium: 1
+  low: 3
+  info: 1
+spec_compliance: PASS
+plan_compliance: FAIL
+publication: # local mode — omitted per schema, but included for completeness
+  state: NA
+  published_at: null
+  summary_url: null
+  published_count: 0
+  error_count: 0
+  errors: []
+findings:
+  - id: F-1
+    severity: medium
+    confidence: high
+    category: plan-compliance
+    location: tests/integration/app/provenance-apply.test.ts:368
+    message: >
+      `bun run check` fails at the `format:check` step. The new integration test
+      file `tests/integration/app/provenance-apply.test.ts` is missing a trailing
+      newline, and several new/modified files have unsorted imports (e.g.
+      push-flow.test.ts imports `bindingToProperty` before `appendProvenancePanel`
+      alphabetically out of order). Since `check` runs
+      `lint && format:check && typecheck && test && check:boundaries`, the chain
+      stops at format:check and never reaches typecheck/test within the single
+      command. This blocks AC-CI-1 ("when bun run check is executed, then all
+      tests pass"). Verified separately: lint passes (warnings only), typecheck
+      passes, 1104 tests pass, check:boundaries passes — format:check is the sole
+      blocker.
+    suggestion: >
+      Run `bun run format` to auto-fix all formatting and import-ordering issues,
+      then re-run `bun run check` to confirm a clean pass.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-2
+    severity: low
+    confidence: high
+    category: style
+    location: src/infra/confluence/provenance.ts:1-4
+    message: >
+      The file header is 4 lines, exceeding the ≤3 line rule from
+      .ai/rules/typescript.md (Code style principle #2) and AGENTS.md. The file
+      was heavily modified in this change, so the boy-scout rule applies — the
+      header should be trimmed on touch.
+    suggestion: >
+      Condense to ≤3 lines, e.g.:
+      `// Confluence provenance: version.message formatter, visible panel builder,`
+      `// and direct-edit classifier (ADR-0006 / ADR-0010). Privacy: property stores`
+      `// only commitCount + trimMarker — never subjects (ADR-0010 C-2).`
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-3
+    severity: low
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-07/2026-07-14--GH-27--provenance/chg-GH-27-plan.md:211-232
+    message: >
+      Phase 4 tasks (4.1–4.8) are all marked `[ ]` (unchecked) but the work is
+      fully implemented: Plan.visiblePanel is on the interface, computePlan sets
+      it, processEntry threads it, appendProvenancePanel is called at
+      create/update/reapply sites, renderedBodyHash is pre-panel, property uses
+      14 fields, unit tests exist in push-flow.test.ts, and integration tests
+      exist in provenance-apply.test.ts. This is a DONE_BUT_UNCHECKED plan gap.
+    suggestion: >
+      Mark Phase 4 tasks 4.1–4.8 as `[x]` to reflect the completed implementation.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-4
+    severity: low
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-07/2026-07-14--GH-27--provenance/chg-GH-27-plan.md:318-325
+    message: >
+      Phase 6 tasks (6.1–6.4) are all marked `[ ]` (unchecked) but the system
+      documentation was updated in commit a2b8f1d: feature-safe-publish.md has a
+      detailed Provenance section, feature-confluence-adapter.md describes the
+      three exports, architecture-overview.md and ubiquitous-language.md are
+      updated, and nonfunctional.md has implementation notes for NFR-PERF-4,
+      NFR-REL-9, and NFR-A11Y-3. This is a DONE_BUT_UNCHECKED plan gap.
+    suggestion: >
+      Mark Phase 6 tasks 6.1–6.4 as `[x]` to reflect the completed documentation
+      sync.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-5
+    severity: info
+    confidence: medium
+    category: style
+    location: src/app/push-flow.ts:892-907
+    message: >
+      The processEntry function now accepts 14 positional parameters after
+      adding sourceBranch, commitCount, trimMarker, and visiblePanel. While
+      correct, this parameter list is growing unwieldy and could benefit from
+      bundling the four provenance-related parameters into a small context
+      object. This is a non-blocking refactoring suggestion for a future touch.
+    suggestion: >
+      Consider a `ProvenanceApplyContext` type
+      `{ sourceBranch, commitCount, trimMarker, visiblePanel }` passed as a
+      single parameter to reduce the parameter count and make future additions
+      cheaper.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+reviewed_at: 2026-07-14T12:00:00Z
+next_step: EXECUTE_REMEDIATION_PHASE

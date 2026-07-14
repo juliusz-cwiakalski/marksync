@@ -394,10 +394,10 @@ This plan delivers provenance infrastructure for the safe publish pipeline (MS-0
 
 **Tasks**:
 
-- [ ] **8.1** Run `bun run format` to auto-fix formatting and import-ordering issues across all new/modified files (F-1). The primary blocker is a missing trailing newline in `tests/integration/app/provenance-apply.test.ts`; several new test files also have unsorted imports. After formatting, re-run `bun run check` and confirm a full clean pass (lint + format:check + typecheck + test + check:boundaries).
-- [ ] **8.2** Trim the file header in `src/infra/confluence/provenance.ts` to ≤3 lines per the boy-scout rule and `.ai/rules/typescript.md` Code style principle #2 (F-2). Suggested 3-line form: state the three exports + cite ADR-0006/ADR-0010 + note the privacy constraint (count+marker only).
-- [ ] **8.3** Mark Phase 4 tasks (4.1–4.8) as `[x]` in this plan — the work is fully implemented but checkboxes were left unchecked (F-3, DONE_BUT_UNCHECKED).
-- [ ] **8.4** Mark Phase 6 tasks (6.1–6.4) as `[x]` in this plan — the system documentation was synced in commit a2b8f1d but checkboxes were left unchecked (F-4, DONE_BUT_UNCHECKED).
+- [x] **8.1** Run `bun run format` to auto-fix formatting and import-ordering issues across all new/modified files (F-1). The primary blocker is a missing trailing newline in `tests/integration/app/provenance-apply.test.ts`; several new test files also have unsorted imports. After formatting, re-run `bun run check` and confirm a full clean pass (lint + format:check + typecheck + test + check:boundaries).
+- [x] **8.2** Trim the file header in `src/infra/confluence/provenance.ts` to ≤3 lines per the boy-scout rule and `.ai/rules/typescript.md` Code style principle #2 (F-2). Suggested 3-line form: state the three exports + cite ADR-0006/ADR-0010 + note the privacy constraint (count+marker only).
+- [x] **8.3** Mark Phase 4 tasks (4.1–4.8) as `[x]` in this plan — the work is fully implemented but checkboxes were left unchecked (F-3, DONE_BUT_UNCHECKED).
+- [x] **8.4** Mark Phase 6 tasks (6.1–6.4) as `[x]` in this plan — the system documentation was synced in commit a2b8f1d but checkboxes were left unchecked (F-4, DONE_BUT_UNCHECKED).
 - [ ] **8.5** (Optional, non-blocking) Consider bundling the four provenance parameters (`sourceBranch`, `commitCount`, `trimMarker`, `visiblePanel`) passed to `processEntry` into a small context object to reduce parameter-list growth (F-5, info-level suggestion).
 
 **Acceptance Criteria**:

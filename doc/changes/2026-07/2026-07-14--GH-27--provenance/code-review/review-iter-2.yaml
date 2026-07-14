@@ -1,0 +1,147 @@
+version: 1
+iteration: 2
+mode: local
+work_item_ref: GH-27
+branch: feat/GH-27/provenance
+status: PASS
+summary: >
+  Re-review after iter-1 remediation (commit 8769650). All four actionable
+  iter-1 findings are resolved: F-1 (format:check) — `bun run check` is now
+  fully green (lint 0 errors, format:check clean, typecheck pass, 1104 tests
+  pass, check:boundaries clean); F-2 (header) — provenance.ts header trimmed to
+  exactly 3 lines; F-3 (Phase 4) — tasks 4.1–4.8 marked [x]; F-4 (Phase 6) —
+  tasks 6.1–6.4 marked [x]. F-5 (processEntry parameter count) was intentionally
+  skipped as non-blocking. All six critical correctness invariants still hold
+  (spot-checked; no logic changed in remediation — only a comment header, a test
+  trailing newline, and plan checkboxes were touched): panel excluded from hash
+  by construction, classifyVersion uses "marksync git" prefix, privacy enforced
+  (14-field property with count+marker only, never subjects), visiblePanel
+  defaults true, backward compat preserved (optional lock fields +
+  additionalProperties:false), panel XHTML well-formed. The remediation
+  introduced no new code issues. One trivial plan-hygiene note: Phase 8
+  remediation tasks 8.1–8.4 are done-but-unchecked — non-blocking, does not
+  warrant another remediation phase. The change is ready for quality gates and
+  PR creation.
+severity_breakdown:
+  critical: 0
+  high: 0
+  medium: 0
+  low: 0
+  info: 2
+spec_compliance: PASS
+plan_compliance: PASS
+publication:
+  state: NA
+  published_at: null
+  summary_url: null
+  published_count: 0
+  error_count: 0
+  errors: []
+findings:
+  # --- Resolved iter-1 findings (suppressed: addressed in commit 8769650) ---
+  - id: F-1
+    severity: medium
+    confidence: high
+    category: plan-compliance
+    location: tests/integration/app/provenance-apply.test.ts:368
+    message: >
+      [RESOLVED in 8769650] `bun run check` previously failed at format:check
+      due to a missing trailing newline and unsorted imports. Now fully green:
+      lint (0 errors), format:check (clean), typecheck (pass), 1104 tests
+      (pass), check:boundaries (no violations).
+    suggestion: >
+      No action needed — resolved. Verified by re-running `bun run check`
+      end-to-end during this iteration.
+    suppressed: true
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-2
+    severity: low
+    confidence: high
+    category: style
+    location: src/infra/confluence/provenance.ts:1-3
+    message: >
+      [RESOLVED in 8769650] File header previously exceeded the ≤3 line rule.
+      Now exactly 3 lines, citing ADR-0006/ADR-0010 and the privacy constraint.
+    suggestion: >
+      No action needed — resolved.
+    suppressed: true
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-3
+    severity: low
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-07/2026-07-14--GH-27--provenance/chg-GH-27-plan.md:211-232
+    message: >
+      [RESOLVED in 8769650] Phase 4 tasks 4.1–4.8 were DONE_BUT_UNCHECKED.
+      Now all marked [x].
+    suggestion: >
+      No action needed — resolved.
+    suppressed: true
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-4
+    severity: low
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-07/2026-07-14--GH-27--provenance/chg-GH-27-plan.md:318-325
+    message: >
+      [RESOLVED in 8769650] Phase 6 tasks 6.1–6.4 were DONE_BUT_UNCHECKED.
+      Now all marked [x].
+    suggestion: >
+      No action needed — resolved.
+    suppressed: true
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  # --- Carried forward from iter-1 (non-blocking) ---
+  - id: F-5
+    severity: info
+    confidence: medium
+    category: style
+    location: src/app/push-flow.ts:906
+    message: >
+      processEntry accepts 14 positional parameters after adding the four
+      provenance-related params (sourceBranch, commitCount, trimMarker,
+      visiblePanel). Correct but growing; a small context object would reduce
+      future churn. Intentionally deferred — non-blocking.
+    suggestion: >
+      Consider a `ProvenanceApplyContext` type bundling the four provenance
+      params on a future touch.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  # --- New finding (iter-2) ---
+  - id: F-6
+    severity: info
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-07/2026-07-14--GH-27--provenance/chg-GH-27-plan.md:397-401
+    message: >
+      Phase 8 (Code Review Remediation Iteration 1) tasks 8.1–8.4 are
+      DONE_BUT_UNCHECKED: the remediation work was performed in commit 8769650
+      (format applied, header trimmed, Phase 4 & 6 boxes checked) but the Phase
+      8 checkboxes themselves were left [ ]. Task 8.5 (optional param bundling)
+      was intentionally skipped. This is a self-referential plan-hygiene gap —
+      non-blocking and does not affect any spec AC.
+    suggestion: >
+      Check off 8.1–8.4 as [x] opportunistically during quality-gates or PR
+      prep. Do NOT add another remediation phase for this (avoids an infinite
+      self-referential checkbox loop).
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+reviewed_at: 2026-07-14T17:15:00Z
+next_step: PROCEED
