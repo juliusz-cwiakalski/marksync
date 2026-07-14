@@ -1,7 +1,7 @@
 // Integration tests for the marksync init UUID-assignment orchestrator
-// (GH-18 F-6 / TC-ASSIGN-001..005). Real file I/O via OS temp dirs — no mocks
-// (PM-RECON-1 Decision C). Exercises assignUuidsFromDisk + the initCommand
-// refused-overwrite path.
+// (GH-18 F-6 / TC-ASSIGN-001..005; GH-74 F-1 rewrite TC-ASSIGN-005). Real
+// file I/O via OS temp dirs — no mocks (PM-RECON-1 Decision C). Exercises
+// assignUuidsFromDisk + the initCommand existing-config preservation path.
 
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -121,18 +121,31 @@ describe("assignUuidsFromDisk", () => {
 		expect(Buffer.from(onDisk).equals(Buffer.from(expected))).toBe(true);
 	});
 
-	test("TC-ASSIGN-005: refused-overwrite init does NOT assign UUIDs (OQ-TP-1)", async () => {
-		// marksync.yml already exists (makeCorpus wrote it) → writeStarterConfig
-		// refuses → initCommand early-returns BEFORE assignUuidsFromDisk runs.
+	// GH-74 F-1: TC-ASSIGN-005 (rewrite) — existing-config init assigns UUIDs and preserves config
+	test("TC-ASSIGN-005: existing-config init assigns UUIDs and preserves config", async () => {
+		// makeCorpus already wrote marksync.yml — after GH-74, initCommand
+		// preserves it and proceeds to UUID assignment.
 		await writeFile(join(dir, "docs", "a.md"), "# A\n", "utf-8");
 		const before = await readFile(join(dir, "docs", "a.md"), "utf-8");
+		const configBefore = await readFile(join(dir, "marksync.yml"), "utf-8");
 
 		const result = await initCommand({ cwd: dir });
-		expect(result.exitCode).toBe(10);
-		expect(result.error?.code).toBe("INVALID_CONFIG");
+		expect(result.exitCode).toBe(0);
+		expect(result.error).toBeUndefined();
 
 		const after = await readFile(join(dir, "docs", "a.md"), "utf-8");
-		expect(Buffer.from(after).equals(Buffer.from(before))).toBe(true);
+		const configAfter = await readFile(join(dir, "marksync.yml"), "utf-8");
+
+		// Config must be byte-for-byte unchanged
+		expect(Buffer.from(after).equals(Buffer.from(before))).toBe(false); // Doc should have UUID now
+		expect(Buffer.from(configAfter).equals(Buffer.from(configBefore))).toBe(
+			true,
+		); // Config unchanged
+
+		// Doc should now have a UUID
+		expect(after).toMatch(
+			/uuid:\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+		);
 	});
 });
 

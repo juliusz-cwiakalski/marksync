@@ -5,11 +5,11 @@ ados_distribution: project-generated
 id: SPEC-CLI
 status: Current
 created: 2026-07-06
-last_updated: 2026-07-09
+last_updated: 2026-07-14
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: [GH-15, GH-17, GH-18]
+  related_changes: [GH-15, GH-17, GH-18, GH-74]
   decisions: [ADR-0011, TDR-0002]
   contracts: []
 ---
@@ -43,7 +43,7 @@ JSON/NDJSON output.
 
 | Command | Purpose |
 |---|---|
-| `init` | Initialize MarkSync in a repo: write a starter `marksync.yml` (refuses to overwrite an existing one), then assign a UUID v7 to each discovered managed document's front-matter (`marksync.uuid`). UUID injection is idempotent — a document that already has an identity is left unchanged. |
+| `init` | Initialize MarkSync in a repo: if `marksync.yml` is absent, write a starter config (round-trips through `loadConfig`); if it already exists, leave it untouched. Then assign a UUID v7 to each discovered managed document's front-matter (`marksync.uuid`). UUID injection is idempotent — a document that already has an identity is left unchanged. |
 | `plan` | Compute sync plan (dry-run): what will be created/updated/moved/no-op |
 | `sync` | Execute plan: apply changes to Confluence |
 | `doctor` | Health check: auth, permissions, API connectivity, config validity |

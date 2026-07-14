@@ -1,0 +1,86 @@
+version: 1
+iteration: 1
+mode: local
+work_item_ref: GH-74
+branch: fix/GH-74/init-existing-config-uuid-warnings
+status: PASS
+summary: >
+  Clean, focused two-part bug fix that correctly implements both F-1 (existing
+  config preservation during init) and F-3 (UUID-less plan warnings). All five
+  acceptance criteria are met with corresponding test coverage (TC-INIT-001..004,
+  TC-PLAN-001..004, TC-ASSIGN-005 rewrite, DEC-5 re-purpose). The full quality
+  gate passes (1063 tests, dep-cruiser clean). The duplicate-UUID fatal safeguard
+  (F-4) is preserved and verified. Doc specs are reconciled. Two minor style
+  observations (file header length, guard comment density) are non-blocking.
+severity_breakdown:
+  critical: 0
+  high: 0
+  medium: 0
+  low: 2
+  info: 1
+spec_compliance: PASS
+plan_compliance: PASS
+findings:
+  - id: F-1
+    severity: low
+    confidence: high
+    category: documentation
+    location: src/cli/commands/init.ts:1-4
+    message: >
+      The file header expanded from 3 to 4 lines when the GH-74 reference was
+      added. The repo rule (.ai/rules/typescript.md §Code style principles #2)
+      caps file headers at ≤3 lines. The boy-scout rule requires files touched
+      in a change to have compliant headers.
+    suggestion: >
+      Condense to 3 lines, e.g. remove "Presentation-thin" preamble or fold the
+      dep-cruiser note into the first line. Example:
+      `// marksync init (GH-15/18/74). Writes starter config if missing, then
+      delegates UUID assignment to #app. Imports NO #domain/#infra (dep-cruiser).`
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-2
+    severity: low
+    confidence: high
+    category: documentation
+    location: src/app/push-flow.ts:216-217
+    message: >
+      The defensive uuid guard carries two comment fragments (leading + trailing)
+      for a single line. The leading comment legitimately explains a non-obvious
+      type-system limitation (DocWithUuid.uuid is optional, so TS cannot narrow
+      after the partition), but the trailing "Defensive guard (should never be
+      hit)" partially restates the leading comment. Per the "every comment earns
+      its place" rule, consolidate to one comment.
+    suggestion: >
+      Merge into a single comment. Either a trailing comment:
+      `if (uuid === undefined) continue; // type-narrow: DocWithUuid.uuid is optional`
+      or a single leading line. Remove the redundant trailing fragment.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-3
+    severity: info
+    confidence: high
+    category: correctness
+    location: src/cli/commands/init.ts:26-29
+    message: >
+      existsSync before writeStarterConfig is a TOCTOU pattern. In this CLI
+      context the practical risk is negligible (user-initiated command, not
+      concurrent; writeStarterConfig has its own internal overwrite guard that
+      is now bypassed by the existsSync check). No action required.
+    suggestion: >
+      No change needed. If desired for defense-in-depth, could rely solely on
+      writeStarterConfig's existing guard and catch the ConfigError to
+      distinguish "exists" from "write failed", but the current approach is
+      simpler and correct for the CLI use case.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+reviewed_at: 2026-07-14T12:00:00Z
+next_step: PROCEED

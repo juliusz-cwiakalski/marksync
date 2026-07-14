@@ -6,13 +6,13 @@ ados_distribution: redistributable
 id: GLOSSARY
 status: Draft
 created: 2026-07-05
-last_updated: 2026-07-13
+last_updated: 2026-07-14
 owners: [Juliusz Ćwiąkalski]
 area: domain
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0005, ADR-0006, ADR-0010, ADR-0011, PDR-0001]
-  related_changes: [GH-15, GH-17, GH-18, GH-22, GH-66]
+  related_changes: [GH-15, GH-17, GH-18, GH-22, GH-66, GH-74]
   summary: "Reader-friendly glossary of terms and acronyms used across the MarkSync repository."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -70,7 +70,7 @@ Documentation Handbook §9 for the glossary-vs-UL distinction._
 | **Lifecycle invariant** | A release-blocking property enforced via Gherkin/BDD: INV-SAFE-1 (no silent overwrite), INV-SAFE-2 (no silent re-create of REMOTE_MISSING), INV-SAFE-3 (duplicate-UUID fatal), INV-SEC-1 (no secrets in output). | Safety | — |
 | **Lock file** | A committed, versioned file recording per-document bindings: UUID → page ID, parent, version, hashes, shared base. Like `package-lock.json` for npm. | State | Shared Base |
 | **Managed page** | A Confluence page tracked by MarkSync (has a UUID + lock entry + content property). | Domain | Managed Document |
-| **marksync init** | CLI command that writes a valid starter `marksync.yml` (round-trips through `loadConfig`, refuses to overwrite an existing file), then assigns a UUID v7 to each discovered managed document's front-matter (`marksync.uuid`). UUID injection is idempotent — a document that already carries an identity is left unchanged. | CLI | — |
+| **marksync init** | CLI command that initializes a repo: if `marksync.yml` is absent it writes a valid starter config (round-trips through `loadConfig`); if a config already exists it is left untouched. Then assigns a UUID v7 to each discovered managed document's front-matter (`marksync.uuid`). UUID injection is idempotent — a document that already carries an identity is left unchanged. | CLI | — |
 | **marksync.yml** | The repository-owned YAML configuration file consumed by every MarkSync use-case. Shape defined by the v1 JSON Schema (`src/domain/config/schema.json`); holds no secrets. | State | — |
 | **MDAST** | Markdown Abstract Syntax Tree — the parsed tree format produced by `remark`. | Domain | — |
 | **Mermaid** | A diagram-as-code language (flowcharts, sequence diagrams, etc.). MS-0002 preserves it as a code block by default (`code` policy); the opt-in `render` policy renders it to SVG via the public Kroki API (ADR-0002 rung 6); the in-process official-library renderer (rung 1) is the design target for MS-0003+. | Domain | — |

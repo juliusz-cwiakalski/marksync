@@ -157,14 +157,17 @@ export async function computePlan(
 	}
 	const discovered = readResult.value;
 
-	// 3. Parse UUIDs and build DocWithUuid[]
+	// 3. Parse UUIDs and build DocWithUuid[], collect UUID-less paths
 	const docsWithUuid: DocWithUuid[] = [];
+	const uuidlessPaths: string[] = [];
 	const textDecoder = new TextDecoder();
 	for (const [path, bytes] of discovered) {
 		const text = textDecoder.decode(bytes);
 		const uuid = readUuid(text);
 		if (uuid !== undefined) {
 			docsWithUuid.push({ path, uuid });
+		} else {
+			uuidlessPaths.push(path);
 		}
 	}
 
@@ -178,6 +181,14 @@ export async function computePlan(
 	const entries: PlanEntry[] = [];
 	const bindingsMutable: Record<string, { id: string; title: string }> = {};
 	const allWarnings: string[] = [];
+
+	// GH-74 F-3: Emit one EVT-1 warning per UUID-less path
+	for (const path of uuidlessPaths) {
+		allWarnings.push(
+			`${path}: no marksync:uuid — run 'marksync init' to assign identity, then commit and re-sync`,
+		);
+	}
+
 	// GH-69 / NFR-PRIV-2: emit the mermaid privacy warning once per run.
 	let privacyWarningEmitted = false;
 
@@ -200,12 +211,10 @@ export async function computePlan(
 	}
 	const bindingsMap: LinkBindings = bindingsMutable as LinkBindings;
 
-	// Process each discovered doc
+	// Process each discovered doc (GH-74: docsWithUuid is guaranteed to have UUIDs)
 	for (const { path, uuid } of docsWithUuid) {
-		if (!uuid) {
-			// UUID-less docs are warned + skipped (out of scope for MS-0002 create)
-			continue;
-		}
+		// TypeScript can't track the guarantee that uuid is defined here
+		if (uuid === undefined) continue; // Defensive guard (should never be hit)
 
 		const bytes = discovered.get(path);
 		if (!bytes) continue;

@@ -1,0 +1,64 @@
+change_id: GH-74
+title: "fix: marksync init fails on existing config + sync silently skips UUID-less files"
+phases:
+  clarify_scope:
+    started: "2026-07-14T06:08:12Z"
+    completed: "2026-07-14T06:08:12Z"
+  specification: { started: "2026-07-14T06:09:00Z", completed: "2026-07-14T06:11:03Z" }
+  test_planning: { started: "2026-07-14T06:11:03Z", completed: "2026-07-14T13:59:00Z" }
+  delivery_planning: { started: "2026-07-14T14:06:00Z", completed: "2026-07-14T14:10:00Z" }
+  dor_check: { started: "2026-07-14T14:11:00Z", completed: "2026-07-14T14:20:00Z" }
+  delivery: { started: "2026-07-14T14:20:00Z", completed: "2026-07-14T15:05:00Z" }
+  system_spec_update: { started: "2026-07-14T15:05:00Z", completed: "2026-07-14T15:10:00Z" }
+  review_fix: { started: "2026-07-14T15:10:00Z", completed: "2026-07-14T15:15:00Z" }
+  quality_gates: { started: "2026-07-14T15:15:00Z", completed: "2026-07-14T15:28:00Z" }
+  dod_check: { started: "2026-07-14T15:28:00Z", completed: "2026-07-14T15:30:00Z" }
+  pr_creation: { started: "2026-07-14T15:30:00Z", completed: "2026-07-14T15:32:00Z", url: "https://github.com/juliusz-cwiakalski/marksync/pull/75" }
+decisions:
+  - text: "Preserve an existing marksync.yml and continue UUID assignment; only create the starter config when the file is absent, as required by GH-74."
+    date: "2026-07-14"
+open_questions: []
+blockers: []
+notes:
+  - text: "Scope is complete and testable. The ticket specifies both fixes, exact warning text, and four acceptance criteria; no human clarification is required."
+    type: info
+    date: "2026-07-14"
+  - text: "Current feature-cli spec says init refuses to overwrite an existing config before assigning UUIDs. The implementation must continue preserving the file while the current-truth wording is updated to state that an existing config is retained and UUID assignment proceeds."
+    type: risk
+    date: "2026-07-14"
+  - text: "Safe-publish current truth documents Plan warnings generally but does not state UUID-less committed files are warned and skipped; doc-sync must reconcile this behavior."
+    type: risk
+    date: "2026-07-14"
+  - text: "GH-27 was active on another branch and is parked at the user's explicit request to deliver GH-74. No GH-27 files or commits are part of this change."
+    type: info
+    date: "2026-07-14"
+  - text: >
+      Retro — @plan-writer found a completeness gap in the test plan during
+      delivery_planning: TC-REG-001 claimed 'all existing tests pass without
+      modification (except those explicitly changed by spec)' and only enumerated
+      the unit-level overwrite-refusal test. Two additional existing tests assert
+      the old refused-overwrite behavior (tests/integration/identity/identity-assign.test.ts
+      TC-ASSIGN-005 at line 124, and the DEC-5 redaction test at init.test.ts:65).
+      TC-ASSIGN-005 will hard-fail after F-1. Plan-writer compensated by adding
+      Phase 1 tasks 1.4 and 1.5 to modify both tests. Test plan TC-REG-001 should
+      have enumerated these. Root cause: test-plan-writer did not scan integration
+      tests for assertions tied to the old behavior. Process improvement:
+      test-plan-writer should grep for assertions referencing the behavior being
+      changed, not just unit tests.
+    type: retro
+    date: "2026-07-14"
+  - text: >
+      Retro — DoR iter-1 NOT_READY: test plan TC-REG-001 contradicts the plan's
+      upstream-gap finding. TC-REG-001 claims 'all existing tests pass without
+      modification (except those explicitly changed by spec)' and enumerates only
+      the unit-level overwrite-refusal test, but the plan identified two additional
+      tests (TC-ASSIGN-005 at identity-assign.test.ts:124 and the DEC-5 redaction
+      test at init.test.ts:65) that assert the old refused-overwrite behavior and
+      need modification. The plan-writer had already compensated with Phase 1 tasks
+      1.4/1.5, but the test plan itself was never updated. Root cause: plan-writer
+      found the gap but did not feed it back to test-plan-writer for reconciliation.
+      Process improvement: when a downstream author compensates for an upstream gap,
+      they should flag it as requiring upstream reopening, not just mitigate in-place.
+      Also found: minor TC-INIT-004 label mismatch and broken spec reference links.
+    type: retro
+    date: "2026-07-14"
