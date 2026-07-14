@@ -694,4 +694,4 @@ intentional in E.2 with the mermaid §3.3 / GH-63 precedent cited.
 | C | COMPLETED | 2026-07-14 | 2026-07-14 | 26e04bf | test(golden): add HTML-comment fixtures + error-case harness (GH-77) |
 | D | COMPLETED | 2026-07-14 | 2026-07-14 | 62afc69 | test(markdown): regression guards + comment-strip idempotency (GH-77) |
 | E | COMPLETED | 2026-07-14 | 2026-07-14 | d177a0f | chore(release): bump version to 0.5.2 + sync safe-publish spec (GH-77) |
-| F | PENDING | 2026-07-14 | — | — | Code Review Remediation (Iteration 1) — under-strip `>` defect (F-1) + round-trip skip (F-2) + plan reconcile (F-3) |
+| F | COMPLETED | 2026-07-15 | 2026-07-15 | 20e82fd | Code Review Remediation (Iteration 1) — under-strip `>` defect (F-1) + round-trip skip (F-3) + plan reconcile (F-4) |

@@ -7,8 +7,8 @@ phases:
   delivery_planning: { started: "2026-07-14T21:15:00Z", completed: "2026-07-14T21:45:00Z" }
   dor_check: { started: "2026-07-14T21:30:00Z", completed: "2026-07-14T21:55:00Z" }
   delivery: { started: "2026-07-14T21:55:00Z", completed: "2026-07-14T22:30:00Z" }
-  system_spec_update: { started: "2026-07-14T22:30:00Z", completed: null }
-  review_fix: { started: null, completed: null }
+  system_spec_update: { started: "2026-07-14T22:30:00Z", completed: "2026-07-14T22:50:00Z" }
+  review_fix: { started: "2026-07-14T22:50:00Z", completed: "2026-07-15T00:10:00Z" }
   quality_gates: { started: null, completed: null }
   dod_check: { started: null, completed: null }
   pr_creation: { started: null, completed: null, url: null }
@@ -16,6 +16,22 @@ decisions: []
 open_questions: []
 blockers: []
 notes:
+  - text: >
+      Retro — review iter-1 (2026-07-14/15): the load-bearing predicate
+      isCommentOnlyHtml shipped with [^>]* instead of the plan-documented
+      [\s\S]*?, so valid comments containing > (e.g. <!-- a > b -->) were
+      UNDER-STRIPPED and the original bug persisted for them. The coder's
+      own unit tests passed because the true-cases only covered comments
+      WITHOUT > in the body — the >-in-comment edge was never tested.
+      Lesson: when a predicate is the load-bearing security/correctness
+      boundary, its test cases must include the specific edge the regex
+      handles (here: characters excluded/ included by the char class). Fix
+      in Phase F (commit 20e82fd): combined regex
+      /^\s*<!--(?:[\s\S]*?-->|>|-?)\s*$/ + > regression coverage. Review
+      iter-2 PASS (0 findings). 2 review iterations, within budget.
+    type: retro
+    workItemRef: GH-77
+    date: "2026-07-15"
   - text: >
       Intake: generic bug (no [MS2-Exx-Sxx] title prefix -> no story file);
       ticket body authoritative. Code cross-check confirms ticket exactly:
