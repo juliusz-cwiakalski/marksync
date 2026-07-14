@@ -763,10 +763,7 @@ async function finalizeSuccessfulUpdate(
 		operationId,
 		renderedBodyHash,
 		remoteBodyHash,
-		attachmentHashes: {
-			...binding.attachmentHashes,
-			...assetUploadHashes, // GH-26: merge newly uploaded assets
-		},
+		attachmentHashes: assetUploadHashes, // GH-76: replace with current run's set
 		sourceBranch,
 		commitCount,
 		trimMarker,
