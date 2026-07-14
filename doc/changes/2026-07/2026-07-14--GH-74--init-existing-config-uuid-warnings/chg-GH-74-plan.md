@@ -155,41 +155,44 @@ retained. Existing config bytes are untouched.
 
 **Tasks**:
 
-- [ ] **1.1** In `src/cli/commands/init.ts`, import `existsSync` from `node:fs`
+- [x] **1.1** In `src/cli/commands/init.ts`, import `existsSync` from `node:fs`
   and `join` from `node:path`. Before calling `writeStarterConfig(dir)`, check
   `existsSync(join(dir, "marksync.yml"))`: if present, skip `writeStarterConfig`
   and go straight to `assignUuidsFromDisk(dir)`; if absent, retain the current
   create-then-assign sequence. Do NOT modify `writeStarterConfig` or
-  `assignUuidsFromDisk`.
-- [ ] **1.2** In `tests/unit/cli/commands/init.test.ts`, replace the
+  `assignUuidsFromDisk`. (commit 54db89e)
+- [x] **1.2** In `tests/unit/cli/commands/init.test.ts`, replace the
   "overwrite-refusal (OQ-TP-1)" test (line 54) with TC-INIT-001/002/003:
   pre-create a valid `marksync.yml`, assert it is preserved byte-for-byte
   (hash or snapshot comparison) AND that identity-less docs receive a valid
   UUID v7; cover (a) a single UUID-less doc, (b) ≥3 UUID-less docs with unique
   UUIDs, and (c) mixed UUID-bearing + UUID-less docs (existing UUIDs unchanged).
-- [ ] **1.3** In `tests/unit/cli/commands/init.test.ts`, ensure TC-INIT-004
+  (commit 54db89e)
+- [x] **1.3** In `tests/unit/cli/commands/init.test.ts`, ensure TC-INIT-004
   (no-config path) still asserts starter-config creation + UUID assignment +
   exit 0 (existing "success → exitCode 0" test already covers this; extend if
   needed to assert the starter config round-trips via `loadConfig`).
-- [ ] **1.4** In `tests/unit/cli/commands/init.test.ts`, re-purpose the DEC-5
+  (commit 54db89e)
+- [x] **1.4** In `tests/unit/cli/commands/init.test.ts`, re-purpose the DEC-5
   redaction test (line 65) onto a genuine config-validation error path (e.g.,
   an invalid existing `marksync.yml`), preserving the redaction assertions; OR
   remove it if the overwrite-refusal path it relied on no longer exists. See
-  Open questions — decision needed if ambiguous.
-- [ ] **1.5** In `tests/integration/identity/identity-assign.test.ts`, rewrite
+  Open questions — decision needed if ambiguous. (commit 54db89e)
+- [x] **1.5** In `tests/integration/identity/identity-assign.test.ts`, rewrite
   `TC-ASSIGN-005` (line 124) to assert the NEW behavior: with an existing valid
   `marksync.yml`, `initCommand` returns exit 0 with no error, the config is
   unchanged, and the identity-less `docs/a.md` receives a UUID. Rename the test
   accordingly (e.g., "existing-config init assigns UUIDs and preserves config").
+  (commit 54db89e)
 
 **Acceptance Criteria**:
 
 - Must: AC-F-1-1 — existing `marksync.yml` + UUID-less doc → config untouched,
-  doc receives a UUID (F-1, NFR-1).
+  doc receives a UUID (F-1, NFR-1). — PASSED (commit 54db89e, tests PASS)
 - Must: AC-F-2-1 — no `marksync.yml` + UUID-less doc → starter config created,
-  doc receives a UUID (F-2).
+  doc receives a UUID (F-2). — PASSED (commit 54db89e, tests PASS)
 - Should: No existing init/identity test fails except those deliberately
-  rewritten in 1.2/1.4/1.5.
+  rewritten in 1.2/1.4/1.5. — PASSED (all tests pass)
 
 **Affected code areas**:
 
@@ -222,39 +225,40 @@ per document into `Plan.warnings`.
 
 **Tasks**:
 
-- [ ] **2.1** In `src/app/push-flow.ts` `computePlan` step 3 (lines 160-169),
+- [x] **2.1** In `src/app/push-flow.ts` `computePlan` step 3 (lines 160-169),
   add a `const uuidlessPaths: string[] = []` accumulator. When
   `readUuid(text)` returns `undefined`, push `path` to `uuidlessPaths` instead
   of silently dropping it (the `docsWithUuid` push only happens when a UUID is
-  present).
-- [ ] **2.2** Emit one EVT-1 warning per collected path into `allWarnings`
+  present). (commit c60bacc)
+- [x] **2.2** Emit one EVT-1 warning per collected path into `allWarnings`
   using the exact text:
   `` `${path}: no marksync:uuid — run 'marksync init' to assign identity, then commit and re-sync` ``
   (place the emission after discovery, before or at the start of the per-doc
   loop; ordering relative to other warnings is not load-bearing). Preserve the
   duplicate-UUID fatal gate (step 4, lines 171-175) unchanged.
-- [ ] **2.3** Remove the now-unreachable `if (!uuid) continue` guard
+  (commit c60bacc)
+- [x] **2.3** Remove the now-unreachable `if (!uuid) continue` guard
   (lines 204-208) — `docsWithUuid` is guaranteed to carry only UUID-bearing
-  docs. (See Open questions; preferred action.)
-- [ ] **2.4** Add unit tests in `tests/unit/app/compute-plan.test.ts`:
+  docs. (See Open questions; preferred action.) (commit c60bacc)
+- [x] **2.4** Add unit tests in `tests/unit/app/compute-plan.test.ts`:
   TC-PLAN-001 (single UUID-less doc → exactly one warning with exact EVT-1 text
   and substituted path, no entry); TC-PLAN-002 (≥3 UUID-less docs → one warning
   each, distinct paths, warning count == doc count); TC-PLAN-003 (mixed
   UUID-less + UUID-bearing → warnings only for UUID-less, entries only for
   UUID-bearing, no overlap, complete partition); TC-PLAN-004 (all UUID-less →
   empty `entries`, one warning per doc). Use exact string matching (not
-  substring/regex) for the EVT-1 text.
+  substring/regex) for the EVT-1 text. (commit c60bacc)
 
 **Acceptance Criteria**:
 
 - Must: AC-F-3-1 — each UUID-less committed discovered doc has no plan entry
   and produces exactly one EVT-1 warning with its path substituted (F-3, EVT-1,
-  DM-1, NFR-2, NFR-3).
+  DM-1, NFR-2, NFR-3). — PASSED (commit c60bacc, tests PASS)
 - Must: AC-F-4-1 — duplicate UUIDs remain fatal before render/write (F-4);
-  TC-PLAN-005 passes unchanged.
+  TC-PLAN-005 passes unchanged. — PASSED (TC-UNIT-001 still passes)
 - Should: Existing compute-plan tests (UUID-bearing fixtures) remain green; no
   existing plan test asserts a warning count incompatible with the new
-  UUID-less warnings.
+  UUID-less warnings. — PASSED (all 997 tests pass)
 
 **Affected code areas**:
 
@@ -281,30 +285,32 @@ current-truth doc reconciliation to `@doc-syncer`.
 
 **Tasks**:
 
-- [ ] **3.1** Run the full quality gate: `bun run check` (lint + format:check +
+- [x] **3.1** Run the full quality gate: `bun run check` (lint + format:check +
   typecheck + test + check:boundaries/dep-cruise). Resolve any failure before
-  proceeding.
-- [ ] **3.2** Verify TC-PLAN-005 (duplicate-UUID corpus → `err(DuplicateUuid)`
+  proceeding. (commit db430ef - all 1063 tests pass, quality gate green)
+- [x] **3.2** Verify TC-PLAN-005 (duplicate-UUID corpus → `err(DuplicateUuid)`
   before any `renderBody` call; assert 0 `renderBody` calls) still passes
-  unchanged — the fixes must not weaken F-4 / INV-SAFE-3.
-- [ ] **3.3** Verify TC-REG-001: all existing tests pass except those
+  unchanged — the fixes must not weaken F-4 / INV-SAFE-3. (commit db430ef - TC-UNIT-001 passes)
+- [x] **3.3** Verify TC-REG-001: all existing tests pass except those
   deliberately rewritten in Phases 1-2; no unexpected failures. Cross-check
   that no integration plan test (e.g., `mermaid-render`, `409-retry-policy`,
   `concurrency-*`) asserts a `Plan.warnings` count incompatible with the new
-  UUID-less warnings.
-- [ ] **3.4** Version bump per repo conventions (patch): `package.json`
+  UUID-less warnings. (commit db430ef - all 1063 tests pass)
+- [x] **3.4** Version bump per repo conventions (patch): `package.json`
   `0.4.1` → `0.4.2` (no CHANGELOG/changeset tooling in this repo).
-- [ ] **3.5** Spec reconciliation: confirm `chg-GH-74-spec.md` reflects
+  (commit db430ef)
+- [x] **3.5** Spec reconciliation: confirm `chg-GH-74-spec.md` reflects
   delivered behavior. Current-truth `doc/spec/**` reconciliation (CLI init
   overwrite-protection wording; safe-publish UUID-less omission → warning) is
   delegated to `@doc-syncer` in lifecycle phase 7 — not authored here.
+  (Verified: spec matches delivered behavior)
 
 **Acceptance Criteria**:
 
 - Must: AC-F-1-2 — all existing tests pass and the new coverage demonstrates
-  both fixes (F-1, F-2, F-3).
-- Must: `bun run check` exits 0.
-- Must: `package.json` version bumped to `0.4.2`.
+  both fixes (F-1, F-2, F-3). — PASSED (commit db430ef, all 1063 tests pass)
+- Must: `bun run check` exits 0. — PASSED (commit db430ef)
+- Must: `package.json` version bumped to `0.4.2`. — PASSED (commit db430ef)
 
 **Affected code areas**:
 
@@ -366,4 +372,6 @@ current-truth doc reconciliation to `@doc-syncer`.
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| (Populated during execution) | | | | | |
+| Phase 1 | ✅ Complete | 2026-07-14 | 2026-07-14 | 54db89e | F-1/F-2: Config preservation + UUID assignment on existing config |
+| Phase 2 | ✅ Complete | 2026-07-14 | 2026-07-14 | c60bacc | F-3: UUID-less document warnings + dead guard removal |
+| Phase 3 | ✅ Complete | 2026-07-14 | 2026-07-14 | db430ef | Quality gate pass, TC-UNIT-001 verify, version bump 0.4.2 | |
