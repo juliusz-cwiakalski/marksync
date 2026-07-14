@@ -6,6 +6,7 @@ import type { Root as MdastRoot } from "mdast";
 import { remark } from "remark";
 import remarkFrontmatter from "remark-frontmatter";
 import remarkGfm from "remark-gfm";
+import { stripCommentNodes } from "#domain/markdown/strip-comments";
 
 // front-matter first so it claims document-leading `---` blocks before GFM;
 // a lone `---` with no closing fence still parses as a thematic break (GH-63).
@@ -33,5 +34,6 @@ export function parseMarkdown(
 	const text =
 		typeof bytes === "string" ? bytes : new TextDecoder().decode(bytes);
 	const root = processor.parse(text);
-	return Result.ok(root);
+	const stripped = stripCommentNodes(root); // GH-77: strip comment-only html nodes before MDAST→HAST
+	return Result.ok(stripped);
 }

@@ -3,6 +3,9 @@
 import { describe, expect, test } from "bun:test";
 import { remark } from "remark";
 import type { Root } from "mdast";
+import { mdastToHast } from "#domain/markdown/mdast-to-hast";
+import { parseMarkdown } from "#domain/markdown/parse";
+import { renderStorage } from "#infra/confluence/render/storage";
 import { isCommentOnlyHtml, stripCommentNodes } from "#domain/markdown/strip-comments";
 
 describe("TC-COMM-001..002 — comment-only predicate", () => {
@@ -112,5 +115,40 @@ describe("TC-COMM-001..003, TC-COMM-010 — stripCommentNodes transformer", () =
 		expect(para?.type).toBe("paragraph");
 		// Only "text" node remains
 		expect(para?.children?.length).toBe(1);
+	});
+});
+
+describe("TC-COMM-001..002 — end-to-end render path (parse → mdastToHast → renderStorage)", () => {
+	test("block-level comment syncs successfully (no UnsupportedConstruct)", () => {
+		const src = "<!-- c -->\n\n# H\n\nBody.";
+		const result = parseMarkdown(src, { sourcePath: "test.md" });
+		expect(result.ok).toBe(true);
+		const mdast = result.value;
+		const hast = mdastToHast(mdast);
+		const rendered = renderStorage(hast, { sourcePath: "test.md" });
+		expect(rendered.ok).toBe(true);
+		if (rendered.ok) {
+			// No `<!--` or `&lt;!--` in the body
+			expect(rendered.value.body).not.toContain("<!--");
+			expect(rendered.value.body).not.toContain("&lt;!--");
+		}
+	});
+
+	test("inline comment syncs successfully and does not appear as literal text", () => {
+		const src = "Before <!-- c --> after.";
+		const result = parseMarkdown(src, { sourcePath: "test.md" });
+		expect(result.ok).toBe(true);
+		const mdast = result.value;
+		const hast = mdastToHast(mdast);
+		const rendered = renderStorage(hast, { sourcePath: "test.md" });
+		expect(rendered.ok).toBe(true);
+		if (rendered.ok) {
+			// Body should be the surrounding text only
+			expect(rendered.value.body).toContain("Before");
+			expect(rendered.value.body).toContain("after");
+			expect(rendered.value.body).not.toContain("c");
+			expect(rendered.value.body).not.toContain("<!--");
+			expect(rendered.value.body).not.toContain("&lt;!--");
+		}
 	});
 });
