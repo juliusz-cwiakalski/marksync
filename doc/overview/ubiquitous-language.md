@@ -6,13 +6,13 @@ ados_distribution: redistributable
 id: UBIQUITOUS-LANGUAGE
 status: Draft
 created: 2026-07-05
-last_updated: 2026-07-13
+last_updated: 2026-07-14
 owners: [Juliusz Ćwiąkalski]
 area: domain
 document_classification: current-truth
 links:
   related_decisions: [ADR-0005, ADR-0006, ADR-0010, ADR-0011, PDR-0001, TDR-0003]
-  related_changes: [GH-15, GH-17, GH-18, GH-19, GH-20, GH-21, GH-22, GH-23, GH-24, GH-26]
+  related_changes: [GH-15, GH-17, GH-18, GH-19, GH-20, GH-21, GH-22, GH-23, GH-24, GH-26, GH-74]
   summary: "Ubiquitous language — the precise, bounded-context vocabulary binding domain concepts to code for MarkSync's Markdown-to-TargetSystem synchronization domain."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -130,7 +130,7 @@ their code constructs (typescript.md UL-binding rule)._
 | **Document Config Resolver** | Application service (`resolveDocumentConfig`/`parseFrontMatter`, `src/app/document-config.ts`) that merges per-document `marksync.*` front-matter overrides (`title`/`parent`/`uuid`/`exclude`) over the derived base. Tolerates absent/malformed front-matter (never throws). | Application service | produces → DocumentConfig |
 | **Intended Hierarchy** | The intended Confluence page-tree shape computed from selected files under `root` (structure only — no page-id resolution). `mirror` derives each page's parent from its directory; `flat` attaches all pages to the configured parent anchor. | Value object | produced by → Intended Hierarchy Builder |
 | **Intended Hierarchy Builder** | Domain service (`intendedParent`/`buildIntendedHierarchy`, `src/domain/config/hierarchy.ts`) computing the intended parent path per selected file. Pure path logic over canonicalized forward-slash paths. | Domain service | produces → Intended Hierarchy |
-| **marksync init** | CLI command that writes a valid starter `marksync.yml` (round-trips through `loadConfig`, refuses to overwrite an existing file), then assigns a UUID v7 to each discovered managed document's front-matter by delegating to `assignUuidsFromDisk` (`src/app/identity-assign.ts`). UUID injection is idempotent — a document that already carries a `marksync.uuid` is left unchanged. | CLI command | validates via → Config Loader; delegates UUID assignment to → `assignUuidsFromDisk` |
+| **marksync init** | CLI command that initializes a repo: if `marksync.yml` is absent it writes a valid starter config (round-trips through `loadConfig`); if a config already exists it is left untouched. Then assigns a UUID v7 to each discovered managed document's front-matter by delegating to `assignUuidsFromDisk` (`src/app/identity-assign.ts`). UUID injection is idempotent — a document that already carries a `marksync.uuid` is left unchanged. | CLI command | validates via → Config Loader; delegates UUID assignment to → `assignUuidsFromDisk` |
 
 ### Credentials / Auth
 
