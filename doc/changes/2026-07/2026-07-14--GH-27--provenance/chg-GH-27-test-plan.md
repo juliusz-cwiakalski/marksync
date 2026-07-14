@@ -51,7 +51,6 @@ This test plan validates provenance infrastructure for the safe publish pipeline
 - Testing Strategy: `.ai/rules/testing-strategy.md`
 - ADR-0010: `doc/decisions/ADR-0010-confluence-page-history-provenance-and-sync-granularity.md` (privacy constraint)
 - Feature Spec: `doc/spec/features/feature-safe-publish.md`
-- NFRs: `doc/spec/nonfunctional.md` (NFR-REL-9, NFR-A11Y-3, NFR-PERF-4, NFR-PRIV-1)
 - Code Style: `AGENTS.md`
 
 ## 3. Coverage Overview
@@ -86,7 +85,6 @@ This test plan validates provenance infrastructure for the safe publish pipeline
 | NFR-REL-9 | Per-version provenance: MarkSync versions have `marksync git` prefix, direct edits do not | TC-PROV-008, TC-PROV-009 |
 | NFR-A11Y-3 | Visible provenance accessibility: readable panel with plain text | TC-PROV-001 |
 | NFR-PERF-4 | Idempotent rerun: no false drift from timestamp updates (panel excluded from HAST hash by construction) | TC-PROV-007 |
-| NFR-PRIV-1 (ADR-0010) | Privacy: `marksync.metadata` property contains only commitCount + trimMarker, never subjects | TC-PROV-003, TC-PROV-005 |
 
 ## 4. Test Types and Layers
 
@@ -192,7 +190,7 @@ This story focuses on **Unit** and **Integration** test tiers per the testing st
 **Scenario Type**: Happy Path
 **Impact Level**: Critical
 **Priority**: High
-**Related IDs**: F-4, AC-F4-1, AC-F4-2, DM-1, NFR-PRIV-1, ADR-0010
+**Related IDs**: F-4, AC-F4-1, AC-F4-2, DM-1, ADR-0010
 **Test Type(s)**: Unit
 **Automation Level**: Automated
 **Target Layer / Location**: `src/infra/confluence/provenance.ts` → `tests/unit/confluence/provenance.test.ts`
@@ -214,7 +212,7 @@ This story focuses on **Unit** and **Integration** test tiers per the testing st
     - `synchronizedAt`: string (ISO8601 timestamp)
     - `toolVersion`: string
     - `commitCount`: number
-    - `trimMarker`: string (e.g., `"+3 more"` or `false` if no truncation)
+    - `trimMarker`: string (e.g., `"+3 more"`; present only when truncation occurred, otherwise absent/empty)
 4. **Privacy assertion**: Assert the JSON does NOT contain a `subjects` field or any commit subject strings
 5. Assert `commitCount` is a number (e.g., 5) and `trimMarker` is a string indicating truncation state
 6. Verify the JSON string is valid JSON (parseable without errors)
