@@ -612,4 +612,8 @@ intentional in E.2 with the mermaid §3.3 / GH-63 precedent cited.
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| — | — | — | — | — | Not yet executed |
+| A | COMPLETED | 2026-07-14 | 2026-07-14 | 06f636f | feat(markdown): add comment-strip transformer + predicate (GH-77) |
+| B | COMPLETED | 2026-07-14 | 2026-07-14 | e75df4b | fix(markdown): strip HTML comments at parse stage (GH-77) |
+| C | COMPLETED | 2026-07-14 | 2026-07-14 | 26e04bf | test(golden): add HTML-comment fixtures + error-case harness (GH-77) |
+| D | COMPLETED | 2026-07-14 | 2026-07-14 | 62afc69 | test(markdown): regression guards + comment-strip idempotency (GH-77) |
+| E | COMPLETED | 2026-07-14 | 2026-07-14 | TBD | chore(release): bump version to 0.5.2 + sync safe-publish spec (GH-77) |
