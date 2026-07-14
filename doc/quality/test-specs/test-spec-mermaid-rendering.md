@@ -5,11 +5,11 @@ ados_distribution: project-generated
 id: TEST-SPEC-MERMAID-RENDERING
 status: Current
 created: 2026-07-13
-last_updated: 2026-07-13
+last_updated: 2026-07-14
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: ["GH-69"]
+  related_changes: ["GH-69", "GH-76"]
   feature_spec: doc/spec/features/feature-mermaid-rendering.md
   decisions: [ADR-0002]
 ---
@@ -21,9 +21,13 @@ links:
 The Mermaid rendering feature converts `language-mermaid` code fences into SVG
 image attachments on the published Confluence page. MS-0002 implements the
 opt-in `render` policy via the public Kroki API (ADR-0002 rung 6, GH-69); the
-`code` policy remains the default (GH-25). The feature is exercised at the
-**Unit**, **Integration**, and **Golden** tiers — all offline, with a mocked
-renderer returning fixed SVG bytes so the content hash is deterministic in CI.
+`code` policy remains the default (GH-25). The Kroki adapter forwards Mermaid
+config (`deterministicIds`, `htmlLabels`) as diagram-options query parameters
+and normalizes the SVG via §3.3 rules before hashing, so the same source +
+config produces a stable hash across syncs even if Kroki emits non-deterministic
+IDs (GH-76). The feature is exercised at the **Unit**, **Integration**, and
+**Golden** tiers — all offline, with a mocked renderer returning fixed SVG bytes
+so the content hash is deterministic in CI.
 
 The properties proven through the tests:
 
@@ -31,7 +35,9 @@ The properties proven through the tests:
   `<ac:image><ri:attachment ri:filename="marksync-mermaid-<fullhash>.svg"/>`.
 - **Attachment reuse (NFR-PERF-4)** — an unchanged diagram performs **0**
   `uploadAttachment` calls on the second run (`attachmentExists` short-circuits).
-- **Determinism** — same SVG bytes → same full-sha256 → same filename across runs.
+- **Determinism** — the Kroki adapter normalizes SVG (§3.3 rules) before hashing,
+  so non-deterministic raw bytes (random IDs, marker names, comments) produce the
+  same full-sha256 hash → same filename across syncs (GH-76).
 - **No silent failure (ADR-0002 C-2)** — a Kroki HTTP/timeout/network failure
   descends per-fence to the code block with a warning.
 - **Privacy (NFR-PRIV-2)** — a one-time warning is emitted per run under `render`;
@@ -44,12 +50,17 @@ The properties proven through the tests:
 **Components under test:**
 
 - `src/domain/mermaid/port.ts` — the `Renderer` port interface.
+- `src/domain/mermaid/normalize.ts` — pure SVG normalizer (§3.3 rules for digest
+  stability, GH-76).
 - `src/domain/mermaid/transform.ts` — the HAST transform (fence discovery, render,
   `<img>` replacement, in-doc dedup, fallback on error).
-- `src/infra/mermaid/kroki.ts` — `KrokiClient` HTTP adapter (POST, timeout, hash,
-  error mapping).
+- `src/infra/mermaid/kroki.ts` — `KrokiClient` HTTP adapter (POST, config
+  passthrough as diagram options, SVG normalization before hash, timeout, error
+  mapping).
 - `src/app/push-flow.ts` — the `computePlan` wiring (transform placement,
-  `PlanEntry.assets` / `ContentHash.attachmentHashes`, privacy warning).
+  `PlanEntry.assets` / `ContentHash.attachmentHashes`, privacy warning) and the
+  `applyPlan` lock-binding update (per-page attachment-hash replacement on
+  Update/Create, GH-76).
 
 **Reused, not re-tested (delivered by GH-26 / GH-21):**
 
@@ -61,8 +72,10 @@ The properties proven through the tests:
 
 **Exclusions:**
 
-- Real Kroki network determinism — non-deterministic across environments;
-  validated manually, not in CI. CI uses a mocked renderer returning fixed bytes.
+- Real Kroki network responses — raw SVG bytes are non-deterministic across
+  environments; CI mocks the renderer and tests normalization against synthetic
+  non-deterministic SVG inputs instead. Real Kroki is reached only by the manual
+  smoke check and the E5-S1 live-sandbox gate.
 - mmdc CLI / self-hosted Kroki / SVG sanitization — deferred (ADR-0002 NG-1/NG-2,
   MS-0003+).
 - In-process official-library renderer (Part B) — deferred to MS-0003+ (GH-11 H4
@@ -74,9 +87,13 @@ The properties proven through the tests:
 ### Unit Tests
 
 **Purpose:** Validate the Kroki adapter transport (success, HTTP 4xx/5xx,
-timeout, DNS failure, request body/headers) and the domain transform (policy
-gating render/code/skip, `<img>` replacement, determinism across repeats, in-doc
-dedup, empty-source and always-error fallback, recursive HAST walk).
+timeout, DNS failure, request body/headers, config passthrough as query params,
+SVG normalization before hashing, determinism across repeated renders) and the
+domain transform (policy gating render/code/skip, `<img>` replacement,
+determinism across repeats, in-doc dedup, empty-source and always-error
+fallback, recursive HAST walk). The pure `normalizeSvg` function is tested in
+isolation (each §3.3 rule: comment stripping, attribute sorting, ID rewriting,
+whitespace canonicalization, metadata stripping).
 
 **Tools:** `bun:test`. `KrokiClient` accepts an injected `fetch` seam (default
 `globalThis.fetch`); unit tests stub `fetch` for fault injection. The transform
@@ -85,9 +102,15 @@ allowed to stub; the HAST walk and hashing are exercised for real).
 
 **Locations:**
 
-- `tests/unit/infra/mermaid/kroki.test.ts` — adapter transport + full-sha256 hash.
+- `tests/unit/infra/mermaid/kroki.test.ts` — adapter transport, config passthrough
+  (query params, `securityLevel` omission), SVG normalization before hashing,
+  determinism across repeated renders, full-sha256 hash.
+- `tests/unit/domain/mermaid/normalize.test.ts` — pure normalizer (each §3.3 rule
+  in isolation, semantic SVG structure unchanged).
 - `tests/unit/domain/mermaid/transform.test.ts` — transform behavior + policy
   gating + dedup + fallback.
+- `tests/unit/app/push-flow.test.ts` — lock pruning (replace vs merge semantics
+  in `finalizeSuccessfulUpdate`).
 
 ### Integration Tests
 
@@ -101,16 +124,29 @@ no-secrets-in-output behavior end-to-end.
 returning fixed SVG bytes.
 
 **Key scenarios:** render activation + upload; idempotent reuse (0 uploads on
-rerun); per-document isolation (one doc fails, run continues); privacy warning
-(render emits it once, code/skip emit none); no secrets in output (token in
-source never reaches body/plan/report).
+rerun, NFR-PERF-4); lock pruning (bloated lock → pruned to current run's entries
+on Update; `NO_CHANGE` preserves existing entries); no-op sync classification
+(unchanged content → `NO_CHANGE`, not `LOCAL_AHEAD`, because stable attachment
+hashes prevent false-positive classification); per-document isolation (one doc
+fails, run continues); privacy warning (render emits it once, code/skip emit
+none); no secrets in output (token in source never reaches body/plan/report).
 
-**Location:** `tests/integration/app/mermaid/mermaid-render.test.ts`.
+**Locations:**
+
+- `tests/integration/app/mermaid/mermaid-render.test.ts` — render activation,
+  attachment reuse, per-document isolation, privacy warning.
+- `tests/integration/confluence/push-flow.test.ts` — lock pruning (bloated lock
+  → pruned on Update; `NO_CHANGE` preserves), no-op sync (0 `uploadAttachment`
+  on second run, `NO_CHANGE` classification), per-document isolation on render
+  failure.
 
 ### Golden Fixture Tests
 
 **Purpose:** Byte-lock the Storage XHTML **structure** for a mermaid fence under
-`render` policy, using a mocked renderer so the hash is stable.
+`render` policy, using a mocked renderer so the hash is stable. Also validates
+that the normalized SVG has 0 structural differences from the raw SVG
+(normalization strips only non-deterministic metadata/IDs; all visual elements —
+paths, text, shapes — are preserved).
 
 **Note:** Kroki SVG bytes are not golden-stable across environments; the golden
 captures the `<ac:image><ri:attachment ri:filename="marksync-mermaid-<hash>.svg"/>`
@@ -162,7 +198,9 @@ upload scenario is an E5-S1 gate.
 - **Given:** a first run has uploaded the attachment.
 - **When:** a second run pushes the **unchanged** doc.
 - **Then:** `attachmentExists` returns true → `uploadAttachment` called **0**
-  times (NFR-PERF-4). (TC-MERM-003)
+  times (NFR-PERF-4). Under the `render` policy, normalized SVG hashing (GH-76)
+  ensures the hash is stable across syncs so the reuse path activates.
+  (TC-MERM-003)
 
 ### Scenario 4: Policy activation — render vs code vs skip
 
@@ -218,6 +256,45 @@ upload scenario is an E5-S1 gate.
 - **Then:** the token appears **0** times in the body, plan JSON, and apply
   report; the filename is the content hash, not the source text. (TC-MERM-011)
 
+### Scenario 11: Determinism via SVG normalization — non-deterministic raw bytes → same hash
+
+- **Given:** two SVG byte arrays from Kroki for the same Mermaid source that
+  differ only in non-deterministic elements (random element IDs, marker names,
+  comments, whitespace).
+- **When:** both are normalized and hashed by the `KrokiClient`.
+- **Then:** the normalized forms are byte-identical and the hashes match — the
+  same source + config produces a stable `Artifact.hash` across syncs.
+  (TC-MERM-DETM-001, TC-MERM-NORM-001)
+
+### Scenario 12: Config passthrough to Kroki — diagram-options query params
+
+- **Given:** a `MermaidRenderConfig` with `deterministicIds: true`,
+  `htmlLabels: false`, `securityLevel: strict`.
+- **When:** the `KrokiClient` calls Kroki.
+- **Then:** the request URL contains `deterministic-ids=true` and
+  `html-labels=false`; it does **not** contain `securityLevel`/`security-level`
+  (blocked by Kroki, enforced as `strict` by default). (TC-MERM-DETM-003,
+  TC-MERM-DETM-004)
+
+### Scenario 13: Lock pruning — bloated lock pruned on Update
+
+- **Given:** a page binding with stale `attachmentHashes` (e.g., 55 entries from
+  pre-fix syncs) and a current run producing 11 Mermaid artifacts.
+- **When:** the sync completes with an Update outcome.
+- **Then:** the updated `attachmentHashes` contains exactly the current run's 11
+  entries (replacement, not merge); stale entries are pruned. A `NO_CHANGE`
+  outcome preserves the existing entries unchanged. (TC-LOCK-001, TC-LOCK-002,
+  TC-LOCK-003)
+
+### Scenario 14: No-op sync — unchanged content → `NO_CHANGE`
+
+- **Given:** a second sync where all content (body + Mermaid sources + assets) is
+  unchanged from the base.
+- **When:** `classify()` runs and `applyPlan` processes the entry.
+- **Then:** the result is `NO_CHANGE` (not `LOCAL_AHEAD`) because normalized
+  attachment hashes are stable; `uploadAttachment` is called **0** times.
+  (TC-E2E-002, TC-E2E-003)
+
 ## Performance & Load Tests
 
 Not part of MS-0002. NFR-PERF-* targets are deferred to MS-0003+.
@@ -248,8 +325,10 @@ Not part of MS-0002. NFR-PERF-* targets are deferred to MS-0003+.
 - **Boundary gate:** `bun run check:boundaries` (`depcruise src`) confirms
   `src/domain/mermaid/` imports no `src/infra/` (it depends only on the
   `Renderer` port) and `src/infra/mermaid/` imports only the port + domain types.
-- **Determinism in CI:** a mocked renderer returns fixed SVG bytes; real Kroki
-  determinism is validated manually (network-dependent).
+- **Determinism in CI:** a mocked renderer returns fixed SVG bytes; the
+  `normalizeSvg` unit tests and Kroki determinism tests (TC-MERM-DETM-001,
+  TC-MERM-NORM-001) prove that non-deterministic raw SVG inputs normalize to a
+  stable hash. Real Kroki responses are validated manually (network-dependent).
 
 ## Test Environment
 
@@ -277,4 +356,5 @@ Not part of MS-0002. NFR-PERF-* targets are deferred to MS-0003+.
   NFR-PERF-4)
 - [Architecture overview](../../overview/architecture-overview.md)
 - [Testing strategy](../../../.ai/rules/testing-strategy.md)
-- [Change test plan](../changes/2026-07/2026-07-13--GH-69--mermaid-kroki-render/chg-GH-69-test-plan.md)
+- [Change test plan (GH-69)](../changes/2026-07/2026-07-13--GH-69--mermaid-kroki-render/chg-GH-69-test-plan.md)
+- [Change test plan (GH-76)](../changes/2026-07/2026-07-14--GH-76--mermaid-deterministic-svg-lock-prune/chg-GH-76-test-plan.md)

@@ -5,11 +5,11 @@ ados_distribution: project-generated
 id: SPEC-MERMAID-RENDERING
 status: Current
 created: 2026-07-06
-last_updated: 2026-07-13
+last_updated: 2026-07-14
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: ["GH-11", "GH-25", "GH-69"]
+  related_changes: ["GH-11", "GH-25", "GH-69", "GH-76"]
   decisions: [ADR-0001, ADR-0002, TDR-0004]
   contracts: []
 ---
@@ -245,9 +245,10 @@ remote render path, MS-0002 wires the `render` policy to the public Kroki API
       implemented, tested, and correctly defaulted under GH-25 (CEO-DEC-1).**
 - [x] **Attachment reuse:** unchanged diagram → same full-sha256 hash → same
       `marksync-mermaid-<hash>.svg` → 0 re-uploads on the second run
-      (`attachmentExists` short-circuits). *Render-policy dedup evidenced by
-      GH-69; the in-process renderer's cross-OS hash formula applies when Part B
-      lands (MS-0003+).*
+      (`attachmentExists` short-circuits). *Render-policy dedup restored by
+      GH-76 (normalized SVG hashing + config passthrough); the original GH-69
+      path was non-deterministic. The in-process renderer's cross-OS hash
+      formula applies when Part B lands (MS-0003+).*
 - [x] **Fallback (MS-0002, implemented GH-25 + GH-69):** the `code` policy is the
       implemented default — a mermaid fence is preserved as a code macro with
       `language=mermaid`, byte-stable across runs. Under the `render` policy, a
