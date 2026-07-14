@@ -35,7 +35,7 @@ import { assertOperationFresh } from "#domain/state/operation-freshness";
 import { assertPlanNotExpired } from "#domain/state/plan-expiry";
 import { decideOnConflict } from "#domain/state/conflict-policy";
 import type { ProvenanceInput } from "#infra/confluence/provenance";
-import { formatVersionMessage } from "#infra/confluence/provenance";
+import { formatVersionMessageWithMeta } from "#infra/confluence/provenance";
 import { saveLock } from "#app/lock";
 import { openJournal, type JournalWriter } from "#app/journal";
 import type { MetadataProperty } from "#domain/state/reconcile";
@@ -408,6 +408,7 @@ export async function computePlan(
 
 	const provenance: ProvenanceInput = {
 		headCommit: headResult.value,
+		sourceBranch: branchResult.value,
 		commitCount: subjectsResult.value.length,
 		subjects: subjectsResult.value,
 	};
@@ -550,8 +551,12 @@ export async function uploadAssets(
 
 /**
  * Serialize a PageBinding to MetadataProperty for putProperty.
+ * Writes all 14 fields on every sync (GH-27 / ADR-0010 privacy: count +
+ * trimMarker only, never commit subjects).
+ *
+ * Exported for unit testing (GH-27 TC-PROV-003).
  */
-function bindingToProperty(
+export function bindingToProperty(
 	binding: PageBinding,
 	targetId: string,
 ): MetadataProperty {
@@ -562,11 +567,14 @@ function bindingToProperty(
 		documentId: binding.uuid,
 		sourcePath: binding.sourcePath,
 		sourceCommit: binding.sourceCommit,
+		sourceBranch: binding.sourceBranch ?? "",
 		sourceContentHash: binding.sourceContentHash,
 		renderedBodyHash: binding.renderedBodyHash,
 		toolVersion: binding.toolVersion,
 		synchronizedAt: binding.synchronizedAt,
 		operationId: binding.operationId,
+		commitCount: binding.commitCount ?? 0,
+		trimMarker: binding.trimMarker ?? "",
 	};
 }
 
@@ -681,6 +689,9 @@ async function finalizeSuccessfulUpdate(
 	renderedBody: string,
 	renderedBodyHash: string,
 	assetUploadHashes: Record<string, string> = {},
+	sourceBranch: string = "",
+	commitCount: number = 0,
+	trimMarker: string = "",
 ): Promise<Result<ApplyResultEntry, MarkSyncError>> {
 	// Journal append BEFORE lock update
 	journal.append({
@@ -723,6 +734,9 @@ async function finalizeSuccessfulUpdate(
 			...binding.attachmentHashes,
 			...assetUploadHashes, // GH-26: merge newly uploaded assets
 		},
+		sourceBranch,
+		commitCount,
+		trimMarker,
 	};
 
 	const lockTarget = lock.targets[targetId] ?? { documents: {} };
@@ -782,10 +796,12 @@ export async function applyPlan(
 	let successfulMutations = 0; // PD-5: crash hook counts only successful mutations
 	const warnings: string[] = []; // GH-26: accumulate warnings from uploadAssets
 
-	// Format provenance message once
-	const message = formatVersionMessage(plan.provenance);
+	// Format provenance message + trim marker once
+	const { message, trimMarker } = formatVersionMessageWithMeta(plan.provenance);
 	const headSha = plan.provenance.headCommit;
 	const operationId = plan.operationId;
+	const sourceBranch = plan.provenance.sourceBranch ?? "";
+	const commitCount = plan.provenance.commitCount ?? 0;
 
 	// Process serialized (concurrency = 1, DEC-5)
 	for (const entry of ordered) {
@@ -800,6 +816,9 @@ export async function applyPlan(
 			operationId,
 			headSha,
 			opts.stalePlanMinutes,
+			sourceBranch,
+			commitCount,
+			trimMarker,
 		);
 
 		results.push(outcome);
@@ -847,6 +866,9 @@ async function processEntry(
 	operationId: string,
 	headSha: string,
 	stalePlanMinutes: number,
+	sourceBranch: string,
+	commitCount: number,
+	trimMarker: string,
 ): Promise<ApplyResultEntry & { warnings?: string[] }> {
 	const { uuid, action } = entry;
 	const now = Date.now();
@@ -1061,6 +1083,9 @@ async function processEntry(
 						entry.renderedBody, // GH-62: for fetch-back fallback
 						entry.hashes.canonicalHash, // GH-62: refresh renderedBodyHash in binding
 						reapplyAssetHashes, // GH-26: pass asset hashes for merge
+						sourceBranch,
+						commitCount,
+						trimMarker,
 					);
 
 					if (!finalizeResult.ok) {
@@ -1123,6 +1148,9 @@ async function processEntry(
 			entry.renderedBody, // GH-62: for fetch-back fallback
 			entry.hashes.canonicalHash, // GH-62: refresh renderedBodyHash in binding
 			assetUploadHashes, // GH-26: pass asset hashes for merge
+			sourceBranch,
+			commitCount,
+			trimMarker,
 		);
 
 		if (!finalizeResult.ok) {
@@ -1231,6 +1259,9 @@ async function processEntry(
 			operationId,
 			synchronizedAt: new Date().toISOString(),
 			toolVersion: pkg.version,
+			sourceBranch,
+			commitCount,
+			trimMarker,
 		};
 
 		// Add to lock in memory

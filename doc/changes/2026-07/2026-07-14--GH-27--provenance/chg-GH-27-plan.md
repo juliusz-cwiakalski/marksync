@@ -169,15 +169,11 @@ This plan delivers provenance infrastructure for the safe publish pipeline (MS-0
 
 **Tasks**:
 
-- [ ] **3.1** Locate the `bindingToProperty` function in `src/app/push-flow.ts` (around line 545). Extend it to include `sourceBranch`, `commitCount`, and `trimMarker` in the returned `MetadataProperty` object. All 14 fields are written on every managed page after this change.
-- [ ] **3.2** Ensure `plan.provenance` object carries `sourceBranch` field. The `git.currentBranch()` port is already called for the branch gate in `computePlan` (around line 144); reuse that result in the provenance assembly (around line 400).
-- [ ] **3.3** Ensure `plan.provenance` carries `commitCount` and `trimMarker` (already in `ProvenanceInput` from the plan). Map these to the property fields.
-- [ ] **3.4** Add privacy assertion in `bindingToProperty`: verify that the property JSON does NOT contain a `subjects` field or any commit subject strings (ADR-0010 enforcement). This can be a runtime check in tests or a comment assertion.
-- [ ] **3.5** Add unit tests to `tests/unit/app/push-flow.test.ts` (or create if not exists) for `bindingToProperty`:
-  - Property contains all 14 required fields.
-  - Property contains `sourceBranch`, `commitCount`, `trimMarker` when provided.
-  - Property does NOT contain `subjects` field or commit subject strings (privacy).
-  - Property fields are all written on every sync (not optional on write).
+- [x] **3.1** Extended `bindingToProperty` to include `sourceBranch`, `commitCount`, `trimMarker` (all 14 fields written on every sync). Exported for unit testing.
+- [x] **3.2** `plan.provenance` now carries `sourceBranch` from `git.currentBranch()` (reuses `branchResult.value` from the branch gate).
+- [x] **3.3** `commitCount` from `plan.provenance` (already in `ProvenanceInput`); `trimMarker` computed via `formatVersionMessageWithMeta` in `applyPlan`, threaded through `processEntry` → `finalizeSuccessfulUpdate` → binding.
+- [x] **3.4** Privacy: `bindingToProperty` writes only count + marker, never subjects. Unit tests assert no `subjects` field.
+- [x] **3.5** Created `tests/unit/app/push-flow.test.ts` with 5 tests covering all 14 fields, privacy (no subjects), backward compat, JSON validity. All pass.
 
 **Acceptance Criteria**:
 
