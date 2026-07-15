@@ -315,6 +315,17 @@ export async function runRepair(
 			diagnosticCode,
 		});
 
+		// Add repair item for this rebuild (both dry-run and apply)
+		items.push({
+			uuid,
+			sourcePath: binding.sourcePath,
+			diagnosticClass: "repaired",
+			diagnosticCode,
+			humanNote: isCrashWindowCandidate
+				? "Rebuilt from remote (crash window closed)"
+				: "Rebuilt from Confluence property",
+		});
+
 		// Handle journal-lost fallback: rebuild from lock + Confluence
 		if (
 			interruptedRunDetected === false &&
@@ -384,7 +395,7 @@ export async function runRepair(
 			for (const rebuild of rebuilds) {
 				const { binding, property, pageVersion } = rebuild;
 
-				// For crash-window or stale-lock rebuilds, use existing binding
+				// For crash-window or stale-lock rebuilds
 				if (binding) {
 					const pageResult2 = await target.getPage(binding.pageId);
 					if (!pageResult2.ok) {
@@ -473,6 +484,138 @@ export async function runRepair(
 						diagnosticCode,
 						humanNote: `Completed via applyPlan (${entry.outcome})`,
 					});
+				}
+			}
+		}
+	}
+
+	// Handle crash window candidates (journal ahead of lock)
+	if (latestJournalRunId && crashWindowCandidates.size > 0) {
+		const journal = replayJournal(opts.cacheDir, latestJournalRunId);
+		for (const entry of journal) {
+			if (entry.outcome === "success" && crashWindowCandidates.has(entry.uuid)) {
+				// This is a crash window candidate - journaled success but not in lock
+				const propertyResult = await target.getProperty(entry.pageId, "marksync.metadata");
+
+				if (!propertyResult.ok || !propertyResult.value) {
+					items.push({
+						uuid: entry.uuid,
+						sourcePath: "unknown",
+						diagnosticClass: "needs-human-action",
+						diagnosticCode: "NEEDS_HUMAN_ACTION_MISSING_PROPERTY",
+						humanNote: "Crash window candidate: property missing or unreadable",
+					});
+					continue;
+				}
+
+				let property: MetadataProperty;
+				try {
+					property = JSON.parse(propertyResult.value) as MetadataProperty;
+				} catch {
+					items.push({
+						uuid: entry.uuid,
+						sourcePath: "unknown",
+						diagnosticClass: "needs-human-action",
+						diagnosticCode: "NEEDS_HUMAN_ACTION_MISSING_PROPERTY",
+						humanNote: "Crash window candidate: failed to parse property",
+					});
+					continue;
+				}
+
+				const pageResult = await target.getPage(entry.pageId);
+				if (!pageResult.ok) {
+					if (pageResult.error.kind === "RemoteMissing") {
+						items.push({
+							uuid: entry.uuid,
+							sourcePath: "unknown",
+							diagnosticClass: "needs-human-action",
+							diagnosticCode: "NEEDS_HUMAN_ACTION_MISSING_PAGE",
+							humanNote: "Crash window candidate: remote page missing",
+						});
+					} else {
+						return pageResult;
+					}
+					continue;
+				}
+
+				const page = pageResult.value;
+
+				// Build RemoteState for classification
+				const remoteBodyHash = rawHash(page.body ?? "");
+				const remoteState = {
+					kind: "present" as const,
+					bodyHash: remoteBodyHash,
+					version: page.version,
+					title: page.title,
+				};
+
+				// Build minimal SharedBase for classification
+				const sharedBase = {
+					uuid: entry.uuid,
+					pageId: entry.pageId,
+					parentPageId: property.sourcePath, // Use sourcePath as fallback
+					pageVersion: page.version,
+					renderedBodyHash: property.renderedBodyHash,
+					remoteBodyHash: remoteBodyHash,
+					attachmentHashes: {},
+				};
+
+				const classifyResult = classify({
+					base: sharedBase,
+					remote: remoteState,
+				});
+
+				if (!classifyResult.ok) {
+					return classifyResult;
+				}
+
+				const syncState = classifyResult.value;
+
+				// Check if remote diverged or ahead
+				if (syncState === "REMOTE_AHEAD" || syncState === "DIVERGED") {
+					items.push({
+						uuid: entry.uuid,
+						sourcePath: property.sourcePath,
+						diagnosticClass: "needs-human-action",
+						diagnosticCode: "NEEDS_HUMAN_ACTION_DIVERGED",
+						humanNote: `Crash window candidate: remote has ${syncState === "REMOTE_AHEAD" ? "remote changes" : "diverged"}`,
+					});
+					continue;
+				}
+
+				// Safe to rebuild (NO_CHANGE or LOCAL_AHEAD)
+				items.push({
+					uuid: entry.uuid,
+					sourcePath: property.sourcePath,
+					diagnosticClass: "repaired",
+					diagnosticCode: "REPAIRED_CRASH_WINDOW",
+					humanNote: "Rebuilt from remote (crash window closed)",
+				});
+
+				// Apply rebuild if not dry-run
+				if (!opts.dryRun) {
+					const rebuildResult = rebuildLockFromConfluence({
+						property,
+						pageVersion: page.version,
+						pageId: entry.pageId,
+						parentPageId: sharedBase.parentPageId,
+						hashes: {
+							sourceContentHash: property.sourceContentHash,
+							renderedBodyHash: property.renderedBodyHash,
+							remoteBodyHash: remoteBodyHash,
+						},
+						attachmentHashes: {},
+					});
+
+					if (!rebuildResult.ok) {
+						return rebuildResult;
+					}
+
+					// Add to working lock
+					const targetObj = workingLock.targets[opts.targetId];
+					if (targetObj) {
+						targetObj.documents[entry.uuid] = rebuildResult.value;
+					}
 				}
 			}
 		}
