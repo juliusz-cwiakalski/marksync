@@ -14,7 +14,7 @@ phases:
   review_fix: { started: "2026-07-15T18:40:00Z", completed: "2026-07-15T21:10:00Z", iter: 3, verdict: PASS }
   quality_gates: { started: "2026-07-15T21:10:00Z", completed: "2026-07-15T21:15:00Z", result: "GREEN — 1216 pass/0 fail; typecheck clean; format clean; 0 dep violations; 226 pre-existing lint warnings (exit 0)" }
   dod_check: { started: "2026-07-15T21:15:00Z", completed: "2026-07-15T21:20:00Z", verdict: MET }
-  pr_creation: { started: "2026-07-15T21:20:00Z", completed: null, url: null }
+  pr_creation: { started: "2026-07-15T21:20:00Z", completed: "2026-07-15T21:30:00Z", url: "https://github.com/juliusz-cwiakalski/marksync/pull/84", pr_number: 84 }
 
 decisions: []
 open_questions: []
