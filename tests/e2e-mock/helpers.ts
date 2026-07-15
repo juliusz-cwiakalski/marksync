@@ -41,11 +41,16 @@ export function targetFor(origin: string, logs?: string[]): ConfluenceTarget {
  */
 export async function loadCorpus(scenario: string): Promise<Map<string, string>> {
 	const corpus = new Map<string, string>();
-	const _corpusDir = `tests/e2e-mock/fixtures/corpus/${scenario}`;
+	const corpusDir = `tests/e2e-mock/fixtures/corpus/${scenario}`;
 
-	// For simplicity, we'll use Bun's file system API
-	// In a real scenario, this would read from the filesystem
-	// For now, we'll return an empty map and populate scenarios directly
+	// Read all .md files in the corpus directory using glob
+	const glob = new Bun.Glob(`**/*.md`);
+	for await (const path of glob.scan(corpusDir)) {
+		const filename = path.split("/").pop()!;
+		const fullPath = `${corpusDir}/${path}`;
+		const content = await Bun.file(fullPath).text();
+		corpus.set(filename, content);
+	}
 
 	return corpus;
 }

@@ -57,6 +57,7 @@ export function createMockServer(): {
 	stop: () => void;
 	captured: CapturedRequest[];
 	reset: () => void;
+	clearCaptured: () => void;
 } {
 	let nextPageId = 100;
 	let nextPropertyId = 200;
@@ -79,6 +80,11 @@ export function createMockServer(): {
 		nextPageId = 100;
 		nextPropertyId = 200;
 		nextAttachmentId = 300;
+	}
+
+	// Clear only the captured log (keep server state)
+	function clearCaptured() {
+		captured.length = 0;
 	}
 
 	const server = Bun.serve({
@@ -393,6 +399,7 @@ export function createMockServer(): {
 		stop: () => server.stop(true),
 		captured,
 		reset,
+		clearCaptured,
 	};
 }
 
