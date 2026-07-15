@@ -85,12 +85,11 @@ marksync:
 # Doc 3 (REMOTE_MISSING)`,
 		);
 
-		// Add fixtures for doc1 and doc2 only (doc3 is REMOTE_MISSING)
+		// Add fixtures for doc1 and doc2 only with NO body field (LOCAL_AHEAD pattern)
 		this.fakeTarget.addFixture({
 			id: page1Id,
 			title: "Doc 1",
 			version: 1,
-			body: "<h1>Doc 1</h1>",
 			spaceId: "TEST",
 		});
 
@@ -98,13 +97,14 @@ marksync:
 			id: page2Id,
 			title: "Doc 2",
 			version: 1,
-			body: "<h1>Doc 2</h1>",
 			spaceId: "TEST",
 		});
 
 		// DO NOT add fixture for doc3 (REMOTE_MISSING)
 
 		// Bind all 3 documents in lock
+		// doc1 and doc2: LOCAL_AHEAD (renderedBodyHash === remoteBodyHash)
+		// doc3: REMOTE_MISSING (no fixture)
 		this.lock.targets.default.documents[doc1Uuid] = {
 			uuid: doc1Uuid,
 			sourcePath: "doc1.md",
@@ -112,9 +112,9 @@ marksync:
 			parentPageId: "ROOT",
 			pageVersion: 1,
 			sourceCommit: "base-sha",
-			sourceContentHash: "local-hash-1",
-			renderedBodyHash: "rendered-hash-1",
-			remoteBodyHash: "remote-hash-1",
+			sourceContentHash: "new-local-hash-1", // Local changed
+			renderedBodyHash: "old-rendered-hash-1", // Same as remote → LOCAL_AHEAD
+			remoteBodyHash: "old-rendered-hash-1", // == base → remote unchanged
 			attachmentHashes: {},
 			operationId: "op-old",
 			synchronizedAt: "2025-01-01T00:00:00Z",
@@ -128,9 +128,9 @@ marksync:
 			parentPageId: "ROOT",
 			pageVersion: 1,
 			sourceCommit: "base-sha",
-			sourceContentHash: "local-hash-2",
-			renderedBodyHash: "rendered-hash-2",
-			remoteBodyHash: "remote-hash-2",
+			sourceContentHash: "new-local-hash-2", // Local changed
+			renderedBodyHash: "old-rendered-hash-2", // Same as remote → LOCAL_AHEAD
+			remoteBodyHash: "old-rendered-hash-2", // == base → remote unchanged
 			attachmentHashes: {},
 			operationId: "op-old",
 			synchronizedAt: "2025-01-01T00:00:00Z",
@@ -182,10 +182,39 @@ Then("the REMOTE_MISSING document is Blocked", function (this: BddWorld) {
 Then(
 	"FakeTarget.createPageCalls.length is strictly less than total documents",
 	function (this: BddWorld) {
+		// With 3 docs: doc1 and doc2 are LOCAL_AHEAD (update), doc3 is REMOTE_MISSING (block)
+		// Expected: 0 createPage calls, 2 updatePage calls, 1 block
 		const totalDocuments = 3;
-		if (this.fakeTarget.createPageCalls.length >= totalDocuments) {
+		if (this.fakeTarget.createPageCalls.length !== 0) {
 			throw new Error(
-				`Expected createPageCalls.length (${this.fakeTarget.createPageCalls.length}) < totalDocuments (${totalDocuments})`,
+				`Expected createPageCalls.length to be 0 but got ${this.fakeTarget.createPageCalls.length}`,
+			);
+		}
+
+		// Verify doc1 and doc2 were updated (LOCAL_AHEAD)
+		if (this.fakeTarget.updatePageCalls.length !== 2) {
+			throw new Error(
+				`Expected updatePageCalls.length to be 2 but got ${this.fakeTarget.updatePageCalls.length}`,
+			);
+		}
+
+		// Verify doc3 was blocked (plan entry has Block action)
+		if (!this.planResult || !this.planResult.ok) {
+			throw new Error("Expected computePlan to succeed");
+		}
+
+		const plan = this.planResult.value;
+		const doc3Entry = Object.values(plan.entries).find((e) =>
+			e.sourcePath.includes("doc3.md"),
+		);
+
+		if (!doc3Entry) {
+			throw new Error("Expected to find plan entry for doc3.md");
+		}
+
+		if (doc3Entry.action.kind !== "Block") {
+			throw new Error(
+				`Expected doc3 action.kind to be "Block" but got "${doc3Entry.action.kind}"`,
 			);
 		}
 	},

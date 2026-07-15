@@ -1,18 +1,16 @@
 // BDD world: per-scenario state holder for FakeTarget + FakeRepository + results.
 
-import { Before } from "@cucumber/cucumber";
+import { Before, After } from "@cucumber/cucumber";
 import { FakeRepository } from "#tests/_helpers/fake-repository";
 import { FakeTarget } from "#tests/_helpers/fake-target";
 import type { LockFile, ProjectConfig } from "#domain/config/types";
-import type { Plan } from "#app/push-flow";
+import type { Plan, ApplyReport, ApplyOptions } from "#app/push-flow";
 import type { Result } from "#domain/result";
-import type { ApplyReport } from "#app/push-flow";
-import type { ApplyOptions } from "#app/push-flow";
 import { tmpdir } from "node:os";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 
-// Create a temporary cache directory for BDD tests
-const tmpCacheDir = mkdtempSync(`${tmpdir()}/marksync-bdd-`);
+// Temporary cache directory for BDD tests (created per scenario)
+let tmpCacheDir: string;
 
 export interface BddWorld {
 	// Adapter port mocks (only permitted mocks — DEC-4)
@@ -35,6 +33,9 @@ export interface BddWorld {
 
 // Create a fresh world before each scenario (RSK-3: no state leakage)
 Before(function () {
+	// Create a fresh temporary cache directory for this scenario
+	tmpCacheDir = mkdtempSync(`${tmpdir()}/marksync-bdd-`);
+
 	const world = this as unknown as BddWorld;
 	const applyOpts: ApplyOptions = {
 		cwd: tmpCacheDir,
@@ -92,4 +93,20 @@ Before(function () {
 		applyResult: undefined,
 		applyOpts,
 	});
+});
+
+// Clean up the temporary cache directory after each scenario (L-2)
+After(function () {
+	// Best-effort cleanup: remove the temporary cache directory
+	if (tmpCacheDir) {
+		try {
+			rmSync(tmpCacheDir, { recursive: true, force: true });
+		} catch (error) {
+			// Log but don't fail the test (best-effort cleanup)
+			console.error(
+				`[BDD Cleanup Failed] Failed to remove ${tmpCacheDir}:`,
+				error,
+			);
+		}
+	}
 });

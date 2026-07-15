@@ -1,6 +1,8 @@
 // Step definitions for no-secret-in-output.feature (INV-SEC-1, TC-BDD-006).
 
 import { Given, Then } from "@cucumber/cucumber";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import type { BddWorld } from "../support/world";
 
 const SENTINEL_SECRET = "SECRET_SENTINEL_xyz123";
@@ -23,16 +25,16 @@ marksync:
 This doc contains a secret: ${SENTINEL_SECRET}`,
 		);
 
-		// Add fixture page
+		// Add fixture page with NO body field so computePlan falls back to
+		// binding.remoteBodyHash (LOCAL_AHEAD pattern → writes journal/message).
 		this.fakeTarget.addFixture({
 			id: pageId,
 			title: "Doc",
 			version: 1,
-			body: "<h1>Doc</h1><p>This doc contains a secret: SECRET_SENTINEL_xyz123</p>",
 			spaceId: "TEST",
 		});
 
-		// Bind the document in lock
+		// Bind the document in lock (LOCAL_AHEAD pattern: renderedBodyHash === remoteBodyHash)
 		this.lock.targets.default.documents[docUuid] = {
 			uuid: docUuid,
 			sourcePath: "doc.md",
@@ -40,9 +42,9 @@ This doc contains a secret: ${SENTINEL_SECRET}`,
 			parentPageId: "ROOT",
 			pageVersion: 1,
 			sourceCommit: "base-sha",
-			sourceContentHash: "local-hash",
-			renderedBodyHash: "rendered-hash",
-			remoteBodyHash: "remote-hash",
+			sourceContentHash: "new-local-hash", // Local changed
+			renderedBodyHash: "old-rendered-hash", // Same as remote → LOCAL_AHEAD
+			remoteBodyHash: "old-rendered-hash", // == base → remote unchanged
 			attachmentHashes: {},
 			operationId: "op-old",
 			synchronizedAt: "2025-01-01T00:00:00Z",
@@ -71,8 +73,29 @@ Then(
 Then(
 	"the sentinel does not appear in the apply journal",
 	function (this: BddWorld) {
-		// Note: in this test setup, we don't have a real journal, so we skip this assertion
-		// The real integration test (TC-INTEGRATION-011) validates journal redaction
+		if (!this.applyResult || !this.applyResult.ok) {
+			throw new Error("Expected applyPlan to succeed");
+		}
+
+		if (!this.planResult || !this.planResult.ok) {
+			throw new Error("Expected computePlan to succeed");
+		}
+
+		const report = this.applyResult.value;
+		const plan = this.planResult.value;
+
+		// Read the journal file (.marksync/journal/<run-id>.jsonl)
+		const journalPath = join(
+			this.applyOpts.cacheDir,
+			"journal",
+			`${plan.runId}.jsonl`,
+		);
+		const journalContent = readFileSync(journalPath, "utf-8");
+
+		// Assert the journal contains NO occurrences of the sentinel
+		if (journalContent.includes(SENTINEL_SECRET)) {
+			throw new Error("Sentinel leaked into apply journal");
+		}
 	},
 );
 
@@ -89,8 +112,41 @@ Then(
 Then(
 	"the sentinel does not appear in diagnostic messages",
 	function (this: BddWorld) {
-		// Note: diagnostics are not captured in this BDD test setup
-		// The real integration test (TC-INTEGRATION-011) validates diagnostic redaction
+		if (!this.planResult || !this.planResult.ok) {
+			throw new Error("Expected computePlan to succeed");
+		}
+
+		if (!this.applyResult || !this.applyResult.ok) {
+			throw new Error("Expected applyPlan to succeed");
+		}
+
+		const plan = this.planResult.value;
+		const report = this.applyResult.value;
+
+		// Check plan entries for warnings/diagnostics
+		for (const entry of Object.values(plan.entries)) {
+			if (entry.action.kind === "Block" && entry.action.reason) {
+				if (entry.action.reason.includes(SENTINEL_SECRET)) {
+					throw new Error("Sentinel leaked into plan action reason");
+				}
+			}
+		}
+
+		// Check ApplyReport warnings
+		for (const warning of report.warnings ?? []) {
+			if (warning.includes(SENTINEL_SECRET)) {
+				throw new Error("Sentinel leaked into apply report warnings");
+			}
+		}
+
+		// Check individual result warnings
+		for (const result of report.results) {
+			for (const warning of result.warnings ?? []) {
+				if (warning.includes(SENTINEL_SECRET)) {
+					throw new Error("Sentinel leaked into result warnings");
+				}
+			}
+		}
 	},
 );
 
@@ -101,19 +157,45 @@ Then(
 			throw new Error("Expected applyPlan to succeed");
 		}
 
-		const result = this.applyResult.value;
-		// Check all version messages in the result
-		if (result.documents) {
-			for (const docResult of Object.values(result.documents)) {
-				if (docResult.versionMessage?.includes(SENTINEL_SECRET)) {
-					throw new Error("Sentinel leaked into version.message");
-				}
+		// ApplyReport has no 'documents' field — check FakeTarget's captured calls instead.
+		// Mirror TC-INTEGRATION-011 pattern: inspect updatePageCalls[].message and createPageCalls[].message.
+		for (const updateCall of this.fakeTarget.updatePageCalls) {
+			if (updateCall.message?.includes(SENTINEL_SECRET)) {
+				throw new Error("Sentinel leaked into version.message (updatePage)");
+			}
+		}
+
+		for (const createCall of this.fakeTarget.createPageCalls) {
+			if (createCall.message?.includes(SENTINEL_SECRET)) {
+				throw new Error("Sentinel leaked into version.message (createPage)");
 			}
 		}
 	},
 );
 
 Then("the sentinel does not appear in the cache", function (this: BddWorld) {
-	// Note: cache is not accessible in this BDD test setup
-	// The real integration test (TC-INTEGRATION-011) validates cache redaction
+	if (!this.applyResult || !this.applyResult.ok) {
+		throw new Error("Expected applyPlan to succeed");
+	}
+
+	// Recursively scan the cache directory for any file containing the sentinel
+	const cacheDir = this.applyOpts.cacheDir;
+	const scanDir = (dir: string): void => {
+		const entries = readdirSync(dir, { withFileTypes: true });
+
+		for (const entry of entries) {
+			const fullPath = join(dir, entry.name);
+
+			if (entry.isDirectory()) {
+				scanDir(fullPath);
+			} else if (entry.isFile()) {
+				const content = readFileSync(fullPath, "utf-8");
+				if (content.includes(SENTINEL_SECRET)) {
+					throw new Error(`Sentinel leaked into cache file: ${fullPath}`);
+				}
+			}
+		}
+	};
+
+	scanDir(cacheDir);
 });
