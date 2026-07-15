@@ -1,6 +1,6 @@
 // Step definitions for no-secret-in-output.feature (INV-SEC-1, TC-BDD-006).
 
-import { Then } from "@cucumber/cucumber";
+import { Given, Then } from "@cucumber/cucumber";
 import type { BddWorld } from "../support/world";
 
 const SENTINEL_SECRET = "SECRET_SENTINEL_xyz123";
