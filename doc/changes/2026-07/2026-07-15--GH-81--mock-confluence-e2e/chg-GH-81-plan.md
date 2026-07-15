@@ -390,8 +390,8 @@ Per **DEC-1 (Option B)**, scenarios exercise the full pipeline **programmaticall
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
 | 1 — Mock skeleton + helpers | Completed | 2026-07-15 | 2026-07-15 | 257a1bb | All endpoints implemented, Phase-1 smoke probe passing |
-| 2 — Mock-409 self-check | Not started | — | — | — | — |
-| 3 — Mandatory five scenarios | Not started | — | — | — | — |
-| 4 — Property-API scenario | Not started | — | — | — | — |
-| 5 — CI job `e2e-mock` | Not started | — | — | — | — |
-| 6 — Verification + finalize | Not started | — | — | — | — |
+| 2 — Mock-409 self-check | Completed | 2026-07-15 | 2026-07-15 | 54fc299 | Mock 409 body round-trips through parseConflict correctly |
+| 3 — Mandatory five scenarios | Completed | 2026-07-15 | 2026-07-15 | e7f9b8c | All 5 scenarios passing after secondary assertion fixes (path query-string, pageId-from-lock, attachment fixture, version-increment mock, request-vs-response shape) |
+| 4 — Property-API scenario | Completed | 2026-07-15 | 2026-07-15 | 06f015b | TC-008 passing |
+| 5 — CI job `e2e-mock` | Completed | 2026-07-15 | 2026-07-15 | 06f015b | Job added to ci.yml, secrets-free, pinned Bun 1.2.23 |
+| 6 — Verification + finalize | Completed | 2026-07-15 | 2026-07-15 | — | All 13 e2e-mock tests passing; `src/**` untouched (DEC-1) |

@@ -101,10 +101,11 @@ describe("TC-E2EMOCK-004 — update flow (AC-F2-3)", () => {
 		const firstReport = firstApplyResult.value;
 		expect(firstReport.writes).toBe(1); // 1 page created
 
-		// Get page ID from first run
+		// Get page ID from first run (server-assigned id lives in the lock
+		// binding; the create request body has no id field).
 		const postPage = mock.captured.find((r) => r.method === "POST" && r.path === "/wiki/api/v2/pages");
 		expect(postPage).toBeDefined();
-		const pageId = JSON.parse(postPage!.text).id;
+		const pageId = Object.values(lock.targets.default.documents)[0]!.pageId;
 
 		// Clear captured requests (keep mock state)
 		mock.clearCaptured();
@@ -121,13 +122,13 @@ MODIFIED content - this is an update.`;
 		fakeRepo.setFile("page.md", updatedContent);
 		fakeRepo.setHeadSha("commit-456"); // New commit SHA
 
-		// Second sync: update page
-		const lockAfterFirstRun = firstApplyResult.value.lock;
-		const secondPlanResult = await computePlan(baseConfig, lockAfterFirstRun, fakeRepo, target);
+		// Second sync: reuse the in-place-mutated lock (applyPlan mutated it;
+		// ApplyReport carries no lock field — the same `lock` object is current).
+		const secondPlanResult = await computePlan(baseConfig, lock, fakeRepo, target);
 		expect(secondPlanResult.ok).toBe(true);
 		if (!secondPlanResult.ok) return;
 
-		const secondApplyResult = await applyPlan(secondPlanResult.value, target, lockAfterFirstRun, {
+		const secondApplyResult = await applyPlan(secondPlanResult.value, target, lock, {
 			cwd: tmpCacheDir,
 			cacheDir: tmpCacheDir,
 			targetId: "default",
@@ -151,14 +152,16 @@ MODIFIED content - this is an update.`;
 		const putBody = JSON.parse(putPage.text);
 		expect(putBody.version?.number).toBe(2); // version bumped from 1 to 2
 
-		// Assert GET for comparison (classification + finalize fetch-back)
+		// Assert GET for comparison (classification + finalize fetch-back).
+		// The mock captures url.pathname only (no query string).
 		const getPages = mock.captured.filter(
-			(r) => r.method === "GET" && r.path === `/wiki/api/v2/pages/${pageId}?body-format=storage`,
+			(r) => r.method === "GET" && r.path === `/wiki/api/v2/pages/${pageId}`,
 		);
 		expect(getPages.length).toBeGreaterThanOrEqual(1);
 
 		// Assert the page body in the PUT request matches the new content
-		expect(putBody.body?.storage?.value).toContain("MODIFIED content");
+		// (request shape: body.value; body.storage nesting is response-only).
+		expect(putBody.body?.value).toContain("MODIFIED content");
 
 		// Assert server-side page version advanced 1 → 2
 		// Verify by checking the response from the PUT

@@ -61,13 +61,22 @@ describe("TC-E2EMOCK-005 — attachment dedup via hash precheck (AC-F2-4)", () =
 		mock = createMockServer();
 		const target = targetFor(mock.origin);
 
-		// Load corpus with 1 page with Mermaid diagram (has attachment)
+		// Load corpus with 1 page referencing a local image (image.png lives
+		// next to the markdown in the fixture dir). Key the doc by its
+		// fixture-relative path so the AssetResolver resolves image.png relative
+		// to the fixture directory (config.root stays "." — the fixture dir is
+		// under the repo root, so the path-safe confinement check passes).
 		const corpus = await loadCorpus("attachment-dedup");
 		expect(corpus.size).toBe(1);
+		const fixtureDir = "tests/e2e-mock/fixtures/corpus/attachment-dedup";
+		const files: Record<string, string> = {};
+		for (const [filename, content] of corpus) {
+			files[`${fixtureDir}/${filename}`] = content;
+		}
 
 		// Create fake repository with corpus file
 		const fakeRepo = new FakeRepository({
-			files: Object.fromEntries(corpus),
+			files,
 			headSha: "commit-123",
 			branch: "main",
 		});
@@ -102,56 +111,54 @@ describe("TC-E2EMOCK-005 — attachment dedup via hash precheck (AC-F2-4)", () =
 		const firstReport = firstApplyResult.value;
 		expect(firstReport.writes).toBe(1); // 1 page created
 
-		// Get page ID from first run
+		// Get page ID from first run (server-assigned id lives in the lock
+		// binding; the create request body has no id field).
 		const postPage = mock.captured.find((r) => r.method === "POST" && r.path === "/wiki/api/v2/pages");
 		expect(postPage).toBeDefined();
-		const pageId = JSON.parse(postPage!.text).id;
+		const pageId = Object.values(lock.targets.default.documents)[0]!.pageId;
 
 		// Assert run 1 uploaded attachment (POST /child/attachment)
 		const postAttachments = mock.captured.filter(
 			(r) => r.method === "POST" && r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/child\/attachment$/),
 		);
-		expect(postAttachments.length).toBe(1); // 1 attachment uploaded (Mermaid diagram)
+		expect(postAttachments.length).toBe(1); // 1 attachment uploaded (local image)
 
-		// Get attachment ID from run 1 (for verification)
-		const postAttachment = postAttachments[0];
-		const postAttachmentBody = JSON.parse(postAttachment.text);
-		const attachmentIdFromRun1 = postAttachmentBody.results?.[0]?.id;
-		expect(attachmentIdFromRun1).toBeDefined();
-
-		// Get the attachment hash from the POST filename
-		const attachmentFilename = postAttachmentBody.results?.[0]?.title;
-		expect(attachmentFilename).toBeDefined();
-		const hashMatch = attachmentFilename?.match(/marksync-(mermaid|asset)-([a-f0-9]+)/);
+		// The attachment hash lives in the lock binding (attachmentHashes maps
+		// marksync-asset-<hash>.<ext> → hash). The POST request body is multipart
+		// (not JSON) and carries no results envelope — that's the response shape,
+		// which the recorder does not capture.
+		const docAfterFirstRun = Object.values(lock.targets.default.documents)[0]!;
+		const attachmentKeys = Object.keys(docAfterFirstRun.attachmentHashes);
+		expect(attachmentKeys.length).toBe(1);
+		const hashMatch = attachmentKeys[0]!.match(/marksync-(mermaid|asset)-([a-f0-9]+)/);
 		expect(hashMatch).toBeDefined();
 		const assetHash = hashMatch?.[2];
 
 		// Clear captured requests (keep mock state)
 		mock.clearCaptured();
 
-		// Modify the markdown content (triggering Update flow) while keeping the SAME asset
+		// Modify the markdown content (triggering Update flow) while keeping the
+		// SAME image (same bytes → same hash → dedup skips re-upload).
 		const updatedContent = `---
 marksync:
   uuid: 019f56e4-18f5-7024-bfdf-5438918bb3c0
 ---
 # Page for Attachment Dedup
 
-MODIFIED content - page updated but Mermaid diagram unchanged.
+MODIFIED content - page updated but image unchanged.
 
-\`\`\`mermaid
-graph LR; C-->D
-\`\`\``;
+![Diagram](image.png)`;
 
-		fakeRepo.setFile("page.md", updatedContent);
+		fakeRepo.setFile(`${fixtureDir}/page.md`, updatedContent);
 		fakeRepo.setHeadSha("commit-456"); // New commit SHA
 
-		// RUN 2: Update page, attachment should be deduped via hash precheck
-		const lockAfterFirstRun = firstApplyResult.value.lock;
-		const secondPlanResult = await computePlan(baseConfig, lockAfterFirstRun, fakeRepo, target);
+		// RUN 2: Update page, attachment should be deduped via hash precheck.
+		// applyPlan mutated `lock` in place (ApplyReport has no lock field); reuse it.
+		const secondPlanResult = await computePlan(baseConfig, lock, fakeRepo, target);
 		expect(secondPlanResult.ok).toBe(true);
 		if (!secondPlanResult.ok) return;
 
-		const secondApplyResult = await applyPlan(secondPlanResult.value, target, lockAfterFirstRun, {
+		const secondApplyResult = await applyPlan(secondPlanResult.value, target, lock, {
 			cwd: tmpCacheDir,
 			cacheDir: tmpCacheDir,
 			targetId: "default",
@@ -184,17 +191,13 @@ graph LR; C-->D
 		);
 		expect(postAttachmentsRun2.length).toBe(0);
 
-		// Assert the GET attachment list response contains the hash from run 1
-		const getAttachment = getAttachments[0];
-		const getAttachmentBody = JSON.parse(getAttachment.text);
-		const existingAttachment = getAttachmentBody.results?.find((a: { title: string }) => a.title.includes(assetHash!));
-		expect(existingAttachment).toBeDefined();
-
-		// Assert server-side attachment state is unchanged (same attachment ID, same version)
-		const lockAfterSecondRun = secondApplyResult.value.lock;
-		const docAfterSecondRun = Object.values(lockAfterSecondRun.targets.default.documents)[0];
-		const attachmentHashesAfterSecondRun = Object.keys(docAfterSecondRun.attachmentHashes);
-		expect(attachmentHashesAfterSecondRun.length).toBe(1); // Still 1 attachment
-		expect(attachmentHashesAfterSecondRun[0]).toContain(assetHash!); // Same hash
+		// Assert mock's server-side attachment state is unchanged from run 1
+		// (same attachment ID, same version — no re-upload occurred). The mock
+		// records requests only (not responses), so inspect its internal
+		// attachment state directly (test plan step 5).
+		const serverAttachments = mock.getServerAttachments(pageId);
+		expect(serverAttachments.length).toBe(1);
+		expect(serverAttachments[0]!.hash).toBe(assetHash);
+		expect(serverAttachments[0]!.version).toBe(1);
 	});
 });

@@ -101,24 +101,24 @@ describe("TC-E2EMOCK-003 — no-op idempotency (AC-F2-2, NFR-PERF-4)", () => {
 		const firstReport = firstApplyResult.value;
 		expect(firstReport.writes).toBe(3); // 3 pages created
 
-		// Capture state after first run
-		const lockAfterFirstRun = firstApplyResult.value.lock;
-		const capturedAfterFirstRun = [...mock.captured];
+		// Capture state after first run (snapshot the in-place-mutated lock for a
+		// later no-op equality check; page ids live in the lock bindings, not the
+		// create request body which carries no id field).
+		const lockAfterFirstRun = structuredClone(lock);
 		const firstRunPageIds = new Set(
-			capturedAfterFirstRun
-				.filter((r) => r.method === "POST" && r.path === "/wiki/api/v2/pages")
-				.map((r) => JSON.parse(r.text).id),
+			Object.values(lock.targets.default.documents).map((d) => d.pageId),
 		);
 
 		// Clear captured requests (but keep mock state)
 		mock.clearCaptured();
 
-		// Second sync: unchanged source (same commit SHA, same corpus)
-		const secondPlanResult = await computePlan(baseConfig, lockAfterFirstRun, fakeRepo, target);
+		// Second sync: unchanged source (same commit SHA, same corpus). Reuse the
+		// in-place-mutated lock (applyPlan mutated it; ApplyReport has no lock).
+		const secondPlanResult = await computePlan(baseConfig, lock, fakeRepo, target);
 		expect(secondPlanResult.ok).toBe(true);
 		if (!secondPlanResult.ok) return;
 
-		const secondApplyResult = await applyPlan(secondPlanResult.value, target, lockAfterFirstRun, {
+		const secondApplyResult = await applyPlan(secondPlanResult.value, target, lock, {
 			cwd: tmpCacheDir,
 			cacheDir: tmpCacheDir,
 			targetId: "default",
@@ -155,17 +155,18 @@ describe("TC-E2EMOCK-003 — no-op idempotency (AC-F2-2, NFR-PERF-4)", () => {
 		);
 		expect(postAttachments.length).toBe(0);
 
-		// Verify server-side state is unchanged (pages still exist, same IDs)
+		// Verify server-side state is unchanged (pages still exist, same IDs).
+		// The mock captures url.pathname only (no ?body-format=storage query).
 		for (const pageId of firstRunPageIds) {
 			const getPage = mock.captured.find(
-				(r) => r.method === "GET" && r.path === `/wiki/api/v2/pages/${pageId}?body-format=storage`,
+				(r) => r.method === "GET" && r.path === `/wiki/api/v2/pages/${pageId}`,
 			);
 			// At least one GET for freshness check is expected
 			expect(getPage).toBeDefined();
 		}
 
-		// Assert lock file is unchanged
-		const lockAfterSecondRun = secondApplyResult.value.lock;
-		expect(lockAfterSecondRun).toEqual(lockAfterFirstRun);
+		// Assert lock file is unchanged after the no-op run (compare to the
+		// structuredClone snapshot taken after run 1; `lock` is the in-place object).
+		expect(lock).toEqual(lockAfterFirstRun);
 	});
 });

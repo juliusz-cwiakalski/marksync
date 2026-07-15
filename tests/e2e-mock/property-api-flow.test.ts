@@ -101,10 +101,11 @@ describe("TC-E2EMOCK-008 — property API flow (GH-66 regression)", () => {
 		const firstReport = firstApplyResult.value;
 		expect(firstReport.writes).toBe(1); // 1 page created
 
-		// Get page ID from first run
+		// Get page ID from first run (server-assigned id lives in the lock
+		// binding; the create request body has no id field).
 		const postPage = mock.captured.find((r) => r.method === "POST" && r.path === "/wiki/api/v2/pages");
 		expect(postPage).toBeDefined();
-		const pageId = JSON.parse(postPage!.text).id;
+		const pageId = Object.values(lock.targets.default.documents)[0]!.pageId;
 
 		// Assert property POST on first run (create property, 2xx)
 		const postProperties = mock.captured.filter(
@@ -133,13 +134,13 @@ MODIFIED content - property should update via POST-409→GET→PUT flow.`;
 		fakeRepo.setFile("page.md", updatedContent);
 		fakeRepo.setHeadSha("commit-456"); // New commit SHA
 
-		// RUN 2: Update page, property should trigger POST-409→GET→PUT flow
-		const lockAfterFirstRun = firstApplyResult.value.lock;
-		const secondPlanResult = await computePlan(baseConfig, lockAfterFirstRun, fakeRepo, target);
+		// RUN 2: Update page, property should trigger POST-409→GET→PUT flow.
+		// applyPlan mutated `lock` in place (ApplyReport has no lock field); reuse it.
+		const secondPlanResult = await computePlan(baseConfig, lock, fakeRepo, target);
 		expect(secondPlanResult.ok).toBe(true);
 		if (!secondPlanResult.ok) return;
 
-		const secondApplyResult = await applyPlan(secondPlanResult.value, target, lockAfterFirstRun, {
+		const secondApplyResult = await applyPlan(secondPlanResult.value, target, lock, {
 			cwd: tmpCacheDir,
 			cacheDir: tmpCacheDir,
 			targetId: "default",

@@ -103,8 +103,9 @@ describe("TC-E2EMOCK-006 — provenance panel visible in body (AC-F2-5)", () => 
 		expect(postPage).toBeDefined();
 		const postPageBody = JSON.parse(postPage!.text);
 
-		// The provenance panel should be in the body.storage.value
-		const pageBody = postPageBody.body?.storage?.value;
+		// The provenance panel is in the create request body's storage value
+		// (request shape: body.value; the body.storage nesting is response-only).
+		const pageBody = postPageBody.body?.value;
 		expect(pageBody).toBeDefined();
 
 		// Assert the {info} macro is present (provenance panel)
@@ -115,9 +116,8 @@ describe("TC-E2EMOCK-006 — provenance panel visible in body (AC-F2-5)", () => 
 		// The exact format depends on implementation, but should include provenance info
 		expect(pageBody).toMatch(/marksync|provenance|synchronized|commit/i);
 
-		// Assert the mock's server-side page body includes the provenance panel
-		// Verify by checking that the page was created successfully
-		expect(postPageBody.id).toBeDefined();
+		// Assert the page was created with the expected status (request body
+		// carries status; id is server-assigned and not present on the request).
 		expect(postPageBody.status).toBe("current");
 
 		// Also verify the property was set (marksync.metadata property should exist)

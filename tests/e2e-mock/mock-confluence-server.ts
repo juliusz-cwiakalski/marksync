@@ -58,6 +58,7 @@ export function createMockServer(): {
 	captured: CapturedRequest[];
 	reset: () => void;
 	clearCaptured: () => void;
+	getServerAttachments: (pageId: string) => { id: string; title: string; version: number; hash: string }[];
 } {
 	let nextPageId = 100;
 	let nextPropertyId = 200;
@@ -110,9 +111,11 @@ export function createMockServer(): {
 	async function route(req: Request, url: URL, text: string): Promise<Response> {
 		const path = url.pathname;
 
-		// Parse JSON body for POST/PUT requests
+		// Parse JSON body for POST/PUT requests (skip multipart: attachment
+		// uploads use FormData and are parsed by the attachment handler below).
 		let body: unknown;
-		if (req.method === "POST" || req.method === "PUT") {
+		const isMultipart = (req.headers.get("Content-Type") || "").startsWith("multipart/form-data");
+		if ((req.method === "POST" || req.method === "PUT") && !isMultipart) {
 			try {
 				body = text ? JSON.parse(text) : undefined;
 			} catch {
@@ -190,8 +193,11 @@ export function createMockServer(): {
 			const parsed = body as { id?: string; title?: string; body?: { representation?: string; value?: string }; version?: { number?: number } };
 			const providedVersion = parsed.version?.number;
 
-			// Check for stale version (409 conflict)
-			if (providedVersion !== undefined && providedVersion !== page.version) {
+			// Confluence v2 expects the INCREMENTED version (current + 1) on PUT,
+			// mirroring the real "Version must be incremented" 409 semantics that
+			// PageService.update sends (version.number = baseVersion + 1). A
+			// providedVersion that is not exactly current+1 is stale → 409.
+			if (providedVersion !== undefined && providedVersion !== page.version + 1) {
 				return json(409, buildConflictBody(page.version, String(providedVersion)));
 			}
 
@@ -277,8 +283,9 @@ export function createMockServer(): {
 			const parsed = body as { key?: string; value?: string; version?: { number?: number } };
 			const providedVersion = parsed.version?.number;
 
-			// Check for stale version (409 conflict)
-			if (providedVersion !== undefined && providedVersion !== prop.version) {
+			// v1 content-property PUT expects the incremented version (current + 1),
+			// matching PropertyService.updateByKey (version.number = currentVersion + 1).
+			if (providedVersion !== undefined && providedVersion !== prop.version + 1) {
 				return json(409, { errors: [{ code: "CONFLICT" }] });
 			}
 
@@ -400,6 +407,8 @@ export function createMockServer(): {
 		captured,
 		reset,
 		clearCaptured,
+		getServerAttachments: (pageId: string) =>
+			(attachments.get(pageId) ?? []).map((a) => ({ id: a.id, title: a.title, version: a.version, hash: a.hash })),
 	};
 }
 

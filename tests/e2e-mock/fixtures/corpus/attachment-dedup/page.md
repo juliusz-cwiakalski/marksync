@@ -6,6 +6,4 @@ marksync:
 
 This page has an attachment.
 
-```mermaid
-graph LR; C-->D
-```
+![Diagram](image.png)
