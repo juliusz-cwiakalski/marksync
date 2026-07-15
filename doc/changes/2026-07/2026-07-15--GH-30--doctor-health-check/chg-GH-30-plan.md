@@ -255,15 +255,16 @@ Doctor adds **no app-tier redaction**. INV-SEC-1 is preserved by two existing la
 
 **Tasks**:
 
-- [ ] **3.1** Rewrite `src/cli/commands/doctor.ts`: `export async function doctorCommand(flags: { probeCapabilities?: boolean } = {}): Promise<CommandResult<DoctorReport>>`. Handler body:
+- [x] **3.1** Rewrite `src/cli/commands/doctor.ts`: `export async function doctorCommand(flags: { probeCapabilities?: boolean } = {}): Promise<CommandResult<DoctorReport>>`. Handler body:
   1. `const report = await runDoctor({ cwd: cwd(), probeCapabilities: flags.probeCapabilities === true })` (real siblings by default; the global `fetch` is used inside `validateCredentials`).
   2. On `err`: `mapMarkSyncErrorToCommandError(error)` → `err(mapped.code, mapped.message, mapped.retryable)` (the rare abort path — a genuine command-level error).
   3. On `ok(report)`: **construct `CommandResult<DoctorReport>` directly** — `{ schemaVersion: SCHEMA_VERSION, runId: crypto.randomUUID(), exitCode: report.worstStatus === "fail" ? codeToExitCode("DOCTOR_FAIL") : EXIT_OK, data: report }`. `error` is **never** set; `data` is **always** the report (DEC-4 / TDR-0009 / spec Appendix B). Use conditional spread only if/when optional meta (`timing`/`warnings`) is attached.
-  - Imports: `#cli/output` (`type CommandResult`, `SCHEMA_VERSION`, `codeToExitCode`, `EXIT_OK`, `err`), `#cli/error-map` (`mapMarkSyncErrorToCommandError`), `#app/doctor` (`runDoctor`, `type DoctorReport`), `node:process` (`cwd`). **No `#domain/*` / `#infra/*`** (DEC-1).
-- [ ] **3.2** Update `src/cli/commands/router.ts`: on the existing `.command("doctor", ...)`, chain `.option("--probe-capabilities", "Also probe content-property and attachment capability via a self-cleaning scratch page (writes).")`. Update the action to pass the flag: `await doctorCommand({ probeCapabilities: Boolean(flags.probeCapabilities) })`; keep `capture("doctor", flags as GlobalCommandFlags, ...)`.
-- [ ] **3.3** Update the `doctor.ts` header to reflect that the handler is real (remove the "stub / MS2-E5-S2" framing; keep the header ≤3 lines per boy-scout rule).
-- [ ] **3.4** Verify exit-code behavior end-to-end: doctor never calls `process.exit` directly (the entrypoint does — GH-16 precedent); the non-zero exit flows solely from `result.exitCode` read by the entrypoint.
-- [ ] **3.5** Add `tests/unit/cli/commands/doctor.test.ts` (TC-DOCTOR-011): three subtests — (a) mock `runDoctor` → `ok(report worstStatus "pass")` → `result.exitCode === 0`, `data` present, `error` unset; (b) `ok(report worstStatus "fail")` → `result.exitCode === 60`, `data` present, `error` unset; (c) `err(MarkSyncError)` → mapped `err(...)` (exit via the mapped code, `data` absent — the genuine command-error path). Assert the `exitCode` derivation goes through `codeToExitCode("DOCTOR_FAIL")` (not hardcoded 60).
+  - Imports: `#cli/output` (`type CommandResult`, `SCHEMA_VERSION`, `codeToExitCode`, `EXIT_OK`, `err`), `#cli/error-map` (`mapMarkSyncErrorToCommandError`), `#app/doctor` (`runDoctor`, `type DoctorReport`), `node:process` (`cwd`). **No `#domain/*` / `#infra/*`** (DEC-1). (✅ Done)
+- [x] **3.2** Update `src/cli/commands/router.ts`: on the existing `.command("doctor", ...)`, chain `.option("--probe-capabilities", "Also probe content-property and attachment capability via a self-cleaning scratch page (writes).")`. Update the action to pass the flag: `await doctorCommand({ probeCapabilities: Boolean(flags.probeCapabilities) })`; keep `capture("doctor", flags as GlobalCommandFlags, ...)`. (✅ Done)
+- [x] **3.3** Update the `doctor.ts` header to reflect that the handler is real (remove the "stub / MS2-E5-S2" framing; keep the header ≤3 lines per boy-scout rule). (✅ Done)
+- [x] **3.4** Verify exit-code behavior end-to-end: doctor never calls `process.exit` directly (the entrypoint does — GH-16 precedent); the non-zero exit flows solely from `result.exitCode` read by the entrypoint. (✅ Done — verified via entrypoint test)
+- [x] **3.5** Add `tests/unit/cli/commands/doctor.test.ts` (TC-DOCTOR-011): three subtests — (a) mock `runDoctor` → `ok(report worstStatus "pass")` → `result.exitCode === 0`, `data` present, `error` unset; (b) `ok(report worstStatus "fail")` → `result.exitCode === 60`, `data` present, `error` unset; (c) `err(MarkSyncError)` → mapped `err(...)` (exit via the mapped code, `data` absent — the genuine command-error path). Assert the `exitCode` derivation goes through `codeToExitCode("DOCTOR_FAIL")` (not hardcoded 60). (✅ Done — 5 tests pass, exit code derivation verified)
+- [x] **3.6** Update stubs test and entrypoint test to reflect doctor is now implemented (remove from stubs list, update expected exit code). (✅ Done — all 899 unit tests pass)
 
 **Acceptance Criteria**:
 
@@ -450,8 +451,8 @@ Doctor adds **no app-tier redaction**. INV-SEC-1 is preserved by two existing la
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
 | Phase 1 | ✅ Complete | 2026-07-15T00:00:00Z | 2026-07-15T00:00:00Z | 0adc9d3 | Exit-code extension + mapping unit test — EXIT_HEALTH=60, DOCTOR_FAIL added to CODE_TO_EXIT, test extended (31 pass, 0 fail) |
-| Phase 2 | ✅ Complete | 2026-07-15T00:00:00Z | 2026-07-15T00:00:00Z | TBD | App-tier `runDoctor` + check unit tests — 17 tests pass, all 9 checks implemented with injectable deps |
-| Phase 3 | ☐ Pending | — | — | — | CLI handler + router + exit-derivation unit test |
+| Phase 2 | ✅ Complete | 2026-07-15T00:00:00Z | 2026-07-15T00:00:00Z | 2976801 | App-tier `runDoctor` + check unit tests — 17 tests pass, all 9 checks implemented with injectable deps |
+| Phase 3 | ✅ Complete | 2026-07-15T00:00:00Z | 2026-07-15T00:00:00Z | TBD | CLI handler + router + exit-derivation unit test — 5 tests pass, --probe-capabilities flag added |
 | Phase 4 | ☐ Pending | — | — | — | Integration tests (`Bun.serve` mock) |
 | Phase 5 | ☐ Pending | — | — | — | Documentation & spec synchronization |
 | Phase 6 | ☐ Pending | — | — | — | Version bump + final verification |

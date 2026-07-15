@@ -191,8 +191,16 @@ export function buildCommand(): CommandRouter {
 			capture("sync", flags as GlobalCommandFlags, await syncCommand());
 		})
 		.command("doctor", "Run health checks against the local corpus and config.")
+		.option(
+			"--probe-capabilities",
+			"Also probe content-property and attachment capability via a self-cleaning scratch page (writes).",
+		)
 		.action(async (flags) => {
-			capture("doctor", flags as GlobalCommandFlags, await doctorCommand());
+			capture(
+				"doctor",
+				flags as GlobalCommandFlags,
+				await doctorCommand({ probeCapabilities: Boolean(flags.probeCapabilities) }),
+			);
 		})
 		.command(
 			"repair-state",
