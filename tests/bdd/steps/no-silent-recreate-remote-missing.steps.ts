@@ -205,22 +205,25 @@ Then(
 	},
 );
 
-When("computePlan + applyPlan run without --adopt\\/--rebind", async function (this: BddWorld) {
-	// Call REAL computePlan (DEC-4: domain logic is real, only adapter ports are mocked)
-	this.planResult = await computePlan(
-		this.config,
-		this.lock,
-		this.fakeRepo,
-		this.fakeTarget,
-	);
-
-	// If plan succeeded, call applyPlan with proper options
-	if (this.planResult.ok) {
-		this.applyResult = await applyPlan(
-			this.planResult.value,
-			this.fakeTarget,
+When(
+	"computePlan + applyPlan run without --adopt\\/--rebind",
+	async function (this: BddWorld) {
+		// Call REAL computePlan (DEC-4: domain logic is real, only adapter ports are mocked)
+		this.planResult = await computePlan(
+			this.config,
 			this.lock,
-			this.applyOpts,
+			this.fakeRepo,
+			this.fakeTarget,
 		);
-	}
-});
+
+		// If plan succeeded, call applyPlan with proper options
+		if (this.planResult.ok) {
+			this.applyResult = await applyPlan(
+				this.planResult.value,
+				this.fakeTarget,
+				this.lock,
+				this.applyOpts,
+			);
+		}
+	},
+);

@@ -3,7 +3,6 @@
 import { Given, When, Then } from "@cucumber/cucumber";
 import type { BddWorld } from "../support/world";
 import { computePlan } from "#app/push-flow";
-import { Result as Res } from "#domain/result";
 
 Given(
 	"a corpus with two documents sharing the same marksync.uuid",
@@ -63,7 +62,11 @@ Then(
 			);
 		}
 
-		const error = this.planResult.error as { kind: string; uuid: string; paths: string[] };
+		const error = this.planResult.error as {
+			kind: string;
+			uuid: string;
+			paths: string[];
+		};
 
 		// Assert error kind is DuplicateUuid
 		if (error.kind !== "DuplicateUuid") {
