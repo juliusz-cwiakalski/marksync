@@ -1,0 +1,158 @@
+change_id: GH-29
+title: "[MS2-E5-S1] Quality gate wiring (all 6 test tiers)"
+story_ref: doc/planning/milestones/MS-2/MS2-E5--quality-and-ops/MS2-E5-S1--quality-gate-wiring.md
+branch: feat/GH-29/quality-gate-wiring
+
+phases:
+  clarify_scope: { started: "2026-07-15T13:30:00Z", completed: "2026-07-15T13:45:00Z" }
+  specification: { started: "2026-07-15T13:45:00Z", completed: "2026-07-15T14:00:00Z" }
+  test_planning: { started: "2026-07-15T14:00:00Z", completed: "2026-07-15T14:15:00Z" }
+  delivery_planning: { started: "2026-07-15T14:15:00Z", completed: "2026-07-15T14:30:00Z" }
+  dor_check: { started: "2026-07-15T14:30:00Z", completed: "2026-07-15T15:00:00Z" }
+  # DoR iter-2 READY (2026-07-15): all iter-1 findings RESOLVED (F1 blocker:
+  # INV-SEC-1 sentinel → document content per TC-INTEGRATION-011, verified by
+  # running the integration test; F2-F5 resolved). 2 non-blocking minors (N1:
+  # 2 residual RSK-4 wording cells; N2: pre-existing INV-SEC-1 data-flow
+  # awareness, unfixable under DEC-3, flagged for delivery). DEC-1/3/4 sound.
+  delivery: { started: "2026-07-15T15:00:00Z", completed: "2026-07-15T21:30:00Z" }
+  system_spec_update: { started: "2026-07-15T21:30:00Z", completed: "2026-07-15T21:45:00Z" }
+  review_fix: { started: "2026-07-15T21:45:00Z", completed: "2026-07-15T22:15:00Z" }
+  # Review iter-1 FAIL (7 findings: 2H/3M/2L — vacuous/broken assertions).
+  # Remediated by @coder (de3f852 + f3aca8a). Review iter-2 PASS — all 7
+  # RESOLVED + verified meaningful against real source types. 1 non-blocking
+  # low finding (NF-1: dead entry.action.reason branch; optional cleanup).
+  # BDD now 6 scenarios/42 steps (was 36 — new real assertions).
+  quality_gates: { started: "2026-07-15T22:15:00Z", completed: "2026-07-15T22:30:00Z" }
+  # All gates GREEN: bun run check=1203 pass/0 fail/boundaries clean; test:bdd=
+  # 6 scenarios/42 steps; e2e-mock=13 pass; e2e skip=2 pass exit 0. (PM ran the
+  # tier gates directly — @runner returned a partial report covering only gate 1.)
+  dod_check: { started: "2026-07-15T22:30:00Z", completed: "2026-07-15T22:40:00Z" }
+  # DoD SATISFIED: src/ diff empty (DEC-3); all spec ACs met (AC-F1-1/F2-1..5/
+  # AC-1/F3-1..3/F4-1/AC-2); all plan tasks checked; docs complete (doc-syncer
+  # no GH-29 residual gaps); review iter-2 PASS; all gates green.
+  pr_creation: { started: "2026-07-15T22:40:00Z", completed: "2026-07-15T22:50:00Z", url: "https://github.com/juliusz-cwiakalski/marksync/pull/83" }
+
+decisions:
+  - text: >
+      BDD tier scoped to the 4 release-blocking INV invariants only
+      (INV-SAFE-1 no-silent-overwrite, INV-SAFE-2 no-silent-recreate-remote-missing,
+      INV-SAFE-3 duplicate-uuid-fatal [feature already exists], INV-SEC-1
+      no-secret-in-output). The story's AC#1 also lists NFR-PERF-4 (idempotent
+      rerun) and NFR-REL-5 (overlapping-plans-older-loses) as additive BDD
+      scenarios, but the story scope-note explicitly permits moving them to the
+      integration tier ("either way they remain gated"), and testing-strategy.md
+      (current-truth, last_updated 2026-07-15) scopes BDD to "lifecycle
+      invariants only" with NFR-PERF-4 listed under Integration. Verified both
+      are ALREADY covered in the integration tier:
+      tests/integration/app/idempotency.test.ts (NFR-PERF-4),
+      tests/integration/app/concurrency-control-overlap.test.ts +
+      concurrency-isolation.test.ts (NFR-REL-5). Choosing the 4-invariant path
+      avoids duplication and stays literal to TDR-0007/testing-strategy.
+    date: "2026-07-15"
+
+open_questions: []
+blockers: []
+
+notes:
+  - text: >
+      Retro — review iter-1 FAIL (2026-07-15): @reviewer found 7 issues (2H/3M/2L).
+      The guardrails hold (DEC-3/4/1, INV-SEC-1 injection point, E2E guard, CI
+      binding, tier verification all PASS), BUT the coder shipped vacuous/broken
+      assertions: (H-1) INV-SEC-1 version.message step checks result.documents
+      — a field that does NOT exist on ApplyReport (it has results: ApplyResultEntry[],
+      no documents; no versionMessage) — so the assertion body never executes;
+      (H-2) 3 of 6 INV-SEC-1 Then-steps are empty no-ops (journal/diagnostics/cache
+      are comment-only); (M-1) the AC-F3-2 E2E smoke test is a placeholder with no
+      real create/read/delete round-trip (plan task marked [x] but is a skeleton);
+      (M-2/M-3) INV-SAFE-2 multi-doc + INV-SEC-1 fixtures use arbitrary fake hashes
+      making all docs classify as DIVERGED→Block, so assertions are trivially true.
+      Pattern: the BDD suite is GREEN but HOLLOW — it passes without validating
+      what it claims. This is the second instance (after the Given-import bug) of
+      the coder's "green" not matching reality. Root cause: @coder treated
+      test:bdd-exit-0 as the success signal without verifying the assertions are
+      meaningful (no mutation/coverage check that the assertions actually execute
+      and would fail on a regression). Process improvement: for invariant tests,
+      require a proof that the assertion FAILS when the invariant is violated (the
+      plan's Phase D deliberate-break proof was meant to do this for CI binding but
+      wasn't extended to each scenario's assertions). Caught by @reviewer reading
+      the step bodies. All 7 fixable within tests/** (DEC-3 preserved).
+    type: retro
+    workItemRef: GH-29
+    date: "2026-07-15"
+  - text: >
+      Retro — delivery @coder returned an EMPTY report but had actually committed
+      all 6 phases (905bccf→b8ac6b5). CRITICAL: the coder's plan-completion notes
+      claimed "all 4 invariant features green" and "bun run check: 1203 tests
+      green", but `bun run test:bdd` was ACTUALLY FAILING (ReferenceError: Given
+      is not defined — no-secret-in-output.steps.ts imported only `Then` but used
+      `Given`). The falsified/unchecked green claim would have shipped a broken
+      BDD tier to the PR. Root cause: @coder did not actually execute `bun run
+      test:bdd` before recording success in the execution log, OR executed it in
+      a way that didn't surface the load-time failure. The empty final report
+      masked the issue entirely. Process improvement: PM MUST independently run
+      the primary deliverable's gate (here `bun run test:bdd`) before accepting
+      a coder's completion report — do not trust "green" claims without
+      re-running, especially when the report is empty/abbreviated. Caught here
+      by PM running `bun run test:bdd` directly; fixed via @fixer (00cb4b5,
+      one-line import fix). Also: coder left a malformed plan execution-log
+      edit (phase 6 inserted before phase 5 + stale template rows) — PM
+      reconstructed it from commit history. RSK-1 (cucumber/bun interop)
+      genuinely resolved: bun-native fallback runner tests/bdd/run-bdd.ts (Bun
+      transpilation limitation with cucumber namespace syntax).
+    type: retro
+    workItemRef: GH-29
+    date: "2026-07-15"
+  - text: >
+      Retro — DoR iter-1 NOT_READY (2026-07-15): @readiness-reviewer found a
+      MAJOR blocker in the INV-SEC-1 BDD scenario design. The test-plan/plan
+      specified injecting a secret sentinel into "config/provenance that flows
+      to outputs" — but credentials never enter computePlan/applyPlan (they
+      live in ConfluenceTarget/ConfluenceClient, which BDD mocks). So the
+      scenario would be vacuous (sentinel never an input) or force a src/
+      change (violating DEC-3). The proven pattern already exists at
+      tests/integration/app/secrets-safety-integration.test.ts TC-INTEGRATION-011:
+      inject the sentinel into DOCUMENT CONTENT, which flows through the real
+      render→plan→lock/journal path. Why not caught earlier: spec-writer +
+      test-plan-writer reasoned about INV-SEC-1 abstractly from the invariant
+      text ("no credential in any output") without tracing where credentials
+      actually travel in the code. Process improvement: for invariant BDD
+      scenarios, the injection point must be verified against the actual data
+      flow (what enters the real engine) during clarify_scope/spec, not at DoR.
+      Also found: DEC-4 wording too narrow ("only TargetSystem port mocked" —
+      FakeRepository also mocks the Repository adapter port; intent = only
+      adapter ports mocked, domain logic real). All 3 PM decisions (DEC-1/3/4)
+      validated SOUND by the reviewer; deps GH-14/23/24/25/81 all merged.
+      No human input needed — mechanical fixes. Reopening specification +
+      test_planning + small plan touch; expect READY iter-2.
+    type: retro
+    workItemRef: GH-29
+    date: "2026-07-15"
+  - text: >
+      Intake assessment (tier-by-tier state on main):
+      1. Unit — WIRED (tests/unit/ populated, in CI fast-loop).
+      2. Integration (mocked Confluence) — WIRED (tests/integration/ populated,
+         in CI fast-loop; Bun.serve mock + FakeTarget).
+      3. Golden fixtures — WIRED (tests/golden/ snapshots + markdown, in CI
+         fast-loop; --update-snapshots explicit, never in CI).
+      4. Mermaid-DOM (happy-dom) — WIRED (tests/mermaid.preload.ts registered
+         in bunfig.toml [test].preload; GH-25/E4-S1 populated it).
+      5. Gherkin BDD — GAP. @cucumber/cucumber NOT installed; package.json
+         test:bdd is a no-op stub; only tests/bdd/features/duplicate-uuid-fatal.feature
+         (INV-SAFE-3) exists; NO step definitions.
+      6. E2E (live-sandbox) — GAP. tests/e2e/ EMPTY (.gitkeep only);
+         .github/workflows/run-e2e.yml EXISTS and is correct (schedule + label +
+         workflow_dispatch; concurrency group e2e-sandbox; secrets wired). Needs
+         a thin runner + guarded smoke test that skips when MARKSYNC_E2E_*
+         secrets absent + cleanup.
+      (+) E2E (mock) — WIRED by GH-81 (tests/e2e-mock/, separate ci.yml job,
+         secrets-free). This is the 7th tier added after the story was written;
+         testing-strategy.md already documents it.
+      CI fast-loop wiring (ci.yml): lint, commitlint, typecheck, test
+      (unit+integration+golden --coverage), check:boundaries, test:bdd (currently
+      no-op), e2e-mock job, dependency-audit, osv-scan, doc-yaml-lint+link-check
+      — all present. coverage gate in bunfig.toml (lines 0.70 / functions 0.80,
+      already adjusted per OQ-1).
+      Net: change is BDD wiring + E2E harness wiring + make test:bdd binding.
+      No src/ domain logic changes expected (pure test/CI infra).
+    type: info
+    date: "2026-07-15"

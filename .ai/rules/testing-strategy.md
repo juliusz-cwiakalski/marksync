@@ -11,7 +11,7 @@ area: engineering
 document_classification: current-truth
 links:
   related_decisions: [TDR-0004, ADR-0002, ADR-0005, ADR-0006]
-  related_changes: [GH-20, GH-81]
+  related_changes: [GH-20, GH-81, GH-29]
   summary: "Testing strategy — test tiers, coverage rules, AI-agent over-mocking guardrail, CI wiring, and lifecycle-invariant BDD for MarkSync."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -137,8 +137,12 @@ jobs:
       - run: bun run lint
       - run: bun run typecheck
       # Exclude E2E (live-sandbox), mock e2e (separate `e2e-mock` job below), and
-      # BDD (cucumber CLI) from the bun:test fast-loop `test` step.
-      # BDD tests run via `bun run test:bdd` (cucumber CLI per TDR-0007).
+      # BDD from the bun:test fast-loop `test` step.
+      # BDD runs via `bun run test:bdd` — a bun-native runner
+      # (`tests/bdd/run-bdd.ts`) driving the @cucumber/cucumber API, not the
+      # cucumber-js CLI. The CLI candidate (DEC-2) failed under Bun's TS
+      # transpilation (namespace syntax); the API runner is the realized form
+      # (TDR-0007 OPEN-Q9, resolved GH-29).
       - run: bun test tests/unit/ tests/integration/ tests/golden/
       - run: bun run test:bdd
 ```

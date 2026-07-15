@@ -6,7 +6,7 @@ decision_type: tdr
 status: Accepted
 created: 2026-07-04
 decision_date: null
-last_updated: 2026-07-06
+last_updated: 2026-07-15
 summary: "Use bun:test for unit/integration/golden-fixture tests (native, toolchain-coherent, snapshots+mocks+Bun.serve controllable local HTTP server); bun:test + happy-dom as the default Mermaid-DOM smoke-test path (Vitest only as a last-resort escalation if Bun's happy-dom setup cannot run the Mermaid DOM path; Playwright only if real browser layout/graphics are required); a thin E2E runner for the live-sandbox tier; @cucumber/cucumber (or a thin wrapper) for lifecycle-invariant Gherkin only."
 owners:
   - Juliusz Ćwiąkalski
@@ -48,7 +48,7 @@ revisit_triggers:
   - "Bun.serve-based HTTP mock server cannot reproduce a Confluence 409/version-conflict scenario needed for drift-detection tests."
   - "The live-sandbox E2E tier outgrows a thin runner script and needs a framework with first-class concurrency/isolation."
 links:
-  related_changes: ["GH-11"]
+  related_changes: ["GH-11", "GH-29"]
   supersedes: []
   superseded_by: []
   spec: []
@@ -300,7 +300,7 @@ This is operationalized in the Implementation Plan (golden-fixture tier, 409 int
 
 - [x] **Mermaid-DOM gate:** confirm at the ADR-0002 spike whether the default `bun:test` + `happy-dom` setup (via `@happy-dom/global-registrator` + preload) executes the required Mermaid DOM path reliably. **Resolved by GH-11 (2026-07-06):** the DOM path **runs** reliably (Mermaid initializes and renders under Bun + happy-dom). The escalation to Vitest is **not** needed for execution. **However**, happy-dom has no SVG layout engine (`getBBox` returns zeros), so the tier cannot validate *faithful* rendering of text-measuring diagram types (sequence/class/state throw; flowchart/gantt degenerate) — and jsdom is no better. Vitest escalation is not a remedy (it is a DOM/layout problem, not a runner problem). A real layout engine (Chromium/Playwright or `mmdc`) or a `getBBox` shim is required for faithful-render tests; this is a follow-up evaluation for MS-0003+, not a TDR-0004 runner change. (owner: Juliusz Ćwiąkalski)
 - [ ] **Snapshot stability across Bun versions:** verify golden-fixture snapshots are stable across Bun minor versions (renderer determinism — ADR-0002 C-1). (owner: Juliusz Ćwiąkalski)
-- [ ] **Gherkin scope:** confirm `@cucumber/cucumber` vs a thin custom wrapper for the four lifecycle invariants — `@cucumber/cucumber` adds a dependency; a thin wrapper avoids it. (owner: Juliusz Ćwiąkalski)
+- [x] **Gherkin scope:** confirm `@cucumber/cucumber` vs a thin custom wrapper for the four lifecycle invariants — `@cucumber/cucumber` adds a dependency; a thin wrapper avoids it. (owner: Juliusz Ćwiąkalski) **Resolved:** TDR-0007 selected `@cucumber/cucumber` (full runner) over the thin-wrapper/cucumber-core alternatives. **Implemented (GH-29, 2026-07-15):** the four lifecycle invariants (INV-SAFE-1/2/3, INV-SEC-1) run via a bun-native runner (`tests/bdd/run-bdd.ts`) driving the `@cucumber/cucumber` API — see the TDR-0007 Implementation Update for why the CLI entry point was replaced by the API runner under Bun.
 - [ ] **Live-sandbox isolation:** define the dedicated Confluence test-space hygiene policy (cleanup cadence, concurrency limits) so the E2E tier does not flap. (owner: Juliusz Ćwiąkalski)
 
 ### Four-risk awareness
@@ -375,3 +375,6 @@ TODO: Populate after implementation.
   - The default `bun:test` + **happy-dom** Mermaid-DOM path **runs** the DOM path reliably (no Vitest escalation needed for execution), so the runner choice (`bun:test`) stands.
   - **However**, happy-dom has **no SVG layout engine** (`SVGElement.prototype.getBBox` returns `{0,0,0,0}`); the text-measuring diagram types (sequence/class/state) throw and flowchart/gantt produce degenerate output (GH-11 H4 FAIL 0/5). **jsdom (the documented escalation rung) is also insufficient** — it likewise lacks a layout engine. The Vitest escalation is **not** a remedy (this is a DOM/layout problem, not a runner problem); only a real layout engine (Chromium/Playwright/`mmdc`) or a `getBBox` shim can validate *faithful* rendering. That evaluation is deferred to MS-0003+.
   - **§F4:** reconciled the pre-existing frontmatter (`Accepted`) vs body (`Proposed`) status mismatch. The record is governance-`Accepted` (consistent with `00-index.md`); the body now states this explicitly instead of the stale "`status: Proposed` until the ADR-0002 spike confirms the default `happy-dom` path" wording. Resolved the Mermaid-DOM-gate Unresolved Question per the spike. `last_updated` bumped to 2026-07-06; `links.related_changes` extended with `GH-11`.
+- **2026-07-15 (GH-29, lifecycle phase 7 reconciliation)** — Recorded the Gherkin/BDD-tier implementation outcome against the deferred "Gherkin scope" Unresolved Question:
+  - The Gherkin-tier runner question is **closed**: `@cucumber/cucumber` (TDR-0007) was implemented by GH-29 for the four lifecycle invariants (INV-SAFE-1/2/3, INV-SEC-1). The "or a thin wrapper" hedge in Decision §4 resolves to the full `@cucumber/cucumber` runner — the thin-wrapper alternative was rejected in TDR-0007.
+  - **Invocation precision:** the realized entry point is a **bun-native runner** (`tests/bdd/run-bdd.ts`) driving `@cucumber/cucumber`'s API, not the `cucumber-js` CLI. The CLI fails under the pinned Bun's TS transpilation; the API runner is the binding form. This is a TDR-0007-level detail (see its Implementation Update) — it does not change the `bun:test` primary-runner choice here. Resolved the Gherkin-scope Unresolved Question; `last_updated` bumped to 2026-07-15; `links.related_changes` extended with `GH-29`.
