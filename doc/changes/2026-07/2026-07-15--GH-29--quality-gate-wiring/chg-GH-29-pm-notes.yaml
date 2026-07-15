@@ -30,7 +30,7 @@ phases:
   # DoD SATISFIED: src/ diff empty (DEC-3); all spec ACs met (AC-F1-1/F2-1..5/
   # AC-1/F3-1..3/F4-1/AC-2); all plan tasks checked; docs complete (doc-syncer
   # no GH-29 residual gaps); review iter-2 PASS; all gates green.
-  pr_creation: { started: "2026-07-15T22:40:00Z", completed: null, url: null }
+  pr_creation: { started: "2026-07-15T22:40:00Z", completed: "2026-07-15T22:50:00Z", url: "https://github.com/juliusz-cwiakalski/marksync/pull/83" }
 
 decisions:
   - text: >
