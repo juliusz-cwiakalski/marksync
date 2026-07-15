@@ -48,6 +48,8 @@ export class FakeTarget implements TargetSystem {
 	private updatePageAttemptCounts: Map<string, number>;
 	// GH-62: optional body normalizer (simulates Confluence XHTML normalization)
 	bodyNormalizer: ((body: string) => string) | null = null;
+	// Programmable search results (for journal-lost fallback tests)
+	private searchResults: PageRef[] | null = null;
 
 	constructor(sharedState?: {
 		pages: Map<string, Page>;
@@ -330,7 +332,29 @@ export class FakeTarget implements TargetSystem {
 	}
 
 	searchPages(_cql: string): Promise<Result<PageRef[], MarkSyncError>> {
-		return Promise.resolve(Res.ok([]));
+		return Promise.resolve(Res.ok(this.searchResults ?? []));
+	}
+
+	/**
+	 * Set the searchPages result (for TC-REPAIR-013 subtest 2, R1 fallback).
+	 */
+ setSearchResults(results: PageRef[]): void {
+		this.searchResults = results;
+	}
+
+	/**
+	 * Set a page directly (for TC-REPAIR-009, crash-window fixture).
+	 */
+	setPage(pageId: string, page: Partial<Page>): void {
+		const existing = this.pages.get(pageId);
+		const updated: Page = {
+			id: pageId,
+			title: page.title ?? existing?.title ?? "Test Page",
+			version: page.version ?? existing?.version ?? 1,
+			body: page.body ?? existing?.body ?? "<p>Test</p>",
+		};
+		this.pages.set(pageId, updated);
+		this.versionCounter.set(pageId, updated.version);
 	}
 
 	getRestrictions(
