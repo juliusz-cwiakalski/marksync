@@ -1,0 +1,130 @@
+version: 1
+iteration: 3
+mode: local
+work_item_ref: GH-28
+branch: feat/GH-28/repair-state
+status: PASS
+summary: >
+  Re-review after iter-2 remediation (commit 3978409). All three iteration-2
+  findings are genuinely resolved. F-1 (format:check): the three biome
+  violations (repair.ts:313-315 ternary, repair.ts:422-423 humanNote,
+  repair.test.ts:1128-1130 expect) are reformatted and `bun run check` now runs
+  GREEN end-to-end — format:check passes, typecheck clean, 1216 tests pass / 0
+  fail (34 snapshots, 5812 expect() calls), and 0 boundary violations across
+  102 modules. F-2 (crash-window divergence test): TC-REPAIR-011b was traced
+  through the code and genuinely exercises the crash-window divergence branch
+  (repair.ts:414-426) — empty lock + journal success → crashWindowCandidates
+  populated → diverged page body → NEEDS_HUMAN_ACTION_DIVERGED, 0 writes,
+  binding not rebuilt. F-3 (4th rebuild path): the rationale comment at
+  repair.ts:163-167 is technically sound — verified via bindingToProperty
+  (push-flow.ts:578) that property.renderedBodyHash is the pre-normalization
+  canonical hash while page.body is post-normalization, so a divergence check
+  would false-positive; correctly references ADR-0005. INV-SAFE-1 is satisfied
+  on all three in-scope rebuild paths (reconcile-ok and dirty-lock compare
+  against binding.remoteBodyHash which is post-normalization fetched-back;
+  crash-window compares against property.renderedBodyHash, the only signal
+  available when the binding is gone, erring conservative/blocking). The
+  remediation changed only formatting + a comment + a test — zero source-logic
+  change — so no new issue could have been introduced. The change is ready for
+  quality gates (already green) and PR.
+severity_breakdown:
+  critical: 0
+  high: 0
+  medium: 0
+  low: 0
+  info: 1
+spec_compliance: PASS
+plan_compliance: PASS
+findings:
+  - id: F-1
+    severity: info
+    confidence: high
+    category: correctness
+    location: src/app/repair.ts:416
+    message: >
+      Non-blocking observation (accepted): the crash-window divergence check
+      compares rawHash(page.body) [post-normalization] against
+      property.renderedBodyHash [pre-normalization canonical hash]. This is the
+      same pre/post mismatch documented as the rationale for NOT adding a check
+      to the journal-lost path (F-3). A conservative false positive is
+      theoretically possible if Confluence normalizes the body after a
+      successful sync, causing NEEDS_HUMAN_ACTION_DIVERGED for a non-diverged
+      page. This errs on the SAFE side (blocks a rebuild rather than silently
+      overwriting) and no post-normalization reference hash is available in the
+      crash-window scenario (the binding is absent from the lock). Consistent
+      with the reviewer-requested check from iteration 1. No action required.
+    suggestion: >
+      If false-positive reports surface in production, consider storing
+      remoteBodyHash (post-normalization) in the MetadataProperty alongside
+      renderedBodyHash so the crash-window path has a reliable comparison
+      baseline. Low priority — safe-direction behavior today.
+    suppressed: true
+findings_from_iter2_verification:
+  - iter2_id: F-1
+    status: RESOLVED
+    verification: >
+      `bun run check` runs the full chain (lint → format:check → typecheck →
+      test → check:boundaries) and exits 0. format:check reports "Checked 224
+      files. No fixes applied." — the three lines flagged in iter-2 (ternary at
+      repair.ts:313-315, humanNote at repair.ts:422-423, expect chain at
+      repair.test.ts:1128-1130) are now biome-compliant. typecheck passes
+      (tsc --noEmit clean). 1216 tests pass / 0 fail. 0 dependency violations.
+      The 226 biome LINT warnings are all pre-existing and in files NOT touched
+      by GH-28 (resolver.ts, pages.ts, bdd steps, e2e helpers); they are
+      warnings (not errors) and do not affect the exit code.
+  - iter2_id: F-2
+    status: RESOLVED
+    verification: >
+      TC-REPAIR-011b ("Crash-window candidate + diverged remote") added at
+      repair.test.ts:1273. Traced through runRepair: empty lock + journal entry
+      with outcome:"success" → latestJournalRunId set, crashWindowCandidates
+      populated (repair.ts:140-148) → else branch taken (line 228, since
+      latestJournalRunId is defined) → targetDocuments empty so the diagnose
+      loop is skipped → line 355 `latestJournalRunId && crashWindowCandidates
+      .size > 0` is true → replays journal → property parsed → getPage returns
+      diverged body → line 416 rawHash(page.body) !== property.renderedBodyHash
+      → NEEDS_HUMAN_ACTION_DIVERGED pushed + continue (no rebuild). Assertions:
+      ok=true, getWriteCount()=0, items length 1, diagnosticClass
+      needs-human-action, diagnosticCode NEEDS_HUMAN_ACTION_DIVERGED, lock
+      documents still {}. Genuinely exercises lines 414-426.
+  - iter2_id: F-3
+    status: RESOLVED
+    verification: >
+      Comment at repair.ts:163-167 documents the accepted-risk: property
+      .renderedBodyHash is pre-normalization (what MarkSync sent), page.body is
+      post-normalization (what Confluence stored), so a divergence check would
+      false-positive; last-resort fallback, next sync catches genuine drift;
+      references ADR-0005 fetch-back pattern. Verified technically sound:
+      bindingToProperty (push-flow.ts:578) copies binding.renderedBodyHash
+      (=entry.hashes.canonicalHash, pre-normalization) into the property; the
+      property does NOT carry remoteBodyHash (the post-normalization fetched-
+      back hash). So the journal-lost path has no reliable post-normalization
+      reference — declining the check is the correct call.
+inv_safe_1_assessment:
+  in_scope_paths:
+    - path: "reconcile-ok (repair.ts:289)"
+      check: "rawHash(page.body) !== binding.remoteBodyHash"
+      signal_quality: "post-norm vs post-norm (fetched-back) — sound"
+      verdict: SATISFIED
+    - path: "dirty-lock (repair.ts:317)"
+      check: "rawHash(page.body) !== binding.remoteBodyHash"
+      signal_quality: "post-norm vs post-norm (fetched-back) — sound"
+      verdict: SATISFIED
+    - path: "crash-window (repair.ts:416)"
+      check: "rawHash(page.body) !== property.renderedBodyHash"
+      signal_quality: "post-norm vs pre-norm — conservative (errs blocking); only signal available when binding is absent"
+      verdict: SATISFIED
+  out_of_scope_path:
+    - path: "journal-lost + lock-gone (repair.ts:161-227)"
+      check: none
+      rationale: "documented accepted-risk (repair.ts:163-167); pre/post-normalization false-positive; ADR-0005"
+      verdict: DOCUMENTED_ACCEPTED_RISK
+ci_status:
+  lint: "PASS (226 warnings, all pre-existing in non-GH-28 files; exit 0)"
+  format_check: PASS
+  typecheck: PASS
+  test: "1216 pass / 0 fail (34 snapshots, 5812 expect() calls)"
+  boundaries: "PASS (102 modules, 196 dependencies, 0 violations)"
+  exit_code: 0
+reviewed_at: 2026-07-15T21:10:00Z
+next_step: PROCEED

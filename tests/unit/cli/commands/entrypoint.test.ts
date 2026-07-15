@@ -77,18 +77,16 @@ describe("runCli — valid command + --json emits parseable JSON (AC-2)", () => 
 		}
 	});
 
-	test("stub commands (doctor/repair-state) under --json still produce valid JSON envelope", async () => {
-		for (const cmd of ["doctor", "repair-state"]) {
-			const s = newStreams();
-			const exit = await runCli([cmd, "--json"], {
-				stdout: s.stdout_w,
-				stderr: s.stderr_w,
-			});
-			expect(exit).toBe(99);
-			const parsed = JSON.parse(s.stdout.joined()) as Record<string, unknown>;
-			expect(parsed.schema_version).toBe(1);
-			expect((parsed.error as Record<string, unknown>).code).toBe("INTERNAL");
-		}
+	test("stub commands (doctor) under --json still produce valid JSON envelope", async () => {
+		const s = newStreams();
+		const exit = await runCli(["doctor", "--json"], {
+			stdout: s.stdout_w,
+			stderr: s.stderr_w,
+		});
+		expect(exit).toBe(99);
+		const parsed = JSON.parse(s.stdout.joined()) as Record<string, unknown>;
+		expect(parsed.schema_version).toBe(1);
+		expect((parsed.error as Record<string, unknown>).code).toBe("INTERNAL");
 	});
 });
 

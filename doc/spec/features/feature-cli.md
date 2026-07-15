@@ -5,11 +5,11 @@ ados_distribution: project-generated
 id: SPEC-CLI
 status: Current
 created: 2026-07-06
-last_updated: 2026-07-14
+last_updated: 2026-07-15
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: [GH-15, GH-17, GH-18, GH-74]
+  related_changes: [GH-15, GH-17, GH-18, GH-28, GH-74]
   decisions: [ADR-0011, TDR-0002]
   contracts: []
 ---
@@ -47,7 +47,7 @@ JSON/NDJSON output.
 | `plan` | Compute sync plan (dry-run): what will be created/updated/moved/no-op |
 | `sync` | Execute plan: apply changes to Confluence |
 | `doctor` | Health check: auth, permissions, API connectivity, config validity |
-| `repair-state` | Recover from stale lock or interrupted apply |
+| `repair-state` | Recover from a stale/dirty lock or an interrupted apply. **Dry-run by default** (`--dry-run`, 0 writes); `--apply` executes the planned repairs and updates the committed lock. Emits a structured `RepairReport` with stable per-item diagnostic codes (repaired / skipped / needs-human-action). *(delivered — GH-28)* |
 
 ### 3.2 Output strategy (ADR-0011)
 

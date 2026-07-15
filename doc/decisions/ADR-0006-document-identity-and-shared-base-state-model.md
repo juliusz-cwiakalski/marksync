@@ -6,7 +6,7 @@ decision_type: adr
 status: Accepted
 created: 2026-07-04
 decision_date: null
-last_updated: 2026-07-13
+last_updated: 2026-07-15
 summary: "Document identity = immutable source-side UUID v7; shared base = committed versioned lock file; cache = disposable (single CI-cacheable dir); duplicate-UUID is fatal before any write; decentralized coordination via Confluence 409 + operation-ID dedup (no shared service); commit ID recorded per Confluence page version; sync restricted to configured branches. Establishes the safety foundation for drift detection, concurrency control, and reverse sync."
 owners:
   - Juliusz Ćwiąkalski
@@ -48,7 +48,7 @@ revisit_triggers:
   - "Reverse sync (`MS-0005+`) requires a base representation the lock cannot express."
   - "CI concurrency proves unachievable with a committed lock + optimistic 409 concurrency alone."
 links:
-  related_changes: [GH-19, GH-21, GH-22, GH-24, GH-62]
+  related_changes: [GH-19, GH-21, GH-22, GH-24, GH-28, GH-62]
   supersedes: []
   superseded_by: []
   spec: ["../inception/system-specification-draft-from-ai-brainstorm.md"]
@@ -302,7 +302,7 @@ Legend: ✅ = passes · ❌ = fails · ⚠️ = passes with accepted cost.
 2. **Lock file** — delivered (GH-19): `marksync.lock.yml` schema v1 (`src/domain/config/lock-schema.json`), loader/saver/merger (`loadLock`/`saveLock`/`mergeBindings`, `src/app/lock.ts`), atomic write via temp + `fs.rename` (`src/infra/lock/store.ts`), line-oriented UUID-ordered format for mergeability. The disposable cache layout (`src/app/cache.ts`) and the pure content-property cross-check (`src/domain/state/reconcile.ts`) landed alongside it.
 3. **Content property** `marksync.metadata` written after a successful body update (cross-check).
 4. **Concurrency control** — delivered (GH-24): pure domain gates `assertOperationFresh`/`assertPlanNotExpired`/`decideOnConflict` (`src/domain/state/`) + `uuidV7Timestamp` (`src/domain/identity/uuid.ts`) wired into `applyPlan`/`processEntry` (`src/app/push-flow.ts`); optimistic 409 check, operation-ID dedup, stale-plan expiry, re-fetch-once policy.
-5. **`repair-state`** for stale locks + journal replay (R-USA-3).
+5. **`repair-state`** — delivered (GH-28): `runRepair` (`src/app/repair.ts`) recovers stale/dirty locks (rebuild from the remote `marksync.metadata` property) and interrupted applies (idempotent completion for post-transaction interruption; remote rebuild for the mid-transaction crash window); dry-run by default, `--apply` executes; emits a `RepairReport` with stable diagnostic codes (R-USA-3).
 6. **Version-message provenance** implemented per ADR-0010: squash default for `MS-0002`, clear MarkSync/Git prefix, compact included-commit summary, deterministic trimming after verifying Confluence message length.
 7. **Acceptance tests:** clone/CI/concurrency (A-FEA-9), duplicate-UUID fatal (INV-SAFE-3), cache-disposable (C-3), REMOTE_MISSING invariant (INV-SAFE-2), squash history messages (ADR-0010).
 

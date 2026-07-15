@@ -1,0 +1,212 @@
+version: 1
+iteration: 1
+mode: local
+work_item_ref: GH-28
+branch: feat/GH-28/repair-state
+status: FAIL
+summary: >
+  The GH-28 repair-state delivery is architecturally sound: clean DEC-1 tier
+  separation, correct dry-run/apply semantics, a well-structured RepairReport
+  with stable diagnostic codes, working Stage-1 (rebuild-from-remote) and
+  Stage-2 (idempotent completion) flows, and 19 passing tests covering 13 TCs.
+  All primitives (push-flow, reconcile, classifier, journal) are untouched.
+  However, the INV-SAFE-1 divergence gate is INCOMPLETE: the fixer's fix
+  (commit 1cf0a4d) added a divergence check only to the reconcile-ok branch
+  (consistent lock), but the dirty-lock rebuild path (lines 308-329) and the
+  crash-window candidate path (lines 393-408) rebuild unconditionally WITHOUT
+  checking whether the remote body has diverged. A diverged remote in a
+  dirty-lock scenario is silently reported as "repaired" rather than
+  needs-human-action, violating F-5 / DEC-4 / AC-F5-1. This is the review's
+  sole blocking concern and requires remediation before proceeding.
+severity_breakdown:
+  critical: 0
+  high: 1
+  medium: 5
+  low: 2
+  info: 0
+spec_compliance: FAIL
+plan_compliance: FAIL
+findings:
+  - id: F-1
+    severity: high
+    confidence: high
+    category: correctness
+    location: src/app/repair.ts:308-329
+    message: >
+      Dirty-lock rebuild path lacks a divergence check (INV-SAFE-1 gap). When
+      reconcileWithProperty returns LockDirty (sourceCommit mismatch), the code
+      unconditionally marks the binding as "repaired" and adds it to rebuilds
+      WITHOUT checking if the remote page body has diverged from what MarkSync
+      last wrote. A diverged remote in a dirty-lock scenario is silently
+      "repaired" — the rebuilt binding records the diverged remoteBodyHash, so
+      on the next sync classify() sees remoteChanged=false and the divergence
+      is permanently hidden (or, if local content also changed, the sync
+      overwrites the user's remote edit = data loss). The same gap exists in
+      the crash-window candidate rebuild path (lines 393-408). The fixer's
+      INV-SAFE-1 fix (commit 1cf0a4d) only added the divergence check to the
+      reconcile-ok branch (lines 281-291); the dirty-lock branch was left
+      unchecked. The plan task 2.2 explicitly required calling classify() for
+      dirty bindings before rebuilding.
+    suggestion: >
+      Before adding a dirty-lock binding to rebuilds, check whether the remote
+      body has diverged. Compare rawHash(page.body) against a reference of what
+      MarkSync last wrote (e.g. property.renderedBodyHash, or construct a
+      SharedBase + RemoteState and call classify()). If the remote diverged
+      (REMOTE_AHEAD/DIVERGED), emit NEEDS_HUMAN_ACTION_DIVERGED with 0 writes
+      and skip the rebuild. Apply the same check to the crash-window candidate
+      path (lines 393-408). Add an integration test: dirty lock
+      (sourceCommit mismatch) + diverged remote body → assert
+      needs-human-action + 0 writes.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-2
+    severity: medium
+    confidence: high
+    category: correctness
+    location: src/app/repair.ts:224-330,445-486
+    message: >
+      Contradictory report items in the interrupted-apply scenario. When a
+      crashed run left some docs unwritten (no marksync.metadata property on
+      the remote), the diagnose stage emits NEEDS_HUMAN_ACTION_MISSING_PROPERTY
+      for those docs, but Stage 2's applyPlan subsequently writes them and
+      appends a "repaired" item. The same document UUID thus appears twice with
+      contradictory diagnostics (needs-human-action + repaired). TC-REPAIR-007
+      and TC-REPAIR-008 mask this by using toBeGreaterThanOrEqual instead of
+      exact counts and not checking for duplicate UUIDs.
+    suggestion: >
+      Either (a) skip the diagnose-stage property check for docs that Stage 2
+      will handle (since applyPlan will set the property), or (b) deduplicate
+      items by UUID after both stages complete (Stage 2 results override
+      diagnose-stage items for the same UUID), or (c) tighten the diagnose
+      logic to only emit needs-human-action for docs that are NOT going to be
+      completed by Stage 2. Also tighten TC-REPAIR-007/008 assertions to exact
+      item counts and verify no duplicate UUIDs appear in report.items.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-3
+    severity: medium
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-07/2026-07-15--GH-28--repair-state/chg-GH-28-plan.md
+    message: >
+      Plan task audit gap (DONE_BUT_UNCHECKED). Phases 4-7 tasks are all
+      unchecked (- [ ]) in the plan despite being fully implemented and
+      passing: Phase 4 (4.1-4.7: unit tests exist and pass), Phase 5
+      (5.1-5.9: integration tests exist and pass), Phase 6 (6.1-6.4: system
+      docs updated — feature-safe-publish, nonfunctional, feature-cli, ADR-0006
+      all modified), Phase 7 (7.1-7.5: version bumped, bun run check green).
+      The Execution Log only records Phases 1-3 as complete.
+    suggestion: >
+      Mark all completed tasks as [x] in the plan and update the Execution Log
+      with Phases 4-7 completion entries (commit, timestamp, notes).
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-4
+    severity: medium
+    confidence: high
+    category: plan-compliance
+    location: src/app/repair.ts:487-517
+    message: >
+      Dry-run path calls computePlan, contradicting plan task 2.6 which
+      explicitly states "when opts.dryRun === true, do NOT call saveLock,
+      computePlan, or applyPlan." The implementation calls computePlan in the
+      dry-run Stage 2 path (line 490) to show planned completion items.
+      computePlan is read-only (0 writes, no lock mutation), so NFR-OBS-5
+      holds, but the plan deviation is unacknowledged.
+    suggestion: >
+      Either (a) update plan task 2.6 to allow computePlan in dry-run
+      (justified: it is pure/read-only and provides planned-completion items
+      that make the dry-run report useful), with a note that applyPlan is still
+      gated, or (b) if the plan's intent is strict isolation, replace the
+      computePlan call with a simpler dry-run diagnostic that doesn't invoke
+      the full plan computation. Option (a) is recommended.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-5
+    severity: medium
+    confidence: high
+    category: documentation
+    location: src/cli/commands/router.ts:36-40
+    message: >
+      Stale CLI_VERSION comment. The JSDoc above CLI_VERSION (lines 36-40)
+      cites "the bump to 0.4.0 is GH-18 / version_impact: minor" while the
+      actual value is 0.6.0 (bumped by GH-28). Doc-syncer flagged this; it
+      remains unfixed.
+    suggestion: >
+      Update the comment to cite the current version context (GH-28 /
+      version_impact: minor) or remove the version-specific historical
+      reference entirely, keeping only the forward-looking note about a future
+      runtime version source.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-6
+    severity: medium
+    confidence: high
+    category: style
+    location: src/cli/commands/repair-state.ts:1-7
+    message: >
+      File header exceeds the 3-line limit. The header is 7 lines (lines 1-7),
+      violating .ai/rules/typescript.md "File headers <= 3 lines" and
+      code-review-instructions.md "Boy scout rule: files modified in this PR
+      have headers <= 3 lines." Since the file was rewritten (stub to real
+      handler), the header should have been trimmed. Much of the content is
+      spec/tier-rule restatement that belongs in the spec, not the file header.
+    suggestion: >
+      Trim to <= 3 lines. Example: "marksync repair-state handler — thin shell
+      calling runRepair (GH-28). DEC-1: imports only #cli/* + #app/*." Remove
+      the step-by-step load-config/lock/creds narration (the code is
+      self-documenting).
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-7
+    severity: low
+    confidence: high
+    category: style
+    location: src/app/repair.ts:126
+    message: >
+      The _git parameter is prefixed with an underscore (convention for
+      intentionally unused) but IS used at lines 446 and 490 (passed to
+      computePlan). The underscore prefix is misleading — it signals "I know
+      this exists but don't use it."
+    suggestion: Rename _git to git throughout (signature + both call sites).
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-8
+    severity: low
+    confidence: high
+    category: testing
+    location: tests/integration/app/repair.test.ts:17, tests/unit/app/repair.test.ts:10
+    message: >
+      Unused imports. tests/integration/app/repair.test.ts imports loadLock
+      from #app/lock but never calls it (tests construct lock objects
+      in-memory). tests/unit/app/repair.test.ts imports type Result from
+      #domain/result but never references it.
+    suggestion: Remove the unused imports.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+reviewed_at: 2026-07-15T20:00:00Z
+next_step: CALL_CODER

@@ -1,0 +1,173 @@
+change_id: GH-28
+title: "[MS2-E4-S4] Minimal repair (repair-state)"
+story_file: doc/planning/milestones/MS-2/MS2-E4--features/MS2-E4-S4--minimal-repair.md
+branch: feat/GH-28/repair-state
+
+phases:
+  clarify_scope: { started: "2026-07-15T17:22:00Z", completed: "2026-07-15T17:24:00Z" }
+  specification: { started: "2026-07-15T17:25:00Z", completed: "2026-07-15T17:48:00Z", reopened: "2026-07-15T17:46:00Z" }
+  test_planning: { started: "2026-07-15T17:30:00Z", completed: "2026-07-15T17:50:00Z", reopened: "2026-07-15T17:46:00Z" }
+  delivery_planning: { started: "2026-07-15T17:35:00Z", completed: "2026-07-15T17:49:00Z", reopened: "2026-07-15T17:46:00Z" }
+  dor_check: { started: "2026-07-15T17:42:00Z", completed: "2026-07-15T17:55:00Z", iter: 2, verdict: READY }
+  delivery: { started: "2026-07-15T17:55:00Z", completed: "2026-07-15T18:30:00Z" }
+  system_spec_update: { started: "2026-07-15T18:30:00Z", completed: "2026-07-15T18:40:00Z" }
+  review_fix: { started: "2026-07-15T18:40:00Z", completed: "2026-07-15T21:10:00Z", iter: 3, verdict: PASS }
+  quality_gates: { started: "2026-07-15T21:10:00Z", completed: "2026-07-15T21:15:00Z", result: "GREEN — 1216 pass/0 fail; typecheck clean; format clean; 0 dep violations; 226 pre-existing lint warnings (exit 0)" }
+  dod_check: { started: "2026-07-15T21:15:00Z", completed: "2026-07-15T21:20:00Z", verdict: MET }
+  pr_creation: { started: "2026-07-15T21:20:00Z", completed: "2026-07-15T21:30:00Z", url: "https://github.com/juliusz-cwiakalski/marksync/pull/84", pr_number: 84 }
+
+decisions: []
+open_questions: []
+blockers: []
+
+# Cross-cutting: R-USA-3, NFR-REL-7, NFR-OBS-3 (informational for MS-0002).
+# Decisions referenced: ADR-0006 (repair surface).
+# Dependencies: GH-19 (state-mgr) CLOSED, GH-23 (sync-engine) CLOSED.
+doc_risks:
+  - "doc/spec/features/feature-safe-publish.md §3.1 'Minimal repair' bullet currently says replayJournal delivered GH-23; needs update to reflect repair-state command delivery."
+  - "doc/changes may need an entry in feature spec interface contracts for RepairReport shape."
+
+dor_iterations:
+  - iteration: 1
+    verdict: NOT_READY
+    date: "2026-07-15T17:45:00Z"
+    findings:
+      - "BLOCKER (Finding 1): plan Stage-2 trigger built on false assumption — crashAfter throws POST-transaction (after saveLock in processEntry return), so lock already reflects K docs. Plan's crash-window-candidate gate would be FALSE → Stage 2 skipped → remaining N-K docs never written → AC-F2-1 fails. Reopen delivery_planning (redefine Stage-2 trigger: run computePlan+applyPlan on --apply when latest journal exists) + specification (clarify crashAfter=post-transaction interruption)."
+      - "MAJOR (Finding 2): REPAIRED_CRASH_WINDOW diagnostic + Stage-1 rebuild-from-remote path untestable — crashAfter can't reproduce mid-transaction window. Reopen test_planning: construct journal-ahead-of-lock fixture manually (write journal entry, leave lock stale)."
+      - "MAJOR (Finding 3): AC-F5-2 (lock+journal both gone) needs FakeTarget.searchPages to return results (currently []). Reopen delivery_planning: commit to extending mock."
+      - "MINOR (Finding 4): TC-REPAIR-011 divergence — advanceVersion alone yields NO_CHANGE (classifier uses bodyHash not version). Test must change body. Reopen test_planning."
+      - "MINOR (Finding 5): stale-plan advisory deferral (NG-5) needs owner sign-off. PM sign-off recorded here."
+      - "MINOR (Finding 6): Stage-2 operationId freshness assumption needs one-line note in plan."
+  - iteration: 2
+    verdict: READY
+    date: "2026-07-15T17:55:00Z"
+    notes: "All 6 findings resolved. 4 new nits (non-blocking, implementation-time): N1 TC-009 fixture uses ts/version field names — coder aligns to JournalEntry shape; N2 TC-011 references fakeTarget.setPage (doesn't exist yet) — coder adds helper in Phase 5 alongside setSearchResults; N3 TC-007 step 9 conflates scenario terminology — cosmetic; N4 test-plan revision log missing v1.1 entry."
+
+review_iterations:
+  - iteration: 1
+    verdict: FAIL
+    date: "2026-07-15T18:50:00Z"
+    blocker: "F-1 (HIGH): INV-SAFE-1 gap — dirty-lock rebuild path (repair.ts:308-329) + crash-window candidate path (393-408) rebuild unconditionally WITHOUT divergence check. Diverged remote + stale lock → diverged remoteBodyHash baked into rebuilt binding → next sync classify() sees no remote drift → silent overwrite risk. Fixer's divergence check only covered reconcile-ok branch, not the LockDirty / crash-window branches."
+    findings:
+      - "F-1 HIGH: add divergence check to dirty-lock + crash-window rebuild paths (compare rawHash(page.body) vs property/base; if diverged → NEEDS_HUMAN_ACTION_DIVERGED, skip rebuild, 0 writes). Add integration test: dirty-lock + diverged remote → needs-human-action."
+      - "F-2 MINOR: dedup report items by UUID in interrupted-apply scenario (Stage 2 overrides diagnose); tighten TC-007/008 to exact counts."
+      - "F-3 MINOR: mark plan Phases 4-7 tasks [x]; update Execution Log."
+      - "F-4 MINOR: update plan task 2.6 to permit computePlan in dry-run (read-only, justified)."
+      - "F-5 MINOR: stale CLI_VERSION comment in router.ts:36-40."
+      - "F-6 MINOR: repair-state.ts header > 3 lines."
+      - "F-7 NIT: _git param misleadingly prefixed (it IS used)."
+      - "F-8 NIT: unused imports in test files."
+  - iteration: 2
+    verdict: FAIL
+    date: "2026-07-15T19:05:00Z"
+    notes: "All 8 iter-1 findings RESOLVED. 3 new findings from remediation commit 8778b74: F-1 HIGH format:check fails (3 lines violate biome — mechanical fix); F-2 MEDIUM crash-window+divergence branch untested (needs TC-REPAIR-011b); F-3 INFO pre-existing 4th rebuild path (journal-lost+lock-gone) lacks divergence check (non-blocking, same INV-SAFE-1 class)."
+  - iteration: 3
+    verdict: PASS
+    date: "2026-07-15T21:10:00Z"
+    notes: "All 3 iter-2 findings RESOLVED (commit 3978409). F-1 format:check green; F-2 TC-REPAIR-011b exercises crash-window divergence branch; F-3 4th-path documented as accepted-risk (ADR-0005). bun run check GREEN end-to-end (1216 pass / 0 fail; 0 boundary violations). No new blockers. INV-SAFE-1 satisfied on all 3 in-scope rebuild paths. Ready for quality gates + PR."
+
+notes:
+  - text: >
+      PM sign-off (Finding 5): stale parked-plan expiry advisory deferred as
+      NG-5 — confirmed correct for MS-0002 (computePlan is pure/ephemeral,
+      not persisted to disk; no parked plan to expire). Owner-approved;
+      captured here per DoR reviewer request. No spec change needed beyond
+      this record.
+    type: decision
+    date: "2026-07-15"
+  - text: >
+      Retro — DoR iter-1 (2026-07-15): readiness-reviewer caught a BLOCKER
+      the three authors all missed. Root cause: spec-writer + plan-writer +
+      test-plan-writer all reasoned about the crash-window (journal-ahead-of-
+      lock) as the primary interruption scenario, but the EXISTING crashAfter
+      test hook throws POST-transaction (after processEntry returns, i.e.
+      after saveLock+putProperty). So crashAfter reproduces "K committed, N-K
+      unstarted" not "K journaled, lock missing K." The two-stage plan's
+      Stage-2 gate (crash-window candidate exists) was therefore always FALSE
+      for the crashAfter scenario → remaining docs never completed → AC-F2-1
+      (the premortem §14 beachhead, release-blocking) fails. KEY PROCESS
+      INSIGHT: the DoR gate's adversarial code-verification (the reviewer
+      actually read push-flow.ts lines 870-873 and crash-replay.test.ts
+      241-254) caught what sequential authoring could not. LESSON: when a plan
+      depends on the semantics of an existing test hook or write-path
+      ordering, that dependency must be VERIFIED against source during
+      planning, not assumed. Remediation: reopen specification (clarify
+      crashAfter=post-transaction; crash-window is a separate rarer scenario
+      needing a manual fixture) → delivery_planning (redefine Stage-2 trigger
+      on journal-exists not crash-window-candidate) → test_planning (add
+      journal-ahead-of-lock fixture + fix divergence body-change + extend
+      FakeTarget.searchPages). All primitives verified TRUE by reviewer.
+    type: retro
+    date: "2026-07-15"
+  - text: >
+      Retro — delivery (2026-07-15): coder completed Phases 1-3+7 (impl +
+      version bump) but SKIPPED Phases 4-5 (the 13 TC-REPAIR test cases)
+      citing "time constraints." Only existing tests passed; zero AC-
+      coverage tests written. Had to re-invoke coder to write the tests,
+      then fixer to resolve 7 integration failures. Root causes of the 7
+      failures were structural bugs in runRepair (Stage-1/2 logic nested
+      inside diagnose loop = unreachable; classify() called without local
+      arg = always LOCAL_MISSING = divergence undetected = INV-SAFE-1
+      violation; missing-property checked before missing-page; R1 fallback
+      unreachable when lock empty) + one test fixture bug (invalid UUID
+      format). LESSON 1: coder must complete ALL plan phases including
+      tests — skipping tests and leaving AC coverage unverified is a DoD
+      blocker that costs a round-trip. LESSON 2: the runRepair structural
+      bugs (unreachable code, missing divergence detection) were exactly
+      what the integration tests exist to catch — confirming the test
+      plan's value. INV-SAFE-1 gap (TC-011) was a real safety bug the
+      tests surfaced. Fixer's full rewrite of runRepair resolved all 7;
+      reviewer must examine the final implementation carefully.
+    type: retro
+    date: "2026-07-15"
+  - text: >
+      Retro — CI coverage gap (2026-07-15): after PR #84 opened, CI failed
+      because src/cli/commands/repair-state.ts had only 33.93% line coverage
+      (below the 70% per-file threshold in bunfig.toml). The local `bun run
+      check` passed because coverage is OPT-IN (--coverage flag); CI runs
+      `bun test --coverage tests/unit/ tests/integration/ tests/golden/`
+      which enforces it. The 20 repair tests all call runRepair (app-tier)
+      directly, never the thin CLI handler wrapper — so the handler's 85
+      lines were uncovered. LESSON: when a feature adds a thin CLI handler
+      (sync.ts-style wrapper), add a handler smoke test mirroring the
+      sibling sync-command.test.ts pattern — don't rely on app-tier tests
+      alone for per-file CLI coverage. The sync handler had the same gap
+      (its applyPlan success branch is "intentionally left uncovered") but
+      squeaked past 70% via early-return branches; repair-state didn't
+      because no handler test existed at all. Fix: added repair-command
+      .test.ts (6 tests, runCli harness for early-returns + mock.module
+      for runRepair success/failure tails) → 100% lines/functions. CI green.
+    type: retro
+    date: "2026-07-15"
+  - text: >
+      (F-1) the coder + fixer both missed: the dirty-lock rebuild path and
+      crash-window candidate path rebuild a binding UNCONDITIONALLY without
+      a divergence check. The fixer had added a divergence check, but only
+      to the reconcile-OK branch (consistent lock) — NOT to the LockDirty
+      or crash-window branches. So a diverged remote + stale lock would be
+      silently "repaired" (the diverged remoteBodyHash baked into the
+      binding → next sync sees no remote drift → silent overwrite = data
+      loss). This is an INV-SAFE-1 violation in exactly the scenario the
+      spec F-5/DEC-4/AC-F5-1 target. LESSON: the fixer's full rewrite of
+      runRepair fixed the 7 structural test failures but introduced/
+      left a safety gap because it was tested only via the reconcile-OK
+      divergence path (TC-011), not the dirty-lock+divergence combination.
+      When a safety invariant (INV-SAFE-1) has multiple code paths, EACH
+      path needs its own divergence gate + test. The reviewer's per-path
+      audit caught this. Remediation: add divergence check to all rebuild
+      paths + a dedicated dirty-lock+diverged-remote integration test.
+    type: retro
+    date: "2026-07-15"
+  - text: >
+      Intake context: repair-state currently a STUB (src/cli/commands/
+      repair-state.ts → err INTERNAL "not yet implemented MS2-E3"). All
+      domain primitives exist: reconcileWithProperty +
+      rebuildLockFromConfluence (src/domain/state/reconcile.ts, GH-19),
+      replayJournal/openJournal (src/app/journal.ts, GH-23). This story =
+      orchestration + UX + diagnostics. applyPlan journals BEFORE lock save
+      per-doc (finalizeSuccessfulUpdate), so crash window = journaled-but-
+      not-locked; repair-state closes it by rebuilding from remote for those
+      ops (no duplicate writes — AC#1). Dry-run default; --apply executes.
+      Likely app-tier src/app/repair.ts + thin CLI handler (sync.ts pattern).
+    type: info
+    date: "2026-07-15"

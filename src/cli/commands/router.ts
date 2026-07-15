@@ -35,10 +35,9 @@ import { syncCommand } from "#cli/commands/sync";
 
 /**
  * The version displayed in `--version` / help. Kept in lock-step with
- * `package.json` until a runtime version source is wired (GH-15/GH-16/GH-17
- * precedent; the bump to `0.4.0` is GH-18 / `version_impact: minor`).
+ * `package.json` until a runtime version source is wired.
  */
-export const CLI_VERSION = "0.4.0";
+export const CLI_VERSION = "0.6.0";
 
 /** The global flags as Cliffy surfaces them to an action (post-camelCase). */
 export interface GlobalCommandFlags {
@@ -199,11 +198,22 @@ export function buildCommand(): CommandRouter {
 			"repair-state",
 			"Repair the committed versioned lock after drift or interruption.",
 		)
+		.option(
+			"--dry-run",
+			"Compute and display planned repairs without applying (default).",
+		)
+		.option(
+			"--apply",
+			"Execute the planned repairs and update the committed lock.",
+		)
 		.action(async (flags) => {
 			capture(
 				"repair-state",
 				flags as GlobalCommandFlags,
-				await repairStateCommand(),
+				await repairStateCommand({
+					dryRun: Boolean(flags.dryRun),
+					apply: Boolean(flags.apply),
+				}),
 			);
 		});
 
