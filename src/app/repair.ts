@@ -12,6 +12,7 @@ import type { Repository } from "#domain/git/port";
 import type { TargetSystem } from "#domain/target/port";
 import type { ProjectConfig } from "#domain/config/types";
 import type { MetadataProperty } from "#domain/state/reconcile";
+import type { DocumentId } from "#domain/identity/document-id";
 import {
 	reconcileWithProperty,
 	rebuildLockFromConfluence,
@@ -493,9 +494,15 @@ export async function runRepair(
 	if (latestJournalRunId && crashWindowCandidates.size > 0) {
 		const journal = replayJournal(opts.cacheDir, latestJournalRunId);
 		for (const entry of journal) {
-			if (entry.outcome === "success" && crashWindowCandidates.has(entry.uuid)) {
+			if (
+				entry.outcome === "success" &&
+				crashWindowCandidates.has(entry.uuid)
+			) {
 				// This is a crash window candidate - journaled success but not in lock
-				const propertyResult = await target.getProperty(entry.pageId, "marksync.metadata");
+				const propertyResult = await target.getProperty(
+					entry.pageId,
+					"marksync.metadata",
+				);
 
 				if (!propertyResult.ok || !propertyResult.value) {
 					items.push({
@@ -551,7 +558,7 @@ export async function runRepair(
 
 				// Build minimal SharedBase for classification
 				const sharedBase = {
-					uuid: entry.uuid,
+					uuid: entry.uuid as DocumentId,
 					pageId: entry.pageId,
 					parentPageId: property.sourcePath, // Use sourcePath as fallback
 					pageVersion: page.version,
@@ -614,7 +621,7 @@ export async function runRepair(
 					// Add to working lock
 					const targetObj = workingLock.targets[opts.targetId];
 					if (targetObj) {
-						targetObj.documents[entry.uuid] = rebuildResult.value;
+						targetObj.documents[entry.uuid as DocumentId] = rebuildResult.value;
 					}
 				}
 			}
