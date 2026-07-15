@@ -42,10 +42,11 @@
 //   | RemoteUnreachable         | REMOTE_UNREACHABLE       | 99 * | other (retry) (GH-21) |
 //   | (no kind — flag/arg fail) | USAGE                 |  2   | usage              |
 //   | (no kind — unexpected)    | INTERNAL              | 99   | internal           |
+//   | (doctor-only)             | DOCTOR_FAIL           | 60   | health-check       |
 //
 // The only AC-load-bearing mapping is `Conflict → CONFLICT → 30` (AC-6 /
 // NFR-OBS-1). Entries marked `*` are best-fit (no dedicated exit code exists in
-// the 9-class set) and may be reclassified by the maintainer without breaking
+// the 10-class set) and may be reclassified by the maintainer without breaking
 // any AC; they keep the application-tier `never`-switch exhaustive.
 //
 // NOTE on the spec F-5 "Typical" wording: the spec table (chg-GH-16-spec.md §5)
@@ -57,8 +58,10 @@
 // exit 30 here (conflict/drift, retryable), and UNSUPPORTED_CONSTRUCT resolves
 // to exit 99 (catch-all) as a `*` best-fit. Where F-5's "Typical" grouping
 // differs from this switch, this switch wins (DEC-2 commitment).
+//
+// The 10-class set (GH-30 / TDR-0009 extended from 9 to 10).
 
-/** Exit-code numeric constants — the 9 classes (spec F-5 / NFR-OBS-1). */
+/** Exit-code numeric constants — the 10 classes (spec F-5 / NFR-OBS-1). */
 export const EXIT_OK = 0;
 export const EXIT_USAGE = 2;
 export const EXIT_CONFIG = 10;
@@ -66,6 +69,7 @@ export const EXIT_AUTH = 20;
 export const EXIT_CONFLICT = 30;
 export const EXIT_REMOTE_MISSING = 40;
 export const EXIT_INVARIANT = 50;
+export const EXIT_HEALTH = 60; // GH-30 / TDR-0009 — doctor health-check
 export const EXIT_RENDER_UNAVAILABLE = 70;
 export const EXIT_INTERNAL = 99;
 
@@ -113,6 +117,8 @@ export const CODE_TO_EXIT: Record<string, number> = {
 	REMOTE_UNREACHABLE: EXIT_INTERNAL,
 	// internal (unexpected throw).
 	INTERNAL: EXIT_INTERNAL,
+	// GH-30 / TDR-0009 — doctor health-check (doctor-only, not a MarkSyncError.kind).
+	DOCTOR_FAIL: EXIT_HEALTH,
 };
 
 /**

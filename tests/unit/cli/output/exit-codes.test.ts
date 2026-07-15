@@ -16,6 +16,7 @@ import {
 	EXIT_AUTH,
 	EXIT_CONFIG,
 	EXIT_CONFLICT,
+	EXIT_HEALTH,
 	EXIT_INTERNAL,
 	EXIT_INVARIANT,
 	EXIT_OK,
@@ -52,9 +53,11 @@ const EXPECTED: Record<string, number> = {
 	REMOTE_UNREACHABLE: 99,
 	USAGE: 2,
 	INTERNAL: 99,
+	// GH-30 / TDR-0009 — doctor health-check exit code.
+	DOCTOR_FAIL: 60,
 };
 
-describe("exit-code constants (9 classes — spec F-5 / NFR-OBS-1)", () => {
+describe("exit-code constants (10 classes — spec F-5 / NFR-OBS-1)", () => {
 	test("each constant has its documented numeric value", () => {
 		expect(EXIT_OK).toBe(0);
 		expect(EXIT_USAGE).toBe(2);
@@ -63,6 +66,7 @@ describe("exit-code constants (9 classes — spec F-5 / NFR-OBS-1)", () => {
 		expect(EXIT_CONFLICT).toBe(30);
 		expect(EXIT_REMOTE_MISSING).toBe(40);
 		expect(EXIT_INVARIANT).toBe(50);
+		expect(EXIT_HEALTH).toBe(60); // GH-30 / TDR-0009
 		expect(EXIT_RENDER_UNAVAILABLE).toBe(70);
 		expect(EXIT_INTERNAL).toBe(99);
 	});
@@ -73,7 +77,7 @@ describe("CODE_TO_EXIT — every DEC-2 row (stable code → exit)", () => {
 		expect(CODE_TO_EXIT).toEqual(EXPECTED);
 	});
 
-	test("no exit code falls outside the documented 9-class set", () => {
+	test("no exit code falls outside the documented 10-class set", () => {
 		const allowed = new Set<number>([
 			EXIT_OK,
 			EXIT_USAGE,
@@ -82,6 +86,7 @@ describe("CODE_TO_EXIT — every DEC-2 row (stable code → exit)", () => {
 			EXIT_CONFLICT,
 			EXIT_REMOTE_MISSING,
 			EXIT_INVARIANT,
+			EXIT_HEALTH, // GH-30 / TDR-0009
 			EXIT_RENDER_UNAVAILABLE,
 			EXIT_INTERNAL,
 		]);

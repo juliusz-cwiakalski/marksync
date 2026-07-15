@@ -123,17 +123,17 @@ Doctor adds **no app-tier redaction**. INV-SEC-1 is preserved by two existing la
 
 **Tasks**:
 
-- [ ] **1.1** In `src/cli/output/exit-codes.ts`: add `export const EXIT_HEALTH = 60;` alongside the other `EXIT_*` constants (it is pure presentation data — no tier import; slots cleanly between `EXIT_INVARIANT`(50) and `EXIT_RENDER_UNAVAILABLE`(70) per TDR-0009).
-- [ ] **1.2** Add `DOCTOR_FAIL: EXIT_HEALTH,` to `CODE_TO_EXIT` with a one-line comment noting it is **doctor-only** (lives only in `CODE_TO_EXIT`; not a `MarkSyncError.kind`; not in `cli-error-map.ts`) — doctor builds `CommandResult` directly (DEC-4) so it bypasses the error-kind→code mapper.
-- [ ] **1.3** Update the DEC-2 comment table in `exit-codes.ts`: add the `DOCTOR_FAIL → 60 → health-check` row and adjust the "9 classes" framing to 10 (TDR-0009 step 2). Keep the comment block within the spirit of typescript.md "Minimal file headers" — the existing DEC-2 table is the load-bearing authority, so this is a justified in-place edit, not a header essay.
-- [ ] **1.4** Verify the existing `codeToExitCode("CONFLICT") === 30` mapping is untouched (AC-6 / NFR-OBS-1 additive-safety gate) — `git diff` should show only additive lines.
-- [ ] **1.5** **Extend the EXISTING** `tests/unit/cli/output/exit-codes.test.ts` (**not** new — it is a strict whole-contract pin over `CODE_TO_EXIT` and the `EXIT_*` constants; TC-DOCTOR-010). Adding `DOCTOR_FAIL: EXIT_HEALTH` + `EXIT_HEALTH = 60` (tasks 1.1/1.2) will **break three assertions** in the existing file if it is not extended in lockstep: the `expect(CODE_TO_EXIT).toEqual(EXPECTED)` whole-map pin (EXPECTED lacks `DOCTOR_FAIL`), the `allowed`-Set "no exit outside the documented set" guard (lacks `EXIT_HEALTH`/60), and the stale `"9 classes"` `describe` title. Extend it as follows:
+- [x] **1.1** In `src/cli/output/exit-codes.ts`: add `export const EXIT_HEALTH = 60;` alongside the other `EXIT_*` constants (it is pure presentation data — no tier import; slots cleanly between `EXIT_INVARIANT`(50) and `EXIT_RENDER_UNAVAILABLE`(70) per TDR-0009). (✅ Done — added EXIT_HEALTH=60)
+- [x] **1.2** Add `DOCTOR_FAIL: EXIT_HEALTH,` to `CODE_TO_EXIT` with a one-line comment noting it is **doctor-only** (lives only in `CODE_TO_EXIT`; not a `MarkSyncError.kind`; not in `cli-error-map.ts`) — doctor builds `CommandResult` directly (DEC-4) so it bypasses the error-kind→code mapper. (✅ Done — added DOCTOR_FAIL: EXIT_HEALTH)
+- [x] **1.3** Update the DEC-2 comment table in `exit-codes.ts`: add the `DOCTOR_FAIL → 60 → health-check` row and adjust the "9 classes" framing to 10 (TDR-0009 step 2). Keep the comment block within the spirit of typescript.md "Minimal file headers" — the existing DEC-2 table is the load-bearing authority, so this is a justified in-place edit, not a header essay. (✅ Done — updated table and comment)
+- [x] **1.4** Verify the existing `codeToExitCode("CONFLICT") === 30` mapping is untouched (AC-6 / NFR-OBS-1 additive-safety gate) — `git diff` should show only additive lines. (✅ Verified — git diff shows only additive lines)
+- [x] **1.5** **Extend the EXISTING** `tests/unit/cli/output/exit-codes.test.ts` (**not** new — it is a strict whole-contract pin over `CODE_TO_EXIT` and the `EXIT_*` constants; TC-DOCTOR-010). Adding `DOCTOR_FAIL: EXIT_HEALTH` + `EXIT_HEALTH = 60` (tasks 1.1/1.2) will **break three assertions** in the existing file if it is not extended in lockstep: the `expect(CODE_TO_EXIT).toEqual(EXPECTED)` whole-map pin (EXPECTED lacks `DOCTOR_FAIL`), the `allowed`-Set "no exit outside the documented set" guard (lacks `EXIT_HEALTH`/60), and the stale `"9 classes"` `describe` title. Extend it as follows:
   1. Add `DOCTOR_FAIL: 60` to the `EXPECTED` map with a trailing `// GH-30 / TDR-0009` comment, so the `expect(CODE_TO_EXIT).toEqual(EXPECTED)` whole-contract pin stays green.
   2. Import `EXIT_HEALTH` alongside the other `EXIT_*` constants, and add `expect(EXIT_HEALTH).toBe(60)` to the "each constant has its documented numeric value" test.
   3. Add `EXIT_HEALTH` to the `allowed` Set in the "no exit code falls outside the documented set" test (9 → 10 documented values), so `DOCTOR_FAIL → 60` passes the guard.
   4. Update the `describe("exit-code constants (9 classes — spec F-5 / NFR-OBS-1)")` title to reflect **10 classes** (it currently hardcodes "9 classes").
   5. (Optional, for clarity) Add a dedicated `test("DOCTOR_FAIL → EXIT_HEALTH (60) — GH-30 / TDR-0009", ...)` asserting `codeToExitCode("DOCTOR_FAIL") === EXIT_HEALTH` and `CODE_TO_EXIT.DOCTOR_FAIL === EXIT_HEALTH`.
-  6. Keep the additive-safety assertion `codeToExitCode("CONFLICT") === 30` unchanged (AC-6) and continue using `#cli/output` import aliases (no deep relative paths).
+  6. Keep the additive-safety assertion `codeToExitCode("CONFLICT") === 30` unchanged (AC-6) and continue using `#cli/output` import aliases (no deep relative paths). (✅ Done — extended test with DOCTOR_FAIL: 60, EXIT_HEALTH import and assertion, updated allowed Set and title; tests pass: 31 pass, 0 fail)
 
 **Acceptance Criteria**:
 
@@ -419,7 +419,7 @@ Doctor adds **no app-tier redaction**. INV-SEC-1 is preserved by two existing la
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| Phase 1 | ☐ Pending | — | — | — | Exit-code extension + mapping unit test |
+| Phase 1 | ✅ Complete | 2026-07-15T00:00:00Z | 2026-07-15T00:00:00Z | TBD | Exit-code extension + mapping unit test — EXIT_HEALTH=60, DOCTOR_FAIL added to CODE_TO_EXIT, test extended (31 pass, 0 fail) |
 | Phase 2 | ☐ Pending | — | — | — | App-tier `runDoctor` + check unit tests |
 | Phase 3 | ☐ Pending | — | — | — | CLI handler + router + exit-derivation unit test |
 | Phase 4 | ☐ Pending | — | — | — | Integration tests (`Bun.serve` mock) |
