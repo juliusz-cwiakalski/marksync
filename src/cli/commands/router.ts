@@ -199,11 +199,19 @@ export function buildCommand(): CommandRouter {
 			"repair-state",
 			"Repair the committed versioned lock after drift or interruption.",
 		)
+		.option(
+			"--dry-run",
+			"Compute and display planned repairs without applying (default).",
+		)
+		.option("--apply", "Execute the planned repairs and update the committed lock.")
 		.action(async (flags) => {
 			capture(
 				"repair-state",
 				flags as GlobalCommandFlags,
-				await repairStateCommand(),
+				await repairStateCommand({
+					dryRun: Boolean(flags.dryRun),
+					apply: Boolean(flags.apply),
+				}),
 			);
 		});
 

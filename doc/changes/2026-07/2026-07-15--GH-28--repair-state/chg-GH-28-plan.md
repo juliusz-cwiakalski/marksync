@@ -199,13 +199,13 @@ The repair orchestration (`src/app/repair.ts`) uses a **two-stage, conditional s
 
 **Tasks**:
 
-- [ ] **3.1** Rewrite `src/cli/commands/repair-state.ts` to mirror `sync.ts`: `export async function repairStateCommand(flags: { dryRun?: boolean; apply?: boolean }): Promise<CommandResult<RepairReport>>`. Resolve the mode: `const apply = flags.apply === true; const dryRun = !apply;` (`--apply` wins; default is dry-run, AC-F4-1/AC-F4-2).
-- [ ] **3.2** Handler body mirrors `sync.ts` ordering: `loadConfig(cwd)` → `loadLock(cwd)` → `resolveCacheDir(cwd)` → `resolveCredentials()` → `createRepository(cwd)` → `createTarget(creds, config.targets.default.spaceKey)` → `runRepair(lock, git, target, config, { cwd, cacheDir, targetId: "default", dryRun, stalePlanMinutes: config.sync.stalePlanMinutes })` → map each `Result` error via `mapMarkSyncErrorToCommandError` → `err(...)` / `ok(...)`.
+- [x] **3.1** Rewrite `src/cli/commands/repair-state.ts` to mirror `sync.ts`: `export async function repairStateCommand(flags: { dryRun?: boolean; apply?: boolean }): Promise<CommandResult<RepairReport>>`. Resolve the mode: `const apply = flags.apply === true; const dryRun = !apply;` (`--apply` wins; default is dry-run, AC-F4-1/AC-F4-2).
+- [x] **3.2** Handler body mirrors `sync.ts` ordering: `loadConfig(cwd)` → `loadLock(cwd)` → `resolveCacheDir(cwd)` → `resolveCredentials()` → `createRepository(cwd)` → `createTarget(creds, config.targets.default.spaceKey)` → `runRepair(lock, git, target, config, { cwd, cacheDir, targetId: "default", dryRun, stalePlanMinutes: config.sync.stalePlanMinutes })` → map each `Result` error via `mapMarkSyncErrorToCommandError` → `err(...)` / `ok(...)`.
   - Imports: `#cli/output` (`ok`/`err`/`CommandResult`), `#cli/error-map`, `#app/config`, `#app/lock`, `#app/cache`, `#app/credentials`, `#app/ports`, `#app/repair` (`runRepair` + `type RepairReport`). **No `#domain/*` / `#infra/*`** (DEC-1).
   - The `RepairReport` type reference flows from `#app/repair` (same structural precedent as `sync.ts` importing `ApplyReport` from `#app/push-flow`).
-- [ ] **3.3** Update `src/cli/commands/router.ts`: on the existing `.command("repair-state", ...)`, chain `.option("--dry-run", "Compute and display planned repairs without applying (default).")` and `.option("--apply", "Execute the planned repairs and update the committed lock.")`. Update the action to pass the parsed flags to `repairStateCommand({ dryRun: Boolean(flags.dryRun), apply: Boolean(flags.apply) })` and keep `capture("repair-state", flags, ...)`.
-- [ ] **3.4** Update the router/repair-state header comments to reflect that the handler is real (remove the "stub" framing; keep headers ≤3 lines per boy-scout rule).
-- [ ] **3.5** Verify exit-code behavior: repair `err` codes flow through the existing `mapMarkSyncErrorToCommandError` + `codeToExitCode` (e.g. a dirty lock surfaced as `LOCK_DIRTY` → 30; corrupt lock → `CORRUPT_LOCK` → 10). No new exit codes are introduced.
+- [x] **3.3** Update `src/cli/commands/router.ts`: on the existing `.command("repair-state", ...)`, chain `.option("--dry-run", "Compute and display planned repairs without applying (default).")` and `.option("--apply", "Execute the planned repairs and update the committed lock.")`. Update the action to pass the parsed flags to `repairStateCommand({ dryRun: Boolean(flags.dryRun), apply: Boolean(flags.apply) })` and keep `capture("repair-state", flags, ...)`.
+- [x] **3.4** Update the router/repair-state header comments to reflect that the handler is real (remove the "stub" framing; keep headers ≤3 lines per boy-scout rule).
+- [x] **3.5** Verify exit-code behavior: repair `err` codes flow through the existing `mapMarkSyncErrorToCommandError` + `codeToExitCode` (e.g. a dirty lock surfaced as `LOCK_DIRTY` → 30; corrupt lock → `CORRUPT_LOCK` → 10). No new exit codes are introduced.
 
 **Acceptance Criteria**:
 
@@ -407,4 +407,5 @@ The repair orchestration (`src/app/repair.ts`) uses a **two-stage, conditional s
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
 | Phase 1 | ✅ Complete | 2026-07-15T12:00:00Z | 2026-07-15T12:30:00Z | fb22a4d | Diagnostic types, RepairReport, code constants, and latest-journal selector implemented |
-| Phase 2 | ✅ Complete | 2026-07-15T12:30:00Z | 2026-07-15T13:15:00Z | TBD | App-tier repair orchestration (runRepair diagnose + rebuild + completion orchestration) implemented |
+| Phase 2 | ✅ Complete | 2026-07-15T12:30:00Z | 2026-07-15T13:15:00Z | cd91f44 | App-tier repair orchestration (runRepair diagnose + rebuild + completion orchestration) implemented |
+| Phase 3 | ✅ Complete | 2026-07-15T13:15:00Z | 2026-07-15T13:45:00Z | TBD | CLI handler + router flags implemented |
