@@ -30,7 +30,7 @@
 		"format:check": "biome format .",
 		"typecheck": "tsc --noEmit",
 		"test": "bun test",
-		"test:bdd": "bunx cucumber-js tests/bdd/features --require \"tests/bdd/**/*.ts\" --strict",
+		"test:bdd": "bun run tests/bdd/run-bdd.ts",
 		"check:boundaries": "depcruise src",
 		"check": "bun run lint && bun run format:check && bun run typecheck && bun run test && bun run check:boundaries",
 		"prepare": "husky"
