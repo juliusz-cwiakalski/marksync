@@ -1,0 +1,91 @@
+change_id: GH-28
+title: "[MS2-E4-S4] Minimal repair (repair-state)"
+story_file: doc/planning/milestones/MS-2/MS2-E4--features/MS2-E4-S4--minimal-repair.md
+branch: feat/GH-28/repair-state
+
+phases:
+  clarify_scope: { started: "2026-07-15T17:22:00Z", completed: "2026-07-15T17:24:00Z" }
+  specification: { started: "2026-07-15T17:25:00Z", completed: "2026-07-15T17:48:00Z", reopened: "2026-07-15T17:46:00Z" }
+  test_planning: { started: "2026-07-15T17:30:00Z", completed: "2026-07-15T17:50:00Z", reopened: "2026-07-15T17:46:00Z" }
+  delivery_planning: { started: "2026-07-15T17:35:00Z", completed: "2026-07-15T17:49:00Z", reopened: "2026-07-15T17:46:00Z" }
+  dor_check: { started: "2026-07-15T17:42:00Z", completed: "2026-07-15T17:55:00Z", iter: 2, verdict: READY }
+  delivery: { started: "2026-07-15T17:55:00Z", completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+
+decisions: []
+open_questions: []
+blockers: []
+
+# Cross-cutting: R-USA-3, NFR-REL-7, NFR-OBS-3 (informational for MS-0002).
+# Decisions referenced: ADR-0006 (repair surface).
+# Dependencies: GH-19 (state-mgr) CLOSED, GH-23 (sync-engine) CLOSED.
+doc_risks:
+  - "doc/spec/features/feature-safe-publish.md §3.1 'Minimal repair' bullet currently says replayJournal delivered GH-23; needs update to reflect repair-state command delivery."
+  - "doc/changes may need an entry in feature spec interface contracts for RepairReport shape."
+
+dor_iterations:
+  - iteration: 1
+    verdict: NOT_READY
+    date: "2026-07-15T17:45:00Z"
+    findings:
+      - "BLOCKER (Finding 1): plan Stage-2 trigger built on false assumption — crashAfter throws POST-transaction (after saveLock in processEntry return), so lock already reflects K docs. Plan's crash-window-candidate gate would be FALSE → Stage 2 skipped → remaining N-K docs never written → AC-F2-1 fails. Reopen delivery_planning (redefine Stage-2 trigger: run computePlan+applyPlan on --apply when latest journal exists) + specification (clarify crashAfter=post-transaction interruption)."
+      - "MAJOR (Finding 2): REPAIRED_CRASH_WINDOW diagnostic + Stage-1 rebuild-from-remote path untestable — crashAfter can't reproduce mid-transaction window. Reopen test_planning: construct journal-ahead-of-lock fixture manually (write journal entry, leave lock stale)."
+      - "MAJOR (Finding 3): AC-F5-2 (lock+journal both gone) needs FakeTarget.searchPages to return results (currently []). Reopen delivery_planning: commit to extending mock."
+      - "MINOR (Finding 4): TC-REPAIR-011 divergence — advanceVersion alone yields NO_CHANGE (classifier uses bodyHash not version). Test must change body. Reopen test_planning."
+      - "MINOR (Finding 5): stale-plan advisory deferral (NG-5) needs owner sign-off. PM sign-off recorded here."
+      - "MINOR (Finding 6): Stage-2 operationId freshness assumption needs one-line note in plan."
+  - iteration: 2
+    verdict: READY
+    date: "2026-07-15T17:55:00Z"
+    notes: "All 6 findings resolved. 4 new nits (non-blocking, implementation-time): N1 TC-009 fixture uses ts/version field names — coder aligns to JournalEntry shape; N2 TC-011 references fakeTarget.setPage (doesn't exist yet) — coder adds helper in Phase 5 alongside setSearchResults; N3 TC-007 step 9 conflates scenario terminology — cosmetic; N4 test-plan revision log missing v1.1 entry."
+
+notes:
+  - text: >
+      PM sign-off (Finding 5): stale parked-plan expiry advisory deferred as
+      NG-5 — confirmed correct for MS-0002 (computePlan is pure/ephemeral,
+      not persisted to disk; no parked plan to expire). Owner-approved;
+      captured here per DoR reviewer request. No spec change needed beyond
+      this record.
+    type: decision
+    date: "2026-07-15"
+  - text: >
+      Retro — DoR iter-1 (2026-07-15): readiness-reviewer caught a BLOCKER
+      the three authors all missed. Root cause: spec-writer + plan-writer +
+      test-plan-writer all reasoned about the crash-window (journal-ahead-of-
+      lock) as the primary interruption scenario, but the EXISTING crashAfter
+      test hook throws POST-transaction (after processEntry returns, i.e.
+      after saveLock+putProperty). So crashAfter reproduces "K committed, N-K
+      unstarted" not "K journaled, lock missing K." The two-stage plan's
+      Stage-2 gate (crash-window candidate exists) was therefore always FALSE
+      for the crashAfter scenario → remaining docs never completed → AC-F2-1
+      (the premortem §14 beachhead, release-blocking) fails. KEY PROCESS
+      INSIGHT: the DoR gate's adversarial code-verification (the reviewer
+      actually read push-flow.ts lines 870-873 and crash-replay.test.ts
+      241-254) caught what sequential authoring could not. LESSON: when a plan
+      depends on the semantics of an existing test hook or write-path
+      ordering, that dependency must be VERIFIED against source during
+      planning, not assumed. Remediation: reopen specification (clarify
+      crashAfter=post-transaction; crash-window is a separate rarer scenario
+      needing a manual fixture) → delivery_planning (redefine Stage-2 trigger
+      on journal-exists not crash-window-candidate) → test_planning (add
+      journal-ahead-of-lock fixture + fix divergence body-change + extend
+      FakeTarget.searchPages). All primitives verified TRUE by reviewer.
+    type: retro
+    date: "2026-07-15"
+  - text: >
+      Intake context: repair-state currently a STUB (src/cli/commands/
+      repair-state.ts → err INTERNAL "not yet implemented MS2-E3"). All
+      domain primitives exist: reconcileWithProperty +
+      rebuildLockFromConfluence (src/domain/state/reconcile.ts, GH-19),
+      replayJournal/openJournal (src/app/journal.ts, GH-23). This story =
+      orchestration + UX + diagnostics. applyPlan journals BEFORE lock save
+      per-doc (finalizeSuccessfulUpdate), so crash window = journaled-but-
+      not-locked; repair-state closes it by rebuilding from remote for those
+      ops (no duplicate writes — AC#1). Dry-run default; --apply executes.
+      Likely app-tier src/app/repair.ts + thin CLI handler (sync.ts pattern).
+    type: info
+    date: "2026-07-15"
