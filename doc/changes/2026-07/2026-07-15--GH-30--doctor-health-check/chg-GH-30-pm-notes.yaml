@@ -1,0 +1,110 @@
+change_id: GH-30
+title: "[MS2-E5-S2] Doctor health-check"
+slug: doctor-health-check
+branch: feat/GH-30/doctor-health-check
+story_file: doc/planning/milestones/MS-2/MS2-E5--quality-and-ops/MS2-E5-S2--doctor.md
+feature_spec: doc/spec/features/feature-cli.md
+
+phases:
+  clarify_scope: { started: "2026-07-15T20:00:00Z", completed: "2026-07-15T20:15:00Z" }
+  specification: { started: "2026-07-15T20:15:00Z", completed: "2026-07-15T20:35:00Z" }
+  test_planning: { started: "2026-07-15T20:35:00Z", completed: "2026-07-15T20:50:00Z" }
+  delivery_planning: { started: "2026-07-15T20:50:00Z", completed: "2026-07-15T21:05:00Z" }
+  dor_check: { started: "2026-07-15T21:05:00Z", completed: "2026-07-15T21:35:00Z" }
+  delivery: { started: null, completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+
+decisions:
+  - text: >
+      Exit-code resolution (DEC-4 / OQ-1). Mechanism: doctor constructs
+      CommandResult<DoctorReport> directly (not ok()/err()); data always
+      present, error never set; exitCode from report worst status. Numeric:
+      TDR-0009 confirms Option A — new dedicated EXIT_HEALTH=60 + code string
+      DOCTOR_FAIL (lives only in CODE_TO_EXIT, not in error-kind→code mapper;
+      additive, no reclassification; CONFLICT→30 AC-6 untouched).
+    date: "2026-07-15"
+    ref: TDR-0009
+
+open_questions: []
+
+blockers: []
+
+notes:
+  - text: >
+      DoR iter-2 READY_WITH_MINOR_NOTES. All 5 iter-1 findings resolved
+      (both majors: exit-codes test extension + §16 handler control-flow;
+      all minor/nit: renderer stale language, TC-DOCTOR-011 worstStatus,
+      F-6 formatter). Cross-artifact re-scan clean (check catalogue,
+      DoctorReport shape, exit-code TDR-0009, --probe-capabilities, tier
+      discipline, redaction all consistent). Fixed the 2 non-blocking
+      test-plan notes (TC-DOCTOR-008/021 happy-dom→Kroki language;
+      TC-DOCTOR-010 New→Extend label). Left 2 nits (spec import phrasing)
+      as truly non-blocking. Delivery authorized.
+    type: info
+    date: "2026-07-15"
+  - text: >
+      Retro — DoR iter-1 NOT_READY (2 major + 3 minor, all author-fixable).
+      Finding 1 (major, delivery_planning): plan §Phase 1 mischaracterized
+      tests/unit/cli/output/exit-codes.test.ts as "(new)" when it is a strict
+      whole-contract pin (EXPECTED map + 9-value allowed Set + "9 classes"
+      describe title) — adding DOCTOR_FAIL/EXIT_HEALTH breaks 3 assertions the
+      plan didn't account for. Finding 2 (major, specification): spec §16
+      "Affected Components" handler row said "resolve config → resolve creds →
+      create target → call use case → map result" (mirroring repair-state's
+      resolve-in-handler-and-abort) but that CONTRADICTS the plan's resolved
+      design + spec DEC-3 + AC-F1-2/F1-3/F2-1 (which require config/creds/git
+      to be fail-able CHECKS inside the report owned by runDoctor, not
+      handler-level resolve→abort). Process note: the spec-writer's §16
+      boilerplate was copied from repair-state without re-checking against
+      this story's different control flow; adversarial DoR caught it. Findings
+      3/5 (minor/nit, specification): F-5 "happy-dom/mermaid load" stale (MS-0002
+      uses Kroki); F-6 "registered human formatter renders a table" inaccurate
+      (commands use generic renderHuman fallback). Finding 4 (minor,
+      test_planning): TC-DOCTOR-011 worstStatus:"skipped" invalid (DM-1/DM-2
+      say worstStatus is pass|warn|fail; skipped never elevates). All
+      reopened to matching authors; iter-2 expected to pass.
+    type: retro
+    date: "2026-07-15"
+  - text: >
+      clarify_scope COMPLETE. doctor.ts is a STUB (src/cli/commands/doctor.ts
+      returns err INTERNAL "doctor is not yet implemented (MS2-E5-S2)") — same
+      pattern as GH-28 repair-state was. All primitives delivered:
+      resolveCredentials + validateCredentials (src/app/credentials.ts),
+      loadConfig (src/app/config.ts), createRepository/createTarget
+      (src/app/ports.ts). TargetSystem port has getPage/getProperty/
+      searchPages/getRestrictions/uploadAttachment/attachmentExists — all the
+      read + probe methods doctor needs. This story = orchestration + UX +
+      diagnostics, not new domain logic. Pattern: thin CLI handler
+      (repair-state.ts) + app-tier orchestration (repair.ts). CEO-resolved
+      R1/Q1 in story file: default doctor is READ-ONLY (auth GET + space GET
+      + parent GET); scratch-page capability probes only with
+      --probe-capabilities. No blocking questions. Dependencies E2-S2/S3/S4
+      + E3-S4 ALL merged.
+    type: info
+    date: "2026-07-15"
+  - text: >
+      Design point for spec (not a blocker — spec-writer resolves): AC#5
+      "exit code non-zero on any fail" interacts with the ok() factory which
+      hardcodes exitCode=0. doctor must return data (DoctorReport) for --json
+      even on failure, so it cannot use plain err(). Recommended approach:
+      doctor builds CommandResult<DoctorReport> directly with a non-zero
+      exitCode (e.g. EXIT_CONFIG=10 or a dedicated DOCTOR_FAIL code) when any
+      check reports fail, while still attaching data=report. This keeps the
+      report visible AND gates CI on exit code. The plan-writer should pick a
+      concrete exit code (suggest EXIT_CONFIG=10 — "config/environment not
+      ready" — or add DOCTOR_FAIL to CODE_TO_EXIT).
+    type: info
+    date: "2026-07-15"
+  - text: >
+      Doc impact (for phase 7 doc-syncer): doc/spec/features/feature-cli.md
+      §3.1 lists doctor ("Health check: auth, permissions, API connectivity,
+      config validity") and §5 AC references it; once delivered, may add an
+      "Implemented (GH-30)" note like repair-state has. doc/spec/nonfunctional.md
+      NFR-OBS-4 references doctor (MS-0002 minimal) — may add implementation
+      note. These are doc-syncer's call; recorded here per phase-1 discipline.
+    type: risk
+    date: "2026-07-15"
