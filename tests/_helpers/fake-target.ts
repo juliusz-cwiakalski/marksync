@@ -338,7 +338,7 @@ export class FakeTarget implements TargetSystem {
 	/**
 	 * Set the searchPages result (for TC-REPAIR-013 subtest 2, R1 fallback).
 	 */
- setSearchResults(results: PageRef[]): void {
+	setSearchResults(results: PageRef[]): void {
 		this.searchResults = results;
 	}
 

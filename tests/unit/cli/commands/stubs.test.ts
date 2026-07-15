@@ -1,26 +1,23 @@
 // tests/unit/cli/commands/stubs.test.ts
 //
 // Unit tests for the stub command handlers (GH-16 D-8 / F-8 / AC-2). Each stub
-// (plan/sync/doctor/repair-state) returns a placeholder `CommandResult` with
+// (plan/sync/doctor) returns a placeholder `CommandResult` with
 // `error.code: "INTERNAL"` so the framework wires end-to-end: under `--json`
 // every stub produces valid, parseable JSON matching the contract (AC-2). Real
-// logic is out of scope (NG-1 — later stories).
+// logic is out of scope (NG-1 — later stories). Note: repair-state is now
+// implemented (GH-28) and is excluded from these stub tests.
 
 import { describe, expect, test } from "bun:test";
 import { doctorCommand } from "#cli/commands/doctor";
-import { repairStateCommand } from "#cli/commands/repair-state";
 import { codeToExitCode, renderJson } from "#cli/output";
 import type { CommandResult } from "#cli/output";
 
-/** The stub handlers under test. plan/sync are now wired (Phase 7), so only doctor/repair-state are stubs. */
+/** The stub handlers under test. plan/sync are now wired (Phase 7), so only doctor is a stub. */
 const stubs: ReadonlyArray<{
 	name: string;
 	handler: () => CommandResult<never>;
 	story: string;
-}> = [
-	{ name: "doctor", handler: doctorCommand, story: "MS2-E5-S2" },
-	{ name: "repair-state", handler: repairStateCommand, story: "MS2-E3" },
-];
+}> = [{ name: "doctor", handler: doctorCommand, story: "MS2-E5-S2" }];
 
 describe("stub command handlers — placeholder CommandResult shape (D-8)", () => {
 	for (const { name, handler, story } of stubs) {

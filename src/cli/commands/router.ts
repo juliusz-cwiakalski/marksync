@@ -38,7 +38,7 @@ import { syncCommand } from "#cli/commands/sync";
  * `package.json` until a runtime version source is wired (GH-15/GH-16/GH-17
  * precedent; the bump to `0.4.0` is GH-18 / `version_impact: minor`).
  */
-export const CLI_VERSION = "0.4.0";
+export const CLI_VERSION = "0.6.0";
 
 /** The global flags as Cliffy surfaces them to an action (post-camelCase). */
 export interface GlobalCommandFlags {
@@ -203,7 +203,10 @@ export function buildCommand(): CommandRouter {
 			"--dry-run",
 			"Compute and display planned repairs without applying (default).",
 		)
-		.option("--apply", "Execute the planned repairs and update the committed lock.")
+		.option(
+			"--apply",
+			"Execute the planned repairs and update the committed lock.",
+		)
 		.action(async (flags) => {
 			capture(
 				"repair-state",
