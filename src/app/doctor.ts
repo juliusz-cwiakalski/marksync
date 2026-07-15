@@ -72,7 +72,9 @@ export interface DoctorDeps {
 }
 
 /** Resolve worst status from checks. */
-function deriveWorstStatus(checks: readonly DoctorCheck[]): "pass" | "warn" | "fail" {
+function deriveWorstStatus(
+	checks: readonly DoctorCheck[],
+): "pass" | "warn" | "fail" {
 	const statuses = checks.map((c) => c.status);
 	if (statuses.includes("fail")) return "fail";
 	if (statuses.includes("warn")) return "warn";
@@ -113,7 +115,9 @@ function extractSpaceKey(config: ProjectConfig): Result<string, MarkSyncError> {
 }
 
 /** Extract parentPageId from config or return err. */
-function extractParentPageId(config: ProjectConfig): Result<string, MarkSyncError> {
+function extractParentPageId(
+	config: ProjectConfig,
+): Result<string, MarkSyncError> {
 	const targetConfig = config.targets.default;
 	if (!targetConfig) {
 		return Res.err({
@@ -155,7 +159,9 @@ export async function runDoctor(
 
 	// Import real implementations by default (injectable for tests)
 	const { loadConfig } = await import("#app/config");
-	const { resolveCredentials, validateCredentials } = await import("#app/credentials");
+	const { resolveCredentials, validateCredentials } = await import(
+		"#app/credentials"
+	);
 	const { createRepository, createTarget } = await import("#app/ports");
 
 	const checks: DoctorCheck[] = [];
@@ -248,7 +254,8 @@ export async function runDoctor(
 			{
 				check: DOCTOR_CHECK_IDS.RENDERER,
 				status: "pass",
-				detail: "Renderer availability informational (check not yet implemented)",
+				detail:
+					"Renderer availability informational (check not yet implemented)",
 			},
 		);
 
@@ -281,7 +288,10 @@ export async function runDoctor(
 	} else {
 		const validateCreds = validateCredsImpl ?? validateCredentials;
 		const validation = await validateCreds(
-			{ baseUrl: credsResult.value.baseUrl, authHeader: credsResult.value.authHeader },
+			{
+				baseUrl: credsResult.value.baseUrl,
+				authHeader: credsResult.value.authHeader,
+			},
 			{ fetch },
 		);
 		if (!validation.ok) {
@@ -317,7 +327,10 @@ export async function runDoctor(
 	}
 
 	// Skip space and parent checks if creds failed
-	const credsPassed = checks.find((c) => c.check === DOCTOR_CHECK_IDS.CREDENTIALS && c.status === "fail") === undefined;
+	const credsPassed =
+		checks.find(
+			(c) => c.check === DOCTOR_CHECK_IDS.CREDENTIALS && c.status === "fail",
+		) === undefined;
 
 	if (!credsPassed) {
 		checks.push(
@@ -354,7 +367,8 @@ export async function runDoctor(
 			{
 				check: DOCTOR_CHECK_IDS.RENDERER,
 				status: "pass",
-				detail: "Renderer availability informational (check not yet implemented)",
+				detail:
+					"Renderer availability informational (check not yet implemented)",
 			},
 		);
 
@@ -380,12 +394,17 @@ export async function runDoctor(
 		const spaceKey = spaceKeyResult.value;
 		const createTargetFn = createTargetImpl ?? createTarget;
 		const target = createTargetFn(
-			{ baseUrl: credsResult.value.baseUrl, authHeader: credsResult.value.authHeader },
+			{
+				baseUrl: credsResult.value.baseUrl,
+				authHeader: credsResult.value.authHeader,
+			},
 			spaceKey,
 		);
 
 		// Probe space access via search
-		const searchResult = await target.searchPages(`type=page and space=${spaceKey}`);
+		const searchResult = await target.searchPages(
+			`type=page and space=${spaceKey}`,
+		);
 		if (!searchResult.ok) {
 			const isUnreachable = searchResult.error.kind === "RemoteUnreachable";
 			const isForbidden = searchResult.error.kind === "Auth";
@@ -425,7 +444,10 @@ export async function runDoctor(
 		const parentPageId = parentPageIdResult.value;
 		const createTargetFn = createTargetImpl ?? createTarget;
 		const target = createTargetFn(
-			{ baseUrl: credsResult.value.baseUrl, authHeader: credsResult.value.authHeader },
+			{
+				baseUrl: credsResult.value.baseUrl,
+				authHeader: credsResult.value.authHeader,
+			},
 			spaceKeyResult.value,
 		);
 
@@ -474,7 +496,10 @@ export async function runDoctor(
 		// Self-cleaning capability probe: create scratch page, probe, delete
 		const createTargetFn = createTargetImpl ?? createTarget;
 		const target = createTargetFn(
-			{ baseUrl: credsResult.value.baseUrl, authHeader: credsResult.value.authHeader },
+			{
+				baseUrl: credsResult.value.baseUrl,
+				authHeader: credsResult.value.authHeader,
+			},
 			spaceKeyResult.value,
 		);
 		const parentPageId = parentPageIdResult.value;
@@ -528,7 +553,10 @@ export async function runDoctor(
 				}
 
 				// Probe attachment endpoint (check if it responds)
-				const attachResult = await target.attachmentExists(scratchPageId, "test.png");
+				const attachResult = await target.attachmentExists(
+					scratchPageId,
+					"test.png",
+				);
 				if (!attachResult.ok) {
 					checks.push({
 						check: DOCTOR_CHECK_IDS.ATTACHMENT,
@@ -551,12 +579,14 @@ export async function runDoctor(
 					checks.push({
 						check: DOCTOR_CHECK_IDS.ATTACHMENT,
 						status: checks.find(
-							(c) => c.check === DOCTOR_CHECK_IDS.ATTACHMENT && c.status === "pass",
+							(c) =>
+								c.check === DOCTOR_CHECK_IDS.ATTACHMENT && c.status === "pass",
 						)
 							? "pass"
 							: "fail",
 						detail: checks.find(
-							(c) => c.check === DOCTOR_CHECK_IDS.ATTACHMENT && c.status === "pass",
+							(c) =>
+								c.check === DOCTOR_CHECK_IDS.ATTACHMENT && c.status === "pass",
 						)
 							? "Attachment endpoint is reachable (scratch page deletion failed — left behind)"
 							: `Attachment endpoint probe failed: ${attachResult.error.kind} (scratch page deletion failed — left behind)`,
@@ -578,18 +608,24 @@ export async function runDoctor(
 						checks.push({
 							check: DOCTOR_CHECK_IDS.ATTACHMENT,
 							status: checks.find(
-								(c) => c.check === DOCTOR_CHECK_IDS.ATTACHMENT && c.status === "pass",
+								(c) =>
+									c.check === DOCTOR_CHECK_IDS.ATTACHMENT &&
+									c.status === "pass",
 							)
 								? "pass"
 								: "fail",
 							detail: checks.find(
-								(c) => c.check === DOCTOR_CHECK_IDS.ATTACHMENT && c.status === "pass",
+								(c) =>
+									c.check === DOCTOR_CHECK_IDS.ATTACHMENT &&
+									c.status === "pass",
 							)
 								? "Attachment endpoint is reachable (scratch page deletion failed — left behind)"
-								: checks.find(
-										(c) => c.check === DOCTOR_CHECK_IDS.ATTACHMENT && c.status === "fail",
-									)
-									?.detail ?? "Attachment endpoint probe failed (scratch page deletion failed)",
+								: (checks.find(
+										(c) =>
+											c.check === DOCTOR_CHECK_IDS.ATTACHMENT &&
+											c.status === "fail",
+									)?.detail ??
+									"Attachment endpoint probe failed (scratch page deletion failed)"),
 						});
 					}
 				}
@@ -600,7 +636,10 @@ export async function runDoctor(
 	// --- Check 8: permission-visibility (warn-only) ---
 	const createTargetFn = createTargetImpl ?? createTarget;
 	const target = createTargetFn(
-		{ baseUrl: credsResult.value.baseUrl, authHeader: credsResult.value.authHeader },
+		{
+			baseUrl: credsResult.value.baseUrl,
+			authHeader: credsResult.value.authHeader,
+		},
 		spaceKeyResult.value,
 	);
 	const parentPageId = parentPageIdResult.value;
@@ -625,7 +664,8 @@ export async function runDoctor(
 	checks.push({
 		check: DOCTOR_CHECK_IDS.RENDERER,
 		status: "pass",
-		detail: "Renderer availability informational (MS-0002 uses Kroki remote rendering; check not yet implemented)",
+		detail:
+			"Renderer availability informational (MS-0002 uses Kroki remote rendering; check not yet implemented)",
 	});
 
 	const report: DoctorReport = {

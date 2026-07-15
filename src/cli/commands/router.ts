@@ -199,7 +199,9 @@ export function buildCommand(): CommandRouter {
 			capture(
 				"doctor",
 				flags as GlobalCommandFlags,
-				await doctorCommand({ probeCapabilities: Boolean(flags.probeCapabilities) }),
+				await doctorCommand({
+					probeCapabilities: Boolean(flags.probeCapabilities),
+				}),
 			);
 		})
 		.command(

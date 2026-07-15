@@ -83,7 +83,9 @@ describe("TC-DOCTOR-013..022: Doctor integration tests (Bun.serve() mock)", () =
 				}
 
 				// GET /wiki/rest/api/content/{id} → parent page read
-				const pageMatch = url.pathname.match(/^\/wiki\/rest\/api\/content\/([^/]+)$/);
+				const pageMatch = url.pathname.match(
+					/^\/wiki\/rest\/api\/content\/([^/]+)$/,
+				);
 				if (pageMatch) {
 					return new Response(
 						JSON.stringify({
@@ -94,7 +96,10 @@ describe("TC-DOCTOR-013..022: Doctor integration tests (Bun.serve() mock)", () =
 							version: { number: 1 },
 							body: {
 								view: { value: "Page content", representation: "view" },
-								export_view: { value: "Page content", representation: "export_view" },
+								export_view: {
+									value: "Page content",
+									representation: "export_view",
+								},
 							},
 						}),
 						{ status: 200, headers: { "Content-Type": "application/json" } },
@@ -115,7 +120,9 @@ describe("TC-DOCTOR-013..022: Doctor integration tests (Bun.serve() mock)", () =
 				}
 
 				// GET /wiki/rest/api/content/{id}/restriction → restrictions
-				const restrictionMatch = url.pathname.match(/^\/wiki\/rest\/api\/content\/([^/]+)\/restriction$/);
+				const restrictionMatch = url.pathname.match(
+					/^\/wiki\/rest\/api\/content\/([^/]+)\/restriction$/,
+				);
 				if (restrictionMatch) {
 					return new Response(
 						JSON.stringify({
@@ -157,7 +164,9 @@ targets:
 		expect(exit).toBe(0);
 
 		// Verify writes occurred (should be 0 for read-only)
-		const writes = mockRequests.filter((r) => ["POST", "PUT", "DELETE"].includes(r.method));
+		const writes = mockRequests.filter((r) =>
+			["POST", "PUT", "DELETE"].includes(r.method),
+		);
 		expect(writes.length).toBe(0);
 	});
 
@@ -306,10 +315,10 @@ targets:
 				mockRequests.push({ method: req.method, url: url.pathname });
 
 				if (url.pathname === "/wiki/api/v2/user/by-me") {
-					return new Response(
-						JSON.stringify({ message: "Unauthorized" }),
-						{ status: 401, headers: { "Content-Type": "application/json" } },
-					);
+					return new Response(JSON.stringify({ message: "Unauthorized" }), {
+						status: 401,
+						headers: { "Content-Type": "application/json" },
+					});
 				}
 
 				return new Response("Not found", { status: 404 });
@@ -347,7 +356,9 @@ targets:
 		expect(output).not.toContain("bad-token");
 
 		// Verify credentials check reports fail
-		const credsCheck = parsed.data.checks.find((c: { check: string }) => c.check === "credentials");
+		const credsCheck = parsed.data.checks.find(
+			(c: { check: string }) => c.check === "credentials",
+		);
 		expect(credsCheck?.status).toBe("fail");
 	});
 
@@ -404,7 +415,9 @@ targets:
 		const parsed = JSON.parse(output) as CommandResult<DoctorReport>;
 
 		// Verify space-access check reports fail
-		const spaceCheck = parsed.data.checks.find((c: { check: string }) => c.check === "space-access");
+		const spaceCheck = parsed.data.checks.find(
+			(c: { check: string }) => c.check === "space-access",
+		);
 		expect(spaceCheck?.status).toBe("fail");
 	});
 
@@ -466,7 +479,9 @@ targets:
 		const parsed = JSON.parse(output) as CommandResult<DoctorReport>;
 
 		// Verify parent-page check reports fail
-		const parentCheck = parsed.data.checks.find((c: { check: string }) => c.check === "parent-page");
+		const parentCheck = parsed.data.checks.find(
+			(c: { check: string }) => c.check === "parent-page",
+		);
 		expect(parentCheck?.status).toBe("fail");
 	});
 
@@ -476,7 +491,11 @@ targets:
 			port: 0,
 			async fetch(req) {
 				const url = new URL(req.url);
-				mockRequests.push({ method: req.method, url: url.pathname, body: await req.text() });
+				mockRequests.push({
+					method: req.method,
+					url: url.pathname,
+					body: await req.text(),
+				});
 
 				if (url.pathname === "/wiki/api/v2/user/by-me") {
 					return new Response(
@@ -492,12 +511,18 @@ targets:
 					);
 				}
 
-				const pageMatch = url.pathname.match(/^\/wiki\/rest\/api\/content\/([^/]+)$/);
+				const pageMatch = url.pathname.match(
+					/^\/wiki\/rest\/api\/content\/([^/]+)$/,
+				);
 				if (pageMatch) {
 					// GET existing page
 					if (req.method === "GET") {
 						return new Response(
-							JSON.stringify({ id: pageMatch[1], type: "page", status: "current" }),
+							JSON.stringify({
+								id: pageMatch[1],
+								type: "page",
+								status: "current",
+							}),
 							{ status: 200, headers: { "Content-Type": "application/json" } },
 						);
 					}
@@ -509,7 +534,10 @@ targets:
 				}
 
 				// POST /wiki/rest/api/content → create scratch page
-				if (url.pathname === "/wiki/rest/api/content" && req.method === "POST") {
+				if (
+					url.pathname === "/wiki/rest/api/content" &&
+					req.method === "POST"
+				) {
 					const body = JSON.parse(await req.text());
 					return new Response(
 						JSON.stringify({ id: "scratch-123", type: "page" }),
@@ -573,8 +601,12 @@ targets:
 		const parsed = JSON.parse(output) as CommandResult<DoctorReport>;
 
 		// Verify capability probes report pass
-		const propCheck = parsed.data.checks.find((c: { check: string }) => c.check === "content-property");
-		const attachCheck = parsed.data.checks.find((c: { check: string }) => c.check === "attachment");
+		const propCheck = parsed.data.checks.find(
+			(c: { check: string }) => c.check === "content-property",
+		);
+		const attachCheck = parsed.data.checks.find(
+			(c: { check: string }) => c.check === "attachment",
+		);
 		expect(propCheck?.status).toBe("pass");
 		expect(attachCheck?.status).toBe("pass");
 	});
@@ -594,7 +626,9 @@ targets:
 					);
 				}
 
-				const pageMatch = url.pathname.match(/^\/wiki\/rest\/api\/content\/([^/]+)$/);
+				const pageMatch = url.pathname.match(
+					/^\/wiki\/rest\/api\/content\/([^/]+)$/,
+				);
 				if (pageMatch) {
 					return new Response(
 						JSON.stringify({ id: pageMatch[1], type: "page" }),
@@ -651,7 +685,9 @@ targets:
 		const parsed = JSON.parse(output) as CommandResult<DoctorReport>;
 
 		// Verify permission-visibility check emits warn
-		const permCheck = parsed.data.checks.find((c: { check: string }) => c.check === "permission-visibility");
+		const permCheck = parsed.data.checks.find(
+			(c: { check: string }) => c.check === "permission-visibility",
+		);
 		expect(permCheck?.status).toBe("warn");
 		expect(permCheck?.detail).toContain("403");
 	});

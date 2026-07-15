@@ -16,14 +16,14 @@ import type { CommandResult } from "#cli/output";
 let nextDoctorResult:
 	| { ok: true; value: DoctorReport }
 	| { ok: false; error: { kind: string; cause?: string } } = {
-		ok: true,
-		value: {
-			checks: [],
-			summary: { pass: 5, warn: 0, fail: 0, skipped: 0, total: 5 },
-			worstStatus: "pass",
-			probeCapabilities: false,
-		},
-	};
+	ok: true,
+	value: {
+		checks: [],
+		summary: { pass: 5, warn: 0, fail: 0, skipped: 0, total: 5 },
+		worstStatus: "pass",
+		probeCapabilities: false,
+	},
+};
 
 mock.module("#app/doctor", () => ({
 	runDoctor: async (_deps: unknown) => {

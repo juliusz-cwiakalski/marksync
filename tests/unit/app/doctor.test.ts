@@ -18,8 +18,10 @@ type DoctorCheckId = (typeof DOCTOR_CHECK_IDS)[keyof typeof DOCTOR_CHECK_IDS];
 function mockRepository(overrides: Partial<Repository> = {}): Repository {
 	return {
 		headSha: () => overrides.headSha?.() ?? { ok: true, value: "abc123" },
-		currentBranch: () => overrides.currentBranch?.() ?? { ok: true, value: "main" },
-		readCommitted: () => overrides.readCommitted?.() ?? { ok: true, value: new Map() },
+		currentBranch: () =>
+			overrides.currentBranch?.() ?? { ok: true, value: "main" },
+		readCommitted: () =>
+			overrides.readCommitted?.() ?? { ok: true, value: new Map() },
 		listCommitSubjects: () =>
 			overrides.listCommitSubjects?.() ?? { ok: true, value: [] },
 	};
@@ -27,21 +29,37 @@ function mockRepository(overrides: Partial<Repository> = {}): Repository {
 
 function mockTarget(overrides: Partial<TargetSystem> = {}): TargetSystem {
 	return {
-		getPage: overrides.getPage ?? (() => ({ ok: true, value: { id: "123", title: "Test", version: 1 } })),
+		getPage:
+			overrides.getPage ??
+			(() => ({ ok: true, value: { id: "123", title: "Test", version: 1 } })),
 		searchPages: overrides.searchPages ?? (() => ({ ok: true, value: [] })),
-		createPage: overrides.createPage ?? (() => ({ ok: true, value: { pageId: "new-123" } })),
-		updatePage: overrides.updatePage ?? (() => ({ ok: true, value: { pageId: "123" } })),
-		deletePage: overrides.deletePage ?? (() => ({ ok: true, value: undefined })),
+		createPage:
+			overrides.createPage ??
+			(() => ({ ok: true, value: { pageId: "new-123" } })),
+		updatePage:
+			overrides.updatePage ?? (() => ({ ok: true, value: { pageId: "123" } })),
+		deletePage:
+			overrides.deletePage ?? (() => ({ ok: true, value: undefined })),
 		movePage: overrides.movePage ?? (() => ({ ok: true, value: undefined })),
-		renderBody: overrides.renderBody ?? (() => ({ ok: true, value: { body: "", hash: "", warnings: [] } })),
+		renderBody:
+			overrides.renderBody ??
+			(() => ({ ok: true, value: { body: "", hash: "", warnings: [] } })),
 		getProperty: overrides.getProperty ?? (() => ({ ok: true, value: "{}" })),
-		putProperty: overrides.putProperty ?? (() => ({ ok: true, value: undefined })),
-		deleteProperty: overrides.deleteProperty ?? (() => ({ ok: true, value: undefined })),
-		attachmentExists: overrides.attachmentExists ?? (() => ({ ok: true, value: false })),
-		uploadAttachment: overrides.uploadAttachment ?? (() => ({ ok: true, value: { id: "att-1" } })),
-		deleteAttachment: overrides.deleteAttachment ?? (() => ({ ok: true, value: undefined })),
-		getRestrictions: overrides.getRestrictions ?? (() => ({ ok: true, value: [] })),
-		listAttachments: overrides.listAttachments ?? (() => ({ ok: true, value: [] })),
+		putProperty:
+			overrides.putProperty ?? (() => ({ ok: true, value: undefined })),
+		deleteProperty:
+			overrides.deleteProperty ?? (() => ({ ok: true, value: undefined })),
+		attachmentExists:
+			overrides.attachmentExists ?? (() => ({ ok: true, value: false })),
+		uploadAttachment:
+			overrides.uploadAttachment ??
+			(() => ({ ok: true, value: { id: "att-1" } })),
+		deleteAttachment:
+			overrides.deleteAttachment ?? (() => ({ ok: true, value: undefined })),
+		getRestrictions:
+			overrides.getRestrictions ?? (() => ({ ok: true, value: [] })),
+		listAttachments:
+			overrides.listAttachments ?? (() => ({ ok: true, value: [] })),
 	};
 }
 
@@ -83,7 +101,11 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 
 		const resolveCredsMock = () => ({
 			ok: true,
-			value: { baseUrl: "https://test.atlassian.net", authHeader: "Basic xyz", email: "u***@test.com" },
+			value: {
+				baseUrl: "https://test.atlassian.net",
+				authHeader: "Basic xyz",
+				email: "u***@test.com",
+			},
 		});
 
 		const validateCredsMock = async () => ({
@@ -119,7 +141,12 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 	test("TC-DOCTOR-002.1: Config missing → config-valid fail", async () => {
 		const loadConfigMock = () => ({
 			ok: false,
-			error: { kind: "InvalidConfig", path: "", ajvErrors: [], humanMessage: "marksync.yml not found" },
+			error: {
+				kind: "InvalidConfig",
+				path: "",
+				ajvErrors: [],
+				humanMessage: "marksync.yml not found",
+			},
 		});
 
 		const result = await runDoctor({
@@ -145,7 +172,10 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 				kind: "InvalidConfig",
 				path: "/repo/marksync.yml",
 				ajvErrors: [
-					{ instancePath: "/targets/default/spaceKey", message: "must be string" },
+					{
+						instancePath: "/targets/default/spaceKey",
+						message: "must be string",
+					},
 				],
 				humanMessage: "Invalid config: targets.default.spaceKey must be string",
 			},
@@ -204,7 +234,11 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 
 		const resolveCredsMock = () => ({
 			ok: true,
-			value: { baseUrl: "https://test.atlassian.net", authHeader: "Basic xyz", email: "u***@test.com" },
+			value: {
+				baseUrl: "https://test.atlassian.net",
+				authHeader: "Basic xyz",
+				email: "u***@test.com",
+			},
 		});
 
 		const validateCredsMock = async () => ({
@@ -236,7 +270,11 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 
 		const resolveCredsMock = () => ({
 			ok: true,
-			value: { baseUrl: "https://test.atlassian.net", authHeader: "Basic xyz", email: "u***@test.com" },
+			value: {
+				baseUrl: "https://test.atlassian.net",
+				authHeader: "Basic xyz",
+				email: "u***@test.com",
+			},
 		});
 
 		const validateCredsMock = async () => ({
@@ -274,7 +312,11 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 
 		const resolveCredsMock = () => ({
 			ok: true,
-			value: { baseUrl: "https://test.atlassian.net", authHeader: "Basic xyz", email: "u***@test.com" },
+			value: {
+				baseUrl: "https://test.atlassian.net",
+				authHeader: "Basic xyz",
+				email: "u***@test.com",
+			},
 		});
 
 		const validateCredsMock = async () => ({
@@ -313,7 +355,11 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 
 		const resolveCredsMock = () => ({
 			ok: true,
-			value: { baseUrl: "https://test.atlassian.net", authHeader: "Basic xyz", email: "u***@test.com" },
+			value: {
+				baseUrl: "https://test.atlassian.net",
+				authHeader: "Basic xyz",
+				email: "u***@test.com",
+			},
 		});
 
 		const validateCredsMock = async () => ({
@@ -352,7 +398,11 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 
 		const resolveCredsMock = () => ({
 			ok: true,
-			value: { baseUrl: "https://test.atlassian.net", authHeader: "Basic xyz", email: "u***@test.com" },
+			value: {
+				baseUrl: "https://test.atlassian.net",
+				authHeader: "Basic xyz",
+				email: "u***@test.com",
+			},
 		});
 
 		const validateCredsMock = async () => ({
@@ -392,7 +442,11 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 
 		const resolveCredsMock = () => ({
 			ok: true,
-			value: { baseUrl: "https://test.atlassian.net", authHeader: "Basic xyz", email: "u***@test.com" },
+			value: {
+				baseUrl: "https://test.atlassian.net",
+				authHeader: "Basic xyz",
+				email: "u***@test.com",
+			},
 		});
 
 		const validateCredsMock = async () => ({
@@ -433,7 +487,11 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 
 		const resolveCredsMock = () => ({
 			ok: true,
-			value: { baseUrl: "https://test.atlassian.net", authHeader: "Basic xyz", email: "u***@test.com" },
+			value: {
+				baseUrl: "https://test.atlassian.net",
+				authHeader: "Basic xyz",
+				email: "u***@test.com",
+			},
 		});
 
 		const validateCredsMock = async () => ({
@@ -442,7 +500,10 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 		});
 
 		const mockTargetSystem = mockTarget({
-			getRestrictions: async () => ({ ok: true, value: [{ operation: "read" }] }),
+			getRestrictions: async () => ({
+				ok: true,
+				value: [{ operation: "read" }],
+			}),
 		});
 
 		const result = await runDoctor({
@@ -472,7 +533,11 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 
 		const resolveCredsMock = () => ({
 			ok: true,
-			value: { baseUrl: "https://test.atlassian.net", authHeader: "Basic xyz", email: "u***@test.com" },
+			value: {
+				baseUrl: "https://test.atlassian.net",
+				authHeader: "Basic xyz",
+				email: "u***@test.com",
+			},
 		});
 
 		const validateCredsMock = async () => ({
@@ -508,7 +573,11 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 
 		const resolveCredsMock = () => ({
 			ok: true,
-			value: { baseUrl: "https://test.atlassian.net", authHeader: "Basic xyz", email: "u***@test.com" },
+			value: {
+				baseUrl: "https://test.atlassian.net",
+				authHeader: "Basic xyz",
+				email: "u***@test.com",
+			},
 		});
 
 		const validateCredsMock = async () => ({
@@ -554,7 +623,10 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 		// Check summary counts
 		expect(report.summary.total).toBe(report.checks.length);
 		const sum =
-			report.summary.pass + report.summary.warn + report.summary.fail + report.summary.skipped;
+			report.summary.pass +
+			report.summary.warn +
+			report.summary.fail +
+			report.summary.skipped;
 		expect(sum).toBe(report.summary.total);
 
 		// Check JSON serializability
@@ -575,13 +647,15 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 				{
 					check: DOCTOR_CHECK_IDS.SPACE_ACCESS,
 					status: "fail",
-					detail: "Base URL https://user:ATATTAaB3cD4eF5gH6iJ7kL8mN9oP0qR1@confluence.example.com unreachable",
+					detail:
+						"Base URL https://user:ATATTAaB3cD4eF5gH6iJ7kL8mN9oP0qR1@confluence.example.com unreachable",
 					fix: "Check URL",
 				},
 				{
 					check: DOCTOR_CHECK_IDS.CONFIG_VALID,
 					status: "fail",
-					detail: "MARKSYNC_API_TOKEN=ATATTAaB3cD4eF5gH6iJ7kL8mN9oP0qR1verylongtoken invalid",
+					detail:
+						"MARKSYNC_API_TOKEN=ATATTAaB3cD4eF5gH6iJ7kL8mN9oP0qR1verylongtoken invalid",
 					fix: "Check env",
 				},
 				{
@@ -616,7 +690,11 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 		const loadConfigMock = () => ({ ok: true, value: mockConfig() });
 		const resolveCredsMock = () => ({
 			ok: true,
-			value: { baseUrl: "https://test.atlassian.net", authHeader: "Basic xyz", email: "u***@test.com" },
+			value: {
+				baseUrl: "https://test.atlassian.net",
+				authHeader: "Basic xyz",
+				email: "u***@test.com",
+			},
 		});
 		const validateCredsMock = async () => ({
 			ok: true,
@@ -644,7 +722,11 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 		const loadConfigMock = () => ({ ok: true, value: mockConfig() });
 		const resolveCredsMock = () => ({
 			ok: false,
-			error: { kind: "Auth", authKind: "MissingCredentials", missing: ["MARKSYNC_API_TOKEN"] },
+			error: {
+				kind: "Auth",
+				authKind: "MissingCredentials",
+				missing: ["MARKSYNC_API_TOKEN"],
+			},
 		});
 		const mockTargetSystem = mockTarget();
 
@@ -666,14 +748,21 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 		const loadConfigMock = () => ({ ok: true, value: mockConfig() });
 		const resolveCredsMock = () => ({
 			ok: true,
-			value: { baseUrl: "https://test.atlassian.net", authHeader: "Basic xyz", email: "u***@test.com" },
+			value: {
+				baseUrl: "https://test.atlassian.net",
+				authHeader: "Basic xyz",
+				email: "u***@test.com",
+			},
 		});
 		const validateCredsMock = async () => ({
 			ok: true,
 			value: { accountId: "acc-123", email: "u***@test.com" },
 		});
 		const mockTargetSystem = mockTarget({
-			getRestrictions: async () => ({ ok: true, value: [{ operation: "read" }] }),
+			getRestrictions: async () => ({
+				ok: true,
+				value: [{ operation: "read" }],
+			}),
 		});
 
 		const result = await runDoctor({
