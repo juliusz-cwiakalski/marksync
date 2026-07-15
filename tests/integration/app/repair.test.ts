@@ -670,7 +670,7 @@ describe("TC-REPAIR-009: Mid-transaction crash window", () => {
 	test("Journal ahead of lock, remote matches → rebuild from remote, 0 writes", async () => {
 		const uuid = "0192b3d4-5e6f-7000-8000-000000000009" as DocumentId;
 		const pageId = "page-111";
-		const runId = "01901234567890000000000000";
+		const runId = "0192b3d4-5e6f-7000-8000-000000000099";
 
 		// Setup: page at version 2 (reflects the journaled operation)
 		fakeTarget.addFixture({

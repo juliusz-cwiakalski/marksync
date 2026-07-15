@@ -6,7 +6,6 @@ import type { Result } from "#domain/result";
 import type { MarkSyncError } from "#domain/errors";
 import { Result as Res } from "#domain/result";
 import { uuidV7Timestamp } from "#domain/identity/uuid";
-import type { PageBinding } from "#domain/binding/page-binding";
 import type { LockFile } from "#domain/config/lock-types";
 import type { Repository } from "#domain/git/port";
 import type { TargetSystem } from "#domain/target/port";
@@ -17,9 +16,7 @@ import {
 	reconcileWithProperty,
 	rebuildLockFromConfluence,
 } from "#domain/state/reconcile";
-import { classify } from "#domain/state/classifier";
 import { rawHash } from "#domain/state/hashes";
-import type { SharedBase, RemoteState } from "#domain/state/sync-state";
 import { replayJournal } from "#app/journal";
 import { saveLock } from "#app/lock";
 import { computePlan, applyPlan } from "#app/push-flow";
@@ -121,7 +118,8 @@ export function findLatestJournalRunId(cacheDir: string): string | undefined {
 
 /**
  * Run the repair orchestration — diagnose → (apply: rebuild + conditional completion).
- * Implements the two-stage, conditional sequencing (spec §5.1 / plan Finding 1).
+ * Two-stage, conditional sequencing (spec §5.1 / plan Finding 1). The committed
+ * `lock` is mutated only on `--apply` (0 writes + untouched on dry-run, NFR-OBS-5).
  */
 export async function runRepair(
 	lock: LockFile,
@@ -131,380 +129,227 @@ export async function runRepair(
 	opts: RepairOptions,
 ): Promise<Result<RepairReport, MarkSyncError>> {
 	const items: RepairItem[] = [];
-	let interruptedRunDetected = false;
 	let writes = 0;
 
-	// Clone the lock for mutation; only save on apply (dry-run guard)
-	const workingLock = JSON.parse(JSON.stringify(lock)) as LockFile;
-
-	// Find the latest journal for interrupted-apply detection
 	const latestJournalRunId = findLatestJournalRunId(opts.cacheDir);
-	interruptedRunDetected = latestJournalRunId !== undefined;
+	const interruptedRunDetected = latestJournalRunId !== undefined;
+	const targetDocuments = lock.targets[opts.targetId]?.documents ?? {};
 
-	const targetDocuments = workingLock.targets[opts.targetId]?.documents ?? {};
-
-	// Track bindings to rebuild (Stage 1: rebuild + atomic save)
-	const rebuilds: Array<{
-		binding: PageBinding;
-		property: MetadataProperty;
-		pageVersion: number;
-		diagnosticCode: RepairDiagnosticCode;
-	}> = [];
-
-	// Track crash-window candidates (scenario 2: journal ahead of lock)
-	const crashWindowCandidates: Set<string> = new Set();
-
-	// If journal exists, replay it to identify crash-window candidates
+	// Scenario 2: journaled "success" ops not yet reflected in the committed lock.
+	const crashWindowCandidates = new Map<string, string>(); // uuid -> pageId
 	if (latestJournalRunId) {
-		const journal = replayJournal(opts.cacheDir, latestJournalRunId);
-		for (const entry of journal) {
-			if (entry.outcome === "success") {
-				const existingBinding = Object.values(targetDocuments).find(
-					(b) => b.uuid === entry.uuid,
-				);
-				// If journaled success not in lock, it's a crash-window candidate
-				if (!existingBinding) {
-					crashWindowCandidates.add(entry.uuid);
-				}
+		for (const entry of replayJournal(opts.cacheDir, latestJournalRunId)) {
+			if (
+				entry.outcome === "success" &&
+				!targetDocuments[entry.uuid as DocumentId]
+			) {
+				crashWindowCandidates.set(entry.uuid, entry.pageId);
 			}
 		}
 	}
 
-	// Stage 1: Diagnose every binding
-	for (const [uuid, binding] of Object.entries(targetDocuments)) {
-		const propertyResult = await target.getProperty(
-			binding.pageId,
-			"marksync.metadata",
+	const rebuilds: Array<{
+		uuid: string;
+		property: MetadataProperty;
+		pageVersion: number;
+		pageId: string;
+		parentPageId: string;
+		attachmentHashes: Record<string, string>;
+		remoteBodyHash: string;
+	}> = [];
+
+	if (!latestJournalRunId && Object.keys(targetDocuments).length === 0) {
+		// Journal-lost + lock-gone: rebuild from Confluence + Git via search (DEC-6 / R1).
+		const targetConfig = config.targets[opts.targetId];
+		if (!targetConfig) {
+			return Res.err({
+				kind: "RemoteUnreachable",
+				cause: `Target ${opts.targetId} not found in config`,
+			});
+		}
+
+		const searchResult = await target.searchPages(
+			`type=page and space=${targetConfig.spaceKey}`,
 		);
-
-		if (!propertyResult.ok) {
-			items.push({
-				uuid,
-				sourcePath: binding.sourcePath,
-				diagnosticClass: "needs-human-action",
-				diagnosticCode:
-					propertyResult.error.kind === "RemoteUnreachable" ||
-					propertyResult.error.kind === "RateLimited"
-						? "NEEDS_HUMAN_ACTION_DIVERGED"
-						: "NEEDS_HUMAN_ACTION_MISSING_PROPERTY",
-				humanNote: `Failed to read marksync.metadata property: ${propertyResult.error.kind}`,
-			});
-			continue;
+		if (!searchResult.ok) {
+			return searchResult;
 		}
 
-		const propertyText = propertyResult.value;
-		if (!propertyText) {
+		for (const pageRef of searchResult.value) {
+			const propertyResult = await target.getProperty(
+				pageRef.id,
+				"marksync.metadata",
+			);
+			if (!propertyResult.ok) {
+				return propertyResult;
+			}
+			if (!propertyResult.value) {
+				continue; // Skip pages without the marksync property
+			}
+			let property: MetadataProperty;
+			try {
+				property = JSON.parse(propertyResult.value) as MetadataProperty;
+			} catch {
+				continue;
+			}
+
+			const pageResult = await target.getPage(pageRef.id);
+			if (!pageResult.ok) {
+				if (pageResult.error.kind === "RemoteMissing") {
+					continue;
+				}
+				return pageResult;
+			}
+			const page = pageResult.value;
+
 			items.push({
-				uuid,
-				sourcePath: binding.sourcePath,
-				diagnosticClass: "needs-human-action",
-				diagnosticCode: "NEEDS_HUMAN_ACTION_MISSING_PROPERTY",
-				humanNote: "marksync.metadata property is absent",
+				uuid: property.documentId,
+				sourcePath: property.sourcePath,
+				diagnosticClass: "repaired",
+				diagnosticCode: "REPAIRED_REBUILD_FROM_REMOTE",
+				humanNote:
+					"Rebuilt from Confluence property + Git (journal-lost + lock-gone fallback)",
 			});
-			continue;
-		}
-
-		let property: MetadataProperty;
-		try {
-			property = JSON.parse(propertyText) as MetadataProperty;
-		} catch {
-			items.push({
-				uuid,
-				sourcePath: binding.sourcePath,
-				diagnosticClass: "needs-human-action",
-				diagnosticCode: "NEEDS_HUMAN_ACTION_MISSING_PROPERTY",
-				humanNote: "Failed to parse marksync.metadata property as JSON",
+			rebuilds.push({
+				uuid: property.documentId,
+				property,
+				pageVersion: page.version,
+				pageId: pageRef.id,
+				parentPageId: targetConfig.parentPageId,
+				attachmentHashes: {},
+				remoteBodyHash: rawHash(page.body ?? ""),
 			});
-			continue;
 		}
+	} else {
+		// Stage 1: diagnose every committed binding (F-1, INV-SAFE-1/2).
+		for (const [uuid, binding] of Object.entries(targetDocuments)) {
+			// Page first — a missing page is the decisive signal (INV-SAFE-2).
+			const pageResult = await target.getPage(binding.pageId);
+			if (!pageResult.ok) {
+				if (pageResult.error.kind === "RemoteMissing") {
+					items.push({
+						uuid,
+						sourcePath: binding.sourcePath,
+						diagnosticClass: "needs-human-action",
+						diagnosticCode: "NEEDS_HUMAN_ACTION_MISSING_PAGE",
+						humanNote: "Remote page is missing — repair cannot proceed",
+					});
+					continue;
+				}
+				return pageResult;
+			}
+			const page = pageResult.value;
 
-		// Check if this is a crash-window candidate (journal ahead of lock)
-		const isCrashWindowCandidate = crashWindowCandidates.has(uuid);
-
-		// Reconcile with property
-		const reconcileResult = reconcileWithProperty(binding, property);
-
-		if (reconcileResult.ok) {
-			// Already consistent
-			items.push({
-				uuid,
-				sourcePath: binding.sourcePath,
-				diagnosticClass: "skipped",
-				diagnosticCode: isCrashWindowCandidate
-					? "SKIPPED_ALREADY_APPLIED"
-					: "SKIPPED_ALREADY_CONSISTENT",
-				humanNote: isCrashWindowCandidate
-					? "Journaled success already reflected in lock (idempotent)"
-					: "Binding already consistent with remote property",
-			});
-			continue;
-		}
-
-		// Dirty lock or crash-window candidate — classify before rebuilding (INV-SAFE-1)
-		const pageResult = await target.getPage(binding.pageId);
-
-		if (!pageResult.ok) {
-			if (pageResult.error.kind === "RemoteMissing") {
+			const propertyResult = await target.getProperty(
+				binding.pageId,
+				"marksync.metadata",
+			);
+			if (!propertyResult.ok) {
+				return propertyResult;
+			}
+			if (!propertyResult.value) {
 				items.push({
 					uuid,
 					sourcePath: binding.sourcePath,
 					diagnosticClass: "needs-human-action",
-					diagnosticCode: "NEEDS_HUMAN_ACTION_MISSING_PAGE",
-					humanNote: "Remote page is missing — repair cannot proceed",
+					diagnosticCode: "NEEDS_HUMAN_ACTION_MISSING_PROPERTY",
+					humanNote: "marksync.metadata property is absent",
 				});
-			} else {
-				// Transport error — propagate as top-level error
-				return pageResult;
+				continue;
 			}
-			continue;
-		}
 
-		const page = pageResult.value;
+			let property: MetadataProperty;
+			try {
+				property = JSON.parse(propertyResult.value) as MetadataProperty;
+			} catch {
+				items.push({
+					uuid,
+					sourcePath: binding.sourcePath,
+					diagnosticClass: "needs-human-action",
+					diagnosticCode: "NEEDS_HUMAN_ACTION_MISSING_PROPERTY",
+					humanNote: "Failed to parse marksync.metadata property as JSON",
+				});
+				continue;
+			}
 
-		// Build SharedBase and RemoteState for classification
-		const sharedBase: SharedBase = {
-			uuid: binding.uuid,
-			pageId: binding.pageId,
-			parentPageId: binding.parentPageId,
-			pageVersion: binding.pageVersion,
-			renderedBodyHash: binding.renderedBodyHash,
-			remoteBodyHash: binding.remoteBodyHash,
-			attachmentHashes: binding.attachmentHashes,
-		};
+			const isCrashWindowCandidate = crashWindowCandidates.has(uuid);
 
-		const remoteBodyHash = rawHash(page.body ?? "");
-		const remoteState: RemoteState = {
-			kind: "present",
-			bodyHash: remoteBodyHash,
-			version: page.version,
-			title: page.title,
-		};
+			const reconcileResult = reconcileWithProperty(binding, property);
+			if (reconcileResult.ok) {
+				// Binding agrees with the property — verify the remote body hasn't
+				// diverged since the last sync (INV-SAFE-1, F-5 / DEC-4).
+				const remoteBodyHash = page.body
+					? rawHash(page.body)
+					: binding.remoteBodyHash;
+				if (remoteBodyHash !== binding.remoteBodyHash) {
+					items.push({
+						uuid,
+						sourcePath: binding.sourcePath,
+						diagnosticClass: "needs-human-action",
+						diagnosticCode: "NEEDS_HUMAN_ACTION_DIVERGED",
+						humanNote: "Remote page has diverged — manual resolution required",
+					});
+				} else {
+					items.push({
+						uuid,
+						sourcePath: binding.sourcePath,
+						diagnosticClass: "skipped",
+						diagnosticCode: isCrashWindowCandidate
+							? "SKIPPED_ALREADY_APPLIED"
+							: "SKIPPED_ALREADY_CONSISTENT",
+						humanNote: isCrashWindowCandidate
+							? "Journaled success already reflected in lock (idempotent)"
+							: "Binding already consistent with remote property",
+					});
+				}
+				continue;
+			}
 
-		// Classify to check for divergence (INV-SAFE-1 gate)
-		const classifyResult = classify({
-			base: sharedBase,
-			remote: remoteState,
-		});
-
-		if (!classifyResult.ok) {
-			return classifyResult; // Transport error
-		}
-
-		const syncState = classifyResult.value;
-
-		// Check if remote diverged or ahead — stop, don't rebuild
-		if (syncState === "REMOTE_AHEAD" || syncState === "DIVERGED") {
+			// Dirty lock, remote unchanged → safe rebuild (0 page writes).
+			const diagnosticCode: RepairDiagnosticCode = isCrashWindowCandidate
+				? "REPAIRED_CRASH_WINDOW"
+				: "REPAIRED_STALE_LOCK";
 			items.push({
 				uuid,
 				sourcePath: binding.sourcePath,
-				diagnosticClass: "needs-human-action",
-				diagnosticCode: "NEEDS_HUMAN_ACTION_DIVERGED",
-				humanNote: `Remote page has ${syncState === "REMOTE_AHEAD" ? "remote changes" : "diverged"} — manual resolution required`,
+				diagnosticClass: "repaired",
+				diagnosticCode,
+				humanNote: isCrashWindowCandidate
+					? "Rebuilt from remote (crash window closed)"
+					: "Rebuilt from Confluence property",
 			});
-			continue;
+			rebuilds.push({
+				uuid,
+				property,
+				pageVersion: page.version,
+				pageId: binding.pageId,
+				parentPageId: binding.parentPageId,
+				attachmentHashes: binding.attachmentHashes,
+				remoteBodyHash: page.body ? rawHash(page.body) : binding.remoteBodyHash,
+			});
 		}
 
-		// Safe to rebuild (NO_CHANGE or LOCAL_AHEAD)
-		const diagnosticCode: RepairDiagnosticCode = isCrashWindowCandidate
-			? "REPAIRED_CRASH_WINDOW"
-			: "REPAIRED_STALE_LOCK";
+		// Scenario 2: crash-window candidates whose binding is NOT in the committed
+		// lock (a journal.append-before-saveLock crash). Rebuild from remote.
+		if (latestJournalRunId && crashWindowCandidates.size > 0) {
+			const parentPageId = config.targets[opts.targetId]?.parentPageId ?? "";
+			for (const entry of replayJournal(opts.cacheDir, latestJournalRunId)) {
+				if (entry.outcome !== "success") {
+					continue;
+				}
+				const pageId = crashWindowCandidates.get(entry.uuid);
+				if (pageId === undefined) {
+					continue;
+				}
 
-		rebuilds.push({
-			binding,
-			property,
-			pageVersion: page.version,
-			diagnosticCode,
-		});
-
-		// Add repair item for this rebuild (both dry-run and apply)
-		items.push({
-			uuid,
-			sourcePath: binding.sourcePath,
-			diagnosticClass: "repaired",
-			diagnosticCode,
-			humanNote: isCrashWindowCandidate
-				? "Rebuilt from remote (crash window closed)"
-				: "Rebuilt from Confluence property",
-		});
-
-		// Handle journal-lost fallback: rebuild from lock + Confluence
-		if (
-			interruptedRunDetected === false &&
-			Object.keys(targetDocuments).length === 0
-		) {
-			const targetConfig = config.targets[opts.targetId];
-			if (!targetConfig) {
-				return Res.err({
-					kind: "RemoteUnreachable",
-					cause: `Target ${opts.targetId} not found in config`,
-				});
-			}
-
-			// Lock is empty — discover pages via search (R1, DEC-6)
-			const searchResult = await target.searchPages(
-				`type=page and space=${targetConfig.spaceKey}`,
-			);
-
-			if (!searchResult.ok) {
-				return searchResult; // Transport error
-			}
-
-			for (const pageRef of searchResult.value) {
 				const propertyResult = await target.getProperty(
-					pageRef.id,
+					pageId,
 					"marksync.metadata",
 				);
-
-				if (!propertyResult.ok || !propertyResult.value) {
-					continue; // Skip pages without property
+				if (!propertyResult.ok) {
+					return propertyResult;
 				}
-
-				try {
-					const property = JSON.parse(propertyResult.value) as MetadataProperty;
-
-					const pageResult = await target.getPage(pageRef.id);
-					if (!pageResult.ok) {
-						continue; // Skip missing pages
-					}
-
-					const page = pageResult.value;
-					items.push({
-						uuid: property.documentId,
-						sourcePath: property.sourcePath,
-						diagnosticClass: "repaired",
-						diagnosticCode: "REPAIRED_REBUILD_FROM_REMOTE",
-						humanNote:
-							"Rebuilt from Confluence property + Git (journal-lost + lock-gone fallback)",
-					});
-
-					// Add to rebuilds
-					rebuilds.push({
-						binding: null as unknown as PageBinding, // Will be created
-						property,
-						pageVersion: page.version,
-						diagnosticCode: "REPAIRED_REBUILD_FROM_REMOTE",
-					});
-				} catch {
-					// Skip parse errors
-				}
-			}
-		}
-
-		// Dry-run guard (NFR-OBS-5)
-		if (!opts.dryRun) {
-			// Stage 1: Apply rebuilds + atomic lock save
-			for (const rebuild of rebuilds) {
-				const { binding, property, pageVersion } = rebuild;
-
-				// For crash-window or stale-lock rebuilds
-				if (binding) {
-					const pageResult2 = await target.getPage(binding.pageId);
-					if (!pageResult2.ok) {
-						return pageResult2;
-					}
-					const page2 = pageResult2.value;
-
-					const rebuildResult = rebuildLockFromConfluence({
-						property,
-						pageVersion,
-						pageId: binding.pageId,
-						parentPageId: binding.parentPageId,
-						hashes: {
-							sourceContentHash: property.sourceContentHash,
-							renderedBodyHash: property.renderedBodyHash,
-							remoteBodyHash: rawHash(page2.body ?? ""),
-						},
-						attachmentHashes: binding.attachmentHashes,
-					});
-
-					if (!rebuildResult.ok) {
-						return rebuildResult;
-					}
-
-					// Update the working lock
-					const targetObj = workingLock.targets[opts.targetId];
-					if (targetObj) {
-						targetObj.documents[binding.uuid] = rebuildResult.value;
-					}
-				}
-			}
-
-			// Atomic lock save after all rebuilds
-			const saveResult = saveLock(opts.cwd, workingLock);
-			if (!saveResult.ok) {
-				return saveResult;
-			}
-
-			// Stage 2: Complete remaining docs (scenario 1, post-transaction interruption)
-			if (interruptedRunDetected && latestJournalRunId) {
-				const planResult = await computePlan(config, workingLock, _git, target);
-
-				if (!planResult.ok) {
-					return planResult;
-				}
-
-				const applyResult = await applyPlan(
-					planResult.value,
-					target,
-					workingLock,
-					{
-						cwd: opts.cwd,
-						cacheDir: opts.cacheDir,
-						targetId: opts.targetId,
-						stalePlanMinutes: opts.stalePlanMinutes,
-					},
-				);
-
-				if (!applyResult.ok) {
-					return applyResult;
-				}
-
-				writes = applyResult.value.writes;
-
-				// Append RepairItems per applyPlan result
-				for (const entry of applyResult.value.results) {
-					let diagnosticClass: RepairDiagnosticClass;
-					let diagnosticCode: RepairDiagnosticCode;
-
-					if (entry.outcome === "created" || entry.outcome === "updated") {
-						diagnosticClass = "repaired";
-						diagnosticCode = "REPAIRED_REBUILD_FROM_REMOTE";
-					} else if (entry.outcome === "noop" || entry.outcome === "skipped") {
-						diagnosticClass = "skipped";
-						diagnosticCode = "SKIPPED_ALREADY_APPLIED";
-					} else {
-						// blocked
-						diagnosticClass = "needs-human-action";
-						diagnosticCode = "NEEDS_HUMAN_ACTION_DIVERGED";
-					}
-
-					items.push({
-						uuid: entry.uuid,
-						sourcePath: targetDocuments[entry.uuid]?.sourcePath ?? "unknown",
-						diagnosticClass,
-						diagnosticCode,
-						humanNote: `Completed via applyPlan (${entry.outcome})`,
-					});
-				}
-			}
-		}
-	}
-
-	// Handle crash window candidates (journal ahead of lock)
-	if (latestJournalRunId && crashWindowCandidates.size > 0) {
-		const journal = replayJournal(opts.cacheDir, latestJournalRunId);
-		for (const entry of journal) {
-			if (
-				entry.outcome === "success" &&
-				crashWindowCandidates.has(entry.uuid)
-			) {
-				// This is a crash window candidate - journaled success but not in lock
-				const propertyResult = await target.getProperty(
-					entry.pageId,
-					"marksync.metadata",
-				);
-
-				if (!propertyResult.ok || !propertyResult.value) {
+				if (!propertyResult.value) {
 					items.push({
 						uuid: entry.uuid,
 						sourcePath: "unknown",
@@ -529,68 +374,22 @@ export async function runRepair(
 					continue;
 				}
 
-				const pageResult = await target.getPage(entry.pageId);
+				const pageResult = await target.getPage(pageId);
 				if (!pageResult.ok) {
 					if (pageResult.error.kind === "RemoteMissing") {
 						items.push({
 							uuid: entry.uuid,
-							sourcePath: "unknown",
+							sourcePath: property.sourcePath,
 							diagnosticClass: "needs-human-action",
 							diagnosticCode: "NEEDS_HUMAN_ACTION_MISSING_PAGE",
 							humanNote: "Crash window candidate: remote page missing",
 						});
-					} else {
-						return pageResult;
+						continue;
 					}
-					continue;
+					return pageResult;
 				}
-
 				const page = pageResult.value;
 
-				// Build RemoteState for classification
-				const remoteBodyHash = rawHash(page.body ?? "");
-				const remoteState = {
-					kind: "present" as const,
-					bodyHash: remoteBodyHash,
-					version: page.version,
-					title: page.title,
-				};
-
-				// Build minimal SharedBase for classification
-				const sharedBase = {
-					uuid: entry.uuid as DocumentId,
-					pageId: entry.pageId,
-					parentPageId: property.sourcePath, // Use sourcePath as fallback
-					pageVersion: page.version,
-					renderedBodyHash: property.renderedBodyHash,
-					remoteBodyHash: remoteBodyHash,
-					attachmentHashes: {},
-				};
-
-				const classifyResult = classify({
-					base: sharedBase,
-					remote: remoteState,
-				});
-
-				if (!classifyResult.ok) {
-					return classifyResult;
-				}
-
-				const syncState = classifyResult.value;
-
-				// Check if remote diverged or ahead
-				if (syncState === "REMOTE_AHEAD" || syncState === "DIVERGED") {
-					items.push({
-						uuid: entry.uuid,
-						sourcePath: property.sourcePath,
-						diagnosticClass: "needs-human-action",
-						diagnosticCode: "NEEDS_HUMAN_ACTION_DIVERGED",
-						humanNote: `Crash window candidate: remote has ${syncState === "REMOTE_AHEAD" ? "remote changes" : "diverged"}`,
-					});
-					continue;
-				}
-
-				// Safe to rebuild (NO_CHANGE or LOCAL_AHEAD)
 				items.push({
 					uuid: entry.uuid,
 					sourcePath: property.sourcePath,
@@ -598,44 +397,130 @@ export async function runRepair(
 					diagnosticCode: "REPAIRED_CRASH_WINDOW",
 					humanNote: "Rebuilt from remote (crash window closed)",
 				});
-
-				// Apply rebuild if not dry-run
-				if (!opts.dryRun) {
-					const rebuildResult = rebuildLockFromConfluence({
-						property,
-						pageVersion: page.version,
-						pageId: entry.pageId,
-						parentPageId: sharedBase.parentPageId,
-						hashes: {
-							sourceContentHash: property.sourceContentHash,
-							renderedBodyHash: property.renderedBodyHash,
-							remoteBodyHash: remoteBodyHash,
-						},
-						attachmentHashes: {},
-					});
-
-					if (!rebuildResult.ok) {
-						return rebuildResult;
-					}
-
-					// Add to working lock
-					const targetObj = workingLock.targets[opts.targetId];
-					if (targetObj) {
-						targetObj.documents[entry.uuid as DocumentId] = rebuildResult.value;
-					}
-				}
+				rebuilds.push({
+					uuid: entry.uuid,
+					property,
+					pageVersion: page.version,
+					pageId,
+					parentPageId,
+					attachmentHashes: {},
+					remoteBodyHash: rawHash(page.body ?? ""),
+				});
 			}
 		}
 	}
 
-	// Assemble the final report
-	const report: RepairReport = {
+	// Apply (--apply only; dry-run leaves the lock untouched, NFR-OBS-5).
+	if (!opts.dryRun) {
+		// Stage 1: rebuild from remote + atomic lock save (0 page writes).
+		if (rebuilds.length > 0) {
+			const targetObj = lock.targets[opts.targetId] ?? { documents: {} };
+			lock.targets[opts.targetId] = targetObj;
+			for (const rebuild of rebuilds) {
+				const rebuildResult = rebuildLockFromConfluence({
+					property: rebuild.property,
+					pageVersion: rebuild.pageVersion,
+					pageId: rebuild.pageId,
+					parentPageId: rebuild.parentPageId,
+					hashes: {
+						sourceContentHash: rebuild.property.sourceContentHash,
+						renderedBodyHash: rebuild.property.renderedBodyHash,
+						remoteBodyHash: rebuild.remoteBodyHash,
+					},
+					attachmentHashes: rebuild.attachmentHashes,
+				});
+				if (!rebuildResult.ok) {
+					return rebuildResult;
+				}
+				targetObj.documents[rebuild.uuid as DocumentId] = rebuildResult.value;
+			}
+			const saveResult = saveLock(opts.cwd, lock);
+			if (!saveResult.ok) {
+				return saveResult;
+			}
+		}
+
+		// Stage 2: complete remaining docs (scenario 1, post-transaction
+		// interruption). Triggered by journal presence, not crash-window count.
+		if (interruptedRunDetected && latestJournalRunId) {
+			const planResult = await computePlan(config, lock, _git, target);
+			if (!planResult.ok) {
+				return planResult;
+			}
+
+			const applyResult = await applyPlan(planResult.value, target, lock, {
+				cwd: opts.cwd,
+				cacheDir: opts.cacheDir,
+				targetId: opts.targetId,
+				stalePlanMinutes: opts.stalePlanMinutes,
+			});
+			if (!applyResult.ok) {
+				return applyResult;
+			}
+
+			writes = applyResult.value.writes;
+
+			for (const entry of applyResult.value.results) {
+				const docs = lock.targets[opts.targetId]?.documents ?? {};
+				const outcome = entry.outcome;
+				const diagnosticClass: RepairDiagnosticClass =
+					outcome === "created" || outcome === "updated"
+						? "repaired"
+						: outcome === "noop" || outcome === "skipped"
+							? "skipped"
+							: "needs-human-action";
+				const diagnosticCode: RepairDiagnosticCode =
+					outcome === "created" || outcome === "updated"
+						? "REPAIRED_REBUILD_FROM_REMOTE"
+						: outcome === "noop" || outcome === "skipped"
+							? "SKIPPED_ALREADY_APPLIED"
+							: "NEEDS_HUMAN_ACTION_DIVERGED";
+				items.push({
+					uuid: entry.uuid,
+					sourcePath: docs[entry.uuid]?.sourcePath ?? "unknown",
+					diagnosticClass,
+					diagnosticCode,
+					humanNote: `Completed via applyPlan (${outcome})`,
+				});
+			}
+		}
+	} else if (interruptedRunDetected && latestJournalRunId) {
+		// Dry-run Stage 2: show the planned completion. computePlan is pure
+		// (0 writes, no lock mutation) — it reflects what --apply would do.
+		const planResult = await computePlan(config, lock, _git, target);
+		if (!planResult.ok) {
+			return planResult;
+		}
+		for (const entry of planResult.value.entries) {
+			const docs = lock.targets[opts.targetId]?.documents ?? {};
+			const kind = entry.action.kind;
+			const diagnosticClass: RepairDiagnosticClass =
+				kind === "Update" || kind === "Create"
+					? "repaired"
+					: kind === "NoOp" || kind === "Skip"
+						? "skipped"
+						: "needs-human-action";
+			const diagnosticCode: RepairDiagnosticCode =
+				kind === "Update" || kind === "Create"
+					? "REPAIRED_REBUILD_FROM_REMOTE"
+					: kind === "NoOp" || kind === "Skip"
+						? "SKIPPED_ALREADY_APPLIED"
+						: "NEEDS_HUMAN_ACTION_DIVERGED";
+			items.push({
+				uuid: entry.uuid,
+				sourcePath: docs[entry.uuid]?.sourcePath ?? entry.sourcePath,
+				diagnosticClass,
+				diagnosticCode,
+				humanNote: `Planned completion via applyPlan (${kind})`,
+			});
+		}
+	}
+
+	return Res.ok({
 		runId: crypto.randomUUID(),
 		dryRun: opts.dryRun,
 		items,
 		interruptedRunDetected,
 		writes,
-	};
-
-	return Res.ok(report);
+	});
 }

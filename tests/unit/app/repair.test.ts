@@ -8,7 +8,11 @@ import { tmpdir } from "node:os";
 import type { LockFile, ProjectConfig } from "#domain/config/types";
 import type { PageBinding } from "#domain/binding/page-binding";
 import type { Result } from "#domain/result";
-import { runRepair, findLatestJournalRunId, REPAIR_DIAGNOSTIC_CODES } from "#app/repair";
+import {
+	runRepair,
+	findLatestJournalRunId,
+	REPAIR_DIAGNOSTIC_CODES,
+} from "#app/repair";
 import { FakeRepository } from "#tests/_helpers/fake-repository";
 import { FakeTarget } from "#tests/_helpers/fake-target";
 import type { MetadataProperty } from "#domain/state/reconcile";
@@ -135,7 +139,9 @@ describe("TC-REPAIR-001: RepairReport shape is valid", () => {
 		expect(item).toHaveProperty("sourcePath");
 		expect(typeof item.sourcePath).toBe("string");
 		expect(item).toHaveProperty("diagnosticClass");
-		expect(["repaired", "skipped", "needs-human-action"]).toContain(item.diagnosticClass);
+		expect(["repaired", "skipped", "needs-human-action"]).toContain(
+			item.diagnosticClass,
+		);
 		expect(item).toHaveProperty("diagnosticCode");
 		expect(typeof item.diagnosticCode).toBe("string");
 		expect(item).toHaveProperty("humanNote");
@@ -399,19 +405,37 @@ describe("TC-REPAIR-004: Diagnostic codes are stable strings", () => {
 		for (const code of Object.values(REPAIR_DIAGNOSTIC_CODES)) {
 			expect(typeof code).toBe("string");
 			// Assert no random elements (no UUIDs, no timestamps)
-			expect(code).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+			expect(code).not.toMatch(
+				/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+			);
 			expect(code).not.toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
 		}
 
 		// Assert expected codes exist
-		expect(REPAIR_DIAGNOSTIC_CODES.REPAIRED_STALE_LOCK).toBe("REPAIRED_STALE_LOCK");
-		expect(REPAIR_DIAGNOSTIC_CODES.REPAIRED_CRASH_WINDOW).toBe("REPAIRED_CRASH_WINDOW");
-		expect(REPAIR_DIAGNOSTIC_CODES.REPAIRED_REBUILD_FROM_REMOTE).toBe("REPAIRED_REBUILD_FROM_REMOTE");
-		expect(REPAIR_DIAGNOSTIC_CODES.SKIPPED_ALREADY_CONSISTENT).toBe("SKIPPED_ALREADY_CONSISTENT");
-		expect(REPAIR_DIAGNOSTIC_CODES.SKIPPED_ALREADY_APPLIED).toBe("SKIPPED_ALREADY_APPLIED");
-		expect(REPAIR_DIAGNOSTIC_CODES.NEEDS_HUMAN_ACTION_DIVERGED).toBe("NEEDS_HUMAN_ACTION_DIVERGED");
-		expect(REPAIR_DIAGNOSTIC_CODES.NEEDS_HUMAN_ACTION_MISSING_PROPERTY).toBe("NEEDS_HUMAN_ACTION_MISSING_PROPERTY");
-		expect(REPAIR_DIAGNOSTIC_CODES.NEEDS_HUMAN_ACTION_MISSING_PAGE).toBe("NEEDS_HUMAN_ACTION_MISSING_PAGE");
+		expect(REPAIR_DIAGNOSTIC_CODES.REPAIRED_STALE_LOCK).toBe(
+			"REPAIRED_STALE_LOCK",
+		);
+		expect(REPAIR_DIAGNOSTIC_CODES.REPAIRED_CRASH_WINDOW).toBe(
+			"REPAIRED_CRASH_WINDOW",
+		);
+		expect(REPAIR_DIAGNOSTIC_CODES.REPAIRED_REBUILD_FROM_REMOTE).toBe(
+			"REPAIRED_REBUILD_FROM_REMOTE",
+		);
+		expect(REPAIR_DIAGNOSTIC_CODES.SKIPPED_ALREADY_CONSISTENT).toBe(
+			"SKIPPED_ALREADY_CONSISTENT",
+		);
+		expect(REPAIR_DIAGNOSTIC_CODES.SKIPPED_ALREADY_APPLIED).toBe(
+			"SKIPPED_ALREADY_APPLIED",
+		);
+		expect(REPAIR_DIAGNOSTIC_CODES.NEEDS_HUMAN_ACTION_DIVERGED).toBe(
+			"NEEDS_HUMAN_ACTION_DIVERGED",
+		);
+		expect(REPAIR_DIAGNOSTIC_CODES.NEEDS_HUMAN_ACTION_MISSING_PROPERTY).toBe(
+			"NEEDS_HUMAN_ACTION_MISSING_PROPERTY",
+		);
+		expect(REPAIR_DIAGNOSTIC_CODES.NEEDS_HUMAN_ACTION_MISSING_PAGE).toBe(
+			"NEEDS_HUMAN_ACTION_MISSING_PAGE",
+		);
 
 		// Test that same input produces same code (stability)
 		const cacheDir = mkdtempSync(join(tmpdir(), "gh28-repair-004-"));
@@ -662,8 +686,14 @@ describe("findLatestJournalRunId: latest-journal selector", () => {
 		const olderRunId = "01901234567890000000000000"; // 2024-09-25
 		const newerRunId = "0192b3d4-5e6f-7000-8000-000000000000"; // 2025-11-20
 
-		writeFileSync(join(journalDir, `${olderRunId}.jsonl`), '{"test":"older"}\n');
-		writeFileSync(join(journalDir, `${newerRunId}.jsonl`), '{"test":"newer"}\n');
+		writeFileSync(
+			join(journalDir, `${olderRunId}.jsonl`),
+			'{"test":"older"}\n',
+		);
+		writeFileSync(
+			join(journalDir, `${newerRunId}.jsonl`),
+			'{"test":"newer"}\n',
+		);
 
 		const latest = findLatestJournalRunId(cacheDir);
 		expect(latest).toBe(newerRunId);
@@ -681,7 +711,10 @@ describe("findLatestJournalRunId: latest-journal selector", () => {
 
 		// Create mix of valid and invalid filenames
 		const validRunId = "0192b3d4-5e6f-7000-8000-000000000000";
-		writeFileSync(join(journalDir, `${validRunId}.jsonl`), '{"test":"valid"}\n');
+		writeFileSync(
+			join(journalDir, `${validRunId}.jsonl`),
+			'{"test":"valid"}\n',
+		);
 		writeFileSync(join(journalDir, "not-a-uuid.jsonl"), '{"test":"invalid"}\n');
 		writeFileSync(join(journalDir, "random.txt"), "not jsonl");
 
