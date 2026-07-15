@@ -389,7 +389,7 @@ Per **DEC-1 (Option B)**, scenarios exercise the full pipeline **programmaticall
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| 1 — Mock skeleton + helpers | Not started | — | — | — | — |
+| 1 — Mock skeleton + helpers | Completed | 2026-07-15 | 2026-07-15 | 257a1bb | All endpoints implemented, Phase-1 smoke probe passing |
 | 2 — Mock-409 self-check | Not started | — | — | — | — |
 | 3 — Mandatory five scenarios | Not started | — | — | — | — |
 | 4 — Property-API scenario | Not started | — | — | — | — |
