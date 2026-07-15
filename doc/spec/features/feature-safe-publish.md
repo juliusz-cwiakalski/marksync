@@ -5,11 +5,11 @@ ados_distribution: project-generated
 id: SPEC-SAFE-PUBLISH
 status: Current
 created: 2026-07-06
-last_updated: 2026-07-14
+last_updated: 2026-07-15
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: [GH-18, GH-19, GH-20, GH-22, GH-23, GH-24, GH-25, GH-26, GH-27, GH-62, GH-63, GH-74, GH-76, GH-77]
+  related_changes: [GH-18, GH-19, GH-20, GH-22, GH-23, GH-24, GH-25, GH-26, GH-27, GH-28, GH-62, GH-63, GH-74, GH-76, GH-77]
   decisions: [ADR-0005, ADR-0006, ADR-0010, ADR-0011]
   contracts: []
 ---
@@ -103,9 +103,28 @@ conflict classification that **refuses to silently overwrite remote work**.
   each document write, and a 409 re-fetch-once policy on `Conflict` (max 1
   re-fetch + 1 reapply, no loop) with per-document isolation. *(delivered —
   GH-24)*
-- **Minimal repair:** `repair-state` for stale locks and interrupted-apply
-  journal replay. The append-only journal writer + `replayJournal`
-  (`src/app/journal.ts`) is the partial-apply recovery basis *(delivered — GH-23)*.
+- **Minimal repair:** `marksync repair-state` recovers a target from two failure
+  modes by **reading and reconciling** authoritative sources (Git + Confluence) —
+  never by blind overwrite (INV-SAFE-1). (1) **Stale / dirty lock** — for each
+  binding, fetch the remote `marksync.metadata` property and run
+  `reconcileWithProperty`; on a mismatch it rebuilds the binding from Confluence via
+  `rebuildLockFromConfluence` (0 page writes) and updates the lock atomically. (2)
+  **Interrupted apply** — a post-transaction interruption (K docs committed, N−K
+  never started) is completed by an idempotent re-run of `computePlan` + `applyPlan`
+  (already-applied → `NO_CHANGE` → 0 writes); the rarer mid-transaction crash
+  window (journal records a doc as `"success"` the committed lock does not yet
+  reflect) is closed by rebuilding that binding from the remote rather than
+  re-writing the page. If the disposable journal is gone, repair falls back to the
+  lock + Confluence, then to the Confluence property + Git (ADR-0006 C-3). It is
+  **dry-run by default** (`--dry-run`, 0 writes); `--apply` executes the planned
+  repairs. It returns a `CommandResult<RepairReport>` whose per-item list carries a
+  stable diagnostic code (`REPAIR_DIAGNOSTIC_CODES`: `REPAIRED_STALE_LOCK`,
+  `REPAIRED_CRASH_WINDOW`, `REPAIRED_REBUILD_FROM_REMOTE`, `SKIPPED_*`,
+  `NEEDS_HUMAN_ACTION_DIVERGED` / `_MISSING_PROPERTY` / `_MISSING_PAGE`) with human
+  remediation text; a diverged, missing-property, or missing-page remote is reported
+  as needs-human-action and left untouched (INV-SAFE-1 / INV-SAFE-2). Orchestration
+  at `src/app/repair.ts`. *(delivered — GH-28; append-only journal writer +
+  `replayJournal` partial-apply basis — GH-23)*
 - **Provenance:** every managed page carries provenance in two channels.
   - **Visible panel** — `buildProvenancePanel(meta)` (`src/infra/confluence/provenance.ts`)
     emits a Confluence Storage XHTML `{info}` macro placed at the page footer
@@ -157,7 +176,10 @@ Each document is processed independently; a failure on one does not block others
   require explicit `--adopt` or `--rebind`.
 - **403 on locked page ID:** warn + skip (page exists but inaccessible); do not
   treat as deleted.
-- **Partial apply:** journal-based replay; `repair-state` recovers.
+- **Partial apply:** recoverable via `marksync repair-state` — a post-transaction
+  interruption completes idempotently (already-applied docs → 0 writes), and a
+  mid-transaction crash window (journal ahead of the lock) is rebuilt from the
+  remote. *(delivered — GH-28)*
 - **Concurrent CI runs:** older plan must not overwrite newer (409 + dedup).
 
 ## 4. Technical Architecture
@@ -178,6 +200,7 @@ a `TargetSystem` port. The Confluence adapter is the sole implementation.
 | Sync engine | The use-case orchestration that ties the trust wedge together. `computePlan(config, lock, git, target) → Promise<Result<Plan, MarkSyncError>>` is the pure no-writes dry-run: branch gate → discover committed docs via the `Repository` port → **exclude UUID-less docs from entries and emit one warning per document** (`{path}: no marksync:uuid — run 'marksync init' to assign identity, then commit and re-sync`) → duplicate-UUID fatal gate → parse/render/hash via `TargetSystem.renderBody` → resolve cross-page links → **resolve assets** (`AssetResolver`, path-safe, content-addressed) → fetch remote state → classify → emit a reviewable `Plan` (each `PlanEntry` carries `assets?: Artifact[]` and `ContentHash.attachmentHashes`). `applyPlan(plan, target, lock, opts) → Promise<Result<ApplyReport, MarkSyncError>>` is the only write path: parent-first ordering, per-document isolation, journal-before-lock, provenance via `formatVersionMessage` + `formatVersionMessageWithMeta` (message + `trimMarker`), **visible panel injection (`appendProvenancePanel`, gated by `Plan.visiblePanel` from `config.provenance.visiblePanel`; appended to the write body only, never to the HAST hash)**, **full 14-field `marksync.metadata` enrichment via `bindingToProperty` (`sourceBranch`/`commitCount`/`trimMarker`)**, **`classifyVersion` direct-edit predicate**, **per-entry asset upload after Create/Update (reuse-on-exists, `PageBinding.attachmentHashes` replacement — current run's complete set replaces the old set, pruning stale entries; GH-76)**, **post-write fetch-back (GET the page, store `rawHash(fetchedBody)` as `remoteBodyHash` so Confluence normalization does not false-trigger remote drift; falls back to `rawHash(renderedBody)` + warning on failure)**, 409 Conflict surfaced as drift (re-fetch-once policy), atomic lock + `marksync.metadata` per doc. Append-only journal (`.marksync/journal/<run-id>.jsonl`) + `replayJournal` for partial-apply recovery. Modules: `src/app/push-flow.ts`, `src/app/journal.ts`, `src/domain/hierarchy/link-resolver.ts`, `src/domain/git/port.ts`, `src/infra/git/shell-git.ts`, `src/infra/confluence/provenance.ts` *(delivered — GH-23; asset wiring — GH-26; fetch-back — GH-62; provenance panel + property enrichment + classifyVersion — GH-27)* |
 | Asset resolver | Path-safe, content-addressed local-image resolution. `AssetResolver` (`src/domain/assets/resolver.ts`, `{ root, readBytes? }` + `resolve(hast, docPath): Promise<Result<AssetSet, MarkSyncError>>`) walks HAST `img` nodes, resolves each local `src` relative to the doc confined to the configured root (`realpath` + prefix check, symlink-aware → `Forbidden(path-traversal)` with 0 bytes read on escape, NFR-SEC-7), sha256-identifies each asset, and rewrites the node to the dedup filename (`assetFilename`, `src/domain/assets/naming.ts` → `marksync-asset-<sha256>.<ext>`); returns an `AssetSet { artifacts, srcMap }`. Remote `http(s)` images are skipped. `computePlan`/`applyPlan` consume it. *(delivered — GH-26)* |
 | Concurrency gates | Decentralized optimistic-concurrency backstop for overlapping CI plans. Pure domain gates under `src/domain/state/`: `assertOperationFresh` (operation-ID freshness via UUID-v7 time-prefix comparison) at `operation-freshness.ts`; `assertPlanNotExpired` (stale-plan expiry window, default 15 min, conservative boundary) at `plan-expiry.ts`; `decideOnConflict` + `Decision` (409 re-fetch-once policy: reapply vs block over the `SyncState` matrix) at `conflict-policy.ts`; `uuidV7Timestamp` timestamp extractor at `src/domain/identity/uuid.ts`. Wired into `applyPlan`/`processEntry` with per-document isolation *(delivered — GH-24)* |
+| Repair | `marksync repair-state` orchestration — diagnose → rebuild → complete → fallback. `runRepair` (`src/app/repair.ts`) reads the committed lock + the remote `marksync.metadata` property, runs `reconcileWithProperty` per binding, rebuilds dirty/stale locks from Confluence (`rebuildLockFromConfluence`, 0 page writes), closes a mid-transaction crash window by rebuilding journaled-but-not-locked bindings from the remote, and completes a post-transaction interruption via the idempotent `computePlan` + `applyPlan` path; journal-lost → rebuild from lock + Confluence, else from Confluence + Git. Dry-run by default (`--dry-run`); `--apply` executes. Returns `CommandResult<RepairReport>` with the stable `REPAIR_DIAGNOSTIC_CODES` set (repaired / skipped / needs-human-action). INV-SAFE-1/2 preserved: a diverged, missing-property, or missing-page remote is reported and stopped, never overwritten *(delivered — GH-28)* |
 | Confluence adapter | `TargetSystem` port implementation (v2/v1 API) |
 
 ### 4.3 Key decisions

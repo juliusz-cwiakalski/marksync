@@ -5,7 +5,7 @@ ados_distribution: redistributable
 id: NONFUNCTIONAL
 status: Draft
 created: 2026-07-04
-last_updated: 2026-07-14
+last_updated: 2026-07-15
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
@@ -14,7 +14,7 @@ links:
     - doc/overview/02-roadmap.md
     - doc/overview/architecture-overview.md
     - doc/inception/analysis/risks.md
-  related_changes: ["GH-27", "GH-69", "GH-76"]
+  related_changes: ["GH-27", "GH-28", "GH-69", "GH-76"]
   summary: "Non-functional requirements — performance, security, reliability, operability, compatibility, privacy, maintainability, accessibility for MS-0002 and beyond."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -58,7 +58,7 @@ binding. `MS-0002` NFRs are release-blocking guardrails unless marked
 | NFR-REL-4 | Conversion fidelity | 100% of canonical GFM fixtures survive Markdown→Storage round-trip | Roadmap guardrail; ADR-0005 |
 | NFR-REL-5 | Concurrency safety | Two overlapping CI plans never let the older overwrite the newer | A-FEA-7; R-FEA-7 |
 | NFR-REL-6 | REMOTE_MISSING invariant | A remotely-deleted managed page is never silently re-created | INV-SAFE-2; roadmap invariant |
-| NFR-REL-7 | Partial-apply recoverability | An interrupted apply is recoverable via journal replay / `repair-state` without duplicates | R-FEA-4; spec §9.3/§9.8 |
+| NFR-REL-7 | Partial-apply recoverability | An interrupted apply is recoverable via journal replay / `repair-state` without duplicates. **Implemented (GH-28):** `marksync repair-state` completes a post-transaction interruption idempotently (already-applied → 0 writes) and rebuilds mid-transaction crash-window bindings from the remote — each page written at most once across the crashed run and the repair run combined. | R-FEA-4; spec §9.3/§9.8 |
 | NFR-REL-8 | Duplicate-UUID fatal | Two source docs with the same UUID halt before any write | INV-SAFE-3; ADR-0006 |
 | NFR-REL-9 | Per-version provenance | Each MarkSync-applied page version carries a clear MarkSync/Git prefix, head commit id, and compact commit summary in `version.message`; direct Confluence edits are identifiable (no marker). **Squash mode only for `MS-0002`**; commit-by-commit deferred to a future milestone. **Implemented (GH-21/GH-27):** `formatVersionMessageWithMeta` produces the `marksync git <sha> (<count>): <subjects>` prefix (GH-21); `classifyVersion(version)` returns `"marksync"` for the prefix, `"direct"` otherwise (GH-27). | ADR-0006; ADR-0010 (revised) |
 | NFR-REL-10 | Decentralized concurrency | Two runners on separate machines (no shared service) cannot silently overwrite (409 gates stale write) | ADR-0006 C-6 |
@@ -70,7 +70,7 @@ binding. `MS-0002` NFRs are release-blocking guardrails unless marked
 |---|---|---|---|
 | NFR-OBS-1 | Stable exit codes | Documented, machine-parseable exit codes per error class | North star guardrail; spec §9.1 |
 | NFR-OBS-2 | Structured output | JSON/NDJSON output with stable schema; run ID on every result | North star; AI-agent operability |
-| NFR-OBS-3 | Diagnostic codes | Stable machine-readable codes for known failure classes; human remediation text | `MS-0003` target; `MS-0002` informational |
+| NFR-OBS-3 | Diagnostic codes | Stable machine-readable codes for known failure classes; human remediation text. **Implemented (GH-28, `MS-0002` informational):** `repair-state` emits the stable `REPAIR_DIAGNOSTIC_CODES` set (repaired / skipped / needs-human-action) with per-item human notes via the `RepairReport`. | `MS-0003` target; `MS-0002` informational |
 | NFR-OBS-4 | `doctor` health-check | Capability + permission + visibility discovery before any create/adopt | R-FEA-10; spec §9.1; `MS-0002` minimal, `MS-0003` full |
 | NFR-OBS-5 | Plan/diff before write | Dry-run is first-class; no mutation without a reviewable plan | North star; spec §9.1 |
 
