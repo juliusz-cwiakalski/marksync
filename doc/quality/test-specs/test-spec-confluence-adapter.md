@@ -5,11 +5,11 @@ ados_distribution: project-generated
 id: TEST-SPEC-CONFLUENCE-ADAPTER
 status: Current
 created: 2026-07-10
-last_updated: 2026-07-14
+last_updated: 2026-07-15
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: [GH-21, GH-27, GH-66, GH-71]
+  related_changes: [GH-21, GH-27, GH-66, GH-71, GH-29]
   feature_spec: doc/spec/features/feature-confluence-adapter.md
   decisions: [ADR-0005, ADR-0006, ADR-0010]
 ---
@@ -21,8 +21,10 @@ links:
 The Confluence adapter (`src/infra/confluence/`) implements the domain-owned
 `TargetSystem` port (`src/domain/target/port.ts`). It is exercised at the
 **Unit** and **Integration** tiers against a local `Bun.serve` mock simulating
-the Confluence Cloud REST v2/v1 split. No E2E runs against a live tenant during
-MS-0002 — the live-tenant smoke is wired by E5-S1.
+the Confluence Cloud REST v2/v1 split. No adapter-specific E2E runs against a
+live tenant — the live-sandbox tier (`run-e2e.yml`) is wired with a guarded
+create/read/delete smoke (GH-29); adapter scenarios (409, attachments) are
+deferred to MS2-E5-S3.
 
 The brand-defining safety properties are proven through the **integration** tier
 over captured real HTTP traffic (not mocks alone), per the over-mocking
@@ -56,7 +58,9 @@ guardrail in `.ai/rules/testing-strategy.md`:
 
 - Plan/apply orchestration (E3-S6), drift classification (E3-S5), concurrency
   (E3-S7) — the adapter exposes port operations; it does not call them in a plan.
-- Live-tenant E2E — wired by E5-S1.
+- Live-tenant E2E — lives in the separate live-sandbox tier (`run-e2e.yml`,
+  wired GH-29 with a guarded create/read/delete smoke; adapter scenarios
+  409/attachments deferred to MS2-E5-S3).
 - `labels.ts` add/delete — deferred to post-MS-0002 (DEC-8).
 - Reverse conversion (Storage/ADF → Markdown) — MS-0005+.
 
@@ -103,8 +107,12 @@ where the critical-safety properties are proven over captured real HTTP traffic.
 
 ### End-to-End Tests
 
-Not run during MS-0002. The live-tenant smoke (real Confluence page CRUD + 409 +
-attachments) is wired by E5-S1 against a sandbox tenant.
+The live-sandbox tier (`run-e2e.yml`) runs a guarded create/read/delete smoke
+against a dedicated sandbox tenant (wired GH-29); it skips cleanly (exit 0)
+when any `MARKSYNC_E2E_*` secret is absent and runs + cleans up when they are
+present. Adapter-specific scenarios (409 version-conflict, attachments) are
+deferred to MS2-E5-S3; this spec's safety properties are proven at the
+integration tier over captured mock traffic.
 
 ## Test Data
 

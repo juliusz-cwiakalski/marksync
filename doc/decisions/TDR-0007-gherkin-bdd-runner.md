@@ -6,7 +6,7 @@ decision_type: tdr
 status: Accepted
 created: 2026-07-05
 decision_date: null
-last_updated: 2026-07-05
+last_updated: 2026-07-15
 summary: "Use @cucumber/cucumber for the lifecycle-invariant BDD tier (.feature parsing, battle-tested, standard Gherkin). Runs under the Bun dev workflow via its Node-compatible CLI and is wired into the same CI fast loop. Test-only dependency — not compiled into the single binary, so zero binary-size impact. A thin bun:test wrapper and cucumber-core are rejected on long-term-maintainability grounds."
 owners:
   - Juliusz Ćwiąkalski
@@ -47,7 +47,7 @@ revisit_triggers:
   - "The invariant suite grows beyond the four lifecycle invariants and Cucumber's per-scenario overhead becomes material (reconsider a lighter runner only if measured)."
   - "The .feature files become a maintenance burden without readers (no product owner reads Gherkin) — reconsider the thin-wrapper approach."
 links:
-  related_changes: []
+  related_changes: [GH-29]
   supersedes: []
   superseded_by: []
   spec: []
@@ -245,6 +245,27 @@ The recommended alternative (Alt 1 — `@cucumber/cucumber`) satisfies all docum
 
 No accepted-risk exceptions are required.
 
+### Implementation Update (GH-29 — 2026-07-15)
+
+> **Realized form differs from the CLI candidate (DEC-2 / OQ-1).** This decision
+> did **not** change: `@cucumber/cucumber` is the runner, it is a test-only
+> `devDependency`, and all five constraints (C-1..C-5) hold. What changed at
+> delivery is the **invocation entry point**. The `cucumber-js` CLI candidate
+> (`bunx cucumber-js tests/bdd/features --require "tests/bdd/**/*.ts" --strict`,
+> DEC-2) **fails to run under the pinned Bun 1.2.23** — Bun's TypeScript
+> transpilation rejects Cucumber's `namespace` syntax. The resolved, binding form
+> is a **bun-native runner** at [`tests/bdd/run-bdd.ts`](../../tests/bdd/run-bdd.ts)
+> that drives Cucumber's API directly (`runCucumber` + `loadConfiguration` from
+> `@cucumber/cucumber/api`) with `strict: true` + undefined-step failure. The
+> `.feature` files, step definitions, Gherkin engine, and CI binding (`bun run
+> test:bdd` in the `ci.yml` fast loop) are exactly as specified; only the entry
+> script differs from the CLI. This resolves **OPEN-Q9** (cucumber+Bun interop):
+> C-2 is satisfied by a Bun-executed API runner rather than the standalone CLI.
+> Outcome (GH-29): the four invariant features (INV-SAFE-1/2/3, INV-SEC-1) — 6
+> scenarios / 36 steps — pass under Bun; the `test:bdd` CI step is binding
+> (non-zero exit on any invariant regression). The Step assertion library +
+> Reporting format open questions below remain per-implementation choices.
+
 ## Trade-offs & Consequences
 
 ### Positive Outcomes
@@ -262,7 +283,7 @@ No accepted-risk exceptions are required.
 
 ### Unresolved Questions
 
-- [ ] **Bun compatibility re-verification:** confirm the current `@cucumber/cucumber` version's CLI runs cleanly under the pinned Bun version (OPEN-Q9 Bun-pin) before the CI gate is unguarded. (owner: Juliusz Ćwiąkalski)
+- [x] **Bun compatibility re-verification:** confirm the current `@cucumber/cucumber` version's CLI runs cleanly under the pinned Bun version (OPEN-Q9 Bun-pin) before the CI gate is unguarded. (owner: Juliusz Ćwiąkalski) **Resolved (GH-29, 2026-07-15):** the `cucumber-js` CLI candidate (DEC-2, `bunx cucumber-js ... --strict`) **does not** run cleanly under the pinned Bun 1.2.23 — Bun's TS transpilation rejects Cucumber's namespace syntax. The realized form is a **bun-native runner** (`tests/bdd/run-bdd.ts`) that drives `@cucumber/cucumber`'s API directly (`runCucumber` + `loadConfiguration` from `@cucumber/cucumber/api`) with `strict: true`. The package and its Gherkin engine are unchanged; only the invocation entry point differs from the CLI candidate. CI gate is unguarded (binding) — see the Implementation Update below.
 - [ ] **Step assertion library:** decide whether step definitions use `bun:test`'s `expect`, Cucumber's assertions, or `node:assert` — a per-implementation consistency choice. (owner: Juliusz Ćwiąkalski)
 - [ ] **Reporting format:** pick a CI-friendly formatter (e.g., JUnit/JSON) consistent with TDR-0004's machine-parseable-results contract. (owner: Juliusz Ćwiąkalski)
 

@@ -66,6 +66,7 @@ Confluence contract; ADR-0005 settled Storage over ADF._
 | `keytar` (or OS-native) | latest | OS keyring credential storage for local users. **Spike-gated**: `keytar` is a native module that may conflict with `bun build --compile` single-binary/cross-compile. Env-token path is the guaranteed `MS-0002` fallback; keyring support is optional until compiled-binary compatibility is proven. |
 | Native `fetch` + `WebCrypto` | platform | HTTP client + hashing; no `axios`/`node-fetch` dependency |
 | `bun:test` | built-in | Unit/integration/golden-fixture tests (TDR-0004); thin E2E runner for live-sandbox; `bun:test` + `happy-dom` for Mermaid-DOM tests; vitest only as last-resort fallback |
+| `@cucumber/cucumber` | latest | Lifecycle-invariant BDD tier (TDR-0007): the four release-blocking invariants (INV-SAFE-1/2/3, INV-SEC-1) run via a bun-native runner (`tests/bdd/run-bdd.ts`) driving the cucumber API — `devDependency`, excluded from `bun build --compile` (GH-29) |
 
 > **Markdown parser choice rationale.** `remark`/`unified` is the mature TS
 > ecosystem standard, gives an AST (MDAST/HAST) for deterministic transforms, and

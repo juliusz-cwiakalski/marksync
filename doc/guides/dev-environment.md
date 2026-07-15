@@ -75,7 +75,7 @@ _All scripts are defined in `package.json`. Run them as `bun run <script>`._
 | `bun run format:check` | `biome format .` | CI gate; fails on unformatted files |
 | `bun run typecheck` | `tsc --noEmit` | CI gate; fails on type errors (strict) |
 | `bun run test` | `bun test` | Fast loop; unit + integration + golden (excludes E2E/BDD) |
-| `bun run test:bdd` | cucumber CLI (`@cucumber/cucumber`) | Lifecycle invariants (TDR-0007); no-ops until the BDD runner wires in E5-S1 (MS2-E5) |
+| `bun run test:bdd` | bun-native runner (`tests/bdd/run-bdd.ts`) driving the `@cucumber/cucumber` API | Lifecycle invariants (TDR-0007); **binding** — enforces INV-SAFE-1/2/3 + INV-SEC-1 (GH-29). Not the `cucumber-js` CLI: that form fails under Bun's TS transpilation, so a bun-native API runner is used |
 | `bun run check:boundaries` | `depcruise src` | Ports-and-adapters tier enforcement (TDR-0006); CI gate |
 | `bun run check` | `lint && format:check && typecheck && test && check:boundaries` | The full local quality gate |
 | `bun run prepare` | `husky` | Installs the `commit-msg` hook on `bun install` (TDR-0008) |
