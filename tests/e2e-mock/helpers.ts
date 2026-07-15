@@ -4,14 +4,13 @@
 import type { ConfluenceCredentials } from "#domain/credentials";
 import { ConfluenceTarget } from "#infra/confluence/target";
 
-const TOKEN = "ATATT3xFfGF0SECRET_TOKEN_VALUE_x9";
-const EMAIL = "juliusz@cwiakalski.com";
+const TOKEN = "mock-token";
+const EMAIL = "mock@test.com";
 const AUTH_HEADER = `Basic ${Buffer.from(`${EMAIL}:${TOKEN}`).toString("base64")}`;
 const SPACE_ID = "123";
 
 /**
- * Build ConfluenceCredentials for a mock origin.
- * Mirrors the creds() helper from integration tests.
+ * Build ConfluenceCredentials for the mock origin.
  */
 export function creds(baseUrl: string): ConfluenceCredentials {
 	return {

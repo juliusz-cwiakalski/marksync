@@ -51,9 +51,9 @@ describe("TC-E2EMOCK-004 — update flow (AC-F2-3)", () => {
 	const tmpCacheDir = mkdtempSync(join(tmpdir(), "gh81-update-004-"));
 	let mock: ReturnType<typeof createMockServer>;
 
-	afterAll(() => {
+	afterAll(async () => {
 		rmSync(tmpCacheDir, { recursive: true, force: true });
-		mock?.stop();
+		await mock?.stop();
 	});
 
 	test("modify markdown → PUT /pages/{id} with version bump", async () => {

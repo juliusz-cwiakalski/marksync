@@ -51,9 +51,9 @@ describe("TC-E2EMOCK-003 — no-op idempotency (AC-F2-2, NFR-PERF-4)", () => {
 	const tmpCacheDir = mkdtempSync(join(tmpdir(), "gh81-noop-003-"));
 	let mock: ReturnType<typeof createMockServer>;
 
-	afterAll(() => {
+	afterAll(async () => {
 		rmSync(tmpCacheDir, { recursive: true, force: true });
-		mock?.stop();
+		await mock?.stop();
 	});
 
 	test("second applyPlan on unchanged source performs 0 writes", async () => {

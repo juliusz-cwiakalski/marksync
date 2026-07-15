@@ -13,8 +13,8 @@ describe("TC-E2EMOCK-SMOKE-001 — Phase-1 mock smoke probe", () => {
 		server = createMockServer();
 	});
 
-	afterAll(() => {
-		server.stop();
+	afterAll(async () => {
+		await server.stop();
 	});
 
 	test("GET /wiki/api/v2/user/by-me → 200 { accountId, displayName }", async () => {

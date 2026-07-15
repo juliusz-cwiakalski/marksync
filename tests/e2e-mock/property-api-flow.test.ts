@@ -51,9 +51,9 @@ describe("TC-E2EMOCK-008 — property API flow (GH-66 regression)", () => {
 	const tmpCacheDir = mkdtempSync(join(tmpdir(), "gh81-property-008-"));
 	let mock: ReturnType<typeof createMockServer>;
 
-	afterAll(() => {
+	afterAll(async () => {
 		rmSync(tmpCacheDir, { recursive: true, force: true });
-		mock?.stop();
+		await mock?.stop();
 	});
 
 	test("two-sync flow: POST-409→GET→PUT, jsongraphs never called", async () => {

@@ -54,10 +54,12 @@ function buildConflictBody(
 	};
 }
 
-/** Factory returning a stateful mock Confluence server on an ephemeral port. */
+const MOCK_ORIGIN_BASE = "http://127.0.0.1";
+
+/** Factory returning a stateful mock Confluence via node:http server. */
 export function createMockServer(): {
 	origin: string;
-	stop: () => void;
+	stop: () => Promise<void>;
 	captured: CapturedRequest[];
 	reset: () => void;
 	clearCaptured: () => void;
@@ -93,25 +95,54 @@ export function createMockServer(): {
 		captured.length = 0;
 	}
 
-	const server = Bun.serve({
-		port: 0,
-		fetch: async (req) => {
-			const url = new URL(req.url);
-			const text = await req.text().catch(() => "");
+	// Use node:http instead of Bun.serve to avoid Bun's test runner
+	// non-zero exit code issue with Bun.serve() in tests.
+	const http = require("node:http");
+	const server = http.createServer(async (req: any, res: any) => {
+		const url = new URL(req.url, `${MOCK_ORIGIN_BASE}`);
+		const chunks: Buffer[] = [];
+		for await (const chunk of req) {
+			chunks.push(chunk);
+		}
+		const text = Buffer.concat(chunks).toString("utf-8");
 
-			// Capture request
-			captured.push({
-				host: url.host,
-				path: url.pathname,
-				method: req.method,
-				authorization: req.headers.get("Authorization"),
-				text,
-			});
+		// Capture request
+		captured.push({
+			host: url.host,
+			path: url.pathname,
+			method: req.method,
+			authorization: req.headers.authorization ?? null,
+			text,
+		});
 
-			// Route request
-			return route(req, url, text);
-		},
+		// Build a Web Request from the Node request
+		const headers = new Headers();
+		for (const [k, v] of Object.entries(req.headers)) {
+			if (typeof v === "string") headers.set(k, v);
+		}
+		const webReq = new Request(url.toString(), {
+			method: req.method,
+			headers,
+			body: text || undefined,
+		});
+
+		const response = await route(webReq, url, text);
+
+		res.statusCode = response.status;
+		response.headers.forEach((v: string, k: string) => {
+			res.setHeader(k, v);
+		});
+		const bodyBuf = new Uint8Array(await response.arrayBuffer());
+		res.end(bodyBuf);
 	});
+
+	// Start on ephemeral port, synchronously. unref() removes the handle from
+	// the event loop ref count so the test process can exit cleanly after all
+	// tests complete (Bun's test runner exits non-zero if handles remain).
+	server.listen(0);
+	server.unref();
+	const addr = server.address();
+	const port = typeof addr === "object" && addr ? addr.port : 0;
 
 	async function route(
 		req: Request,
@@ -464,8 +495,11 @@ export function createMockServer(): {
 	}
 
 	return {
-		origin: `http://localhost:${server.port}`,
-		stop: () => server.stop(true),
+		origin: `http://127.0.0.1:${port}`,
+		stop: () =>
+			new Promise<void>((resolve) => {
+				server.close(() => resolve());
+			}),
 		captured,
 		reset,
 		clearCaptured,

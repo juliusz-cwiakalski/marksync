@@ -51,9 +51,9 @@ describe("TC-E2EMOCK-006 — provenance panel visible in body (AC-F2-5)", () => 
 	const tmpCacheDir = mkdtempSync(join(tmpdir(), "gh81-provenance-006-"));
 	let mock: ReturnType<typeof createMockServer>;
 
-	afterAll(() => {
+	afterAll(async () => {
 		rmSync(tmpCacheDir, { recursive: true, force: true });
-		mock?.stop();
+		await mock?.stop();
 	});
 
 	test("provenance panel ({info} macro) is present in page body", async () => {

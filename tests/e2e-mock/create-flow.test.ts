@@ -52,9 +52,9 @@ describe("TC-E2EMOCK-002 — create flow (GH-71 unwrap, AC-F2-1, AC-4)", () => {
 	const tmpCacheDir = mkdtempSync(join(tmpdir(), "gh81-create-002-"));
 	let mock: ReturnType<typeof createMockServer>;
 
-	afterAll(() => {
+	afterAll(async () => {
 		rmSync(tmpCacheDir, { recursive: true, force: true });
-		mock?.stop();
+		await mock?.stop();
 	});
 
 	test("creates 3 pages with properties and 2 attachments; GH-71 unwrap exercised", async () => {

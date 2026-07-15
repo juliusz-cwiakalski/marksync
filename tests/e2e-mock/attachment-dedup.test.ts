@@ -52,9 +52,9 @@ describe("TC-E2EMOCK-005 — attachment dedup via hash precheck (AC-F2-4)", () =
 	const tmpCacheDir = mkdtempSync(join(tmpdir(), "gh81-dedup-005-"));
 	let mock: ReturnType<typeof createMockServer>;
 
-	afterAll(() => {
+	afterAll(async () => {
 		rmSync(tmpCacheDir, { recursive: true, force: true });
-		mock?.stop();
+		await mock?.stop();
 	});
 
 	test("run 1 uploads attachment; run 2 (same asset, modified page) skips re-upload via hash precheck", async () => {
