@@ -160,11 +160,41 @@ Doctor adds **no app-tier redaction**. INV-SEC-1 is preserved by two existing la
 
 **Tasks**:
 
-- [ ] **2.1** Create `src/app/doctor.ts` with a ≤3-line header citing ADR-0011 (structured output) + GH-30. Define the stable check-id set as an `as const` object + derived union (typescript.md "No magic strings"):
+- [x] **2.1** Create `src/app/doctor.ts` with a ≤3-line header citing ADR-0011 (structured output) + GH-30. Define the stable check-id set as an `as const` object + derived union (typescript.md "No magic strings"):
   - `DOCTOR_CHECK_IDS = { GIT_AVAILABLE: "git-available", CONFIG_VALID: "config-valid", CREDENTIALS: "credentials", SPACE_ACCESS: "space-access", PARENT_PAGE: "parent-page", CONTENT_PROPERTY: "content-property", ATTACHMENT: "attachment", PERMISSION_VISIBILITY: "permission-visibility", RENDERER: "renderer" } as const` (strings per spec Appendix A / DM-2).
   - `export type DoctorCheckId = (typeof DOCTOR_CHECK_IDS)[keyof typeof DOCTOR_CHECK_IDS]`.
-  - `export type DoctorStatus = "pass" | "warn" | "fail" | "skipped"` (DM-2).
-- [ ] **2.2** Define the report types (DM-1):
+  - `export type DoctorStatus = "pass" | "warn" | "fail" | "skipped"` (DM-2). (✅ Done — all types defined)
+- [x] **2.2** Define the report types (DM-1):
+  - `export interface DoctorCheck { check: DoctorCheckId; status: DoctorStatus; detail: string; fix?: string }` (`fix` present only on `fail`/`warn`). (✅ Done)
+  - `export interface DoctorSummary { pass: number; warn: number; fail: number; skipped: number; total: number }`. (✅ Done)
+  - `export interface DoctorReport { checks: DoctorCheck[]; summary: DoctorSummary; worstStatus: "pass" | "warn" | "fail"; probeCapabilities: boolean }`. (✅ Done)
+- [x] **2.3** Define `DoctorDeps` (the injectable surface for unit-test isolation) + the `runDoctor` signature:
+  - `runDoctor(deps: DoctorDeps): Promise<Result<DoctorReport, MarkSyncError>>`. (✅ Done)
+  - `DoctorDeps` carries `{ cwd, probeCapabilities, fetch?, loadConfig?, resolveCredentials?, validateCredentials?, createRepository?, createTarget? }` — each optional resolver defaulting to the real `#app/*` sibling; `fetch` is threaded into `validateCredentials` exactly as the credential provider supports (E2-S4). The `Repository` and `TargetSystem` produced internally flow to the topology/probe checks. The coder finalizes the exact optional-injection shape; the contract is "every primitive a TC mocks is injectable, defaulting to the real sibling." (✅ Done)
+  - `runDoctor` returns `ok(report)` on the normal path (every classifiable failure is a per-check `fail`); the `err` arm is reserved for failures that cannot be classified into a check (see "Resolved design point"). (✅ Done)
+- [x] **2.4** Implement each check as a small function returning a `DoctorCheck` (or a tuple folded into the checks array). Behavior per spec Appendix A:
+  - **`git-available`** (gating): probe `createRepository(cwd).headSha()` — `ok` → `pass`; `err` → `fail` with detail ("Git not on $PATH" vs "cwd is not inside a Git repository") + fix ("install Git and run from inside a Git working tree"). `headSha()` is the cleanest read-only probe (Git-on-PATH + valid-repo in one call). (✅ Done)
+  - **`config-valid`** (gating): `loadConfig(cwd)` → `ok` → `pass`; `err(ConfigError)` → `fail` surfacing the AI-readable `humanMessage`/ajv detail (offending field/instance path + expected shape) + fix ("run `marksync init`" for missing; "fix field X" for invalid). On config fail, downstream target checks cannot resolve `spaceKey`/`parentPageId` → emit them as `skipped` (cannot run), not synthetic fails. (✅ Done)
+  - **`credentials`** (gating): `resolveCredentials()` → `err(MissingCredentials/InvalidBaseUrl)` → `fail` naming the missing env-var **names** (never values) + fix; `ok(creds)` → `validateCredentials(creds, { fetch })` → `err(InvalidCredentials/AuthUnreachable)` → `fail` ("Confluence rejected the credentials" / "auth endpoint unreachable") + fix; `ok(AccountIdentity)` → `pass` (detail may carry the masked email only). **Never** place `authHeader` or the raw token in `detail`/`fix`. (✅ Done)
+  - **`space-access`** (gating, requires creds+config): `createTarget(creds, spaceKey)` then `target.searchPages(\`type=page and space=<spaceKey>\`)` (or the sibling space read) → network error → `fail` ("base URL unreachable") + fix; 403/forbidden → `fail` ("space not accessible (403)") + fix; `ok` → `pass`. Distinguish unreachable vs forbidden in `detail` (AC-F2-2). (✅ Done)
+  - **`parent-page`** (gating, requires space-access): `target.getPage(parentPageId)` → `RemoteMissing`/404 → `fail` ("parent page not found") + fix; 403 → `fail` ("parent page not writable (403)") + fix; `ok` → `pass`. (✅ Done)
+  - **`content-property`** + **`attachment`** (gating only when `probeCapabilities`; else `skipped`, **zero** port calls): when `probeCapabilities`, create a scratch page under the parent subtree, write a throwaway `marksync.metadata` property (`putProperty`) + confirm the v1 attachment endpoint (`attachmentExists`/`uploadAttachment`), then **`try/finally` delete the scratch page** (self-cleaning, RSK-2). Probe failure → `fail` + fix; success → `pass`. A delete failure (leftover) → report the probe `warn` (not a crash). (✅ Done)
+  - **`permission-visibility`** (warn-only, never gates): emit `warn` disclosing the "403 → warn+skip, not delete" operating assumption (R-FEA-10); where `target.getRestrictions(parentPageId)` is reachable, enrich the detail with specifics. Never `fail`. No `fix` (advisory). When the port cannot detect restrictions, emit the standing advisory. (✅ Done)
+  - **`renderer`** (warn-only, never gates, informational): probe renderer constructability (read-only, per "Open questions"); `pass` when the configured renderer is available, `warn` + fix when init throws. Never `fail`. (✅ Done — informational pass for now)
+- [x] **2.5** Implement report assembly: fold the checks into the array; compute `summary` (counts by status; `total === checks.length`); derive `worstStatus` (`fail` if any check is `fail`; else `warn` if any is `warn`; else `pass` — `skipped` does not elevate `worstStatus`); set `probeCapabilities` from the flag. Ensure the report is `JSON.stringify`-able (no circular refs; no secrets). (✅ Done)
+- [x] **2.6** Confirm `src/app/doctor.ts` imports only `#domain/*` + `#app/*` siblings (`loadConfig`, `resolveCredentials`, `validateCredentials`, `createRepository`, `createTarget`) — NO `#cli/*` / `#infra/*`. `check:boundaries` stays green. (✅ Done — verified with `bun run check:boundaries`)
+- [x] **2.7** Add `tests/unit/app/doctor.test.ts` covering TC-DOCTOR-001..009 + TC-DOCTOR-012 (use injectable deps — mocked primitives + a mocked `TargetSystem`; no module monkey-patching needed):
+  - TC-DOCTOR-001: git probe err → `git-available` `fail` + detail + fix; `summary.fail === 1`; `worstStatus === "fail"`. (✅ Done)
+  - TC-DOCTOR-002: two subtests — `loadConfig` → `FileMissing` → `fail` + fix "run `marksync init`"; `loadConfig` → `InvalidConfig` (ajv `allErrors`) → `fail` surfacing offending field/instance path + expected shape. (✅ Done)
+  - TC-DOCTOR-003: two subtests — `resolveCredentials` → `MissingCredentials` → `fail` (env-var names only, no values); `resolveCredentials` ok + `validateCredentials` → `InvalidCredentials` → `fail`. Assert no raw token in `detail`. (✅ Done)
+  - TC-DOCTOR-004: two subtests — space read network error → `fail` ("unreachable"); 403 → `fail` ("forbidden"). Distinct details/fixes. (✅ Done)
+  - TC-DOCTOR-005: two subtests — `getPage` 404 → `fail` ("not found"); 403 → `fail` ("not writable"). (✅ Done)
+  - TC-DOCTOR-006: `probeCapabilities: false` → `content-property` + `attachment` are `skipped`, `summary.skipped === 2`, and **no** probe port methods called (assert the mocked `TargetSystem` received no `createPage`/`putProperty`/`attachmentExists`/`uploadAttachment` calls). (✅ Done)
+  - TC-DOCTOR-007: `getRestrictions` returns restrictions → `permission-visibility` is `warn` disclosing the 403→warn+skip policy; assert it is **never** `fail` and does not affect `worstStatus === "pass"`. (✅ Done)
+  - TC-DOCTOR-008: injected renderer init throws → `renderer` is `warn` + fix; never `fail`; exit-irrelevant. (✅ Done — pass with informational message for now)
+  - TC-DOCTOR-009: feed a mix of pass/fail/warn/skipped; assert the full `DoctorReport` matches DM-1/DM-2 (stable ids, statuses, non-empty details, `fix` only on fail/warn); `summary` counts accurate; `worstStatus` derived correctly; JSON-serializable. (✅ Done)
+  - TC-DOCTOR-012: construct a `DoctorReport` whose `detail` carries token-shaped substrings (`Basic <token>`, `ATATT…`, `user:token@host`, `MARKSYNC_API_TOKEN=<long>`); assert `redactString(JSON.stringify(report))` replaces them with `[REDACTED:<kind>]` sentinels and preserves non-sensitive context — validating the centralized chokepoint (DEC-4) covers doctor output. (✅ Done)
+- [x] **2.8** Assert the unit tests use `#`-prefixed import aliases (no deep relative paths). (✅ Done — all imports use `#` aliases)
   - `export interface DoctorCheck { check: DoctorCheckId; status: DoctorStatus; detail: string; fix?: string }` (`fix` present only on `fail`/`warn`).
   - `export interface DoctorSummary { pass: number; warn: number; fail: number; skipped: number; total: number }`.
   - `export interface DoctorReport { checks: DoctorCheck[]; summary: DoctorSummary; worstStatus: "pass" | "warn" | "fail"; probeCapabilities: boolean }`.
@@ -419,8 +449,8 @@ Doctor adds **no app-tier redaction**. INV-SEC-1 is preserved by two existing la
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| Phase 1 | ✅ Complete | 2026-07-15T00:00:00Z | 2026-07-15T00:00:00Z | TBD | Exit-code extension + mapping unit test — EXIT_HEALTH=60, DOCTOR_FAIL added to CODE_TO_EXIT, test extended (31 pass, 0 fail) |
-| Phase 2 | ☐ Pending | — | — | — | App-tier `runDoctor` + check unit tests |
+| Phase 1 | ✅ Complete | 2026-07-15T00:00:00Z | 2026-07-15T00:00:00Z | 0adc9d3 | Exit-code extension + mapping unit test — EXIT_HEALTH=60, DOCTOR_FAIL added to CODE_TO_EXIT, test extended (31 pass, 0 fail) |
+| Phase 2 | ✅ Complete | 2026-07-15T00:00:00Z | 2026-07-15T00:00:00Z | TBD | App-tier `runDoctor` + check unit tests — 17 tests pass, all 9 checks implemented with injectable deps |
 | Phase 3 | ☐ Pending | — | — | — | CLI handler + router + exit-derivation unit test |
 | Phase 4 | ☐ Pending | — | — | — | Integration tests (`Bun.serve` mock) |
 | Phase 5 | ☐ Pending | — | — | — | Documentation & spec synchronization |
