@@ -6,13 +6,13 @@ ados_distribution: redistributable
 id: ROADMAP-ENGINEERING
 status: Draft
 created: 2026-07-03
-last_updated: 2026-07-13
+last_updated: 2026-07-15
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005]
-  related_changes: ["GH-69"]
+  related_changes: ["GH-69", "GH-81"]
 summary: "Engineering roadmap — MS-0002 MVP (safe one-way publisher / trust wedge), MS-0003 MLP (exceptional DX), then staged reverse-sync gates."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -74,7 +74,7 @@ _Beachhead-critical items first (the wedge); validation apparatus is best-effort
 - Auth: local API-token (email + token, OS keyring) and non-interactive CI credentials from environment.
 - Dry-run / plan / diff before any write; stable exit codes; JSON/NDJSON output; `doctor` health-check (capability + permission discovery, premortem `§4.2`, `§7.4`).
 - **`MS-0002` performance budget (NFR guardrails):** binary ≤ 90 MB; cold-start ≤ 2 s on reference hardware; targets repos ≤ ~500 managed pages (large-repo incremental optimization is deferred — correctness first, premortem `§5.9`, `§13.11`).
-- **Quality gates (lightweight):** unit + integration (mocked Confluence) + golden fixtures are mandatory; a live-sandbox E2E tier runs on a **single dedicated test space** (not per-suite creation, premortem `§8.5`); Gherkin/BDD specs cover **lifecycle invariants only** (premortem `§8.2`), not exhaustive steps.
+- **Quality gates (lightweight):** unit + integration (mocked Confluence) + golden fixtures + mock e2e (full-pipeline against an in-process Confluence mock, secrets-free) are mandatory; a live-sandbox E2E tier runs on a **single dedicated test space** (not per-suite creation, premortem `§8.5`); Gherkin/BDD specs cover **lifecycle invariants only** (premortem `§8.2`), not exhaustive steps.
 
 **In scope (`MS-0002` / MVP):**
 

@@ -5,13 +5,13 @@ ados_distribution: redistributable
 id: DEV-ENVIRONMENT
 status: Draft
 created: 2026-07-05
-last_updated: 2026-07-07
+last_updated: 2026-07-15
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, TDR-0002, TDR-0003, TDR-0004, TDR-0005, TDR-0006, TDR-0008]
-  related_changes: [GH-14]
+  related_changes: [GH-14, GH-81]
   summary: "Developer environment setup guide — prerequisites, install, scripts, and common workflows for MarkSync contributors."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -80,6 +80,7 @@ _All scripts are defined in `package.json`. Run them as `bun run <script>`._
 | `bun run check` | `lint && format:check && typecheck && test && check:boundaries` | The full local quality gate |
 | `bun run prepare` | `husky` | Installs the `commit-msg` hook on `bun install` (TDR-0008) |
 | `bun test tests/golden/` | Golden-fixture tests only | Verify renderer determinism |
+| `bun test tests/e2e-mock/` | Mock e2e — full-pipeline scenarios vs an in-process Confluence mock (secrets-free) | CI `e2e-mock` job (`ci.yml`); mandatory on every PR |
 | `bun test tests/e2e/` | Live-sandbox E2E (requires credentials) | Separate gate (`run-e2e.yml`) |
 | `bun test --update-snapshots` | Update golden-fixture snapshots | Explicit, reviewed action |
 | `bun run build` | `bun build --compile` | Single-binary build — _not yet defined (lands MS2-E5-S4)_ |

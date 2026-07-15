@@ -164,7 +164,7 @@ doc/
 | [doc/overview/glossary.md](doc/overview/glossary.md) | Terms and acronyms |
 | [doc/overview/ubiquitous-language.md](doc/overview/ubiquitous-language.md) | Bounded context — aggregates, entities, VOs, events |
 | [doc/spec/nonfunctional.md](doc/spec/nonfunctional.md) | NFRs (performance, security, reliability) |
-| [.ai/rules/testing-strategy.md](.ai/rules/testing-strategy.md) | 6-tier testing strategy and coverage rules |
+| [.ai/rules/testing-strategy.md](.ai/rules/testing-strategy.md) | 7-tier testing strategy and coverage rules |
 | [.ai/agent/pm-instructions.md](.ai/agent/pm-instructions.md) | PM tracker configuration (GitHub Issues) |
 | [.ai/agent/decision-instructions.md](.ai/agent/decision-instructions.md) | Decision tracking conventions + strategic context |
 | [.ai/agent/pr-instructions.md](.ai/agent/pr-instructions.md) | PR/MR platform configuration (GitHub CLI) |
