@@ -121,7 +121,24 @@ notes:
     type: retro
     date: "2026-07-15"
   - text: >
-      Retro — review iter-1 (2026-07-15): reviewer found a HIGH safety bug
+      Retro — CI coverage gap (2026-07-15): after PR #84 opened, CI failed
+      because src/cli/commands/repair-state.ts had only 33.93% line coverage
+      (below the 70% per-file threshold in bunfig.toml). The local `bun run
+      check` passed because coverage is OPT-IN (--coverage flag); CI runs
+      `bun test --coverage tests/unit/ tests/integration/ tests/golden/`
+      which enforces it. The 20 repair tests all call runRepair (app-tier)
+      directly, never the thin CLI handler wrapper — so the handler's 85
+      lines were uncovered. LESSON: when a feature adds a thin CLI handler
+      (sync.ts-style wrapper), add a handler smoke test mirroring the
+      sibling sync-command.test.ts pattern — don't rely on app-tier tests
+      alone for per-file CLI coverage. The sync handler had the same gap
+      (its applyPlan success branch is "intentionally left uncovered") but
+      squeaked past 70% via early-return branches; repair-state didn't
+      because no handler test existed at all. Fix: added repair-command
+      .test.ts (6 tests, runCli harness for early-returns + mock.module
+      for runRepair success/failure tails) → 100% lines/functions. CI green.
+    type: retro
+    date: "2026-07-15"
       (F-1) the coder + fixer both missed: the dirty-lock rebuild path and
       crash-window candidate path rebuild a binding UNCONDITIONALLY without
       a divergence check. The fixer had added a divergence check, but only
