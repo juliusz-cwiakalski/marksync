@@ -4,9 +4,9 @@
 source: https://github.com/juliusz-cwiakalski/agentic-delivery-os/blob/main/doc/templates/test-plan-template.md
 ados_distribution: redistributable
 id: chg-GH-29-test-plan
-status: Proposed
+status: Updated
 created: 2026-07-15T14:00:00Z
-last_updated: 2026-07-15T14:00:00Z
+last_updated: 2026-07-15T16:30:00Z
 owners: ["@cwiakalski"]
 service: marksync-cli
 labels: ["test", "MS-0002", "MS2-E5", "priority:high", "ci", "bdd", "e2e"]
@@ -66,7 +66,7 @@ This test plan validates the wiring of two unwired test tiers in the 7-tier test
 | AC-F2-2 | INV-SAFE-2: no silent re-create of REMOTE_MISSING docs | TC-BDD-003, TC-BDD-004 | Covered |
 | AC-F2-3 | INV-SAFE-3: duplicate-UUID fatal before any write (existing feature + new steps) | TC-BDD-005 | Covered |
 | AC-F2-4 | INV-SEC-1: no secrets in any output path | TC-BDD-006 | Covered |
-| AC-F2-5 | Over-mocking guardrail: only TargetSystem port is mocked | TC-BDD-001–006 (all BDD steps) | Covered |
+ | AC-F2-5 | Over-mocking guardrail: only adapter ports mocked (`TargetSystem` + `Repository`) | TC-BDD-001–006 (all BDD steps) | Covered |
 | AC-1 | `test:bdd` step in CI is binding (non-zero exit on invariant regression) | TC-BDD-007 | Covered |
 | AC-F3-1 | Live-sandbox E2E skips cleanly when MARKSYNC_E2E_* secrets absent | TC-E2E-001 | Covered |
 | AC-F3-2 | Live-sandbox E2E runs create+read+delete round-trip and cleans up all pages | TC-E2E-002 | Covered |
@@ -80,7 +80,8 @@ This test plan validates the wiring of two unwired test tiers in the 7-tier test
 |--------------|---------|----------|----------------|
 | API-1 | `computePlan` function (real module) | TC-BDD-001–006 | Called by all BDD steps (real, not mocked) |
 | API-2 | `applyPlan` function (real module) | TC-BDD-001–006 | Called by all BDD steps (real, not mocked) |
-| API-3 | `TargetSystem` port (mocked) | TC-BDD-001–006 | FakeTarget implements port (only permitted mock) |
+ | API-3 | `TargetSystem` port (mocked) | TC-BDD-001–006 | FakeTarget implements port (adapter port mock) |
+| API-4 | `Repository` port (mocked) | TC-BDD-001–006 | FakeRepository provides deterministic Git fixtures (adapter port mock) |
 | DM-1 | BDD Git fixtures | TC-BDD-001–006 | Deterministic fixtures via FakeRepository |
 | DM-2 | E2E sandbox pages | TC-E2E-002 | Created and deleted per run |
 
@@ -109,10 +110,10 @@ This test plan validates the wiring of two unwired test tiers in the 7-tier test
 | **BDD/Gherkin** (NEW) | `@cucumber/cucumber` via `bun run test:bdd` | `tests/bdd/` | `*.feature`, steps in `tests/bdd/steps/*.ts` | Four invariant features; real engine + mock port only |
 | **E2E-Live** (NEW) | Thin runner script | `tests/e2e/` | `*.test.ts` | Guarded smoke test; real adapter vs sandbox |
 
-**BDD tier characteristics (TC-BDD-001–007):**
+ **BDD tier characteristics (TC-BDD-001–007):**
 - Uses `@cucumber/cucumber` standalone CLI invoked via `bun run test:bdd` (TDR-0007 C-2)
 - Steps call real `computePlan` + `applyPlan` from `src/app/push-flow.ts` (no mocking of domain logic)
-- Only the `TargetSystem` port is mocked — reuses `FakeTarget` (tests/_helpers/fake-target.ts)
+- Only adapter ports are mocked — `TargetSystem` via `FakeTarget` and `Repository` via `FakeRepository` (honoring the over-mocking guardrail)
 - Deterministic Git fixtures via `FakeRepository` (tests/_helpers/fake-repository.ts)
 - Strict mode and undefined-step failure enabled (release-blocking)
 - CI fast-loop binding via `ci.yml` `test:bdd` step
@@ -164,9 +165,9 @@ This test plan validates the wiring of two unwired test tiers in the 7-tier test
 **Target Layer / Location**: `tests/bdd/features/no-silent-overwrite.feature`, `tests/bdd/steps/no-silent-overwrite.steps.ts`
 **Tags**: @bdd, @invariant, @safety
 
-**Preconditions**:
-- FakeTarget implements TargetSystem port (only permitted mock)
-- FakeRepository provides deterministic Git fixtures
+ **Preconditions**:
+- FakeTarget implements `TargetSystem` port (adapter port mock)
+- FakeRepository provides deterministic Git fixtures (adapter port mock)
 - Corpus fixture: one managed doc with remote state set to `REMOTE_AHEAD`
 
 **Steps**:
@@ -200,9 +201,9 @@ This test plan validates the wiring of two unwired test tiers in the 7-tier test
 **Target Layer / Location**: `tests/bdd/features/no-silent-overwrite.feature`, `tests/bdd/steps/no-silent-overwrite.steps.ts`
 **Tags**: @bdd, @invariant, @safety
 
-**Preconditions**:
-- FakeTarget implements TargetSystem port
-- FakeRepository provides deterministic Git fixtures
+ **Preconditions**:
+- FakeTarget implements `TargetSystem` port (adapter port mock)
+- FakeRepository provides deterministic Git fixtures (adapter port mock)
 - Corpus fixture: one managed doc with remote body hash diverging from local (DIVERGED state)
 
 **Steps**:
@@ -236,9 +237,9 @@ This test plan validates the wiring of two unwired test tiers in the 7-tier test
 **Target Layer / Location**: `tests/bdd/features/no-silent-recreate-remote-missing.feature`, `tests/bdd/steps/no-silent-recreate-remote-missing.steps.ts`
 **Tags**: @bdd, @invariant, @safety
 
-**Preconditions**:
-- FakeTarget implements TargetSystem port
-- FakeRepository provides deterministic Git fixtures
+ **Preconditions**:
+- FakeTarget implements `TargetSystem` port (adapter port mock)
+- FakeRepository provides deterministic Git fixtures (adapter port mock)
 - Corpus fixture: one managed doc whose remote was deleted (FakeTarget returns RemoteMissing)
 
 **Steps**:
@@ -271,8 +272,9 @@ This test plan validates the wiring of two unwired test tiers in the 7-tier test
 **Target Layer / Location**: `tests/bdd/features/no-silent-recreate-remote-missing.feature`, `tests/bdd/steps/no-silent-recreate-remote-missing.steps.ts`
 **Tags**: @bdd, @invariant, @safety
 
-**Preconditions**:
-- FakeTarget implements TargetSystem port with call tracking
+ **Preconditions**:
+- FakeTarget implements `TargetSystem` port with call tracking (adapter port mock)
+- FakeRepository provides deterministic Git fixtures (adapter port mock)
 - Corpus fixture: multiple docs, at least one in `REMOTE_MISSING` state
 
 **Steps**:
@@ -305,28 +307,27 @@ This test plan validates the wiring of two unwired test tiers in the 7-tier test
 **Target Layer / Location**: `tests/bdd/features/duplicate-uuid-fatal.feature` (existing), `tests/bdd/steps/duplicate-uuid-fatal.steps.ts` (new)
 **Tags**: @bdd, @invariant, @safety
 
-**Preconditions**:
-- FakeTarget implements TargetSystem port with call tracking
-- FakeRepository provides deterministic Git fixtures
+ **Preconditions**:
+- FakeTarget implements `TargetSystem` port with call tracking (adapter port mock)
+- FakeRepository provides deterministic Git fixtures (adapter port mock)
 - Corpus fixture: two documents sharing the same `marksync.uuid`
 
 **Steps**:
 1. Given a corpus with two documents sharing the same `marksync.uuid` (fixture with duplicate UUID)
-2. When `computePlan` runs (real module)
-3. When `applyPlan` is invoked
-4. Then the plan aborts before any write with `DuplicateUuid` error
-5. And the error message names both source paths
-6. And FakeTarget received 0 `createPage` calls
-7. And FakeTarget received 0 `updatePage` calls
+2. When `computePlan` runs (real module) — it aborts at the duplicate-UUID gate before any apply
+3. Then the plan aborts with `DuplicateUuid` error (naming both source paths)
+4. And `applyPlan` is never called (zero write operations)
+5. And FakeTarget received 0 `createPage` calls
+6. And FakeTarget received 0 `updatePage` calls
 
-**Expected Outcome**:
-- Duplicate UUID detection halts the entire plan before any mutation
-- Zero write operations reach the target
+ **Expected Outcome**:
+- Duplicate UUID detection halts the plan at `computePlan` time before any mutation
+- `applyPlan` is never invoked (zero write operations reach the target)
 - Error message is actionable (identifies both conflicting source paths)
 
-**Notes / Clarifications**:
+ **Notes / Clarifications**:
 - The feature file already exists from GH-18; this change wires the step definitions
-- Step definitions drive real `computePlan`/`applyPlan` (not mocked)
+- Step definitions drive real `computePlan` (which aborts on duplicate UUID); `applyPlan` is never reached
 - This is a fatal invariant — no recovery path exists before fixing the source
 
 ---
@@ -342,31 +343,32 @@ This test plan validates the wiring of two unwired test tiers in the 7-tier test
 **Target Layer / Location**: `tests/bdd/features/no-secret-in-output.feature`, `tests/bdd/steps/no-secret-in-output.steps.ts`
 **Tags**: @bdd, @invariant, @security
 
-**Preconditions**:
-- FakeTarget implements TargetSystem port
-- FakeRepository provides deterministic Git fixtures
-- Corpus fixture: one managed doc, sync run carries real credentials in inputs
+ **Preconditions**:
+- FakeTarget implements `TargetSystem` port (adapter port mock)
+- FakeRepository provides deterministic Git fixtures (adapter port mock)
+- Corpus fixture: one managed doc with a secret sentinel planted in its Markdown content (e.g., `Don't leak this: SECRET_SENTINEL_xyz123`)
 
 **Steps**:
-1. Given a corpus with one managed document
-2. Given the sync is run with real credentials (API token configured)
-3. When `computePlan` runs (real module)
-4. When `applyPlan` runs (real module) against FakeTarget
-5. Then the plan output contains no credential strings
-6. Then the apply journal contains no credential strings
-7. Then the lock file contains no credential strings
-8. Then diagnostic messages contain no credential strings
-9. Then `version.message` contains no credential strings
-10. Then the cache contains no credential strings
+1. Given a corpus with one managed document containing a secret sentinel in its body content (via `FakeRepository.setFile()`, mirroring TC-INTEGRATION-011 pattern)
+2. When `computePlan` runs (real module)
+3. When `applyPlan` runs (real module) against FakeTarget
+4. Then the plan JSON contains no credential strings
+5. Then the apply journal contains no credential strings
+6. Then the lock file contains no credential strings
+7. Then diagnostic messages contain no credential strings
+8. Then `version.message` contains no credential strings
+9. Then the cache contains no credential strings
+10. And the real adapter (`ConfluenceTarget`/`ConfluenceClient`) is the mocked port, so credentials never enter `computePlan`/`applyPlan` — the invariant is validated through the content→render→plan→output path
 
-**Expected Outcome**:
-- Credentials are absent from all output paths (plan, journal, lock, diagnostics, version message, cache)
-- Redaction is applied before serialization
-- INV-SEC-1 is enforced at the integration level
+ **Expected Outcome**:
+- The secret sentinel planted in document content is absent from all output paths (plan, journal, lock, diagnostics, version message, cache)
+- Redaction is applied before serialization for non-content output paths
+- INV-SEC-1 is enforced at the integration level through the real render→plan→apply flow
 
 **Notes / Clarifications**:
 - This is the INV-SEC-1 invariant (no-secrets-in-output)
-- Credentials are injected in the test setup; assertions check they don't leak
+- **Injection pattern (proven):** the sentinel is planted in document content (Markdown source), not in config/provenance — credentials never enter `computePlan`/`applyPlan` (they live in the mocked `ConfluenceTarget`/`ConfluenceClient` adapter behind the `TargetSystem` port). The invariant is validated through the real content→render→plan→lock/journal/diagnostics/`version.message` path.
+- **Reference shape:** mirrors `tests/integration/app/secrets-safety-integration.test.ts` TC-INTEGRATION-011 (lines 92-202) — which plants a fake token in document body via `fakeRepo.setFile()` and asserts absence from Plan JSON, journal, ApplyReport, and `version.message`.
 - Step definitions drive real sync engine; redaction is tested end-to-end
 
 ---
@@ -678,22 +680,24 @@ This test plan validates the wiring of two unwired test tiers in the 7-tier test
 **Preconditions**:
 - All test tiers are wired and runnable
 
-**Steps**:
+ **Steps**:
 1. Run `bun run lint` (assert exit 0)
 2. Run `bun run format:check` (assert exit 0)
 3. Run `bun run typecheck` (assert exit 0)
-4. Run `bun run test` (unit+integration+golden; assert exit 0)
+4. Run `bun run test` (unit+integration+golden+mermaid via `bun test`; assert exit 0)
 5. Run `bun run check:boundaries` (assert exit 0)
-6. Run `bun run test:bdd` (after BDD is wired; assert exit 0)
-7. Or run `bun run check` if it chains the above
+6. Run `bun run check` — this chains the above steps (lint, format:check, typecheck, test, check:boundaries) and should exit 0
+7. Note: `bun run check` does NOT run `test:bdd` — BDD binding is verified separately via TC-BDD-007 (the `test:bdd` CI step, AC-1)
 
 **Expected Outcome**:
-- All quality gates are green on a clean PR
+- All quality gates covered by `bun run check` are green on a clean PR (lint, format, typecheck, test unit+integration+golden+mermaid, boundaries)
 - `bun run check` exits 0
+- BDD tier is exercised separately (not via `check`)
 
 **Notes / Clarifications**:
 - This is the AC-2 validation (bun run check green)
 - Confirms no production source changes (NFR-MAINT-2)
+- The `bun run test` step covers unit, integration, golden, and mermaid-DOM tiers (via `bun test`), but NOT the BDD tier — BDD runs via the separate `test:bdd` command per TC-BDD-007
 
 ---
 
@@ -736,14 +740,14 @@ This test plan validates the wiring of two unwired test tiers in the 7-tier test
 
 ## 7. Automation Plan and Implementation Mapping
 
-| TC ID | Test File | Execution Command | Mocking Requirements | Implementation Status |
+ | TC ID | Test File | Execution Command | Mocking Requirements | Implementation Status |
 |-------|-----------|-------------------|---------------------|----------------------|
-| TC-BDD-001 | `tests/bdd/features/no-silent-overwrite.feature` | `bun run test:bdd` | FakeTarget (port mock only), FakeRepository (Git fixtures) | To Implement |
-| TC-BDD-002 | `tests/bdd/features/no-silent-overwrite.feature` | `bun run test:bdd` | FakeTarget (port mock only), FakeRepository | To Implement |
-| TC-BDD-003 | `tests/bdd/features/no-silent-recreate-remote-missing.feature` | `bun run test:bdd` | FakeTarget (port mock only), FakeRepository | To Implement |
-| TC-BDD-004 | `tests/bdd/features/no-silent-recreate-remote-missing.feature` | `bun run test:bdd` | FakeTarget (port mock only), FakeRepository | To Implement |
-| TC-BDD-005 | `tests/bdd/features/duplicate-uuid-fatal.feature` (existing) | `bun run test:bdd` | FakeTarget (port mock only), FakeRepository | To Implement (step defs) |
-| TC-BDD-006 | `tests/bdd/features/no-secret-in-output.feature` | `bun run test:bdd` | FakeTarget (port mock only), FakeRepository | To Implement |
+| TC-BDD-001 | `tests/bdd/features/no-silent-overwrite.feature` | `bun run test:bdd` | FakeTarget (`TargetSystem` port mock), FakeRepository (`Repository` port mock for Git fixtures) | To Implement |
+| TC-BDD-002 | `tests/bdd/features/no-silent-overwrite.feature` | `bun run test:bdd` | FakeTarget (`TargetSystem` port mock), FakeRepository | To Implement |
+| TC-BDD-003 | `tests/bdd/features/no-silent-recreate-remote-missing.feature` | `bun run test:bdd` | FakeTarget (`TargetSystem` port mock), FakeRepository | To Implement |
+| TC-BDD-004 | `tests/bdd/features/no-silent-recreate-remote-missing.feature` | `bun run test:bdd` | FakeTarget (`TargetSystem` port mock), FakeRepository | To Implement |
+| TC-BDD-005 | `tests/bdd/features/duplicate-uuid-fatal.feature` (existing) | `bun run test:bdd` | FakeTarget (`TargetSystem` port mock), FakeRepository | To Implement (step defs) |
+| TC-BDD-006 | `tests/bdd/features/no-secret-in-output.feature` | `bun run test:bdd` | FakeTarget (`TargetSystem` port mock), FakeRepository | To Implement |
 | TC-BDD-007 | `.github/workflows/ci.yml` (validation) | Manual review + CI job run | No mocks; validates CI configuration | To Implement |
 | TC-E2E-001 | `tests/e2e/sandbox-guard.test.ts` | `bun test tests/e2e/` (no secrets) | No mocks; guard logic only | To Implement |
 | TC-E2E-002 | `tests/e2e/sandbox-smoke.test.ts` | `bun test tests/e2e/` (with secrets) | Real Confluence adapter; no mocks | To Implement |
@@ -800,11 +804,12 @@ This test plan validates the wiring of two unwired test tiers in the 7-tier test
 |----|----------|---------|--------|
 | OQ-1 (from spec) | What is the exact, working `cucumber-js` invocation under the pinned Bun? | The existing stub targets `bunx cucumber-js tests/bdd/features`. If that CLI form is flaky under Bun 1.2.23, a bun-native entry is the fallback. | Resolvable at delivery (DEC-2); no decision-advisor input expected — empirical validate-or-adjust step |
 
-## 9. Plan Revision Log
+ ## 9. Plan Revision Log
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-15 | Test Plan Writer | Initial test plan — 16 test cases covering all mandatory ACs, BDD invariant scenarios (TC-BDD-001–006), E2E guard+smoke+workflow (TC-E2E-001–003), tier verification (TC-TIER-001–005), and bun run check (TC-CHECK-001). |
+| 1.1 | 2026-07-15 | Test Plan Writer | DoR iter-1 fixes: (F1) TC-BDD-006 INV-SEC-1 injection point corrected to document content (mirrors TC-INTEGRATION-011), removed config/provenance phrasing; (F2) adapter-port wording updated throughout to reflect both `TargetSystem` + `Repository` as mocked adapter ports; (F3) TC-CHECK-001 corrected to clarify `bun run check` does NOT chain `test:bdd` (covers lint/format/typecheck/test/boundaries only); (F4) TC-BDD-005 corrected to reflect that `applyPlan` is never reached (`computePlan` aborts at duplicate-UUID gate). |
 
 ## 10. Test Execution Log
 
