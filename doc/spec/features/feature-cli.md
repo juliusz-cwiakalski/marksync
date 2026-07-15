@@ -46,7 +46,7 @@ JSON/NDJSON output.
 | `init` | Initialize MarkSync in a repo: if `marksync.yml` is absent, write a starter config (round-trips through `loadConfig`); if it already exists, leave it untouched. Then assign a UUID v7 to each discovered managed document's front-matter (`marksync.uuid`). UUID injection is idempotent — a document that already has an identity is left unchanged. |
 | `plan` | Compute sync plan (dry-run): what will be created/updated/moved/no-op |
 | `sync` | Execute plan: apply changes to Confluence |
-| `doctor` | Health check: auth, permissions, API connectivity, config validity |
+| `doctor` | Health check: verify Git availability, config validity, credentials (auth + base URL), space access, parent-page existence/writability, permission/visibility advisory, and renderer availability. Reports `pass`/`warn`/`fail`/`skipped` per check with AI-readable detail and suggested fixes. Read-only by default; `--probe-capabilities` opt-in runs self-cleaning scratch-page capability probes (content-property + attachment). Returns `DoctorReport` with per-check results; exit code is `0` when no gating check fails, `60` (`EXIT_HEALTH` / `DOCTOR_FAIL`) when any gating check reports `fail`. **Data is always present**; `error` is never set on the success path (DEC-4 / TDR-0009). |
 | `repair-state` | Recover from a stale/dirty lock or an interrupted apply. **Dry-run by default** (`--dry-run`, 0 writes); `--apply` executes the planned repairs and updates the committed lock. Emits a structured `RepairReport` with stable per-item diagnostic codes (repaired / skipped / needs-human-action). *(delivered — GH-28)* |
 
 ### 3.2 Output strategy (ADR-0011)
