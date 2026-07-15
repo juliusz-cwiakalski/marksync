@@ -110,7 +110,7 @@ export class FakeRepository implements Repository {
 export function matchesPattern(path: string, pattern: string): boolean {
 	// Convert glob pattern to regex
 	// Order matters: ** must be processed before *
-	let regexPattern = pattern
+	const regexPattern = pattern
 		.replace(/\./g, "\\.")
 		.replace(/\*\*/g, "DOUBLESTAR")
 		.replace(/\*/g, "[^/]*")
