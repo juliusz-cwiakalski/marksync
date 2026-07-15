@@ -65,7 +65,7 @@ This test plan defines a new secrets-free e2e mock tier (`tests/e2e-mock/`) that
 | AC-F2-5 | Provenance panel visible in body sent to mock | TC-E2EMOCK-006 | Covered |
 | AC-F2-6 | Stretch scenarios (conflict recovery, Mermaid determinism, HTML-comment strip, UUID-less warning) | Deferred | Deferred per spec §7.3 |
 | AC-3 | CI job `e2e-mock` exists, is mandatory, and requires no secrets | TC-E2EMOCK-007 | Covered |
-| AC-4 | GH-71 attachment-unwrap regression caught; GH-66 property-API regression caught | TC-E2EMOCK-002 (GH-71 unwrap during real uploads), TC-E2EMOCK-005 (GH-71 dedup signal handling), TC-E2EMOCK-006 (GH-66 property read for provenance), TC-E2EMOCK-008 (GH-66 property POST→409→GET→PUT flow) | Covered |
+| AC-4 | GH-71 attachment-unwrap regression caught; GH-66 property-API regression caught | TC-E2EMOCK-002 (GH-71 unwrap during real uploads), TC-E2EMOCK-008 (GH-66 property POST→409→GET→PUT flow) | Covered |
 
 ### 3.2 Interface Coverage (API-#, EVT-#, DM-#)
 
@@ -77,8 +77,8 @@ This test plan defines a new secrets-free e2e mock tier (`tests/e2e-mock/`) that
 | API-F1-4 | `GET /wiki/rest/api/content/{pageId}/property/{key}` — get property | TC-E2EMOCK-002, TC-E2EMOCK-006, TC-E2EMOCK-008 | Captured in property flows |
 | API-F1-5 | `POST /wiki/rest/api/content/{pageId}/property` — create property (409 on duplicate) | TC-E2EMOCK-002, TC-E2EMOCK-008 | 409→GET→PUT flow exercised |
 | API-F1-6 | `PUT /wiki/rest/api/content/{pageId}/property/{key}` — update property | TC-E2EMOCK-008 | Version bump asserted |
-| API-F1-7 | `POST /wiki/rest/api/content/{pageId}/child/attachment` — multipart upload (GH-71 `{ results: [...] }` shape) | TC-E2EMOCK-002, TC-E2EMOCK-005 | GH-71 unwrap class asserted |
-| API-F1-8 | `GET /wiki/rest/api/content/{pageId}/child/attachment` — list attachments | TC-E2EMOCK-002, TC-E2EMOCK-005 | Captured in dedup flow |
+| API-F1-7 | `POST /wiki/rest/api/content/{pageId}/child/attachment` — multipart upload (GH-71 `{ results: [...] }` shape) | TC-E2EMOCK-002 | GH-71 unwrap class asserted |
+| API-F1-8 | `GET /wiki/rest/api/content/{pageId}/child/attachment` — list attachments | TC-E2EMOCK-002, TC-E2EMOCK-005 | TC-002: list on create; TC-005: hash precheck dedup |
 | API-F1-9 | `GET /wiki/api/v2/user/by-me` — credential validation | Phase-1 mock smoke probe | Verified via direct mock request (not on e2e critical path; DEC-1 bypasses `resolveCredentials`) |
 | API-F1-10 | `GET /wiki/rest/api/search?cql=...` — search (stub) | Phase-1 mock smoke probe | Verified via direct mock request (stubbed, returns empty) |
 | API-F1-11 | `GET /wiki/rest/api/content/{pageId}/restriction` — restrictions (stub) | Phase-1 mock smoke probe | Verified via direct mock request (default permitted) |
@@ -125,8 +125,8 @@ This change introduces a **new test tier** to the testing strategy model: **E2E-
 | TC-E2EMOCK-002 | Create Flow - Pages with Properties and Attachments | Happy Path | Critical | High | AC-F2-1, AC-F1-1, AC-4 (GH-71) |
 | TC-E2EMOCK-003 | No-Op Idempotency - Second Run Zero Writes | Edge Case | Important | High | AC-F2-2, NFR-PERF-4 |
 | TC-E2EMOCK-004 | Update Flow - Version Bump and Server State Advance | Happy Path | Important | High | AC-F2-3 |
-| TC-E2EMOCK-005 | Attachment Deduplication - No Re-upload on Duplicate | Edge Case | Important | High | AC-F2-4, AC-4 (GH-71) |
-| TC-E2EMOCK-006 | Provenance Panel - Visible in Body | Happy Path | Important | High | AC-F2-5, AC-4 (GH-66) |
+| TC-E2EMOCK-005 | Attachment Deduplication - Hash Precheck Skips Re-upload | Edge Case | Important | High | AC-F2-4 |
+| TC-E2EMOCK-006 | Provenance Panel - Visible in Body | Happy Path | Important | High | AC-F2-5 |
 | TC-E2EMOCK-007 | CI Job Verification - e2e-mock Job Present and Secrets-Free | Regression | Critical | High | AC-3, NFR-CI-1/2 |
 | TC-E2EMOCK-008 | Property API Flow - GH-66 Regression Check | Regression | Critical | High | AC-F2-1, AC-4 (GH-66) |
 
@@ -285,12 +285,12 @@ This change introduces a **new test tier** to the testing strategy model: **E2E-
 
 ---
 
-#### TC-E2EMOCK-005 - Attachment Deduplication - No Re-upload on Duplicate
+#### TC-E2EMOCK-005 - Attachment Deduplication - Hash Precheck Skips Re-upload
 
 **Scenario Type**: Edge Case
 **Impact Level**: Important
 **Priority**: High
-**Related IDs**: AC-F2-4, AC-4 (GH-71 dedup signal), F-2, F-4
+**Related IDs**: AC-F2-4, F-2, F-4
 **Test Type(s)**: E2E-Mock
 **Automation Level**: Automated
 **Target Layer / Location**: `tests/e2e-mock/attachment-dedup.test.ts`
@@ -298,30 +298,32 @@ This change introduces a **new test tier** to the testing strategy model: **E2E-
 
 **Preconditions**:
 - Fresh mock server instance (state reset)
-- First sync has completed: run `computePlan` + `applyPlan` over a corpus with 1 page containing 1 attachment
-- Source Markdown is then modified (title or body change) to trigger an update flow, while keeping the SAME asset file unchanged
+- First sync (run 1) has completed: `computePlan` + `applyPlan` over a corpus with 1 page containing 1 attachment
+- First run captured 1× `POST /wiki/rest/api/content/{pageId}/child/attachment` (upload) and the attachment hash was recorded in mock's server-side state
+- Source Markdown is then modified (title or body change) to trigger an Update flow, while keeping the SAME asset file unchanged (same hash)
 
 **Steps**:
-1. Invoke `computePlan` over the modified corpus (same attachment hash)
+1. Invoke `computePlan` over the modified corpus (same attachment hash as run 1)
 2. Invoke `applyPlan` with the computed plan
-3. Assert `ApplyReport.writes == 1` (1 page updated)
-4. Assert captured requests on this run include the dedup path:
+3. Assert `ApplyReport.writes == 1` (1 page updated only; no attachment writes)
+4. Assert captured requests on this run include the hash precheck dedup path:
     - 1× `PUT /wiki/api/v2/pages/{id}` (page update)
-    - 1× `POST /wiki/rest/api/content/{pageId}/child/attachment` (attempts upload)
-    - Mock returns 400 "Cannot add a new attachment with same file name"
-    - 1× `GET /wiki/rest/api/content/{pageId}/child/attachment` (list to resolve existing)
-5. Assert mock's server-side attachment state is unchanged (same attachment ID, same version)
-6. Assert the dedup signal (400 "same file name") correctly triggers the resolve-existing path, proving the GH-71 dedup signal handling
+    - 1× `GET /wiki/rest/api/content/{pageId}/child/attachment` (the `attachmentExists` precheck call to `list()` for hash match)
+    - **0× `POST /wiki/rest/api/content/{pageId}/child/attachment`** (upload skipped because hash precheck found existing attachment)
+5. Assert mock's server-side attachment state is unchanged (same attachment ID, same version) from run 1
+6. Assert the dedup is achieved via the pipeline's hash precheck (`src/app/push-flow.ts:539` calls `target.attachmentExists()` first), not via a 400 "same file name" fallback
 
 **Expected Outcome**:
-- Attachment deduplication is exercised via the 400 → list → resolve path
-- The attachment is NOT re-uploaded despite the update flow (GH-71 dedup signal handling)
-- The existing attachment reference is correctly reused
+- Attachment deduplication is exercised via the hash precheck path (`attachmentExists` → `list` → hash match → skip)
+- The attachment is NOT re-uploaded despite the update flow
+- The existing attachment reference is correctly reused via the hash precheck
+- Note: the 400 "Cannot add a new attachment with same file name" path in `AttachmentService.upload()` is an adapter-level defensive fallback that is **unreachable by design** through the pipeline (the precheck prevents `uploadAttachment` from ever being called for an already-present hash)
 
 **Notes / Clarifications**:
-- This scenario validates the dedup signal path (400 → list → resolve), which depends on the GH-71 unwrap class working correctly
-- TC-E2EMOCK-002 proves the GH-71 unwrap of `{ results: [...] }` during real uploads; this TC proves the dedup signal that prevents re-uploads
-- The update flow is necessary because NoOp short-circuits before `uploadAssets`, so the dedup path would never be reached
+- This scenario validates the hash-PRECHECK dedup mechanism (the real pipeline dedup path)
+- TC-E2EMOCK-002 proves the GH-71 unwrap of `{ results: [...] }` during real uploads (run 1); TC-E2EMOCK-005 proves the hash precheck dedup (run 2)
+- The update flow is necessary because NoOp short-circuits before `uploadAssets`, so the dedup path would never be reached on an unchanged second run
+- The 400 dedup fallback path (`src/infra/confluence/attachments.ts` `upload()` lines 38-45) is never exercised by this scenario because the pipeline prechecks hash first per `src/app/push-flow.ts:539`
 
 ---
 
@@ -330,7 +332,7 @@ This change introduces a **new test tier** to the testing strategy model: **E2E-
 **Scenario Type**: Happy Path
 **Impact Level**: Important
 **Priority**: High
-**Related IDs**: AC-F2-5, AC-4 (GH-66), F-2, F-4
+**Related IDs**: AC-F2-5, F-2, F-4
 **Test Type(s)**: E2E-Mock
 **Automation Level**: Automated
 **Target Layer / Location**: `tests/e2e-mock/provenance-panel.test.ts`
@@ -344,16 +346,17 @@ This change introduces a **new test tier** to the testing strategy model: **E2E-
 1. Invoke `computePlan` over the corpus
 2. Invoke `applyPlan` with the computed plan
 3. Assert captured `POST /wiki/api/v2/pages` request body contains the visible provenance panel:
-   - Storage body includes `{info}` macro with provenance metadata
-   - OR `marksync.metadata` content is reflected in the visible panel format
+    - Storage body includes `{info}` macro with provenance metadata
+    - OR `marksync.metadata` content is reflected in the visible panel format
 4. Assert the mock's server-side page body includes the provenance panel content
 
 **Expected Outcome**:
 - Provenance panel is present in the body sent to the mock
-- The property `marksync.metadata` is correctly rendered as a visible panel (catching GH-66 property-API class if wrong endpoint/shape)
+- The property `marksync.metadata` is correctly rendered as a visible panel (catching GH-66 property-API class if wrong endpoint/shape during the property set on create flow covered by TC-E2EMOCK-002)
 
 **Notes / Clarifications**:
-- This scenario tests the GH-66 regression class (property-API endpoint/shape)
+- This is a CREATE-flow provenance scenario; `getProperty` is never called on Create, so it does NOT directly exercise the GH-66 property-API regression
+- GH-66 regression coverage is held by TC-E2EMOCK-002 (property set on create — a blocked/errored entry would fail) + TC-E2EMOCK-008 (the property POST→409→GET→PUT flow)
 - The exact visible format depends on the provenance panel implementation (deferred to implementation)
 
 ---
@@ -464,7 +467,7 @@ This change introduces a **new test tier** to the testing strategy model: **E2E-
 | TC-E2EMOCK-002 | `tests/e2e-mock/create-flow.test.ts` | `bun test tests/e2e-mock/create-flow.test.ts` | Full mock server with page/property/attachment state; corpus fixtures | To Implement |
 | TC-E2EMOCK-003 | `tests/e2e-mock/noop-idempotency.test.ts` | `bun test tests/e2e-mock/noop-idempotency.test.ts` | Mock server state from first run persisted for second run | To Implement |
 | TC-E2EMOCK-004 | `tests/e2e-mock/update-flow.test.ts` | `bun test tests/e2e-mock/update-flow.test.ts` | Mock server with page version tracking; 409 NOT exercised (happy path) | To Implement |
-| TC-E2EMOCK-005 | `tests/e2e-mock/attachment-dedup.test.ts` | `bun test tests/e2e-mock/attachment-dedup.test.ts` | Mock server with attachment dedup (400 "same file name" or hash precheck) | To Implement |
+| TC-E2EMOCK-005 | `tests/e2e-mock/attachment-dedup.test.ts` | `bun test tests/e2e-mock/attachment-dedup.test.ts` | Mock server with attachment state; hash precheck dedup via request capture (0× POST, 1× GET list) | To Implement |
 | TC-E2EMOCK-006 | `tests/e2e-mock/provenance-panel.test.ts` | `bun test tests/e2e-mock/provenance-panel.test.ts` | Mock server with property storage; provenance panel fixture | To Implement |
 | TC-E2EMOCK-007 | `.github/workflows/ci.yml` (validation) | Manual review + CI job run | No mocks; validates CI configuration | To Implement |
 | TC-E2EMOCK-008 | `tests/e2e-mock/property-api-flow.test.ts` | `bun test tests/e2e-mock/property-api-flow.test.ts` | Mock server with v1 content-property REST endpoints (POST-409→GET→PUT) | To Implement |
