@@ -139,6 +139,7 @@ notes:
       for runRepair success/failure tails) → 100% lines/functions. CI green.
     type: retro
     date: "2026-07-15"
+  - text: >
       (F-1) the coder + fixer both missed: the dirty-lock rebuild path and
       crash-window candidate path rebuild a binding UNCONDITIONALLY without
       a divergence check. The fixer had added a divergence check, but only
