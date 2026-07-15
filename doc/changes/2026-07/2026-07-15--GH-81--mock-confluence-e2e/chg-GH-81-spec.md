@@ -90,7 +90,7 @@ Because the mandatory CI loop has no full-pipeline e2e coverage against a Conflu
 ### 5.1 Capability Details
 
 **F-1: Stateful mock Confluence HTTP server**
-A `Bun.serve({ port: 0 })` process on an ephemeral port holding in-memory state keyed by page id: pages (id, title, version, body storage, parentId), content properties (`pageId::key → { id, value, version }` — `id` is the property id returned in the response envelope and is **required** by `PropertyV1Response`), and attachments (`pageId → [{ id, filename, version }]`). It enforces optimistic concurrency: a page PUT or property PUT with a stale version yields a **409** whose body matches the exact envelope MarkSync's `parseConflict` expects; a duplicate attachment filename yields the **400** "same file name" idempotency signal. State resets per scenario (fresh server or explicit reset) so tests are deterministic. The mock accepts any `Authorization` header (it is a mock). It records captured requests (method, path, Authorization present, body) for assertions, mirroring the established `CapturedRequest[]` pattern in the integration tier.
+A `Bun.serve({ port: 0 })` process on an ephemeral port holding in-memory state keyed by page id: pages (id, title, version, body storage, parentId), content properties (`pageId::key → { id, value, version }` — `id` is the property id returned in the response envelope and is **required** by `PropertyV1Response`), and attachments (`pageId → [{ id, filename, version }]`). It enforces optimistic concurrency: a page PUT or property PUT with a stale version yields a **409** whose body matches the exact envelope MarkSync's `parseConflict` expects; a duplicate attachment filename yields the **400** "same file name" idempotency signal (an adapter-level defensive fallback on the POST endpoint — the pipeline dedups earlier via the `GET .../child/attachment` list precheck in `uploadAssets`, so this POST is never reached for an already-present hash). State resets per scenario (fresh server or explicit reset) so tests are deterministic. The mock accepts any `Authorization` header (it is a mock). It records captured requests (method, path, Authorization present, body) for assertions, mirroring the established `CapturedRequest[]` pattern in the integration tier.
 
 **F-2: Full-pipeline e2e scenario suite**
 Scenarios construct `ConfluenceTarget.fromCredentials` directly against the mock's loopback origin (DEC-1) and invoke `computePlan` + `applyPlan` over a small committed Markdown corpus (pages with `marksync:uuid` front-matter). Assertions combine the returned `ApplyReport` (writes/skips/blocks counts) with the mock's captured requests and server-side state. At least five mandatory scenarios cover the critical pipeline paths (create, no-op idempotency, update with version bump, attachment dedup, provenance panel).
@@ -124,8 +124,15 @@ Flow 4: Update + conflict-recovery (stretch) scenario
     (stretch) mock returns 409 once → adapter re-fetches page → retries PUT with bumped version → success
 
 Flow 5: Attachment dedup scenario
-  applyPlan (run 1) uploads attachment → applyPlan (run 2) same asset
-    → second upload hits 400 "same file name" → resolved from list → 0 re-uploads
+  applyPlan (run 1) uploads attachment (POST .../child/attachment — GH-71 { results: [...] }
+    unwrap on the create response) → modify markdown (trigger Update) keeping SAME asset
+    → applyPlan (run 2) re-runs uploadAssets → attachmentExists precheck
+      → GET .../child/attachment (list) finds the existing hash → skip → 0× POST
+      (mock server-side attachment id/version unchanged)
+  NOTE: the 400 "Cannot add a new attachment with same file name" path is an adapter-level
+  defensive fallback — unreachable from the pipeline BY DESIGN: hash-naming + the
+  attachmentExists precheck short-circuit before uploadAttachment is ever called
+  (covered by adapter unit/integration tests, NOT by this e2e)
 ```
 
 ## 7. SCOPE & BOUNDARIES
@@ -171,8 +178,8 @@ The mock must implement the endpoints MarkSync actually calls. This is the **cor
 - `PUT /wiki/rest/api/content/{pageId}/property/{key}` body `{ key, value, version:{number: currentVersion+1} }` → update; 409 on stale version.
 
 **Attachments** (`src/infra/confluence/attachments.ts`, v1):
-- `POST /wiki/rest/api/content/{pageId}/child/attachment` — multipart upload (`file` + `minorEdit=true`, `X-Atlassian-Token: no-check`). Response 2xx is `{ results:[{ id, title, version:{number} }] }` (v1 wraps even single creates in `results[]` — the GH-71 shape). Dedup: if a file with the same hash-derived name (`marksync-mermaid-<hash>.svg` / `marksync-asset-<hash>.<ext>`) already exists → **400** with a body matching `/Cannot add a new attachment with same file name/i` (the idempotency signal).
-- `GET /wiki/rest/api/content/{pageId}/child/attachment` → 200 `{ results:[{ id, title, version:{number} }] }`.
+- `POST /wiki/rest/api/content/{pageId}/child/attachment` — multipart upload (`file` + `minorEdit=true`, `X-Atlassian-Token: no-check`). Response 2xx is `{ results:[{ id, title, version:{number} }] }` (v1 wraps even single creates in `results[]` — the GH-71 shape). Dedup: the **pipeline dedups before uploading** — `uploadAssets` calls `attachmentExists` (the `GET` list below) and skips when the hash is already present, issuing 0× POST. The POST endpoint's **400** with a body matching `/Cannot add a new attachment with same file name/i` (the idempotency signal) is implemented for adapter realism but is a **defensive fallback the pipeline cannot reach by design** (hash-naming + precheck mean `uploadAttachment` is never called for an already-present hash); it is covered by adapter unit/integration tests, not by this e2e.
+- `GET /wiki/rest/api/content/{pageId}/child/attachment` → 200 `{ results:[{ id, title, version:{number} }] }` — the pipeline's attachment-dedup precheck (`uploadAssets` → `attachmentExists` lists + hash-matches here before any upload).
 
 **Port-exposed but NOT on the sync critical path** (minimal stubs for AC-F1 completeness — search returns empty results; restrictions returns a default view-permitted shape):
 - `GET /wiki/rest/api/search?cql=...` → 200 `{ results:[] }`.
@@ -275,11 +282,11 @@ N/A — no new production telemetry. Scenario failures must surface a clear diff
 | AC-F2-1 | **Given** a corpus of UUID'd Markdown pages, **when** `computePlan` + `applyPlan` run against a fresh mock, **then** the pages are created (`POST /wiki/api/v2/pages` captured), the `marksync.metadata` property is set, and any attachments are uploaded — `ApplyReport.writes` equals the number of pages written. | F-2, G-2, F-4 |
 | AC-F2-2 | **Given** a mock state already populated by a first `applyPlan`, **when** a second `applyPlan` runs over unchanged source, **then** every entry is NoOp and `ApplyReport.writes == 0` (no POST/PUT/attachment POST captured) — NFR-PERF-4. | F-2, NFR-PERF-4 |
 | AC-F2-3 | **Given** a Markdown page modified after a first sync, **when** `applyPlan` runs, **then** a `PUT /wiki/api/v2/pages/{id}` is captured carrying `version.number = baseVersion+1` and the mock's server-side page version advances. | F-2 |
-| AC-F2-4 | **Given** an attachment uploaded on the first sync, **when** `applyPlan` runs a second time over the same asset, **then** the duplicate is resolved idempotently (the mock's 400 "same file name" path or a hash precheck) and the attachment is NOT re-uploaded (`POST …/child/attachment` for that asset not captured on run 2) — proving the GH-71 unwrap + dedup class holds. | F-2, F-4 |
+| AC-F2-4 | **Given** an attachment uploaded on the first sync, **when** `applyPlan` runs a second time over the same asset (an Update flow — unchanged source short-circuits as NoOp before `uploadAssets`), **then** the pipeline dedups via the hash precheck: run 2 issues 1× `GET …/child/attachment` (`attachmentExists`), finds the existing hash → skip → 0× `POST …/child/attachment` for that asset, and the mock's server-side attachment id/version is unchanged. The 400 "same file name" path is an adapter-level defensive fallback the pipeline cannot reach by design (covered by adapter unit/integration tests, not this e2e); the GH-71 `{ results: [...] }` unwrap is exercised separately by run-1 real uploads (AC-F2-1 / TC-E2EMOCK-002), NOT by this dedup scenario. | F-2 |
 | AC-F2-5 | **Given** a page synced with the visible provenance panel, **when** the captured create/update page body is inspected, **then** the visible provenance panel (`{info}` macro / `marksync.metadata` content) is present in the body sent to the mock. | F-2 |
 | AC-F2-6 | **Given** the stretch scenarios (conflict recovery per ADR-0006 C-5/C-6, Mermaid determinism, HTML-comment strip per GH-77, UUID-less warning per GH-74), **when** assessed for delivery, **then** they are either implemented OR explicitly deferred (§7.3) with a recorded rationale — they are not required to satisfy AC-2. | F-2, OQ-1 |
 | AC-3 | **Given** a pull request to `main`, **when** CI runs, **then** a mandatory `e2e-mock` job in `.github/workflows/ci.yml` executes `bun test tests/e2e-mock/` and requires **no secrets** (the job is not added to `run-e2e.yml`). | F-3, G-3, NFR-CI-2 |
-| AC-4 | **Given** the GH-71 attachment-unwrap regression (`mapCreate` treating a `{ results: [...] }` body as flat) reintroduced, **then** AC-F2-1/F-2-4 fails; and **given** the GH-66 property-API regression (wrong endpoint/shape for the content-property flow) reintroduced, **then** AC-F2-1 / TC-E2EMOCK-008 fails (the `marksync.metadata` property set on create errors/blocks) — **not** AC-F2-5: the provenance panel lives in the page body via `createPage`, independent of `putProperty`, so it does not catch this class — so both adapter-regression classes are caught by the suite (documented coverage in §5.1 F-4). | F-4, G-4 |
+| AC-4 | **Given** the GH-71 attachment-unwrap regression (`mapCreate` treating a `{ results: [...] }` body as flat) reintroduced, **then** AC-F2-1 fails (the run-1 real upload exercises the unwrap; the dedup scenario AC-F2-4 does a hash-precheck skip with 0× POST on run 2 and does not re-exercise the unwrap); and **given** the GH-66 property-API regression (wrong endpoint/shape for the content-property flow) reintroduced, **then** AC-F2-1 / TC-E2EMOCK-008 fails (the `marksync.metadata` property set on create errors/blocks) — **not** AC-F2-5: the provenance panel lives in the page body via `createPage`, independent of `putProperty`, so it does not catch this class — so both adapter-regression classes are caught by the suite (documented coverage in §5.1 F-4). | F-4, G-4 |
 
 ## 18. ROLLOUT & CHANGE MANAGEMENT (HIGH-LEVEL)
 
@@ -342,6 +349,7 @@ The adapter-call-level integration tests (`tests/integration/confluence/confluen
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-15 | Change Spec Writer | Initial specification |
+| 1.1 | 2026-07-15 | Change Spec Writer | DoR iter-2 correction: attachment dedup narrative corrected to the real runtime mechanism. §6 Flow 5 (BLOCKING) — the pipeline dedups via the `attachmentExists` `GET .../child/attachment` hash precheck (1× GET → skip → 0× POST), NOT the unreachable 400 "same file name" POST path. §5.1 F-1, §8.1, AC-F2-4, AC-4 clarified consistently: the 400 path is an adapter-level defensive fallback the pipeline cannot reach by design (covered by adapter unit/integration tests, not this e2e); the GH-71 `{ results: [...] }` unwrap lock is attributed to run-1 real uploads (AC-F2-1 / TC-E2EMOCK-002), NOT to the dedup scenario. ACs not renumbered. |
 
 ---
 
