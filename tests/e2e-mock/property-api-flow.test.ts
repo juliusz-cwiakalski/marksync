@@ -85,16 +85,26 @@ describe("TC-E2EMOCK-008 — property API flow (GH-66 regression)", () => {
 		await ensureCacheLayout(tmpCacheDir);
 
 		// RUN 1: Create page and set property (POST-2xx)
-		const firstPlanResult = await computePlan(baseConfig, lock, fakeRepo, target);
+		const firstPlanResult = await computePlan(
+			baseConfig,
+			lock,
+			fakeRepo,
+			target,
+		);
 		expect(firstPlanResult.ok).toBe(true);
 		if (!firstPlanResult.ok) return;
 
-		const firstApplyResult = await applyPlan(firstPlanResult.value, target, lock, {
-			cwd: tmpCacheDir,
-			cacheDir: tmpCacheDir,
-			targetId: "default",
-			stalePlanMinutes: 15,
-		});
+		const firstApplyResult = await applyPlan(
+			firstPlanResult.value,
+			target,
+			lock,
+			{
+				cwd: tmpCacheDir,
+				cacheDir: tmpCacheDir,
+				targetId: "default",
+				stalePlanMinutes: 15,
+			},
+		);
 		expect(firstApplyResult.ok).toBe(true);
 		if (!firstApplyResult.ok) return;
 
@@ -103,13 +113,17 @@ describe("TC-E2EMOCK-008 — property API flow (GH-66 regression)", () => {
 
 		// Get page ID from first run (server-assigned id lives in the lock
 		// binding; the create request body has no id field).
-		const postPage = mock.captured.find((r) => r.method === "POST" && r.path === "/wiki/api/v2/pages");
+		const postPage = mock.captured.find(
+			(r) => r.method === "POST" && r.path === "/wiki/api/v2/pages",
+		);
 		expect(postPage).toBeDefined();
 		const pageId = Object.values(lock.targets.default.documents)[0]!.pageId;
 
 		// Assert property POST on first run (create property, 2xx)
 		const postProperties = mock.captured.filter(
-			(r) => r.method === "POST" && r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/property$/),
+			(r) =>
+				r.method === "POST" &&
+				r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/property$/),
 		);
 		expect(postProperties.length).toBe(1);
 		expect(postProperties[0].path).toContain(pageId);
@@ -136,16 +150,26 @@ MODIFIED content - property should update via POST-409→GET→PUT flow.`;
 
 		// RUN 2: Update page, property should trigger POST-409→GET→PUT flow.
 		// applyPlan mutated `lock` in place (ApplyReport has no lock field); reuse it.
-		const secondPlanResult = await computePlan(baseConfig, lock, fakeRepo, target);
+		const secondPlanResult = await computePlan(
+			baseConfig,
+			lock,
+			fakeRepo,
+			target,
+		);
 		expect(secondPlanResult.ok).toBe(true);
 		if (!secondPlanResult.ok) return;
 
-		const secondApplyResult = await applyPlan(secondPlanResult.value, target, lock, {
-			cwd: tmpCacheDir,
-			cacheDir: tmpCacheDir,
-			targetId: "default",
-			stalePlanMinutes: 15,
-		});
+		const secondApplyResult = await applyPlan(
+			secondPlanResult.value,
+			target,
+			lock,
+			{
+				cwd: tmpCacheDir,
+				cacheDir: tmpCacheDir,
+				targetId: "default",
+				stalePlanMinutes: 15,
+			},
+		);
 		expect(secondApplyResult.ok).toBe(true);
 		if (!secondApplyResult.ok) return;
 
@@ -156,17 +180,23 @@ MODIFIED content - property should update via POST-409→GET→PUT flow.`;
 
 		// Assert captured run-2 sequence includes property POST-409→GET→PUT flow
 		const postPropertiesRun2 = mock.captured.filter(
-			(r) => r.method === "POST" && r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/property$/),
+			(r) =>
+				r.method === "POST" &&
+				r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/property$/),
 		);
 		expect(postPropertiesRun2.length).toBeGreaterThanOrEqual(1);
 
 		const getProperties = mock.captured.filter(
-			(r) => r.method === "GET" && r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/property\/[^/]+$/),
+			(r) =>
+				r.method === "GET" &&
+				r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/property\/[^/]+$/),
 		);
 		expect(getProperties.length).toBeGreaterThanOrEqual(1);
 
 		const putProperties = mock.captured.filter(
-			(r) => r.method === "PUT" && r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/property\/[^/]+$/),
+			(r) =>
+				r.method === "PUT" &&
+				r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/property\/[^/]+$/),
 		);
 		expect(putProperties.length).toBeGreaterThanOrEqual(1);
 
@@ -180,7 +210,9 @@ MODIFIED content - property should update via POST-409→GET→PUT flow.`;
 		expect(putPropertyBody.version?.number).toBe(2); // version incremented from 1 to 2
 
 		// Assert /api/jsongraphs/property-service/property is NEVER called (GH-66 check)
-		const jsongraphsCalls = mock.captured.filter((r) => r.path.includes("/api/jsongraphs/"));
+		const jsongraphsCalls = mock.captured.filter((r) =>
+			r.path.includes("/api/jsongraphs/"),
+		);
 		expect(jsongraphsCalls.length).toBe(0);
 
 		// Assert property response shape includes `id` field

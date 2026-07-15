@@ -99,7 +99,9 @@ describe("TC-E2EMOCK-006 — provenance panel visible in body (AC-F2-5)", () => 
 		if (!applyResult.ok) return;
 
 		// Assert captured POST /pages request body contains provenance panel
-		const postPage = mock.captured.find((r) => r.method === "POST" && r.path === "/wiki/api/v2/pages");
+		const postPage = mock.captured.find(
+			(r) => r.method === "POST" && r.path === "/wiki/api/v2/pages",
+		);
 		expect(postPage).toBeDefined();
 		const postPageBody = JSON.parse(postPage!.text);
 
@@ -122,7 +124,9 @@ describe("TC-E2EMOCK-006 — provenance panel visible in body (AC-F2-5)", () => 
 
 		// Also verify the property was set (marksync.metadata property should exist)
 		const postProperty = mock.captured.find(
-			(r) => r.method === "POST" && r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/property$/),
+			(r) =>
+				r.method === "POST" &&
+				r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/property$/),
 		);
 		expect(postProperty).toBeDefined();
 		const postPropertyBody = JSON.parse(postProperty!.text);
@@ -130,7 +134,10 @@ describe("TC-E2EMOCK-006 — provenance panel visible in body (AC-F2-5)", () => 
 		expect(postPropertyBody.value).toBeDefined();
 
 		// The property value should contain provenance information
-		const propValue = typeof postPropertyBody.value === "string" ? postPropertyBody.value : JSON.stringify(postPropertyBody.value);
+		const propValue =
+			typeof postPropertyBody.value === "string"
+				? postPropertyBody.value
+				: JSON.stringify(postPropertyBody.value);
 		expect(propValue).toMatch(/commit|synchronized|version/i);
 	});
 });

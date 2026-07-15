@@ -39,7 +39,9 @@ export function targetFor(origin: string, logs?: string[]): ConfluenceTarget {
  * Load corpus fixtures from tests/e2e-mock/fixtures/corpus/{scenario}/.
  * Returns a map of filename → content.
  */
-export async function loadCorpus(scenario: string): Promise<Map<string, string>> {
+export async function loadCorpus(
+	scenario: string,
+): Promise<Map<string, string>> {
 	const corpus = new Map<string, string>();
 	const corpusDir = `tests/e2e-mock/fixtures/corpus/${scenario}`;
 

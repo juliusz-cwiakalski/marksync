@@ -111,11 +111,15 @@ describe("TC-E2EMOCK-002 — create flow (GH-71 unwrap, AC-F2-1, AC-4)", () => {
 		expect(report.writes).toBe(3);
 
 		// Assert captured requests
-		const postPages = mock.captured.filter((r) => r.method === "POST" && r.path === "/wiki/api/v2/pages");
+		const postPages = mock.captured.filter(
+			(r) => r.method === "POST" && r.path === "/wiki/api/v2/pages",
+		);
 		expect(postPages.length).toBe(3);
 
 		const postProperties = mock.captured.filter(
-			(r) => r.method === "POST" && r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/property$/),
+			(r) =>
+				r.method === "POST" &&
+				r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/property$/),
 		);
 		expect(postProperties.length).toBe(3);
 
@@ -125,19 +129,23 @@ describe("TC-E2EMOCK-002 — create flow (GH-71 unwrap, AC-F2-1, AC-4)", () => {
 			expect(body.key).toBe("marksync.metadata");
 		}
 
-	const postAttachments = mock.captured.filter(
-		(r) => r.method === "POST" && r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/child\/attachment$/),
-	);
-	// Note: Mermaid rendering requires external service, so we expect 0 attachments in this test
-	// The GH-71 unwrap is tested in attachment-dedup.test.ts instead
-	expect(postAttachments.length).toBe(0);
+		const postAttachments = mock.captured.filter(
+			(r) =>
+				r.method === "POST" &&
+				r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/child\/attachment$/),
+		);
+		// Note: Mermaid rendering requires external service, so we expect 0 attachments in this test
+		// The GH-71 unwrap is tested in attachment-dedup.test.ts instead
+		expect(postAttachments.length).toBe(0);
 
 		// Assert GH-71 unwrap: verify attachment POST responses have { results: [...] } shape
 		// The attachment upload test is in attachment-dedup.test.ts
 		// Here we verify the basic flow works
 
 		// No GET /user/by-me (never called during pipeline run per DEC-1)
-		const getUserByMe = mock.captured.filter((r) => r.method === "GET" && r.path === "/wiki/api/v2/user/by-me");
+		const getUserByMe = mock.captured.filter(
+			(r) => r.method === "GET" && r.path === "/wiki/api/v2/user/by-me",
+		);
 		expect(getUserByMe.length).toBe(0);
 	});
 });

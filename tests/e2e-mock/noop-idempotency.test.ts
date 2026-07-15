@@ -85,16 +85,26 @@ describe("TC-E2EMOCK-003 — no-op idempotency (AC-F2-2, NFR-PERF-4)", () => {
 		await ensureCacheLayout(tmpCacheDir);
 
 		// First sync: create pages
-		const firstPlanResult = await computePlan(baseConfig, lock, fakeRepo, target);
+		const firstPlanResult = await computePlan(
+			baseConfig,
+			lock,
+			fakeRepo,
+			target,
+		);
 		expect(firstPlanResult.ok).toBe(true);
 		if (!firstPlanResult.ok) return;
 
-		const firstApplyResult = await applyPlan(firstPlanResult.value, target, lock, {
-			cwd: tmpCacheDir,
-			cacheDir: tmpCacheDir,
-			targetId: "default",
-			stalePlanMinutes: 15,
-		});
+		const firstApplyResult = await applyPlan(
+			firstPlanResult.value,
+			target,
+			lock,
+			{
+				cwd: tmpCacheDir,
+				cacheDir: tmpCacheDir,
+				targetId: "default",
+				stalePlanMinutes: 15,
+			},
+		);
 		expect(firstApplyResult.ok).toBe(true);
 		if (!firstApplyResult.ok) return;
 
@@ -114,16 +124,26 @@ describe("TC-E2EMOCK-003 — no-op idempotency (AC-F2-2, NFR-PERF-4)", () => {
 
 		// Second sync: unchanged source (same commit SHA, same corpus). Reuse the
 		// in-place-mutated lock (applyPlan mutated it; ApplyReport has no lock).
-		const secondPlanResult = await computePlan(baseConfig, lock, fakeRepo, target);
+		const secondPlanResult = await computePlan(
+			baseConfig,
+			lock,
+			fakeRepo,
+			target,
+		);
 		expect(secondPlanResult.ok).toBe(true);
 		if (!secondPlanResult.ok) return;
 
-		const secondApplyResult = await applyPlan(secondPlanResult.value, target, lock, {
-			cwd: tmpCacheDir,
-			cacheDir: tmpCacheDir,
-			targetId: "default",
-			stalePlanMinutes: 15,
-		});
+		const secondApplyResult = await applyPlan(
+			secondPlanResult.value,
+			target,
+			lock,
+			{
+				cwd: tmpCacheDir,
+				cacheDir: tmpCacheDir,
+				targetId: "default",
+				stalePlanMinutes: 15,
+			},
+		);
 		expect(secondApplyResult.ok).toBe(true);
 		if (!secondApplyResult.ok) return;
 
@@ -134,24 +154,35 @@ describe("TC-E2EMOCK-003 — no-op idempotency (AC-F2-2, NFR-PERF-4)", () => {
 		expect(secondReport.skips).toBeGreaterThan(0);
 
 		// Assert NO write operations in captured requests
-		const postPages = mock.captured.filter((r) => r.method === "POST" && r.path === "/wiki/api/v2/pages");
+		const postPages = mock.captured.filter(
+			(r) => r.method === "POST" && r.path === "/wiki/api/v2/pages",
+		);
 		expect(postPages.length).toBe(0);
 
-		const putPages = mock.captured.filter((r) => r.method === "PUT" && r.path.match(/^\/wiki\/api\/v2\/pages\/\d+$/));
+		const putPages = mock.captured.filter(
+			(r) =>
+				r.method === "PUT" && r.path.match(/^\/wiki\/api\/v2\/pages\/\d+$/),
+		);
 		expect(putPages.length).toBe(0);
 
 		const postProperties = mock.captured.filter(
-			(r) => r.method === "POST" && r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/property$/),
+			(r) =>
+				r.method === "POST" &&
+				r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/property$/),
 		);
 		expect(postProperties.length).toBe(0);
 
 		const putProperties = mock.captured.filter(
-			(r) => r.method === "PUT" && r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/property\/[^/]+$/),
+			(r) =>
+				r.method === "PUT" &&
+				r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/property\/[^/]+$/),
 		);
 		expect(putProperties.length).toBe(0);
 
 		const postAttachments = mock.captured.filter(
-			(r) => r.method === "POST" && r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/child\/attachment$/),
+			(r) =>
+				r.method === "POST" &&
+				r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/child\/attachment$/),
 		);
 		expect(postAttachments.length).toBe(0);
 

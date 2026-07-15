@@ -85,16 +85,26 @@ describe("TC-E2EMOCK-004 — update flow (AC-F2-3)", () => {
 		await ensureCacheLayout(tmpCacheDir);
 
 		// First sync: create page (version 1)
-		const firstPlanResult = await computePlan(baseConfig, lock, fakeRepo, target);
+		const firstPlanResult = await computePlan(
+			baseConfig,
+			lock,
+			fakeRepo,
+			target,
+		);
 		expect(firstPlanResult.ok).toBe(true);
 		if (!firstPlanResult.ok) return;
 
-		const firstApplyResult = await applyPlan(firstPlanResult.value, target, lock, {
-			cwd: tmpCacheDir,
-			cacheDir: tmpCacheDir,
-			targetId: "default",
-			stalePlanMinutes: 15,
-		});
+		const firstApplyResult = await applyPlan(
+			firstPlanResult.value,
+			target,
+			lock,
+			{
+				cwd: tmpCacheDir,
+				cacheDir: tmpCacheDir,
+				targetId: "default",
+				stalePlanMinutes: 15,
+			},
+		);
 		expect(firstApplyResult.ok).toBe(true);
 		if (!firstApplyResult.ok) return;
 
@@ -103,7 +113,9 @@ describe("TC-E2EMOCK-004 — update flow (AC-F2-3)", () => {
 
 		// Get page ID from first run (server-assigned id lives in the lock
 		// binding; the create request body has no id field).
-		const postPage = mock.captured.find((r) => r.method === "POST" && r.path === "/wiki/api/v2/pages");
+		const postPage = mock.captured.find(
+			(r) => r.method === "POST" && r.path === "/wiki/api/v2/pages",
+		);
 		expect(postPage).toBeDefined();
 		const pageId = Object.values(lock.targets.default.documents)[0]!.pageId;
 
@@ -124,16 +136,26 @@ MODIFIED content - this is an update.`;
 
 		// Second sync: reuse the in-place-mutated lock (applyPlan mutated it;
 		// ApplyReport carries no lock field — the same `lock` object is current).
-		const secondPlanResult = await computePlan(baseConfig, lock, fakeRepo, target);
+		const secondPlanResult = await computePlan(
+			baseConfig,
+			lock,
+			fakeRepo,
+			target,
+		);
 		expect(secondPlanResult.ok).toBe(true);
 		if (!secondPlanResult.ok) return;
 
-		const secondApplyResult = await applyPlan(secondPlanResult.value, target, lock, {
-			cwd: tmpCacheDir,
-			cacheDir: tmpCacheDir,
-			targetId: "default",
-			stalePlanMinutes: 15,
-		});
+		const secondApplyResult = await applyPlan(
+			secondPlanResult.value,
+			target,
+			lock,
+			{
+				cwd: tmpCacheDir,
+				cacheDir: tmpCacheDir,
+				targetId: "default",
+				stalePlanMinutes: 15,
+			},
+		);
 		expect(secondApplyResult.ok).toBe(true);
 		if (!secondApplyResult.ok) return;
 

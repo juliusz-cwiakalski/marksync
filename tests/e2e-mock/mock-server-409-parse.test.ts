@@ -10,7 +10,10 @@ import { parseConflict } from "#infra/confluence/pages";
  * Build a 409 conflict response body matching the exact VERSION_RE format
  * that parseConflict expects: /Current Version:\s*\[(\d+)\].*?Provided version:\s*\[(\d+)\]/
  */
-function buildConflictBody(currentVersion: number, providedVersion: number): unknown {
+function buildConflictBody(
+	currentVersion: number,
+	providedVersion: number,
+): unknown {
 	return {
 		errors: [
 			{
@@ -53,7 +56,8 @@ describe("TC-E2EMOCK-001 — mock-409 parseConflict self-check", () => {
 			errors: [
 				{
 					code: "WRONG_CODE",
-					title: "Version must be incremented when updating a page. Current Version: [2]. Provided version: [1]",
+					title:
+						"Version must be incremented when updating a page. Current Version: [2]. Provided version: [1]",
 				},
 			],
 		};

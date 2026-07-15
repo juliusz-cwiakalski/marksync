@@ -339,6 +339,81 @@ Per **DEC-1 (Option B)**, scenarios exercise the full pipeline **programmaticall
 
 ---
 
+### Phase 7: Code Review Remediation (Iteration 1)
+
+> Added by `@reviewer` (review-iter-1). Scope: `tests/e2e-mock/**` + doc/contract
+> reconciliation only — **`src/**` stays untouched (DEC-1)**. See
+> `code-review/review-iter-1.yaml` for the full finding detail.
+
+**Goal**: Resolve the two blocking findings from review iter-1 — (F-1) the GH-71
+unwrap regression lock is not where AC-4/spec/test-plan claim it is, and (F-2) all 10
+new test files fail `bun run format:check`, breaking the full local gate.
+
+**Tasks**:
+
+- [ ] **7.1** **(F-1, HIGH — pick option A or B):**
+  - **Option A (preferred, restores intended coverage):** Add a real image asset to
+    the create-flow corpus (e.g. `tests/e2e-mock/fixtures/corpus/create-flow/image.png`
+    referenced from one of page1/2/3 via `![](image.png)`), keying the FakeRepository
+    entry by its fixture-relative path exactly as `attachment-dedup.test.ts` already
+    does (it proves image uploads work in this tier). Update `create-flow.test.ts` to
+    assert `>=1× POST .../child/attachment` AND that the attachment id round-trips
+    through the `{ results: [...] }` unwrap (read from `results[0].id`). This makes
+    AC-4's "AC-F2-1 fails under GH-71 regression" literally true and matches test-plan
+    TC-E2EMOCK-002 steps 5-6. Remove the dead/misleading comments at
+    `create-flow.test.ts:135-137`.
+  - **Option B (doc-only, lower effort):** Correct spec §5.1 F-4, test-plan TC-E2EMOCK-002
+    steps 5-6, and AC-4's parenthetical to attribute the GH-71 unwrap lock to
+    TC-E2EMOCK-005 run-1 (the only scenario performing a real upload), and drop the
+    "AC-F2-1 fails" claim. Remove the dead comments in create-flow.test.ts.
+  - **Decision (coder):** Option A unless the human prefers B — record the choice in
+    the Execution Log. (AC-4, F-4)
+- [ ] **7.2** **(F-2, MEDIUM):** Run `bun run format` to auto-format all 10 e2e-mock
+  `.ts` files, then re-run `bun run check` and confirm it exits 0 (full local gate
+  green — `lint && format:check && typecheck && test && check:boundaries`). Functional
+  behavior is unchanged (biome reflows whitespace only). (Constraints, plan Phase 6 task 6.3)
+- [ ] **7.3** **(F-3, LOW — optional):** Replace the 13 non-null `!` assertions in the
+  new files with guarded accessors (e.g. `expect(x).toBeDefined(); if (!x) return;`)
+  to clear the biome `noNonNullAssertion` warnings. Non-blocking (`bun run lint` exits 0). (Code quality)
+- [ ] **7.4** **(F-4, INFO):** Add a one-paragraph note to the PR description surfacing
+    the pre-existing GH-76 "replace" concern: after a dedup-Update the lock binding's
+    `attachmentHashes` becomes `{}` (`src/app/push-flow.ts:766`), so a third unchanged
+    sync would spuriously classify LOCAL_AHEAD. This is NOT a GH-81 regression (src/
+    untouched) and is out of scope to fix (RSK-5) — surfaced for human triage only. (OQ-2-style PR note)
+- [ ] **7.5** Re-verify all guardrails after remediation: `bun test tests/e2e-mock/`
+  green; `bun run check` green; `git diff --stat main -- src/` empty (DEC-1); no
+  jsongraphs (DEC-3). (DEC-1/2/3, NFR-CI-1)
+
+**Acceptance Criteria**:
+
+- Must (F-1): The GH-71 `{ results: [...] }` unwrap is exercised by a real upload in
+  the scenario AC-4 names (if Option A), OR the spec/test-plan/AC-4 attribution is
+  corrected to TC-E2EMOCK-005 run-1 (if Option B) — no dangling/contradictory comments
+  remain in create-flow.test.ts. (AC-4, F-4)
+- Must (F-2): `bun run check` exits 0 (format:check passes on all new files). (Constraints)
+- Should (F-3): zero `noNonNullAssertion` warnings in `tests/e2e-mock/**`. (Code quality)
+- Must: DEC-1/2/3 still hold (`src/**` empty; `tests/e2e-mock/` only; no jsongraphs). (DEC-1/2/3)
+
+**Affected code areas**:
+
+- `tests/e2e-mock/create-flow.test.ts` (F-1, F-2)
+- `tests/e2e-mock/fixtures/corpus/create-flow/*` (F-1 Option A only)
+- `tests/e2e-mock/*.test.ts`, `tests/e2e-mock/helpers.ts`, `tests/e2e-mock/mock-confluence-server.ts` (F-2 format)
+- `chg-GH-81-spec.md` / `chg-GH-81-test-plan.md` (F-1 Option B only)
+
+**System docs to update**:
+
+- None (the testing-strategy/AGENTS/roadmap/dev-environment doc updates from Phase F
+  are accurate and need no change).
+
+**Tests**:
+
+- `bun run check` (full gate); `bun test tests/e2e-mock/`; `git diff --stat main -- src/` → empty.
+
+**Completion signal**: `test(e2e-mock): GH-81 code-review iter-1 remediation (AC-4 attribution + format gate green)`
+
+---
+
 ## Test Scenarios
 
 | TC ID | Scenario | File | Phases | AC / NFR |
@@ -384,6 +459,7 @@ Per **DEC-1 (Option B)**, scenarios exercise the full pipeline **programmaticall
 | 1.0 | 2026-07-15 | plan-writer | Initial plan for GH-81. 6 commit-sized phases (A–F): mock skeleton + helpers, mock-409 self-check, 5 mandatory scenarios, property-API regression scenario, mandatory secrets-free CI job, verification + finalize. Enforces DEC-1 (0 `src/**` changes; STOP+escalate adapter bugs to PM), DEC-2 (`tests/e2e-mock/` only), DEC-3 (corrected endpoints; no jsongraphs). Traced to TC-E2EMOCK-001..008 and AC-F1-1/2, AC-F2-1..6, AC-3, AC-4. Helper module named `mock-confluence-server.ts` (reconciled vs. test-plan §7 `mock-server.ts` — non-contract naming, see OQ-P1). |
 | 1.1 | 2026-07-15 | plan-writer | DoR iter-1 realignment with corrected spec (commit 77d193b) + test-plan (commit 59597f2). Targeted fixes only — phase letters/structure (A–F) and TC↔AC mappings preserved. (1) Property GET response shape + in-memory state now include the required `id` field (`{ id, key, value, version:{number} }` per `PropertyV1Response`, spec §8.1/§5.1) — Phase 1 tasks 1.2/1.5 + AC. (2) Removed the `1× GET .../user/by-me` pipeline-run assertion from TC-E2EMOCK-002/Phase 3 task 3.1 (`validateCredentials` is never called by `computePlan`/`applyPlan` per DEC-1). (3) Added a Phase-1 mock smoke probe task (1.13, `mock-smoke-probe.test.ts`) that directly requests `user/by-me`/`search`/`restrictions` — satisfying API-F1-9/10/11 without a pipeline scenario. (4) TC-E2EMOCK-008/Phase 4 rewritten to a two-sync flow (run-1 create via POST-2xx, modify markdown, run-2 update hits the existing key → POST-409→GET→PUT); GH-66 v1-endpoint + no-jsongraphs lock preserved. (5) TC-E2EMOCK-005/Phase 3 task 3.4 rewritten to exercise the dedup path via an update flow (run-1 upload, modify markdown keeping the same asset, run-2 Update re-runs `uploadAssets` → POST-400 "same file name" → list-resolve); GH-71 unwrap lock stays with TC-E2EMOCK-002's real uploads. Guardrails intact: `src/**` untouched (DEC-1), `tests/e2e-mock/` only (DEC-2), corrected endpoints/no jsongraphs (DEC-3), escalate-adapter-bugs-to-PM (RSK-5), `git diff --stat main -- src/` empty check in Phase F. |
 | 1.2 | 2026-07-15 | plan-writer | DoR iter-2 realignment with corrected spec (commit 3125778) + test-plan (commit c7133e4). Targeted fixes only — phase letters (A–F), TC IDs, and guardrails preserved. (1) **Phase 3.4 / TC-E2EMOCK-005 (BLOCKING) rewritten** to assert the REAL hash-precheck dedup path: run 2 issues 1× `PUT /pages/{id}` (page update) + 1× `GET .../child/attachment` (the `attachmentExists` precheck list) → hash found → skip → **0× `POST .../child/attachment`**; the previous runtime-UNREACHABLE "POST 400 → list → resolve" assertion is removed — the 400 path is a defensive fallback the pipeline cannot reach by design (`uploadAssets` at `src/app/push-flow.ts:539` prechecks via `attachmentExists` first). GH-71 unwrap lock attributed to TC-E2EMOCK-002's run-1 real uploads, NOT to dedup. (2) **Removed AC-4 (GH-66) from TC-E2EMOCK-006** (Phase 3.5 + Test Scenarios table): create-flow provenance never calls `getProperty`, so TC-006 does NOT cover GH-66; GH-66 coverage = TC-002 + TC-008. (3) **Phase 1 task 1.6 mirrored to spec §8.1 wording**: the 400 path is now described as a defensive mock fallback covered by adapter unit/integration tests, NOT asserted by any pipeline scenario. Test Scenarios table TC-005/006 titles + AC mappings updated to match the iter-2 test plan. Guardrails intact: `src/**` untouched (DEC-1), `tests/e2e-mock/` only (DEC-2), no jsongraphs (DEC-3), escalate-adapter-bugs-to-PM (RSK-5), `git diff --stat main -- src/` empty check in Phase F. |
+| 1.3 | 2026-07-15 | reviewer | Review iter-1 appended **Phase 7: Code Review Remediation (Iteration 1)**. Status: FAIL (1 high / 1 medium / 1 low / 2 info). Blocking findings: (F-1 HIGH) AC-4's claim that AC-F2-1/TC-E2EMOCK-002 catches the GH-71 unwrap regression is false as implemented — create-flow performs 0 attachment uploads; the lock is incidentally held by TC-E2EMOCK-005 run-1. (F-2 MEDIUM) all 10 new test files fail `bun run format:check`, breaking the full local gate `bun run check` (plan Phase 6 task 6.3 claim). Non-blocking: 13 `noNonNullAssertion` warnings (F-3 LOW); pre-existing GH-76 `attachmentHashes`-loss concern to note in PR description (F-4 INFO); hardcoded mock token matches existing pattern (F-5 INFO). Verified PASS: mock endpoints/409 envelope/property `id`/`{ results:[] }` unwrap/jsongraphs-404 all correct vs `src/infra/confluence/*`; 13/13 tests pass in 559 ms (NFR-CI-1); DEC-1/2/3 honored; CI job mandatory + secrets-free + pinned Bun 1.2.23. Full finding detail: `code-review/review-iter-1.yaml`. |
 
 ## Execution Log
 
@@ -395,3 +471,4 @@ Per **DEC-1 (Option B)**, scenarios exercise the full pipeline **programmaticall
 | 4 — Property-API scenario | Completed | 2026-07-15 | 2026-07-15 | 06f015b | TC-008 passing |
 | 5 — CI job `e2e-mock` | Completed | 2026-07-15 | 2026-07-15 | 06f015b | Job added to ci.yml, secrets-free, pinned Bun 1.2.23 |
 | 6 — Verification + finalize | Completed | 2026-07-15 | 2026-07-15 | — | All 13 e2e-mock tests passing; `src/**` untouched (DEC-1) |
+| 7 — Code review remediation (iter-1) | Open | 2026-07-15 | — | — | FAIL from review-iter-1: F-1 (HIGH, AC-4 GH-71 attribution — create-flow does 0 uploads) + F-2 (MEDIUM, format:check fails on all 10 files). Tasks 7.1-7.5 added. `@coder` to remediate. |

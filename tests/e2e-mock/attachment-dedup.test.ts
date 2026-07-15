@@ -95,16 +95,26 @@ describe("TC-E2EMOCK-005 — attachment dedup via hash precheck (AC-F2-4)", () =
 		await ensureCacheLayout(tmpCacheDir);
 
 		// RUN 1: Create page and upload attachment
-		const firstPlanResult = await computePlan(baseConfig, lock, fakeRepo, target);
+		const firstPlanResult = await computePlan(
+			baseConfig,
+			lock,
+			fakeRepo,
+			target,
+		);
 		expect(firstPlanResult.ok).toBe(true);
 		if (!firstPlanResult.ok) return;
 
-		const firstApplyResult = await applyPlan(firstPlanResult.value, target, lock, {
-			cwd: tmpCacheDir,
-			cacheDir: tmpCacheDir,
-			targetId: "default",
-			stalePlanMinutes: 15,
-		});
+		const firstApplyResult = await applyPlan(
+			firstPlanResult.value,
+			target,
+			lock,
+			{
+				cwd: tmpCacheDir,
+				cacheDir: tmpCacheDir,
+				targetId: "default",
+				stalePlanMinutes: 15,
+			},
+		);
 		expect(firstApplyResult.ok).toBe(true);
 		if (!firstApplyResult.ok) return;
 
@@ -113,13 +123,17 @@ describe("TC-E2EMOCK-005 — attachment dedup via hash precheck (AC-F2-4)", () =
 
 		// Get page ID from first run (server-assigned id lives in the lock
 		// binding; the create request body has no id field).
-		const postPage = mock.captured.find((r) => r.method === "POST" && r.path === "/wiki/api/v2/pages");
+		const postPage = mock.captured.find(
+			(r) => r.method === "POST" && r.path === "/wiki/api/v2/pages",
+		);
 		expect(postPage).toBeDefined();
 		const pageId = Object.values(lock.targets.default.documents)[0]!.pageId;
 
 		// Assert run 1 uploaded attachment (POST /child/attachment)
 		const postAttachments = mock.captured.filter(
-			(r) => r.method === "POST" && r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/child\/attachment$/),
+			(r) =>
+				r.method === "POST" &&
+				r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/child\/attachment$/),
 		);
 		expect(postAttachments.length).toBe(1); // 1 attachment uploaded (local image)
 
@@ -130,7 +144,9 @@ describe("TC-E2EMOCK-005 — attachment dedup via hash precheck (AC-F2-4)", () =
 		const docAfterFirstRun = Object.values(lock.targets.default.documents)[0]!;
 		const attachmentKeys = Object.keys(docAfterFirstRun.attachmentHashes);
 		expect(attachmentKeys.length).toBe(1);
-		const hashMatch = attachmentKeys[0]!.match(/marksync-(mermaid|asset)-([a-f0-9]+)/);
+		const hashMatch = attachmentKeys[0]!.match(
+			/marksync-(mermaid|asset)-([a-f0-9]+)/,
+		);
 		expect(hashMatch).toBeDefined();
 		const assetHash = hashMatch?.[2];
 
@@ -154,16 +170,26 @@ MODIFIED content - page updated but image unchanged.
 
 		// RUN 2: Update page, attachment should be deduped via hash precheck.
 		// applyPlan mutated `lock` in place (ApplyReport has no lock field); reuse it.
-		const secondPlanResult = await computePlan(baseConfig, lock, fakeRepo, target);
+		const secondPlanResult = await computePlan(
+			baseConfig,
+			lock,
+			fakeRepo,
+			target,
+		);
 		expect(secondPlanResult.ok).toBe(true);
 		if (!secondPlanResult.ok) return;
 
-		const secondApplyResult = await applyPlan(secondPlanResult.value, target, lock, {
-			cwd: tmpCacheDir,
-			cacheDir: tmpCacheDir,
-			targetId: "default",
-			stalePlanMinutes: 15,
-		});
+		const secondApplyResult = await applyPlan(
+			secondPlanResult.value,
+			target,
+			lock,
+			{
+				cwd: tmpCacheDir,
+				cacheDir: tmpCacheDir,
+				targetId: "default",
+				stalePlanMinutes: 15,
+			},
+		);
 		expect(secondApplyResult.ok).toBe(true);
 		if (!secondApplyResult.ok) return;
 
@@ -181,13 +207,17 @@ MODIFIED content - page updated but image unchanged.
 
 		// - 1× GET .../child/attachment (the attachmentExists precheck list)
 		const getAttachments = mock.captured.filter(
-			(r) => r.method === "GET" && r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/child\/attachment$/),
+			(r) =>
+				r.method === "GET" &&
+				r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/child\/attachment$/),
 		);
 		expect(getAttachments.length).toBeGreaterThanOrEqual(1);
 
 		// - 0× POST .../child/attachment (upload skipped, hash found via precheck)
 		const postAttachmentsRun2 = mock.captured.filter(
-			(r) => r.method === "POST" && r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/child\/attachment$/),
+			(r) =>
+				r.method === "POST" &&
+				r.path.match(/^\/wiki\/rest\/api\/content\/\d+\/child\/attachment$/),
 		);
 		expect(postAttachmentsRun2.length).toBe(0);
 

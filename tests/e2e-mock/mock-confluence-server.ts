@@ -40,7 +40,10 @@ interface AttachmentState {
 }
 
 /** Build a 409 conflict response matching parseConflict's VERSION_RE. */
-function buildConflictBody(currentVersion: number, providedVersion: string): unknown {
+function buildConflictBody(
+	currentVersion: number,
+	providedVersion: string,
+): unknown {
 	return {
 		errors: [
 			{
@@ -58,7 +61,9 @@ export function createMockServer(): {
 	captured: CapturedRequest[];
 	reset: () => void;
 	clearCaptured: () => void;
-	getServerAttachments: (pageId: string) => { id: string; title: string; version: number; hash: string }[];
+	getServerAttachments: (
+		pageId: string,
+	) => { id: string; title: string; version: number; hash: string }[];
 } {
 	let nextPageId = 100;
 	let nextPropertyId = 200;
@@ -108,13 +113,19 @@ export function createMockServer(): {
 		},
 	});
 
-	async function route(req: Request, url: URL, text: string): Promise<Response> {
+	async function route(
+		req: Request,
+		url: URL,
+		text: string,
+	): Promise<Response> {
 		const path = url.pathname;
 
 		// Parse JSON body for POST/PUT requests (skip multipart: attachment
 		// uploads use FormData and are parsed by the attachment handler below).
 		let body: unknown;
-		const isMultipart = (req.headers.get("Content-Type") || "").startsWith("multipart/form-data");
+		const isMultipart = (req.headers.get("Content-Type") || "").startsWith(
+			"multipart/form-data",
+		);
 		if ((req.method === "POST" || req.method === "PUT") && !isMultipart) {
 			try {
 				body = text ? JSON.parse(text) : undefined;
@@ -133,7 +144,12 @@ export function createMockServer(): {
 
 		// ===== V2 PAGES ENDPOINTS =====
 		if (req.method === "POST" && path === "/wiki/api/v2/pages") {
-			const parsed = body as { spaceId?: string; title?: string; parentId?: string; body?: { representation?: string; value?: string } };
+			const parsed = body as {
+				spaceId?: string;
+				title?: string;
+				parentId?: string;
+				body?: { representation?: string; value?: string };
+			};
 			const pageId = `${nextPageId++}`;
 			const page: PageState = {
 				id: pageId,
@@ -190,15 +206,26 @@ export function createMockServer(): {
 			const page = pages.get(pageId);
 			if (!page) return new Response(null, { status: 404 });
 
-			const parsed = body as { id?: string; title?: string; body?: { representation?: string; value?: string }; version?: { number?: number } };
+			const parsed = body as {
+				id?: string;
+				title?: string;
+				body?: { representation?: string; value?: string };
+				version?: { number?: number };
+			};
 			const providedVersion = parsed.version?.number;
 
 			// Confluence v2 expects the INCREMENTED version (current + 1) on PUT,
 			// mirroring the real "Version must be incremented" 409 semantics that
 			// PageService.update sends (version.number = baseVersion + 1). A
 			// providedVersion that is not exactly current+1 is stale → 409.
-			if (providedVersion !== undefined && providedVersion !== page.version + 1) {
-				return json(409, buildConflictBody(page.version, String(providedVersion)));
+			if (
+				providedVersion !== undefined &&
+				providedVersion !== page.version + 1
+			) {
+				return json(
+					409,
+					buildConflictBody(page.version, String(providedVersion)),
+				);
 			}
 
 			// Update page
@@ -216,8 +243,13 @@ export function createMockServer(): {
 		}
 
 		// ===== V1 CONTENT-PROPERTY ENDPOINTS (not jsongraphs per DEC-3) =====
-		if (req.method === "GET" && path.match(/^\/wiki\/rest\/api\/content\/(\d+)\/property\/([^/]+)$/)) {
-			const match = path.match(/^\/wiki\/rest\/api\/content\/(\d+)\/property\/([^/]+)$/);
+		if (
+			req.method === "GET" &&
+			path.match(/^\/wiki\/rest\/api\/content\/(\d+)\/property\/([^/]+)$/)
+		) {
+			const match = path.match(
+				/^\/wiki\/rest\/api\/content\/(\d+)\/property\/([^/]+)$/,
+			);
 			const pageId = match?.[1];
 			const key = match ? decodeURIComponent(match[2]) : undefined;
 			if (!pageId || !key) return new Response(null, { status: 404 });
@@ -234,7 +266,10 @@ export function createMockServer(): {
 			});
 		}
 
-		if (req.method === "POST" && path.match(/^\/wiki\/rest\/api\/content\/(\d+)\/property$/)) {
+		if (
+			req.method === "POST" &&
+			path.match(/^\/wiki\/rest\/api\/content\/(\d+)\/property$/)
+		) {
 			const match = path.match(/^\/wiki\/rest\/api\/content\/(\d+)\/property$/);
 			const pageId = match?.[1];
 			if (!pageId) return new Response(null, { status: 404 });
@@ -242,7 +277,8 @@ export function createMockServer(): {
 			const parsed = body as { key?: string; value?: string };
 			const key = parsed.key;
 			const value = parsed.value;
-			if (!key || value === undefined) return new Response(null, { status: 400 });
+			if (!key || value === undefined)
+				return new Response(null, { status: 400 });
 
 			const propKey = `${pageId}::${key}`;
 			const existing = properties.get(propKey);
@@ -270,8 +306,13 @@ export function createMockServer(): {
 			});
 		}
 
-		if (req.method === "PUT" && path.match(/^\/wiki\/rest\/api\/content\/(\d+)\/property\/([^/]+)$/)) {
-			const match = path.match(/^\/wiki\/rest\/api\/content\/(\d+)\/property\/([^/]+)$/);
+		if (
+			req.method === "PUT" &&
+			path.match(/^\/wiki\/rest\/api\/content\/(\d+)\/property\/([^/]+)$/)
+		) {
+			const match = path.match(
+				/^\/wiki\/rest\/api\/content\/(\d+)\/property\/([^/]+)$/,
+			);
 			const pageId = match?.[1];
 			const key = match ? decodeURIComponent(match[2]) : undefined;
 			if (!pageId || !key) return new Response(null, { status: 404 });
@@ -280,18 +321,26 @@ export function createMockServer(): {
 			const prop = properties.get(propKey);
 			if (!prop) return new Response(null, { status: 404 });
 
-			const parsed = body as { key?: string; value?: string; version?: { number?: number } };
+			const parsed = body as {
+				key?: string;
+				value?: string;
+				version?: { number?: number };
+			};
 			const providedVersion = parsed.version?.number;
 
 			// v1 content-property PUT expects the incremented version (current + 1),
 			// matching PropertyService.updateByKey (version.number = currentVersion + 1).
-			if (providedVersion !== undefined && providedVersion !== prop.version + 1) {
+			if (
+				providedVersion !== undefined &&
+				providedVersion !== prop.version + 1
+			) {
 				return json(409, { errors: [{ code: "CONFLICT" }] });
 			}
 
 			// Update property
 			prop.key = parsed.key ?? prop.key;
-			prop.value = parsed.value !== undefined ? String(parsed.value) : prop.value;
+			prop.value =
+				parsed.value !== undefined ? String(parsed.value) : prop.value;
 			prop.version += 1;
 
 			return json(200, {
@@ -303,8 +352,13 @@ export function createMockServer(): {
 		}
 
 		// ===== V1 ATTACHMENTS ENDPOINTS =====
-		if (req.method === "POST" && path.match(/^\/wiki\/rest\/api\/content\/(\d+)\/child\/attachment$/)) {
-			const match = path.match(/^\/wiki\/rest\/api\/content\/(\d+)\/child\/attachment$/);
+		if (
+			req.method === "POST" &&
+			path.match(/^\/wiki\/rest\/api\/content\/(\d+)\/child\/attachment$/)
+		) {
+			const match = path.match(
+				/^\/wiki\/rest\/api\/content\/(\d+)\/child\/attachment$/,
+			);
 			const pageId = match?.[1];
 			if (!pageId) return new Response(null, { status: 404 });
 
@@ -367,8 +421,13 @@ export function createMockServer(): {
 			});
 		}
 
-		if (req.method === "GET" && path.match(/^\/wiki\/rest\/api\/content\/(\d+)\/child\/attachment$/)) {
-			const match = path.match(/^\/wiki\/rest\/api\/content\/(\d+)\/child\/attachment$/);
+		if (
+			req.method === "GET" &&
+			path.match(/^\/wiki\/rest\/api\/content\/(\d+)\/child\/attachment$/)
+		) {
+			const match = path.match(
+				/^\/wiki\/rest\/api\/content\/(\d+)\/child\/attachment$/,
+			);
 			const pageId = match?.[1];
 			if (!pageId) return new Response(null, { status: 404 });
 
@@ -387,7 +446,10 @@ export function createMockServer(): {
 			return json(200, { results: [] });
 		}
 
-		if (req.method === "GET" && path.match(/^\/wiki\/rest\/api\/content\/(\d+)\/restriction$/)) {
+		if (
+			req.method === "GET" &&
+			path.match(/^\/wiki\/rest\/api\/content\/(\d+)\/restriction$/)
+		) {
 			// Default: not restricted (empty results)
 			return json(200, { results: [] });
 		}
@@ -408,7 +470,12 @@ export function createMockServer(): {
 		reset,
 		clearCaptured,
 		getServerAttachments: (pageId: string) =>
-			(attachments.get(pageId) ?? []).map((a) => ({ id: a.id, title: a.title, version: a.version, hash: a.hash })),
+			(attachments.get(pageId) ?? []).map((a) => ({
+				id: a.id,
+				title: a.title,
+				version: a.version,
+				hash: a.hash,
+			})),
 	};
 }
 
