@@ -1125,7 +1125,9 @@ describe("TC-REPAIR-011a: Diverged remote with dirty lock", () => {
 
 		// Assert binding NOT rebuilt (lock NOT modified)
 		expect(lock.targets.default.documents[uuid].sourceCommit).toBe("abc123"); // Still stale
-		expect(lock.targets.default.documents[uuid].remoteBodyHash).toBe("sha256:old-remote"); // Still old
+		expect(lock.targets.default.documents[uuid].remoteBodyHash).toBe(
+			"sha256:old-remote",
+		); // Still old
 	});
 });
 
@@ -1267,6 +1269,92 @@ describe("TC-REPAIR-011: Diverged remote", () => {
 
 		// Assert lock NOT modified
 		expect(lock.targets.default.documents[uuid].sourceCommit).toBe("abc123");
+	});
+
+	test("Crash-window candidate + diverged remote → needs-human-action, 0 writes, binding NOT rebuilt", async () => {
+		const uuid = "0192b3d4-5e6f-7000-8000-000000000011c" as DocumentId;
+		const pageId = "page-111c";
+		const runId = "0192b3d4-5e6f-7000-8000-000000000099";
+
+		// Setup: page at version 2 (the journaled operation)
+		const originalBody = "<h1>Doc A</h1>";
+		fakeTarget.addFixture({
+			id: pageId,
+			title: "Doc A",
+			version: 2,
+			body: originalBody,
+			spaceId: "TEST",
+		});
+
+		// Property matches the ORIGINAL body (what MarkSync last wrote)
+		const property: MetadataProperty = {
+			schemaVersion: 1,
+			projectId: "marksync-for-confluence",
+			targetId: "default",
+			documentId: uuid,
+			sourcePath: "doc.md",
+			sourceCommit: "def456",
+			sourceContentHash: "sha256:src",
+			renderedBodyHash: rawHash(originalBody), // Hash of what MarkSync wrote
+			toolVersion: "0.6.0",
+			synchronizedAt: "2026-07-15T00:00:00Z",
+			operationId: "op-011b",
+		};
+
+		fakeTarget.setMetadataProperty(pageId, JSON.stringify(property));
+
+		// Lock is empty (simulating crash before saveLock completed)
+		// No binding for this UUID
+
+		// Manually construct crash-window journal fixture
+		const journalDir = join(cacheDir, "journal");
+		mkdirSync(journalDir, { recursive: true });
+
+		const journalEntry: JournalEntry = {
+			ts: "2026-07-15T10:30:00.000Z",
+			op: "update",
+			pageId,
+			uuid,
+			outcome: "success",
+		};
+
+		const journalLine = `${JSON.stringify(journalEntry)}\n`;
+		writeFileSync(join(journalDir, `${runId}.jsonl`), journalLine);
+
+		// NOW diverge the remote body (simulate external edit after journaled success)
+		fakeTarget.setPage(pageId, {
+			version: 3,
+			body: "<h1>Modified by user after crash</h1>", // Diverged body
+		});
+
+		fakeTarget.resetWriteCounter();
+
+		// Run repair
+		const repairResult = await runRepair(lock, fakeRepo, fakeTarget, config, {
+			cwd: cacheDir,
+			cacheDir,
+			targetId: "default",
+			dryRun: false,
+			stalePlanMinutes: 15,
+		});
+
+		expect(repairResult.ok).toBe(true);
+		if (!repairResult.ok) return;
+
+		const report = repairResult.value;
+
+		// Assert 0 writes (diverged remote is not rebuilt)
+		expect(fakeTarget.getWriteCount()).toBe(0);
+
+		// Assert needs-human-action reported
+		expect(report.items).toHaveLength(1);
+		expect(report.items[0].diagnosticClass).toBe("needs-human-action");
+		expect(report.items[0].diagnosticCode).toBe("NEEDS_HUMAN_ACTION_DIVERGED");
+		expect(report.items[0].humanNote).toContain("diverged");
+		expect(report.items[0].humanNote).toContain("journaled success");
+
+		// Assert binding NOT rebuilt (lock still empty)
+		expect(lock.targets.default.documents).toEqual({});
 	});
 });
 

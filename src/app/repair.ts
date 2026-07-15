@@ -160,6 +160,11 @@ export async function runRepair(
 
 	if (!latestJournalRunId && Object.keys(targetDocuments).length === 0) {
 		// Journal-lost + lock-gone: rebuild from Confluence + Git via search (DEC-6 / R1).
+		// Note: Divergence check NOT added here because we lack a reliable signal:
+		// property.renderedBodyHash is pre-normalization (what we sent), page.body is
+		// post-normalization (what Confluence stored). Confluence normalization can
+		// cause false positives. This is a last-resort fallback; next sync will catch
+		// genuine drift. (See ADR-0005, push-flow fetch-back pattern.)
 		const targetConfig = config.targets[opts.targetId];
 		if (!targetConfig) {
 			return Res.err({
@@ -306,7 +311,9 @@ export async function runRepair(
 			}
 
 			// Dirty lock → verify remote hasn't diverged before rebuilding (INV-SAFE-1).
-			const remoteBodyHash = page.body ? rawHash(page.body) : binding.remoteBodyHash;
+			const remoteBodyHash = page.body
+				? rawHash(page.body)
+				: binding.remoteBodyHash;
 			if (remoteBodyHash !== binding.remoteBodyHash) {
 				// Remote diverged → needs-human-action, do NOT rebuild
 				items.push({
@@ -412,7 +419,8 @@ export async function runRepair(
 						sourcePath: property.sourcePath,
 						diagnosticClass: "needs-human-action",
 						diagnosticCode: "NEEDS_HUMAN_ACTION_DIVERGED",
-						humanNote: "Remote page has diverged since journaled success — manual resolution required",
+						humanNote:
+							"Remote page has diverged since journaled success — manual resolution required",
 					});
 					continue;
 				}
