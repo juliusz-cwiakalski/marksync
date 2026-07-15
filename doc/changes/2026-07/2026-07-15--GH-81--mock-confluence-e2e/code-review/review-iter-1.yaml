@@ -1,0 +1,156 @@
+version: 1
+iteration: 1
+mode: local
+work_item_ref: GH-81
+branch: feat/GH-81/mock-confluence-e2e
+status: FAIL
+summary: >
+  The mock Confluence server is solid: it implements every corrected §8.1 endpoint,
+  the page-PUT 409 envelope round-trips through parseConflict (AC-F1-2 verified),
+  property responses carry the required `id`, attachment create responses are
+  { results: [...] }-wrapped, jsongraphs 404s, state resets per scenario, and the
+  instant `delay` seam keeps the suite deterministic (13/13 pass in 559 ms; DEC-1/2/3
+  all honored; CI job is mandatory, secrets-free, pinned to Bun 1.2.23). However two
+  issues block merge. (1) AC-4 is not literally satisfied: it requires AC-F2-1
+  (create-flow / TC-E2EMOCK-002) to FAIL if the GH-71 attachment-unwrap regression is
+  reintroduced, but create-flow performs 0 attachment uploads (fixtures carry no real
+  image asset; Mermaid is rendered as `code`), so the unwrap path is never exercised
+  there — the regression lock is incidentally held by TC-E2EMOCK-005 run-1 instead,
+  and the test diverges from its own test-plan steps 5-6 (which assert 2 uploads + an
+  unwrap assertion). (2) All 10 new test files fail `bun run format:check`, so the
+  full local gate `bun run check` is broken (contradicting plan Phase 6 task 6.3).
+severity_breakdown:
+  critical: 0
+  high: 1
+  medium: 1
+  low: 1
+  info: 2
+spec_compliance: FAIL
+plan_compliance: FAIL
+findings:
+  - id: F-1
+    severity: high
+    confidence: high
+    category: spec-compliance
+    location: tests/e2e-mock/create-flow.test.ts:128-137
+    message: >
+      AC-4 requires AC-F2-1 (create-flow / TC-E2EMOCK-002) to fail if the GH-71
+      `{ results: [...] }` attachment-unwrap regression is reintroduced ("the run-1
+      real upload exercises the unwrap"). But create-flow performs 0 attachment
+      uploads — the create-flow fixtures (page1/page2/page3) carry no real image
+      asset and Mermaid is rendered as `code`, so `mapCreate`'s unwrap branch is
+      never hit. The test asserts `postAttachments.length === 0` and contains dead,
+      self-contradicting comments ("The GH-71 unwrap is tested in
+      attachment-dedup.test.ts instead"). The GH-71 lock is actually held by
+      TC-E2EMOCK-005 run-1, not TC-002 as documented in the spec §5.1 F-4 / test-plan
+      TC-002 steps 5-6 / AC-4. This means AC-4's literal claim ("AC-F2-1 fails") is
+      false and creates a maintenance trap: if a maintainer deletes/weakens
+      attachment-dedup.test.ts believing GH-71 is covered by create-flow, the
+      regression lock is silently lost. The suite-wide safety goal IS still met
+      (TC-005 run-1 catches the regression), but the documented coverage map is wrong.
+    suggestion: >
+      Pick one: (a) PREFERRED — add a real image asset to the create-flow corpus
+      (the attachment-dedup test already proves image uploads work in this tier) so
+      TC-002 performs >=1 real upload and assert the attachment id is read from
+      `results[0].id`, matching test-plan TC-002 steps 5-6 and making AC-4 literally
+      true; OR (b) correct spec §5.1 F-4, test-plan TC-002, and AC-4's parenthetical
+      to attribute the GH-71 unwrap lock to TC-E2EMOCK-005 run-1 and drop the
+      "AC-F2-1 fails" claim. Option (a) is stronger because it also restores the
+      multi-page + multi-asset coverage TC-002 was designed for.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-2
+    severity: medium
+    confidence: high
+    category: correctness
+    location: tests/e2e-mock/*.test.ts (all 10 files)
+    message: >
+      `bun run format:check` (biome format) fails with 10 errors — one per new
+      e2e-mock .ts file (indentation / line-wrapping drift, e.g. create-flow.test.ts
+      lines 114-137 use inconsistent tab depth). The `check` npm script is
+      `lint && format:check && typecheck && test && check:boundaries`, so the full
+      local gate `bun run check` is broken. ci.yml does not run `format:check`, so
+      this will not mechanically fail the PR, but it contradicts plan Phase 6 task
+      6.3 ("Run `bun run check` (the full local gate) ... confirm the full fast loop
+      still passes") and the repo's formatting standard (AGENTS.md code style;
+      .ai/rules/typescript.md).
+    suggestion: >
+      Run `bun run format` to auto-fix all 10 files, then re-run `bun run check` to
+      confirm the full local gate is green. Commit the formatted files (tests are
+      functionally unchanged — biome only reflows whitespace).
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-3
+    severity: low
+    confidence: high
+    category: correctness
+    location: tests/e2e-mock/attachment-dedup.test.ts:118,130,133,200,201
+    message: >
+      13 biome `lint/style/noNonNullAssertion` warnings across the new files (non-null
+      `!` on array/regex index access, e.g. `Object.values(...documents)[0]!`,
+      `attachmentKeys[0]!`, `hashMatch?.[2]`, `serverAttachments[0]!`). `bun run lint`
+      exits 0 (warnings are advisory, not CI-blocking), so this is non-blocking, but
+      these access paths could throw at runtime if the preceding state assertion ever
+      loosens.
+    suggestion: >
+      Replace `!` with a guarded accessor or `expect(...).toBeDefined()` + indexed
+      access under a narrowing guard (e.g. `const doc = Object.values(...)[0];
+      expect(doc).toBeDefined(); if (!doc) return;`). Optional — warnings only.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-4
+    severity: info
+    confidence: high
+    category: correctness
+    location: src/app/push-flow.ts:539,552,766
+    message: >
+      Pre-existing (NOT a GH-81 regression; src/ is untouched by DEC-1). The new
+      attachment-dedup test run-2 exercises the GH-76 "replace" path: `uploadAssets`
+      skips a deduped attachment via `continue` BEFORE recording its hash, so the
+      updated lock binding's `attachmentHashes` becomes `{}` (push-flow.ts:766
+      replaces with the current run's set). A subsequent third unchanged sync would
+      see source assets but an empty `attachmentHashes` binding and spuriously
+      classify LOCAL_AHEAD. GH-81 does not test a run-3, so the bug is not surfaced
+      here, and fixing it is correctly out of scope (RSK-5: escalate to PM).
+    suggestion: >
+      Note this latent behavior in the PR description for human awareness (GH-81's
+      new test directly exercises the path that produces the empty binding), and
+      recommend triaging a follow-up change for the GH-76 replace semantics. No
+      GH-81 code change required.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-5
+    severity: info
+    confidence: high
+    category: security
+    location: tests/e2e-mock/helpers.ts:7
+    message: >
+      Hardcoded mock token `ATATT3xFfGF0SECRET_TOKEN_VALUE_x9`. It matches the
+      established integration-test pattern verbatim (tests/integration/confluence/
+      confluence-target.test.ts:12) and is obviously fake (`SECRET_TOKEN_VALUE_x9`),
+      not a real credential. The `ATATT3xFfGF0` prefix is the real Atlassian token
+      shape, which can trip secret-scanners (gitleaks/osv), but it is a test-only
+      fixture and the mock accepts any Authorization header.
+    suggestion: >
+      No action required for GH-81. If desired in a future cleanup, use a more
+      obviously-synthetic value (e.g. `mock-token-not-a-secret`) to avoid tripping
+      scanners. Non-blocking.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+reviewed_at: 2026-07-15T02:38:26Z
+next_step: CALL_CODER

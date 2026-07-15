@@ -55,7 +55,7 @@ function script(
 	const fn = (url: string, init: RequestInit) => {
 		const parsed = new URL(url);
 		const path = parsed.pathname.replace(/^\/wiki\/(api\/v2|rest\/api)/, "");
-		let body: unknown = undefined;
+		let body: unknown;
 		if (init.body && typeof init.body === "string") {
 			try {
 				body = JSON.parse(init.body);

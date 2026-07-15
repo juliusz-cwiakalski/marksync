@@ -19,7 +19,7 @@
 			"*.css",
 			"!bun.lock",
 			"!bun.lockb",
-			"!tests/golden/fixtures/**"
+			"!tests/golden/fixtures"
 		]
 	},
 	"formatter": {

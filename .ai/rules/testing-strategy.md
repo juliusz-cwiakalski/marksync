@@ -5,13 +5,13 @@ ados_distribution: redistributable
 id: TESTING-STRATEGY
 status: Draft
 created: 2026-07-05
-last_updated: 2026-07-09
+last_updated: 2026-07-15
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
   related_decisions: [TDR-0004, ADR-0002, ADR-0005, ADR-0006]
-  related_changes: [GH-20]
+  related_changes: [GH-20, GH-81]
   summary: "Testing strategy — test tiers, coverage rules, AI-agent over-mocking guardrail, CI wiring, and lifecycle-invariant BDD for MarkSync."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -32,6 +32,7 @@ load and follow this file._
 | **Golden fixture** | `bun:test` `toMatchSnapshot` / `toMatchInlineSnapshot` | Markdown → Storage renderer output (ADR-0005); Mermaid render SVG output (ADR-0002 C-1 determinism) | Byte-stable deterministic output; no silent snapshot regeneration | Every push |
 | **Mermaid-DOM** | `bun:test` + `happy-dom` (via `@happy-dom/global-registrator` + Bun preload) | Mermaid rendering via official lib in headless DOM | Renderer works in-process; deterministic SVG + IDs | Every push (if spike passes) |
 | **Gherkin / BDD** | `@cucumber/cucumber` via `bun run test:bdd` (TDR-0007) | **Lifecycle invariants only** (INV-SAFE-1, INV-SAFE-2, INV-SAFE-3, INV-SEC-1) | Release-blocking safety properties | Every push |
+| **E2E (mock)** | `bun:test` + stateful `Bun.serve()` mock (`tests/e2e-mock/`) | Full publish pipeline (`computePlan` + `applyPlan`) against an in-process stateful mock Confluence server; asserts outcomes against captured requests + server-side state | End-to-end adapter correctness across the whole sync; structural regression lock for the GH-71 attachment-`{ results: [] }`-unwrap and GH-66 v1 property-API classes | Every push (secrets-free `e2e-mock` job in `ci.yml`) |
 | **E2E (live-sandbox)** | Thin runner script | Real Confluence test space: page CRUD, content properties, version-conflict 409, attachments | End-to-end correctness against real API | Separate CI gate (scheduled or labelled) |
 
 ## Naming and layout conventions
@@ -44,6 +45,7 @@ src/infra/confluence/client.ts          → tests/integration/confluence/client.
 src/infra/confluence/render/storage.ts  → tests/golden/markdown/storage-renderer.test.ts
                                          tests/golden/fixtures/markdown/*.storage.xhtml
 tests/e2e/sandbox-publish.test.ts        (E2E — separate gate)
+tests/e2e-mock/create-flow.test.ts       (mock e2e — fast loop, secrets-free)
 tests/bdd/features/no-silent-overwrite.feature
 tests/bdd/steps/no-silent-overwrite.steps.ts
 ```
@@ -134,11 +136,41 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run lint
       - run: bun run typecheck
-      # Exclude E2E (live-sandbox) and BDD (cucumber CLI) from the bun:test fast loop.
+      # Exclude E2E (live-sandbox), mock e2e (separate `e2e-mock` job below), and
+      # BDD (cucumber CLI) from the bun:test fast-loop `test` step.
       # BDD tests run via `bun run test:bdd` (cucumber CLI per TDR-0007).
       - run: bun test tests/unit/ tests/integration/ tests/golden/
       - run: bun run test:bdd
 ```
+
+### Mock e2e (every push, secrets-free)
+
+A dedicated `e2e-mock` job runs the full-pipeline mock suite on every push/PR to
+`main` alongside the fast loop. It is **secrets-free** — the mock is an in-process
+`Bun.serve()` server — so a mock-tier failure fails the PR without relying on the
+opt-in live-sandbox tier.
+
+```yaml
+# .github/workflows/ci.yml — e2e-mock job (secrets-free, mandatory on every PR)
+jobs:
+  e2e-mock:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        bun-version: ["1.2.23"]   # match the fast-loop pin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ matrix.bun-version }}
+      - run: bun install --frozen-lockfile
+      - run: bun test tests/e2e-mock/   # no secrets.* referenced
+```
+
+Distinct from the **E2E (live-sandbox)** tier below: the mock tier exercises the
+adapter through the full pipeline against an in-process Confluence-shaped server
+(no network, no credentials), while the live-sandbox tier runs against a real
+Confluence test space behind a separate, opt-in gate.
 
 ### E2E gate (separate)
 

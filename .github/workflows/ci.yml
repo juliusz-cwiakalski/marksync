@@ -67,7 +67,9 @@ jobs:
       - name: Test (unit + integration + golden — exclude E2E and BDD)
         # Exclude E2E (live-sandbox, run-e2e.yml) and BDD (cucumber CLI) from
         # the bun:test fast loop. BDD runs via `bun run test:bdd` below.
-        run: bun test tests/unit/ tests/integration/ tests/golden/
+        # --coverage: enforce the src/ coverage thresholds (bunfig.toml) on the
+        # comprehensive suite. Tier-scoped jobs (e2e-mock) run without coverage.
+        run: bun test --coverage tests/unit/ tests/integration/ tests/golden/
 
       - name: Check import boundaries (dependency-cruiser)
         # Ports-and-adapters tier enforcement (TDR-0006 / AC-F3-1).
@@ -78,6 +80,31 @@ jobs:
         # The test:bdd script no-ops until the BDD runner wires in E5-S1
         # (MS2-E5), so this step is green now and binding once features land.
         run: bun run test:bdd
+
+  e2e-mock:
+    name: E2E Mock Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        # Pinned to match fast-loop matrix (package.json#engines.bun)
+        bun-version: ["1.2.23"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ matrix.bun-version }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run e2e-mock tests (secrets-free)
+        # Runs the mock server tests without any secrets (NFR-CI-2).
+        # Catches HTTP adapter regressions (GH-71, GH-66) on every PR.
+        run: bun test tests/e2e-mock/
 
   dependency-audit:
     name: License Audit
