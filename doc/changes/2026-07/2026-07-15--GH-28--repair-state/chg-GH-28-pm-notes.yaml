@@ -11,7 +11,7 @@ phases:
   dor_check: { started: "2026-07-15T17:42:00Z", completed: "2026-07-15T17:55:00Z", iter: 2, verdict: READY }
   delivery: { started: "2026-07-15T17:55:00Z", completed: "2026-07-15T18:30:00Z" }
   system_spec_update: { started: "2026-07-15T18:30:00Z", completed: "2026-07-15T18:40:00Z" }
-  review_fix: { started: "2026-07-15T18:40:00Z", completed: null, iter: 1 }
+  review_fix: { started: "2026-07-15T18:40:00Z", completed: "2026-07-15T21:10:00Z", iter: 3 }
   quality_gates: { started: null, completed: null }
   dod_check: { started: null, completed: null }
   pr_creation: { started: null, completed: null, url: null }
@@ -57,6 +57,14 @@ review_iterations:
       - "F-6 MINOR: repair-state.ts header > 3 lines."
       - "F-7 NIT: _git param misleadingly prefixed (it IS used)."
       - "F-8 NIT: unused imports in test files."
+  - iteration: 2
+    verdict: FAIL
+    date: "2026-07-15T19:05:00Z"
+    notes: "All 8 iter-1 findings RESOLVED. 3 new findings from remediation commit 8778b74: F-1 HIGH format:check fails (3 lines violate biome — mechanical fix); F-2 MEDIUM crash-window+divergence branch untested (needs TC-REPAIR-011b); F-3 INFO pre-existing 4th rebuild path (journal-lost+lock-gone) lacks divergence check (non-blocking, same INV-SAFE-1 class)."
+  - iteration: 3
+    verdict: PASS
+    date: "2026-07-15T21:10:00Z"
+    notes: "All 3 iter-2 findings RESOLVED (commit 3978409). F-1 format:check green; F-2 TC-REPAIR-011b exercises crash-window divergence branch; F-3 4th-path documented as accepted-risk (ADR-0005). bun run check GREEN end-to-end (1216 pass / 0 fail; 0 boundary violations). No new blockers. INV-SAFE-1 satisfied on all 3 in-scope rebuild paths. Ready for quality gates + PR."
 
 notes:
   - text: >

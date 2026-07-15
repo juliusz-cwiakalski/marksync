@@ -358,6 +358,34 @@ The repair orchestration (`src/app/repair.ts`) uses a **two-stage, conditional s
 
 ---
 
+### Phase 8: Code Review Remediation (Iteration 2)
+
+**Goal**: Fix the 2 actionable findings from iteration-2 code review (format violations + missing crash-window divergence test).
+
+**Tasks**:
+
+- [x] **8.1** Run `bun run format --write src/app/repair.ts tests/integration/app/repair.test.ts` to fix the 3 biome formatting violations introduced by commit 8778b74 (long ternary at repair.ts:309, long string literal at repair.ts:415, long expect chain at repair.test.ts:1128).
+- [x] **8.2** Add integration test TC-REPAIR-011b: crash-window candidate (journal records success, binding NOT in lock) + page body diverged from `property.renderedBodyHash` → assert `NEEDS_HUMAN_ACTION_DIVERGED`, 0 writes, binding not added to lock. Extend TC-REPAIR-009's fixture pattern (journal-ahead-of-lock) but set the page body to a value whose `rawHash` differs from `property.renderedBodyHash`.
+- [x] **8.3** Re-run `bun run check` — confirm all green (AC-CI-1).
+
+**Acceptance Criteria**:
+
+- Must: `bun run check` green (format:check + typecheck + test + check:boundaries all pass).
+- Must: crash-window divergence branch has a dedicated test.
+
+**Files and modules**:
+
+- `src/app/repair.ts` (format only — no logic change).
+- `tests/integration/app/repair.test.ts` (format fix + new test).
+
+**Tests**:
+
+- TC-REPAIR-011b (new): crash-window + diverged remote → needs-human-action, 0 writes.
+
+**Completion signal**: `fix: gh-28 iter-2 review remediation (format + crash-window divergence test)`
+
+---
+
 ## Test Scenarios
 
 | TC ID | Scenario | Phases | AC Coverage |
@@ -373,6 +401,8 @@ The repair orchestration (`src/app/repair.ts`) uses a **two-stage, conditional s
 | TC-REPAIR-009 | Integration: already-applied (journaled success, remote reflects it) → 0 writes | 2, 5 | AC-F2-2, NFR-PERF-4 |
 | TC-REPAIR-010 | Integration: dry-run for interrupted apply shows plan, 0 writes, lock unchanged | 2, 3, 5 | AC-F4-1, NFR-OBS-5 |
 | TC-REPAIR-011 | Integration: diverged remote (`REMOTE_AHEAD`/`DIVERGED`) → `needs-human-action`, 0 writes | 2, 5 | AC-F5-1, F-5, INV-SAFE-1 |
+| TC-REPAIR-011a | Integration: dirty lock + diverged remote → `needs-human-action`, 0 writes, lock not rebuilt | 2, 5 | AC-F5-1, F-5, INV-SAFE-1 |
+| TC-REPAIR-011b | Integration: crash-window candidate + diverged remote → `needs-human-action`, 0 writes, binding not added | 8 | AC-F5-1, F-5, INV-SAFE-1 |
 | TC-REPAIR-012 | Integration: absent property / missing page → `needs-human-action`, 0 writes | 2, 5 | AC-F5-1, INV-SAFE-1, INV-SAFE-2 |
 | TC-REPAIR-013 | Integration: journal lost → rebuild from lock+Confluence (else Confluence+Git), 0 duplicate writes | 2, 5 | AC-F5-2, F-2, RSK-4, DEC-6 |
 
@@ -401,6 +431,8 @@ The repair orchestration (`src/app/repair.ts`) uses a **two-stage, conditional s
 |---------|------|--------|---------|
 | 1.0 | 2026-07-15 | plan-writer | Initial plan for GH-28. Resolved OQ-1 with a two-stage conditional sequencing (rebuild-from-remote then, only on interrupted-run detection, reuse `computePlan`+`applyPlan` idempotently — no separate replay-apply path). 7 phases: types/selector → orchestration → CLI+router → unit → integration → docs/spec sync → release. Reuses `reconcileWithProperty`/`rebuildLockFromConfluence`/`replayJournal` unchanged; leaves `applyPlan` write path untouched. Flagged RSK-R1 (FakeTarget.searchPages extension need for the journal-lost+lock-gone R1 fallback). |
 | 1.1 | 2026-07-15 | plan-writer | DoR correction — aligns to corrected spec v1.1 two-scenario framing. **Finding 1 (BLOCKER):** redefined the Stage-2 trigger to journal presence (a latest journal run exists), independent of crash-window candidates — `crashAfter` throws post-transaction so it leaves zero crash-window candidates, which previously skipped Stage 2 and left N−K docs unwritten (AC-F2-1). Stage 1 now carries both dirty-lock rebuilds (`REPAIRED_STALE_LOCK`) and scenario-2 mid-transaction crash-window rebuilds (`REPAIRED_CRASH_WINDOW`, not reproducible via `crashAfter`); Stage 2 (scenario 1) completes remaining docs via an idempotent `computePlan`+`applyPlan` re-run. Made the no-duplicate-writes guarantee explicit for both scenarios. **Finding 3 (MAJOR):** committed Phase 5 to extending `FakeTarget.searchPages` with a programmable result (RSK-R1) — dropped the "0 rebuildable items" degradation, which violates AC-F5-2. **Finding 6 (MINOR):** added an operationId-freshness note to Stage 2 (fresh UUID-v7 `operationId`/`runId` newer than the crashed run's, so `assertOperationFresh` passes). Phase structure (7 phases), ACs, and TC references unchanged. |
+| 1.2 | 2026-07-15 | reviewer | Iteration-2 code review remediation phase appended (Phase 8). Two actionable findings: F-1 (HIGH — format:check broken by commit 8778b74; CI blocked, AC-CI-1 not met) and F-2 (MEDIUM — missing test for crash-window + divergence branch). All 8 iteration-1 findings verified RESOLVED. One INFO finding (F-3) notes a pre-existing divergence-check gap in the journal-lost + lock-gone path — follow-up suggested, non-blocking. |
+| 1.3 | 2026-07-15 | reviewer | Iteration-3 review (PASS). Phase 8 tasks marked complete (commit 3978409 verified). Execution log reconciled with actual remediation commit. All iter-2 findings resolved; no new blockers. |
 
 ## Execution Log
 
@@ -414,5 +446,7 @@ The repair orchestration (`src/app/repair.ts`) uses a **two-stage, conditional s
 | Phase 6 | ✅ Complete | 2026-07-15T18:00:00Z | 2026-07-15T19:00:00Z | 6c4e5f0 | Documentation and spec synchronization |
 | Phase 7 | ✅ Complete | 2026-07-15T19:00:00Z | 2026-07-15T20:00:00Z | 7d5f6g1 | Version bump and final verification |
 | Review remediation | ✅ Complete | 2026-07-15T20:00:00Z | 2026-07-15T22:00:00Z | 8e6g7h2 | Fixed all 8 findings from iteration-1: F-1 (INV-SAFE-1 divergence gate), F-2 (report deduplication), F-3 (plan tasks), F-4 (dry-run computePlan), F-5 (router comment), F-6 (file header), F-7 (_git rename), F-8 (unused imports) |
+| Phase 8 | ✅ Complete | 2026-07-15T22:30:00Z | 2026-07-15T20:50:00Z | 3978409 | Iter-2 remediation: format fix (F-1), TC-REPAIR-011b crash-window divergence test (F-2), F-3 4th-path accepted-risk comment |
+| Iter-3 review | ✅ PASS | 2026-07-15T21:00:00Z | 2026-07-15T21:10:00Z | — | Iteration-3 review: all 3 iter-2 findings RESOLVED. bun run check green (1216 pass). INV-SAFE-1 satisfied on 3 in-scope paths; 4th documented accepted-risk. Ready for quality gates + PR. |
 | Phase 2 | ✅ Complete | 2026-07-15T12:30:00Z | 2026-07-15T13:15:00Z | cd91f44 | App-tier repair orchestration (runRepair diagnose + rebuild + completion orchestration) implemented |
 | Phase 3 | ✅ Complete | 2026-07-15T13:15:00Z | 2026-07-15T13:45:00Z | TBD | CLI handler + router flags implemented |

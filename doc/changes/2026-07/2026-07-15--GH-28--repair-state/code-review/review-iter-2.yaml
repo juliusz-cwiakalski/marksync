@@ -1,0 +1,157 @@
+version: 1
+iteration: 2
+mode: local
+work_item_ref: GH-28
+branch: feat/GH-28/repair-state
+status: FAIL
+summary: >
+  Re-review after remediation (commit 8778b74). All 8 iteration-1 findings are
+  genuinely resolved: the F-1 INV-SAFE-1 divergence gate is correctly implemented
+  on both the dirty-lock path (line 309-310) and the crash-window candidate path
+  (line 408-409), comparing rawHash(page.body) against binding.remoteBodyHash /
+  property.renderedBodyHash respectively. TC-REPAIR-011a correctly exercises the
+  dirty-lock + divergence combination (needs-human-action, 0 writes, lock
+  untouched). The dedup helper, plan task updates, router comment fix, header
+  trim, _git rename, and unused-import removal are all correct. No tier
+  violations, no swallowed errors, no dead code introduced. Boundaries pass.
+  However, TWO new issues were introduced by the remediation: (1) `bun run check`
+  FAILS at format:check — 3 lines added by the remediation commit violate biome
+  formatting (a long ternary, a long string literal, and a long expect chain),
+  blocking CI and violating AC-CI-1; (2) the new crash-window divergence check
+  (lines 407-418) has no dedicated test — TC-REPAIR-011a covers dirty-lock +
+  divergence only. Additionally, a pre-existing INFO-level gap remains: the
+  4th rebuild path (journal-lost + lock-gone, lines 196-222) lacks a divergence
+  check. The format fix is trivial; the change is otherwise sound and ready for
+  quality gates once formatting is corrected and the missing test is added.
+severity_breakdown:
+  critical: 0
+  high: 1
+  medium: 1
+  low: 0
+  info: 1
+spec_compliance: PASS
+plan_compliance: PASS
+findings:
+  - id: F-1
+    severity: high
+    confidence: high
+    category: correctness
+    location: src/app/repair.ts:309,415, tests/integration/app/repair.test.ts:1128
+    message: >
+      `bun run check` FAILS at the format:check step. The remediation commit
+      (8778b74) introduced 3 lines that violate biome formatting rules: (a)
+      `src/app/repair.ts:309` — a ternary expression exceeding the line-width
+      limit (`const remoteBodyHash = page.body ? rawHash(page.body) :
+      binding.remoteBodyHash;`); (b) `src/app/repair.ts:415` — a `humanNote`
+      string literal exceeding the line-width limit; (c)
+      `tests/integration/app/repair.test.ts:1128` — an `expect(...).toBe(...)`
+      chain exceeding the line-width limit. The `bun run check` chain (`lint &&
+      format:check && typecheck && test && check:boundaries`) stops at
+      format:check with exit code 1, never reaching typecheck or test. This
+      violates AC-CI-1 ("bun run check passes"). Verified: the parent commit
+      (e191fe1) version of these same files passes format:check cleanly — the
+      errors are newly introduced.
+    suggestion: >
+      Run `bun run format --write src/app/repair.ts
+      tests/integration/app/repair.test.ts` to auto-fix. This is a mechanical
+      fix; the logic is correct. Then re-run `bun run check` to confirm green.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-2
+    severity: medium
+    confidence: high
+    category: testing
+    location: tests/integration/app/repair.test.ts
+    message: >
+      Missing test for the crash-window candidate + divergence combination. The
+      F-1 fix correctly added a divergence check to the crash-window path
+      (src/app/repair.ts:407-418, comparing rawHash(page.body) against
+      property.renderedBodyHash), but TC-REPAIR-011a only covers the dirty-lock +
+      divergence case. TC-REPAIR-009 exercises the crash-window path but with a
+      MATCHING remote body (non-diverged). No test verifies the crash-window
+      divergence branch (journal records success, binding not in lock, remote
+      body diverged from property.renderedBodyHash → needs-human-action, 0
+      writes).
+    suggestion: >
+      Add an integration test (TC-REPAIR-011b or extend TC-REPAIR-009): crash
+      window candidate (journal-ahead-of-lock fixture) + page body diverged from
+      property.renderedBodyHash → assert NEEDS_HUMAN_ACTION_DIVERGED, 0 writes,
+      binding not added to lock.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-3
+    severity: info
+    confidence: high
+    category: correctness
+    location: src/app/repair.ts:196-222
+    message: >
+      Pre-existing INV-SAFE-1 gap (NOT introduced by the remediation): the
+      journal-lost + lock-gone rebuild path (the 4th rebuild path) records
+      `remoteBodyHash: rawHash(page.body ?? "")` without comparing it against
+      `property.renderedBodyHash`. A diverged remote is silently rebuilt with the
+      diverged hash, making the divergence invisible on the next sync. This path
+      was not flagged in iteration 1 and was not touched by the remediation. The
+      remediation's "INV-SAFE-1 on ALL rebuild paths" claim covers the 3 paths
+      named in F-1 (reconcile-ok, dirty-lock, crash-window) but not this 4th
+      path. Non-blocking for this iteration.
+    suggestion: >
+      Open a follow-up issue to add a divergence check to the journal-lost +
+      lock-gone path: compare `rawHash(page.body)` against
+      `property.renderedBodyHash` before rebuilding; if diverged, emit
+      NEEDS_HUMAN_ACTION_DIVERGED. Consider whether DEC-6 (last-resort rebuild)
+      overrides the stop-and-report behavior or not — document the decision.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+findings_from_iter1_verification:
+  - iter1_id: F-1
+    status: RESOLVED
+    verification: >
+      Genuine divergence gate on both the dirty-lock path (line 309-310:
+      rawHash(page.body) vs binding.remoteBodyHash) and the crash-window
+      candidate path (line 408-409: rawHash(page.body) vs
+      property.renderedBodyHash). TC-REPAIR-011a correctly exercises dirty-lock +
+      diverged remote → needs-human-action, 0 writes, lock not rebuilt. INV-SAFE-1
+      satisfied on all three named paths (reconcile-ok, dirty-lock,
+      crash-window).
+  - iter1_id: F-2
+    status: RESOLVED
+    verification: >
+      dedupeItemsByUuid() helper (lines 559-565) correctly implements last-wins
+      dedup by UUID. Stage-2 applyPlan items supersede diagnose-stage items.
+      TC-REPAIR-007/008 tightened to exact counts + no-duplicate-UUID assertion.
+  - iter1_id: F-3
+    status: RESOLVED
+    verification: All Phase 4-7 tasks marked [x]; Execution Log updated with
+      Phases 4-7 + review remediation entries.
+  - iter1_id: F-4
+    status: RESOLVED
+    verification: Plan task 2.6 acknowledges computePlan in dry-run (pure/read
+      only, 0 writes, provides useful plan for review).
+  - iter1_id: F-5
+    status: RESOLVED
+    verification: router.ts CLI_VERSION comment updated — stale version
+      reference removed, now cites generic "until a runtime version source is
+      wired."
+  - iter1_id: F-6
+    status: RESOLVED
+    verification: repair-state.ts header trimmed to 1 line.
+  - iter1_id: F-7
+    status: RESOLVED
+    verification: _git → git renamed in signature + both call sites (lines 126,
+      473, 517).
+  - iter1_id: F-8
+    status: RESOLVED
+    verification: Unused loadLock import removed from integration test; unused
+      type Result import removed from unit test. Both replaced with the
+      needed rawHash import.
+reviewed_at: 2026-07-15T22:30:00Z
+next_step: CALL_CODER
