@@ -1,0 +1,136 @@
+change_id: GH-81
+title: "feat: mock Confluence HTTP server for CI e2e regression tests"
+branch: feat/GH-81/mock-confluence-e2e
+change_folder: doc/changes/2026-07/2026-07-15--GH-81--mock-confluence-e2e
+
+phases:
+  clarify_scope: { started: "2026-07-15T00:00:00Z", completed: "2026-07-15T00:10:00Z" }
+  specification: { started: "2026-07-15T00:10:00Z", completed: "2026-07-15T00:50:00Z", reopened: "2026-07-15T00:45:00Z" }
+  test_planning: { started: "2026-07-15T00:20:00Z", completed: "2026-07-15T00:50:00Z", reopened: "2026-07-15T00:45:00Z" }
+  delivery_planning: { started: "2026-07-15T00:30:00Z", completed: "2026-07-15T00:55:00Z", reopened: "2026-07-15T00:45:00Z" }
+  dor_check: { started: "2026-07-15T00:40:00Z", completed: "2026-07-15T01:10:00Z", iterations: 3 }
+  delivery: { started: "2026-07-15T01:10:00Z", completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+
+decisions:
+  - id: DEC-1
+    text: >
+      PM-decided (2026-07-15): adopt Option B — programmatic full-pipeline e2e.
+      Mock e2e tests run computePlan + applyPlan against a Bun.serve() mock via
+      ConfluenceTarget.fromCredentials constructed directly (bypassing
+      resolveCredentials), following the established
+      tests/integration/confluence/confluence-target.test.ts pattern. NO change
+      to src/app/credentials.ts (isHttpsUrl stays https-only). Rationale: (1)
+      satisfies all 4 ACs literally (AC-1 endpoints, AC-2 scenarios, AC-3 CI job,
+      AC-4 adapter-regression coverage); (2) least-privilege / paved-road — zero
+      production/security-code change, fully reversible; (3) the ticket's stated
+      motivation is HTTP-adapter regressions (GH-71/GH-66), which Option B catches
+      exactly since the adapter is exercised through the full pipeline; (4) the
+      "CLI flow" language lives in Proposed Design (suggestion), not the ACs
+      (contract). Option A (CLI binary + loopback-http relaxation in
+      credentials.ts) deferred — available as a follow-up if the human wants
+      CLI-shell/resolveCredentials coverage; will be surfaced in the PR
+      description for review. Trade-off accepted: e2e does not exercise the CLI
+      argument shell or the https-gate in resolveCredentials (those stay covered
+      by unit/integration tests).
+    date: "2026-07-15"
+    authority: PM-decided (autonomous, per least-privilege + ACs-satisfied)
+
+open_questions:
+  - id: OPEN-Q1
+    text: >
+      Scope/security fork: ticket proposes running the full `marksync` CLI flow
+      (init → plan → sync) against a mock via
+      `MARKSYNC_CONFLUENCE_BASE_URL=http://localhost:<port>`, but
+      `resolveCredentials()` (src/app/credentials.ts) rejects non-https base URLs
+      (`isHttpsUrl` requires `https:`). Resolved by DEC-1 (Option B).
+    date: "2026-07-15"
+    status: resolved
+    resolution: DEC-1
+
+blockers: []
+
+notes:
+  - text: >
+      Intake (2026-07-15): priority:high, MS-0002, feature. Clean new delivery on
+      main (no resume-sync; clean tree). No story file (no [MS2-Exx-Sxx] prefix);
+      ticket body is authoritative. Goal: mock Confluence HTTP server + e2e
+      scenarios wired into ci.yml as mandatory `e2e-mock` job (no secrets) to
+      catch HTTP adapter regressions (GH-71/GH-66 class) without live Confluence.
+    type: info
+    date: "2026-07-15"
+  - text: >
+      Code cross-check — ticket endpoint table is INACCURATE (resolvable from
+      code; spec will correct). ACTUAL endpoints marksync calls:
+      Pages (v2): POST /wiki/api/v2/pages, GET /wiki/api/v2/pages/{id}?body-format=storage,
+        PUT /wiki/api/v2/pages/{id} (update + move).
+      Properties (v1 content-property REST — NOT jsongraphs): GET/POST
+        /wiki/rest/api/content/{id}/property[/{key}], PUT .../property/{key} (version
+        incremented after POST-409→GET-version).
+      Attachments (v1): POST + GET /wiki/rest/api/content/{id}/child/attachment
+        (multipart upload; 400 "same file name" = idempotent dedup signal).
+      Credential validation: GET /wiki/api/v2/user/by-me (MISSING from ticket).
+      Port-exposed but NOT on sync critical path: GET /wiki/rest/api/search?cql=,
+        GET /wiki/rest/api/content/{id}/restriction.
+      Ticket errors: (1) listed /wiki/api/v2/pages/{id}/attachments (should be v1
+        /content/{id}/child/attachment); (2) listed /wiki/api/v2/content/{id}/child/attachment
+        (wrong base, should be v1 /rest/api/content/); (3) listed /wiki/api/v2/pages/{id}/properties
+        (should be v1 /rest/api/content/{id}/property); (4) listed
+        /api/jsongraphs/property-service/property (NOT USED — GH-66 removed it;
+        ticket cites GH-66 as motivation but lists the old broken endpoint).
+      409 conflict envelope is shape-specific: { errors:[{code:"CONFLICT",
+        title:"...Current Version: [N]...Provided version: [M]"}] } — mock must
+        reproduce exactly for conflict-recovery scenario.
+    type: info
+    date: "2026-07-15"
+  - text: >
+      Design note (non-blocking, for spec-writer): testing-strategy.md defines
+      tests/e2e/ as the LIVE-SANDBOX tier (run-e2e.yml runs `bun test tests/e2e/`
+      against real Confluence with secrets). Putting mock tests in tests/e2e/
+      would make run-e2e.yml run them against the live sandbox too. Recommend a
+      SEPARATE folder (e.g. tests/e2e-mock/) so tiers stay clean and ci.yml can
+      target it independently. Also: existing integration tests
+      (tests/integration/confluence/confluence-target.test.ts,
+      push-flow.test.ts) already use Bun.serve + ConfluenceTarget.fromCredentials
+      built directly (bypassing resolveCredentials https-gate) — GH-81's value-add
+      is a richer STATEFUL reusable mock (in-memory Map, version conflicts,
+      attachment dedup) + multi-page scenario suite + mandatory CI gate.
+    type: info
+    date: "2026-07-15"
+  - text: >
+      Retro — DoR iter-1 NOT_READY (2026-07-15): readiness-reviewer caught 3
+      blocking + 3 non-blocking gaps, all verified against actual code. Blocking:
+      (1) TC-E2EMOCK-002 asserts GET /user/by-me captured in create flow, but
+      validateCredentials is the ONLY caller and computePlan/applyPlan never call
+      it — unreachable under DEC-1, would fail at runtime; (2) TC-E2EMOCK-008 says
+      "fresh mock" + expects POST→409→GET→PUT, but on a fresh mock the property key
+      doesn't exist so POST returns 2xx and the 409 path never fires —
+      self-contradictory; (3) spec §8.1 property GET/PUT shape omits the
+      schema-REQUIRED `id` field (PropertyV1Response requires id: string|number) —
+      mock built to spec literal shape fails safeParse → RemoteUnreachable.
+      Non-blocking: search/restrictions never driven by pipeline (re-trace to
+      smoke); TC-005 attachment-dedup vacuous (NoOp short-circuits before
+      uploadAssets); AC-4 GH-66→AC-F2-5 linkage loose (panel is in page body via
+      createPage, independent of putProperty). Reopening specification +
+      test_planning; realigned delivery_planning after.
+    type: retro
+    date: "2026-07-15"
+  - text: >
+      Retro — DoR iter-3 READY (2026-07-15): after 2 NOT_READY iterations
+      (unreachable user/by-me assertion, self-contradictory TC-008, missing
+      property `id`, and the persistent unreachable-400-dedup-path), the
+      artifacts are now sound. Key lesson: the spec/test-plan authors initially
+      traced assertions to the ADAPTER surface (what endpoints exist) rather than
+      to the PIPELINE call sites (what computePlan/applyPlan actually invoke).
+      The 400 dedup path was particularly subtle — it's "unreachable by design"
+      per the adapter's own comments, because uploadAssets prechecks with
+      attachmentExists before uploading. The DoR adversarial gate caught all of
+      this; 3 iterations was the right cap. Reviewer left 3 non-blocking
+      delivery-time notes (exact-count precision for TC-004 GETs; TC-006 wording;
+      filter CapturedRequest[] by method+path when implementing count asserts).
+    type: retro
+    date: "2026-07-15"
