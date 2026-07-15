@@ -4,9 +4,9 @@
 source: https://github.com/juliusz/cwiakalski-agentic-delivery-os/blob/main/doc/templates/implementation-plan-template.md
 ados_distribution: redistributable
 id: chg-GH-29-quality-gate-wiring
-status: Proposed
+status: Updated
 created: 2026-07-15T14:30:00Z
-last_updated: 2026-07-15T14:30:00Z
+last_updated: 2026-07-15T17:15:00Z
 owners: ["@cwiakalski"]
 service: marksync-cli
 labels: ["test", "MS-0002", "MS2-E5", "priority:high", "ci", "bdd", "e2e"]
@@ -31,7 +31,8 @@ summary: >
   integration, golden, mermaid-DOM, e2e-mock) and the CI fast loop + coverage
   gate are already wired and are verified, not re-implemented. Pure test/CI
   infrastructure: no production source changes (DEC-3); BDD scoped to the four
-  INV invariants only (DEC-1); mock only the TargetSystem port (DEC-4).
+  INV invariants only (DEC-1); mock only the adapter ports — TargetSystem +
+  Repository — with domain logic real (DEC-4).
 version_impact: none
 ---
 
@@ -41,21 +42,24 @@ version_impact: none
 
 This plan wires the **two remaining gaps** in the 7-tier testing strategy (`.ai/rules/testing-strategy.md`, current-truth). The **BDD/Gherkin tier** is a no-op today: `@cucumber/cucumber` is not installed, `package.json#test:bdd` is a stub that exits 0 until the dep is present, only `tests/bdd/features/duplicate-uuid-fatal.feature` (INV-SAFE-3) exists, and there are **no step definitions**. The **live-sandbox E2E tier** (`tests/e2e/`) is empty (`.gitkeep` only): `run-e2e.yml` is already correct (schedule + `run-e2e` label + `workflow_dispatch`; concurrency group `e2e-sandbox`; secrets wired) but has nothing to run. As a result the four release-blocking lifecycle invariants (INV-SAFE-1/2/3, INV-SEC-1) are **not** enforced through the integration-level Gherkin path that TDR-0007 / the over-mocking guardrail mandate, and the live-sandbox gate is vacuously green.
 
-Per **DEC-1**, the BDD tier covers exactly the four `INV-*` invariants; `NFR-PERF-4` (idempotent rerun) and `NFR-REL-5` (overlapping-plans) are release-blocking but **stay in the integration tier**, where both are already covered (`tests/integration/app/idempotency.test.ts`, `concurrency-control-overlap.test.ts`, `concurrency-isolation.test.ts`). Per **DEC-2**, cucumber runs under Bun via its Node-compatible CLI (`cucumber-js`), wired as `bun run test:bdd` (a standalone runner, not a `bun:test` plugin); the exact invocation is validated at delivery (OQ-1). Per **DEC-4**, the step definitions mock **only the `TargetSystem` port** (reusing `FakeTarget`) — the state classifier, hierarchy planner, and push flow are the real modules. The five already-wired tiers + CI fast loop + coverage gate are **verified** (F-4), not re-implemented.
+Per **DEC-1**, the BDD tier covers exactly the four `INV-*` invariants; `NFR-PERF-4` (idempotent rerun) and `NFR-REL-5` (overlapping-plans) are release-blocking but **stay in the integration tier**, where both are already covered (`tests/integration/app/idempotency.test.ts`, `concurrency-control-overlap.test.ts`, `concurrency-isolation.test.ts`). Per **DEC-2**, cucumber runs under Bun via its Node-compatible CLI (`cucumber-js`), wired as `bun run test:bdd` (a standalone runner, not a `bun:test` plugin); the exact invocation is validated at delivery (OQ-1). Per **DEC-4**, the step definitions mock **only the adapter ports** (`TargetSystem` via `FakeTarget`, `Repository` via `FakeRepository`) — the state classifier, hierarchy planner, and push flow are the real modules. The five already-wired tiers + CI fast loop + coverage gate are **verified** (F-4), not re-implemented.
 
 > **Production-source guardrail (DEC-3, load-bearing).** `src/**` is **UNTOUCHED** by this change. This is pure test/CI infrastructure. The only non-`tests/**` files touched are `package.json` (devDependency + script), the lockfile, and a one-line comment refresh in `.github/workflows/ci.yml`. `run-e2e.yml` and `bunfig.toml` are **not** rewritten.
 >
 > **Hard STOP condition (DEC-3 / RSK-5).** If a BDD step reveals a **genuine `src/` invariant bug** (an assertion fails for reasons other than a test/fixture/step defect), the coder MUST **STOP and escalate to the PM** as a separate change — do NOT fix `src/**` inline. Record the finding in the Execution Log and surface it for triage. The BDD scenario is recorded as *failing-on-real-bug*, never papered over.
 >
-> **Over-mocking guardrail (DEC-4 / NFR-MAINT-1, hard).** Every BDD step mocks **only** the `TargetSystem` port (via `FakeTarget`, `tests/_helpers/fake-target.ts`) and builds deterministic Git fixtures via `FakeRepository` (`tests/_helpers/fake-repository.ts`). The state classifier, hierarchy planner, and push flow (`computePlan`/`applyPlan`) are the **real** modules imported from `#app/push-flow`. Code-review each step against this rule; the sibling integration tests (`tests/integration/confluence/push-flow.test.ts`) are the reference shape.
+> **Over-mocking guardrail (DEC-4 / NFR-MAINT-1, hard).** Every BDD step mocks **only the adapter ports** — `TargetSystem` via `FakeTarget` (`tests/_helpers/fake-target.ts`) and `Repository` via `FakeRepository` (`tests/_helpers/fake-repository.ts`, for deterministic Git fixtures). The state classifier, hierarchy planner, and push flow (`computePlan`/`applyPlan`) are the **real** modules imported from `#app/push-flow`. Code-review each step against this rule; the sibling integration tests (`tests/integration/confluence/push-flow.test.ts`) are the reference shape.
 >
-> **Acknowledged red intermediate state (Phase 1 → Phase 2).** Once Phase 1 enables strict mode + undefined-step failure, `bun run test:bdd` is **red by design** until Phase 2 wires the first step definitions (undefined steps fail under strict mode). This is an acknowledged intermediate commit on the feature branch; the PR is only mergeable after Phase 6, when the whole gate is green.
+> **Acknowledged red intermediate state (Phase 1 → Phase 2).** Once Phase 1 enables strict mode + undefined-step failure, `bun run test:bdd` is **red by design** until Phase 2 wires the first step definitions (undefined steps fail under strict mode). This is an acknowledged intermediate commit on the feature branch; the PR is only mergeable after Phase 6, when the whole gate is green. **PR-open timing (F5):** the PR is opened only at/after Phase 6 (F) — once all four invariant features are green — so the red intermediate `test:bdd` state exists only on the Phase 1→2 feature-branch commits, never on the PR head. (The `ci.yml` fast loop runs `test:bdd` on every push, so opening earlier would surface a red `BDD lifecycle invariants (cucumber)` check on the PR.) Reordering the binding `test:bdd` landing into Phase 2 was considered and rejected: it would forfeit Phase 1's isolated runner-validation signal (OQ-P1/DEC-2) and split the dep + script change across commits.
 
 **Open questions**:
 
 - **OQ-P1 (cucumber invocation form, resolves spec OQ-1 / DEC-2).** The exact, working `cucumber-js` invocation under the pinned Bun 1.2.23 — including how step/support modules are `--require`-loaded under Bun's native TS, and the precise strict/undefined-step flags for the installed cucumber version — is validated empirically in Phase 1. Candidate: `bunx cucumber-js tests/bdd/features --require "tests/bdd/**/*.ts" --strict` (or a `cucumber.js`/`cucumber.mjs` config that sets `paths`/`requireModule`/`require`/`strict`). **Decision needed**: none from `@decision-advisor` — this is an empirical validate-or-adjust step. The chosen form is **recorded in the Phase 1 commit message**; if `cucumber-js` is unworkable under Bun, fall back to a bun-native entry that drives cucumber-core and RECORD that form.
-- **OQ-P2 (INV-SEC-1 sentinel design).** The BDD tier uses `FakeTarget` (no real credentials), so INV-SEC-1 cannot assert against a live API token. **Decision: inject a known sentinel secret string into the run inputs** (config/provenance path that flows to outputs), run the real `computePlan` + `applyPlan` against `FakeTarget`, then assert the sentinel is absent from the plan result, apply journal, lock file, diagnostics, `version.message`, and cache. This exercises the real redaction path end-to-end (over-mocking guardrail honored). If the sentinel leaks → that is a genuine `src/` redaction bug → STOP + escalate (RSK-5), do NOT weaken the assertion.
 - All spec open questions (OQ-1) are **resolved at delivery** (Phase 1) per DEC-2 and do not block planning.
+
+**Resolved decisions**:
+
+- **OQ-P2 (CLOSED — INV-SEC-1 sentinel injection point).** Credentials never enter `computePlan`/`applyPlan`: they live in `ConfluenceTarget`/`ConfluenceClient`, which is the adapter behind the `TargetSystem` port that BDD mocks via `FakeTarget`. There is **no credential-bearing config/provenance path that flows to outputs**, so injecting the sentinel into config/provenance would be vacuous (or would force a `src/` change, violating DEC-3). **Decision: inject the known sentinel secret string into the document CONTENT (the Markdown source fixture via `FakeRepository.setFile`)** — mirroring the proven `tests/integration/app/secrets-safety-integration.test.ts` TC-INTEGRATION-011 pattern — so the sentinel flows through the real render → plan → lock/journal/diagnostics/`version.message`/cache path. Assert the sentinel is absent from every inspected output path (plan, apply journal, lock, diagnostics, `version.message`, cache). If the sentinel leaks into any output → genuine `src/` redaction bug → STOP + escalate (RSK-5); do NOT weaken the assertion. (The real adapter is the mocked port, so credentials are not an engine input.)
 
 ## Scope
 
@@ -78,7 +82,7 @@ Per **DEC-1**, the BDD tier covers exactly the four `INV-*` invariants; `NFR-PER
 
 - **Production source frozen (DEC-3).** All new code lives under `tests/bdd/**` and `tests/e2e/**`; the only non-test edits are `package.json` (devDependency + script), the lockfile, and a one-line `ci.yml` comment.
 - **`run-e2e.yml` and `bunfig.toml` frozen (NG-6).** The harness consumes `run-e2e.yml`'s env-var names verbatim; coverage thresholds are not changed.
-- **Mock only the `TargetSystem` port (DEC-4).** The state classifier, hierarchy planner, and push flow are real; `FakeTarget` is the only mock. (NFR-MAINT-1.)
+- **Mock only the adapter ports (DEC-4).** `TargetSystem` (via `FakeTarget`) and `Repository` (via `FakeRepository`) are the only mocked seams; the state classifier, hierarchy planner, and push flow are real. (NFR-MAINT-1.)
 - **Deterministic (RSK-3, NFR-CI-2).** Reuse `FakeTarget`/`FakeRepository`; fixed UUID-v7 fixtures; assert on counts/states, never wall-clock; no sleeps; full 4-feature BDD suite completes in **≤ 30 s** (in-process engine + mocked port, no network).
 - **Binding + strict (NFR-CI-1).** `test:bdd` runs in the `ci.yml` fast loop; strict mode + undefined-step failure are enabled so a vacuous/missing step fails the suite (TDR-0007 risk mitigation).
 - **Test-only dependency (NFR-MAINT-3).** `@cucumber/cucumber` is a `devDependency`; `bun build --compile` excludes it (binary size unchanged).
@@ -101,7 +105,7 @@ Per **DEC-1**, the BDD tier covers exactly the four `INV-*` invariants; `NFR-PER
 |--------|--------|--------|
 | BDD invariant features passing | 4 of 4 (INV-SAFE-1/2/3, INV-SEC-1) | AC-F1-1, G-1 |
 | `test:bdd` CI step behavior | Binding (non-zero exit on invariant regression) | AC-1, NFR-CI-1 |
-| Tiers mocked by BDD steps | 1 (`TargetSystem` port only) | AC-F2-5, NFR-MAINT-1 |
+| Adapter ports mocked by BDD steps | 2 (`TargetSystem` + `Repository`; 0 domain modules mocked) | AC-F2-5, NFR-MAINT-1 |
 | BDD suite runtime | ≤ 30 s | NFR-CI-2 |
 | Production source files changed | 0 (DEC-3) | NFR-MAINT-2 |
 | New fast-loop secrets required | 0 | NFR-CI-1 |
@@ -125,7 +129,7 @@ Per **DEC-1**, the BDD tier covers exactly the four `INV-*` invariants; `NFR-PER
 - [ ] **1.3** Ensure the `--require` glob loads step + support modules so that TS under Bun is picked up natively (Bun runs TS directly; no transpile step needed). If cucumber-js needs `--require-module` to preload the Bun loader, add it (OQ-P1). (F-1, DEC-2)
 - [ ] **1.4** Smoke-check: run `bun run test:bdd` against the existing single feature (`duplicate-uuid-fatal.feature`). **Expected outcome:** cucumber loads/parses the `.feature`, reports **undefined steps** (no step defs yet), and exits **non-zero** under strict mode. The runner MUST NOT crash on config/load/parse errors — the failure mode is "undefined steps", which *proves* the runner works. (F-1, RSK-1)
 - [ ] **1.5** Confirm the devDependency is excluded from `bun build --compile` (test-only) — a no-op structural check; the dep is under `devDependencies`, so the compiled binary is unaffected (NFR-MAINT-3). No build run required this phase; noted for awareness.
-- [ ] **1.6** (Guardrail awareness, no action) Note for downstream phases: after this commit, `bun run test:bdd` is **red by design** (undefined steps) until Phase 2 lands the first step definitions. This is the acknowledged red intermediate state — the branch is only mergeable after Phase 6.
+- [ ] **1.6** (Guardrail awareness, no action) Note for downstream phases: after this commit, `bun run test:bdd` is **red by design** (undefined steps) until Phase 2 lands the first step definitions. This is the acknowledged red intermediate state — the branch is only mergeable after Phase 6, and the PR is opened only at/after Phase 6 so the red window never appears on the PR head (only on the Phase 1→2 feature-branch commits).
 
 **Acceptance Criteria**:
 
@@ -156,7 +160,7 @@ Per **DEC-1**, the BDD tier covers exactly the four `INV-*` invariants; `NFR-PER
 
 ### Phase 2: BDD Step Harness + INV-SAFE-3 Green (B)
 
-**Goal**: Author the BDD step harness under `tests/bdd/steps/` (+ any shared support/world cucumber needs) that imports the **real** `computePlan`/`applyPlan` from `#app/push-flow`, builds mock remote state via `FakeTarget` (the only permitted mock) and deterministic Git fixtures via `FakeRepository`, and wires the step definitions for the existing `duplicate-uuid-fatal.feature` (INV-SAFE-3) so it passes — asserting `DuplicateUuid` names both source paths and zero writes reach the target.
+**Goal**: Author the BDD step harness under `tests/bdd/steps/` (+ any shared support/world cucumber needs) that imports the **real** `computePlan`/`applyPlan` from `#app/push-flow`, builds mock remote state via `FakeTarget` and deterministic Git fixtures via `FakeRepository` (the only permitted mocks — both adapter ports), and wires the step definitions for the existing `duplicate-uuid-fatal.feature` (INV-SAFE-3) so it passes — asserting `DuplicateUuid` names both source paths and zero writes reach the target.
 
 **Tasks**:
 
@@ -167,7 +171,7 @@ Per **DEC-1**, the BDD tier covers exactly the four `INV-*` invariants; `NFR-PER
   - `Then detectDuplicateUuids returns err(DuplicateUuid) naming both source paths` → assert the `computePlan` result is `err` with `kind: "DuplicateUuid"` and that both source paths are named.
   - `And zero pages are written to Confluence` → assert `FakeTarget.createPageCalls.length === 0` and `FakeTarget.updatePageCalls.length === 0`.
   (AC-F2-3, AC-F2-5)
-- [ ] **2.3** Honor the **over-mocking guardrail** in every step: import `computePlan`/`applyPlan` from `#app/push-flow` (the real push flow); the ONLY mock is `FakeTarget` (the `TargetSystem` port). Do NOT import/replace `classify`, `actionFor`, `detectDuplicateUuids`, or any domain module with a fake — they run for real inside `computePlan`. (AC-F2-5, NFR-MAINT-1, DEC-4)
+- [ ] **2.3** Honor the **over-mocking guardrail** in every step: import `computePlan`/`applyPlan` from `#app/push-flow` (the real push flow); the ONLY mocks are the adapter ports — `FakeTarget` (`TargetSystem`) and `FakeRepository` (`Repository`). Do NOT import/replace `classify`, `actionFor`, `detectDuplicateUuids`, or any domain module with a fake — they run for real inside `computePlan`. (AC-F2-5, NFR-MAINT-1, DEC-4)
 - [ ] **2.4** Use fixed UUID-v7 fixtures and assert on counts/states, never wall-clock (RSK-3). No sleeps; the engine is synchronous against the in-process `FakeTarget`.
 - [ ] **2.5** Run `bun run test:bdd` — the INV-SAFE-3 feature is green (the runner goes from red-undefined-steps to green). Confirm the BDD suite runtime is well within the ≤ 30 s budget (NFR-CI-2).
 - [ ] **2.6** If a genuine `src/` invariant bug is observed (the duplicate-UUID gate does NOT abort, or names the wrong paths, for reasons other than a fixture/step defect), **STOP and escalate to the PM** — do NOT edit `src/**` (RSK-5). Record the finding in the Execution Log.
@@ -175,7 +179,7 @@ Per **DEC-1**, the BDD tier covers exactly the four `INV-*` invariants; `NFR-PER
 **Acceptance Criteria**:
 
 - Must: `duplicate-uuid-fatal.feature` passes under `bun run test:bdd`; `computePlan` returns `err(DuplicateUuid)` naming both source paths; `FakeTarget` received 0 create/update calls. (AC-F2-3)
-- Must: The step harness imports the real `computePlan`/`applyPlan`; the only mock is `FakeTarget` (`TargetSystem` port). (AC-F2-5, NFR-MAINT-1)
+- Must: The step harness imports the real `computePlan`/`applyPlan`; the only mocks are the adapter ports (`TargetSystem` via `FakeTarget`, `Repository` via `FakeRepository`). (AC-F2-5, NFR-MAINT-1)
 - Must: Fixtures are deterministic (fixed UUID-v7); assertions are on counts/states, not wall-clock. (RSK-3)
 - Should: `bun run typecheck` + `bun run lint` are clean for the new `tests/bdd/**/*.ts` files.
 
@@ -205,10 +209,10 @@ Per **DEC-1**, the BDD tier covers exactly the four `INV-*` invariants; `NFR-PER
 
 - [ ] **3.1** Create `tests/bdd/features/no-silent-overwrite.feature` (INV-SAFE-1, TC-BDD-001 + TC-BDD-002) with two scenarios: (a) a corpus whose remote is `REMOTE_AHEAD` (FakeTarget fixture page with version > local base version); (b) a corpus whose remote body hash `DIVERGED` from local base (FakeTarget fixture with a divergent body). Each: `When computePlan + applyPlan run without --adopt/--rebind` → `Then the drifted document is Blocked` → `And FakeTarget received 0 updatePage calls` → `And 0 createPage calls`. (AC-F2-1, AC-F2-5)
 - [ ] **3.2** Create `tests/bdd/features/no-silent-recreate-remote-missing.feature` (INV-SAFE-2, TC-BDD-003 + TC-BDD-004): (a) a managed page whose remote was deleted — configure `FakeTarget.getPage` to return `err(RemoteMissing)` (the page is absent from the fixture map) → `When computePlan + applyPlan run without --adopt/--rebind` → `Then the REMOTE_MISSING document is Blocked` → `And 0 createPage calls`; (b) a multi-document corpus (e.g. 3 docs) with one `REMOTE_MISSING` → assert `createPageCalls.length` excludes the blocked doc (quantitative zero-write variant). (AC-F2-2, AC-F2-5)
-- [ ] **3.3** Create `tests/bdd/features/no-secret-in-output.feature` (INV-SEC-1, TC-BDD-006): `Given a corpus with one managed document` + `Given the sync is run with real credentials` → inject a known **sentinel secret string** into the run inputs (the config/provenance path that flows to outputs); `When computePlan + applyPlan run` against `FakeTarget` → `Then no credential appears in` the plan result, the apply journal, the lock file, diagnostic messages, `version.message`, and the cache. (AC-F2-4, AC-F2-5; OQ-P2)
-- [ ] **3.4** Extend `tests/bdd/steps/` with the matching step-definition modules (`no-silent-overwrite.steps.ts`, `no-silent-recreate-remote-missing.steps.ts`, `no-secret-in-output.steps.ts`) — shared Given/When/Then glue where possible. Each `When` step drives the **real** `computePlan` (then `applyPlan`) from `#app/push-flow` against `FakeTarget`. The state classifier + push flow run for real; only `FakeTarget` is mocked (DEC-4). (AC-F2-1, AC-F2-2, AC-F2-4, AC-F2-5)
+- [ ] **3.3** Create `tests/bdd/features/no-secret-in-output.feature` (INV-SEC-1, TC-BDD-006): `Given a corpus with one managed document` whose Markdown **content** (body) contains a known **sentinel secret string** (planted via `FakeRepository.setFile`, mirroring `tests/integration/app/secrets-safety-integration.test.ts` TC-INTEGRATION-011); `When computePlan + applyPlan run` against `FakeTarget` → `Then the sentinel does not appear in` the plan result, the apply journal, the lock file, diagnostic messages, `version.message`, or the cache. NOTE: the real adapter (`ConfluenceTarget`/`ConfluenceClient`) is the mocked `TargetSystem` port, so credentials are NOT an engine input — the sentinel is injected into the document content (the source that flows through render → plan → outputs), never into config/provenance (there is no credential-bearing config/provenance path that flows to outputs; injecting there would be vacuous or violate DEC-3). (AC-F2-4, AC-F2-5; OQ-P2 RESOLVED — injection point = document content)
+- [ ] **3.4** Extend `tests/bdd/steps/` with the matching step-definition modules (`no-silent-overwrite.steps.ts`, `no-silent-recreate-remote-missing.steps.ts`, `no-secret-in-output.steps.ts`) — shared Given/When/Then glue where possible. Each `When` step drives the **real** `computePlan` (then `applyPlan`) from `#app/push-flow` against `FakeTarget`. The state classifier + push flow run for real; only the adapter ports are mocked (`TargetSystem` via `FakeTarget`, `Repository` via `FakeRepository` — DEC-4). (AC-F2-1, AC-F2-2, AC-F2-4, AC-F2-5)
 - [ ] **3.5** For INV-SAFE-1/2, set up the `REMOTE_AHEAD` / `DIVERGED` / `REMOTE_MISSING` remote state via `FakeTarget.addFixture` / `advanceVersion` / omitting the fixture (so `getPage` returns `RemoteMissing`), and seed a `LockFile` binding that places the doc in the relevant sync state — mirroring the integration-tier fixture shape (`tests/integration/confluence/push-flow.test.ts`). Assert on `ApplyReport.blocks` + `FakeTarget` call arrays (zero writes), never on wall-clock. (RSK-3)
-- [ ] **3.6** For INV-SEC-1 (OQ-P2): run the real engine with the sentinel in the inputs; assert the sentinel is absent from every inspected output path (journal files under the cache dir, the lock, diagnostics, `version.message`, cache). If the sentinel **leaks** into any output → that is a genuine `src/` redaction bug → **STOP and escalate to the PM** (RSK-5); do NOT weaken the assertion or mock the redaction path.
+- [ ] **3.6** For INV-SEC-1 (OQ-P2 RESOLVED): run the real engine with the sentinel planted in the document content (via `FakeRepository.setFile`); assert the sentinel is absent from every inspected output path — the plan, apply journal, lock file, diagnostics, `version.message`, and cache. If the sentinel **leaks** into any of these → that is a genuine `src/` redaction bug → **STOP and escalate to the PM** (RSK-5); do NOT weaken the assertion or mock the redaction path. (Mirrors TC-INTEGRATION-011; credentials never enter `computePlan`/`applyPlan` because the credential-bearing adapter is the mocked `TargetSystem` port.)
 - [ ] **3.7** Run `bun run test:bdd` — all four invariant features (INV-SAFE-1/2/3, INV-SEC-1) green at integration level; confirm total runtime ≤ 30 s (NFR-CI-2).
 - [ ] **3.8** If a genuine `src/` invariant bug is observed in any scenario (an invariant fails for reasons other than a fixture/step defect), **STOP and escalate to the PM** — do NOT edit `src/**` (RSK-5). Record the finding in the Execution Log.
 
@@ -216,9 +220,9 @@ Per **DEC-1**, the BDD tier covers exactly the four `INV-*` invariants; `NFR-PER
 
 - Must: INV-SAFE-1 — `REMOTE_AHEAD` and `DIVERGED` docs are `Blocked`, never auto-overwritten; `FakeTarget` received 0 `updatePage` and 0 `createPage` calls. (AC-F2-1)
 - Must: INV-SAFE-2 — the `REMOTE_MISSING` doc is `Blocked`, never silently re-created; 0 `createPage` calls reach the target (incl. the multi-doc quantitative assertion). (AC-F2-2)
-- Must: INV-SEC-1 — the sentinel secret is absent from the plan, journal, lock, diagnostics, `version.message`, and cache. (AC-F2-4)
+- Must: INV-SEC-1 — the sentinel secret (injected into document content via `FakeRepository.setFile`, mirroring TC-INTEGRATION-011; never into config/provenance) is absent from the plan, journal, lock, diagnostics, `version.message`, and cache. (AC-F2-4)
 - Must: All four features pass under `bun run test:bdd`; the full suite runs in ≤ 30 s. (AC-F1-1, NFR-CI-2)
-- Must: Every step mocks only the `TargetSystem` port; the state classifier, hierarchy planner, and push flow are real. (AC-F2-5, NFR-MAINT-1)
+- Must: Every step mocks only the adapter ports (`TargetSystem` + `Repository`); the state classifier, hierarchy planner, and push flow are real. (AC-F2-5, NFR-MAINT-1)
 - Should: `bun run typecheck` + `bun run lint` are clean for all new `tests/bdd/**/*.ts` files.
 
 **Affected code areas**:
@@ -400,7 +404,7 @@ Per **DEC-1**, the BDD tier covers exactly the four `INV-*` invariants; `NFR-PER
 | BDD features (new) | tests/bdd/features/{no-silent-overwrite,no-silent-recreate-remote-missing,no-secret-in-output}.feature | Features (INV-SAFE-1/2, INV-SEC-1) |
 | BDD step harness (new) | tests/bdd/steps/*.ts, tests/bdd/support/world.ts | Test infra (real engine + FakeTarget port) |
 | Live-sandbox harness (new) | tests/e2e/{helpers.ts,sandbox-guard.test.ts,sandbox-smoke.test.ts} | Test infra (guarded smoke + cleanup) |
-| Test helper (reuse) | tests/_helpers/fake-target.ts | Reference (FakeTarget — the only permitted mock) |
+| Test helper (reuse) | tests/_helpers/fake-target.ts | Reference (FakeTarget — mocked `TargetSystem` adapter port) |
 | Test helper (reuse) | tests/_helpers/fake-repository.ts | Reference (deterministic Git fixtures) |
 | Sync engine entrypoints (reuse) | src/app/push-flow.ts (`computePlan`, `applyPlan`) | Reference (real modules, DEC-3) |
 | Adapter factory (reuse) | src/infra/confluence/target.ts (`ConfluenceTarget.fromCredentials`) | Reference (real adapter for E2E) |
@@ -416,6 +420,7 @@ Per **DEC-1**, the BDD tier covers exactly the four `INV-*` invariants; `NFR-PER
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-15 | plan-writer | Initial plan for GH-29. 6 commit-sized phases (A–F): (A) `@cucumber/cucumber` devDependency + binding strict-mode `test:bdd` runner validated under Bun (OQ-1/DEC-2); (B) BDD step harness driving the REAL `computePlan`/`applyPlan` against `FakeTarget` (only permitted mock — DEC-4) with `FakeRepository` fixtures, INV-SAFE-3 green; (C) INV-SAFE-1/2 + INV-SEC-1 `.feature` files + step defs, all 4 invariants green ≤ 30 s; (D) CI binding verification (deliberate-break proof, then revert) + stale `ci.yml` comment refresh; (E) live-sandbox harness — guarded smoke test (skip-without-secrets, RSK-6) + create/read/delete round-trip + run-scoped cleanup, driven by the unchanged `run-e2e.yml`; (F) tier verification (5 wired tiers + coverage gate) + `bun run check` green + finalize (no version bump). Enforces DEC-1 (4 INV invariants only; NFR-PERF-4/NFR-REL-5 stay in integration), DEC-2 (cucumber CLI under Bun; chosen form recorded in Phase 1 commit), DEC-3 (0 `src/**` changes; STOP+escalate real src bugs to PM — hard condition, not a task), DEC-4 (mock only `TargetSystem` port). Traced to TC-BDD-001–007, TC-E2E-001–003, TC-TIER-001–005, TC-CHECK-001 and AC-F1-1, AC-F2-1..5, AC-1, AC-F3-1..3, AC-F4-1, AC-2. Notes the acknowledged red intermediate state (Phase 1 → 2: strict mode makes undefined-steps fail until step defs land) and the coverage non-impact (BDD runs under cucumber, E2E skips without secrets — neither counts toward the bunfig threshold). Mirrors the GH-81 sibling plan format. |
+| 1.1 | 2026-07-15 | plan-writer | DoR iter-1 fixes (verdict NOT_READY → align plan to spec v1.1 / test-plan v1.1). No scope, phase-count, decision, or traceability changes — three surgical corrections only: **(F1, blocker)** INV-SEC-1 injection point corrected — OQ-P2 CLOSED: the sentinel is injected into the document **content** (Markdown source via `FakeRepository.setFile`, mirroring `tests/integration/app/secrets-safety-integration.test.ts` TC-INTEGRATION-011), NOT into config/provenance (there is no credential-bearing config/provenance path to outputs; credentials live in the mocked `ConfluenceTarget`/`ConfluenceClient` adapter and never enter `computePlan`/`applyPlan`). Updated tasks 3.3/3.6, the Phase 3 INV-SEC-1 AC, and moved OQ-P2 from Open questions to a Resolved-decisions block. **(F2 alignment)** DEC-4/AC-F2-5/NFR-MAINT-1 wording broadened everywhere from "mock only the `TargetSystem` port" to "mock only the adapter ports (`TargetSystem` via `FakeTarget`, `Repository` via `FakeRepository`); domain logic real" — Context, guardrail blockquote, Constraints, Success Metrics (1 → 2 ports), Phase 2 Goal/Task 2.3/AC, Task 3.4, Phase 3 AC, Artifacts table, summary. **(F5, nit)** PR-timing note added: the PR opens only at/after Phase 6 (all 4 features green) so the red `test:bdd` window exists only on the Phase 1→2 feature-branch commits, never on the PR head; reordering the `test:bdd` landing into Phase 2 was considered and rejected to preserve Phase 1's isolated runner-validation signal. Phase→AC→TC mapping unchanged. |
 
 ## Execution Log
 
