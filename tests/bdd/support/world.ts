@@ -6,6 +6,13 @@ import { FakeTarget } from "#tests/_helpers/fake-target";
 import type { LockFile, ProjectConfig } from "#domain/config/types";
 import type { Plan } from "#app/push-flow";
 import type { Result } from "#domain/result";
+import type { ApplyReport } from "#app/push-flow";
+import type { ApplyOptions } from "#app/push-flow";
+import { tmpdir } from "node:os";
+import { mkdtempSync } from "node:fs";
+
+// Create a temporary cache directory for BDD tests
+const tmpCacheDir = mkdtempSync(`${tmpdir()}/marksync-bdd-`);
 
 export interface BddWorld {
 	// Adapter port mocks (only permitted mocks — DEC-4)
@@ -18,11 +25,24 @@ export interface BddWorld {
 
 	// Computed results from computePlan
 	planResult: Result<Plan, unknown> | undefined;
+
+	// Computed results from applyPlan
+	applyResult: Result<ApplyReport, unknown> | undefined;
+
+	// Apply options (test configuration)
+	applyOpts: ApplyOptions;
 }
 
 // Create a fresh world before each scenario (RSK-3: no state leakage)
 Before(function () {
 	const world = this as unknown as BddWorld;
+	const applyOpts: ApplyOptions = {
+		cwd: tmpCacheDir,
+		cacheDir: tmpCacheDir,
+		targetId: "default",
+		stalePlanMinutes: 15,
+	};
+
 	Object.assign(world, {
 		fakeRepo: new FakeRepository(),
 		fakeTarget: new FakeTarget(),
@@ -69,5 +89,7 @@ Before(function () {
 			},
 		},
 		planResult: undefined,
+		applyResult: undefined,
+		applyOpts,
 	});
 });
