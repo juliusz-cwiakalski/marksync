@@ -77,8 +77,7 @@ jobs:
 
       - name: BDD lifecycle invariants (cucumber)
         # Runs @cucumber/cucumber for INV-SAFE-1/2/3 + INV-SEC-1 (TDR-0007).
-        # The test:bdd script no-ops until the BDD runner wires in E5-S1
-        # (MS2-E5), so this step is green now and binding once features land.
+        # Now binding: 4 invariant features (6 scenarios) enforced via test:bdd.
         run: bun run test:bdd
 
   e2e-mock:
