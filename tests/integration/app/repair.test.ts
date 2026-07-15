@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import type { LockFile, ProjectConfig } from "#domain/config/types";
 import type { PageBinding } from "#domain/binding/page-binding";
 import { runRepair } from "#app/repair";
-import { loadLock } from "#app/lock";
+import { rawHash } from "#domain/state/hashes";
 import { FakeRepository } from "#tests/_helpers/fake-repository";
 import { FakeTarget } from "#tests/_helpers/fake-target";
 import type { MetadataProperty } from "#domain/state/reconcile";
@@ -365,16 +365,21 @@ marksync:
 		// Assert only 1 write (the remaining doc)
 		expect(fakeTarget.getWriteCount()).toBe(1);
 
-		// Assert report shows 2 skipped (already-applied) + 1 repaired
-		expect(report.items.length).toBeGreaterThanOrEqual(1);
+		// Assert report shows exact counts: 2 skipped (already-applied) + 1 repaired
+		expect(report.items).toHaveLength(3);
 		const skippedItems = report.items.filter(
 			(i) => i.diagnosticClass === "skipped",
 		);
 		const repairedItems = report.items.filter(
 			(i) => i.diagnosticClass === "repaired",
 		);
-		expect(skippedItems.length).toBeGreaterThanOrEqual(2); // At least 2 skipped
-		expect(repairedItems.length).toBeGreaterThanOrEqual(1); // At least 1 repaired
+		expect(skippedItems.length).toBe(2);
+		expect(repairedItems.length).toBe(1);
+
+		// Assert no duplicate UUIDs
+		const uuids = report.items.map((i) => i.uuid);
+		const uniqueUuids = new Set(uuids);
+		expect(uniqueUuids.size).toBe(3); // All 3 UUIDs are unique
 
 		// Assert final lock has all 3 bindings
 		expect(Object.keys(lock.targets.default.documents).length).toBe(3);
@@ -581,6 +586,24 @@ marksync:
 
 		expect(repairResult.ok).toBe(true);
 
+		const report = repairResult.value;
+
+		// Assert exact counts: 2 skipped (already-applied) + 1 repaired
+		expect(report.items).toHaveLength(3);
+		const skippedItems = report.items.filter(
+			(i) => i.diagnosticClass === "skipped",
+		);
+		const repairedItems = report.items.filter(
+			(i) => i.diagnosticClass === "repaired",
+		);
+		expect(skippedItems.length).toBe(2);
+		expect(repairedItems.length).toBe(1);
+
+		// Assert no duplicate UUIDs
+		const uuids = report.items.map((i) => i.uuid);
+		const uniqueUuids = new Set(uuids);
+		expect(uniqueUuids.size).toBe(3); // All 3 UUIDs are unique
+
 		// Assert cumulative count = 3 (exactly N)
 		const writesAfterRepair = fakeTarget.getWriteCount();
 		expect(writesAfterRepair).toBe(3);
@@ -673,15 +696,16 @@ describe("TC-REPAIR-009: Mid-transaction crash window", () => {
 		const runId = "0192b3d4-5e6f-7000-8000-000000000099";
 
 		// Setup: page at version 2 (reflects the journaled operation)
+		const pageBody = "<h1>Doc A</h1>";
 		fakeTarget.addFixture({
 			id: pageId,
 			title: "Doc A",
 			version: 2,
-			body: "<h1>Doc A</h1>",
+			body: pageBody,
 			spaceId: "TEST",
 		});
 
-		// Property matches remote
+		// Property matches remote (renderedBodyHash is the actual hash of page body)
 		const property: MetadataProperty = {
 			schemaVersion: 1,
 			projectId: "marksync-for-confluence",
@@ -690,7 +714,7 @@ describe("TC-REPAIR-009: Mid-transaction crash window", () => {
 			sourcePath: "doc.md",
 			sourceCommit: "def456",
 			sourceContentHash: "sha256:src",
-			renderedBodyHash: "sha256:rend",
+			renderedBodyHash: rawHash(pageBody), // Actual hash of page body
 			toolVersion: "0.6.0",
 			synchronizedAt: "2026-07-15T00:00:00Z",
 			operationId: "op-009",
@@ -965,6 +989,143 @@ marksync:
 
 		// Assert lock unchanged
 		expect(lock).toEqual(lockBefore);
+	});
+});
+
+describe("TC-REPAIR-011a: Diverged remote with dirty lock", () => {
+	let cacheDir: string;
+	let fakeRepo: FakeRepository;
+	let fakeTarget: FakeTarget;
+	let config: ProjectConfig;
+	let lock: LockFile;
+
+	beforeEach(() => {
+		cacheDir = mkdtempSync(join(tmpdir(), "gh28-repair-011a-"));
+		fakeRepo = new FakeRepository();
+		fakeTarget = new FakeTarget();
+
+		config = {
+			version: 1,
+			root: ".",
+			select: ["**/*.md"],
+			exclude: [],
+			hierarchy: "flat",
+			targets: {
+				default: {
+					type: "confluence",
+					spaceKey: "TEST",
+					parentPageId: "ROOT",
+				},
+			},
+			sync: {
+				allowBranches: ["main"],
+				granularity: "squash",
+				stalePlanMinutes: 15,
+			},
+			render: {
+				mermaid: {
+					policy: "render",
+					securityLevel: "strict",
+					htmlLabels: false,
+					deterministicIds: true,
+				},
+			},
+			output: {
+				format: "storage",
+				color: "auto",
+			},
+			provenance: {
+				visiblePanel: true,
+			},
+		};
+
+		lock = {
+			version: 1,
+			targets: {
+				default: {
+					documents: {},
+				},
+			},
+		};
+	});
+
+	afterEach(() => {
+		rmSync(cacheDir, { recursive: true, force: true });
+	});
+
+	test("Dirty lock + diverged remote → needs-human-action, 0 writes, binding NOT rebuilt", async () => {
+		const uuid = "0192b3d4-5e6f-7000-8000-000000000011a" as DocumentId;
+		const pageId = "page-111";
+
+		// Setup: dirty lock (sourceCommit mismatch) + diverged remote body
+		const binding: PageBinding = {
+			uuid,
+			sourcePath: "doc.md",
+			pageId,
+			parentPageId: "ROOT",
+			pageVersion: 1,
+			sourceCommit: "abc123", // Stale - mismatched with property
+			sourceContentHash: "sha256:src",
+			renderedBodyHash: "sha256:rend",
+			remoteBodyHash: "sha256:old-remote", // What MarkSync last wrote
+			attachmentHashes: {},
+			operationId: "op-011a",
+			synchronizedAt: "2026-07-15T00:00:00Z",
+			toolVersion: "0.6.0",
+		};
+
+		const property: MetadataProperty = {
+			schemaVersion: 1,
+			projectId: "marksync-for-confluence",
+			targetId: "default",
+			documentId: uuid,
+			sourcePath: "doc.md",
+			sourceCommit: "def456", // Current state (different from binding)
+			sourceContentHash: "sha256:src",
+			renderedBodyHash: "sha256:rend", // What MarkSync last wrote
+			toolVersion: "0.6.0",
+			synchronizedAt: "2026-07-15T00:00:00Z",
+			operationId: "op-011a",
+		};
+
+		// Page body has diverged from what MarkSync wrote
+		fakeTarget.setPage(pageId, {
+			version: 2,
+			body: "<h1>Modified by user</h1>", // Diverged body (different from renderedBodyHash)
+		});
+
+		fakeTarget.setMetadataProperty(pageId, JSON.stringify(property));
+
+		lock.targets.default.documents[uuid] = binding;
+
+		fakeTarget.resetWriteCounter();
+
+		// Run repair
+		const repairResult = await runRepair(lock, fakeRepo, fakeTarget, config, {
+			cwd: cacheDir,
+			cacheDir,
+			targetId: "default",
+			dryRun: false,
+			stalePlanMinutes: 15,
+		});
+
+		expect(repairResult.ok).toBe(true);
+		if (!repairResult.ok) return;
+
+		const report = repairResult.value;
+
+		// Assert 0 writes (diverged remote is not rebuilt)
+		expect(fakeTarget.getWriteCount()).toBe(0);
+
+		// Assert needs-human-action reported
+		expect(report.items).toHaveLength(1);
+		expect(report.items[0].diagnosticClass).toBe("needs-human-action");
+		expect(report.items[0].diagnosticCode).toBe("NEEDS_HUMAN_ACTION_DIVERGED");
+		expect(report.items[0].humanNote).toContain("diverged");
+
+		// Assert binding NOT rebuilt (lock NOT modified)
+		expect(lock.targets.default.documents[uuid].sourceCommit).toBe("abc123"); // Still stale
+		expect(lock.targets.default.documents[uuid].remoteBodyHash).toBe("sha256:old-remote"); // Still old
 	});
 });
 

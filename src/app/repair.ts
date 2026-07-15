@@ -123,7 +123,7 @@ export function findLatestJournalRunId(cacheDir: string): string | undefined {
  */
 export async function runRepair(
 	lock: LockFile,
-	_git: Repository,
+	git: Repository,
 	target: TargetSystem,
 	config: ProjectConfig,
 	opts: RepairOptions,
@@ -305,28 +305,42 @@ export async function runRepair(
 				continue;
 			}
 
-			// Dirty lock, remote unchanged → safe rebuild (0 page writes).
-			const diagnosticCode: RepairDiagnosticCode = isCrashWindowCandidate
-				? "REPAIRED_CRASH_WINDOW"
-				: "REPAIRED_STALE_LOCK";
-			items.push({
-				uuid,
-				sourcePath: binding.sourcePath,
-				diagnosticClass: "repaired",
-				diagnosticCode,
-				humanNote: isCrashWindowCandidate
-					? "Rebuilt from remote (crash window closed)"
-					: "Rebuilt from Confluence property",
-			});
-			rebuilds.push({
-				uuid,
-				property,
-				pageVersion: page.version,
-				pageId: binding.pageId,
-				parentPageId: binding.parentPageId,
-				attachmentHashes: binding.attachmentHashes,
-				remoteBodyHash: page.body ? rawHash(page.body) : binding.remoteBodyHash,
-			});
+			// Dirty lock → verify remote hasn't diverged before rebuilding (INV-SAFE-1).
+			const remoteBodyHash = page.body ? rawHash(page.body) : binding.remoteBodyHash;
+			if (remoteBodyHash !== binding.remoteBodyHash) {
+				// Remote diverged → needs-human-action, do NOT rebuild
+				items.push({
+					uuid,
+					sourcePath: binding.sourcePath,
+					diagnosticClass: "needs-human-action",
+					diagnosticCode: "NEEDS_HUMAN_ACTION_DIVERGED",
+					humanNote: isCrashWindowCandidate
+						? "Remote page has diverged since journaled success — manual resolution required"
+						: "Remote page has diverged since last sync — manual resolution required",
+				});
+			} else {
+				const diagnosticCode: RepairDiagnosticCode = isCrashWindowCandidate
+					? "REPAIRED_CRASH_WINDOW"
+					: "REPAIRED_STALE_LOCK";
+				items.push({
+					uuid,
+					sourcePath: binding.sourcePath,
+					diagnosticClass: "repaired",
+					diagnosticCode,
+					humanNote: isCrashWindowCandidate
+						? "Rebuilt from remote (crash window closed)"
+						: "Rebuilt from Confluence property",
+				});
+				rebuilds.push({
+					uuid,
+					property,
+					pageVersion: page.version,
+					pageId: binding.pageId,
+					parentPageId: binding.parentPageId,
+					attachmentHashes: binding.attachmentHashes,
+					remoteBodyHash,
+				});
+			}
 		}
 
 		// Scenario 2: crash-window candidates whose binding is NOT in the committed
@@ -390,6 +404,19 @@ export async function runRepair(
 				}
 				const page = pageResult.value;
 
+				// Verify remote hasn't diverged before rebuilding (INV-SAFE-1).
+				const remoteBodyHash = rawHash(page.body ?? "");
+				if (remoteBodyHash !== property.renderedBodyHash) {
+					items.push({
+						uuid: entry.uuid,
+						sourcePath: property.sourcePath,
+						diagnosticClass: "needs-human-action",
+						diagnosticCode: "NEEDS_HUMAN_ACTION_DIVERGED",
+						humanNote: "Remote page has diverged since journaled success — manual resolution required",
+					});
+					continue;
+				}
+
 				items.push({
 					uuid: entry.uuid,
 					sourcePath: property.sourcePath,
@@ -404,7 +431,7 @@ export async function runRepair(
 					pageId,
 					parentPageId,
 					attachmentHashes: {},
-					remoteBodyHash: rawHash(page.body ?? ""),
+					remoteBodyHash,
 				});
 			}
 		}
@@ -443,7 +470,7 @@ export async function runRepair(
 		// Stage 2: complete remaining docs (scenario 1, post-transaction
 		// interruption). Triggered by journal presence, not crash-window count.
 		if (interruptedRunDetected && latestJournalRunId) {
-			const planResult = await computePlan(config, lock, _git, target);
+			const planResult = await computePlan(config, lock, git, target);
 			if (!planResult.ok) {
 				return planResult;
 			}
@@ -487,7 +514,7 @@ export async function runRepair(
 	} else if (interruptedRunDetected && latestJournalRunId) {
 		// Dry-run Stage 2: show the planned completion. computePlan is pure
 		// (0 writes, no lock mutation) — it reflects what --apply would do.
-		const planResult = await computePlan(config, lock, _git, target);
+		const planResult = await computePlan(config, lock, git, target);
 		if (!planResult.ok) {
 			return planResult;
 		}
@@ -519,8 +546,20 @@ export async function runRepair(
 	return Res.ok({
 		runId: crypto.randomUUID(),
 		dryRun: opts.dryRun,
-		items,
+		items: dedupeItemsByUuid(items),
 		interruptedRunDetected,
 		writes,
 	});
+}
+
+/**
+ * Deduplicate repair items by UUID — later items override earlier ones.
+ * Stage-2 applyPlan items supersede diagnose-stage items for the same UUID.
+ */
+function dedupeItemsByUuid(items: RepairItem[]): RepairItem[] {
+	const itemMap = new Map<string, RepairItem>();
+	for (const item of items) {
+		itemMap.set(item.uuid, item);
+	}
+	return Array.from(itemMap.values());
 }

@@ -1,10 +1,4 @@
-// src/cli/commands/repair-state.ts
-//
-// `marksync repair-state` command handler — thin shell calling runRepair
-// (GH-28 Phase 3). Returns CommandResult<RepairReport> via ok() / err().
-// Mirrors sync.ts pattern: load config → load lock → resolve cache/creds →
-// create target → call app-tier use case → map result. DEC-1 tier rules:
-// imports only `#cli/output` + `#app/*` (NO `#domain/*` / `#infra/*`).
+// marksync repair-state handler — thin shell calling runRepair (GH-28).
 
 import type { CommandResult } from "#cli/output";
 import { err, ok } from "#cli/output";

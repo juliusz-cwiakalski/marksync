@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { LockFile, ProjectConfig } from "#domain/config/types";
 import type { PageBinding } from "#domain/binding/page-binding";
-import type { Result } from "#domain/result";
+import { rawHash } from "#domain/state/hashes";
 import {
 	runRepair,
 	findLatestJournalRunId,
@@ -281,6 +281,7 @@ describe("TC-REPAIR-003: Dry-run mode returns planned repairs with 0 writes", ()
 		const fakeTarget = new FakeTarget();
 
 		const uuid = "0192b3d4-5e6f-7000-8000-000000000003" as DocumentId;
+		const pageBody = "<h1>Doc</h1>";
 		const binding: PageBinding = {
 			uuid,
 			sourcePath: "doc.md",
@@ -290,7 +291,7 @@ describe("TC-REPAIR-003: Dry-run mode returns planned repairs with 0 writes", ()
 			sourceCommit: "abc123", // Stale - mismatched with property
 			sourceContentHash: "sha256:src",
 			renderedBodyHash: "sha256:rend",
-			remoteBodyHash: "sha256:rem",
+			remoteBodyHash: rawHash(pageBody), // Matches actual page body
 			attachmentHashes: {},
 			operationId: "op-003",
 			synchronizedAt: "2026-07-15T00:00:00Z",
@@ -315,7 +316,7 @@ describe("TC-REPAIR-003: Dry-run mode returns planned repairs with 0 writes", ()
 			id: "page-333",
 			title: "Doc",
 			version: 1,
-			body: "<h1>Doc</h1>",
+			body: pageBody,
 			spaceId: "TEST",
 		});
 		fakeTarget.setMetadataProperty("page-333", JSON.stringify(property));
@@ -562,6 +563,7 @@ describe("TC-REPAIR-005: Dirty lock detection via reconcileWithProperty", () => 
 		const fakeTarget = new FakeTarget();
 
 		const uuid = "0192b3d4-5e6f-7000-8000-000000000005" as DocumentId;
+		const pageBody = "<h1>Doc</h1>";
 		const binding: PageBinding = {
 			uuid,
 			sourcePath: "doc.md",
@@ -571,7 +573,7 @@ describe("TC-REPAIR-005: Dirty lock detection via reconcileWithProperty", () => 
 			sourceCommit: "abc123", // Stale - mismatched with property
 			sourceContentHash: "sha256:src",
 			renderedBodyHash: "sha256:rend",
-			remoteBodyHash: "sha256:rem",
+			remoteBodyHash: rawHash(pageBody), // Matches actual page body
 			attachmentHashes: {},
 			operationId: "op-005",
 			synchronizedAt: "2026-07-15T00:00:00Z",
@@ -596,7 +598,7 @@ describe("TC-REPAIR-005: Dirty lock detection via reconcileWithProperty", () => 
 			id: "page-555",
 			title: "Doc",
 			version: 1,
-			body: "<h1>Doc</h1>",
+			body: pageBody,
 			spaceId: "TEST",
 		});
 		fakeTarget.setMetadataProperty("page-555", JSON.stringify(property));

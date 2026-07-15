@@ -43,6 +43,21 @@ dor_iterations:
     date: "2026-07-15T17:55:00Z"
     notes: "All 6 findings resolved. 4 new nits (non-blocking, implementation-time): N1 TC-009 fixture uses ts/version field names — coder aligns to JournalEntry shape; N2 TC-011 references fakeTarget.setPage (doesn't exist yet) — coder adds helper in Phase 5 alongside setSearchResults; N3 TC-007 step 9 conflates scenario terminology — cosmetic; N4 test-plan revision log missing v1.1 entry."
 
+review_iterations:
+  - iteration: 1
+    verdict: FAIL
+    date: "2026-07-15T18:50:00Z"
+    blocker: "F-1 (HIGH): INV-SAFE-1 gap — dirty-lock rebuild path (repair.ts:308-329) + crash-window candidate path (393-408) rebuild unconditionally WITHOUT divergence check. Diverged remote + stale lock → diverged remoteBodyHash baked into rebuilt binding → next sync classify() sees no remote drift → silent overwrite risk. Fixer's divergence check only covered reconcile-ok branch, not the LockDirty / crash-window branches."
+    findings:
+      - "F-1 HIGH: add divergence check to dirty-lock + crash-window rebuild paths (compare rawHash(page.body) vs property/base; if diverged → NEEDS_HUMAN_ACTION_DIVERGED, skip rebuild, 0 writes). Add integration test: dirty-lock + diverged remote → needs-human-action."
+      - "F-2 MINOR: dedup report items by UUID in interrupted-apply scenario (Stage 2 overrides diagnose); tighten TC-007/008 to exact counts."
+      - "F-3 MINOR: mark plan Phases 4-7 tasks [x]; update Execution Log."
+      - "F-4 MINOR: update plan task 2.6 to permit computePlan in dry-run (read-only, justified)."
+      - "F-5 MINOR: stale CLI_VERSION comment in router.ts:36-40."
+      - "F-6 MINOR: repair-state.ts header > 3 lines."
+      - "F-7 NIT: _git param misleadingly prefixed (it IS used)."
+      - "F-8 NIT: unused imports in test files."
+
 notes:
   - text: >
       PM sign-off (Finding 5): stale parked-plan expiry advisory deferred as
@@ -95,6 +110,26 @@ notes:
       plan's value. INV-SAFE-1 gap (TC-011) was a real safety bug the
       tests surfaced. Fixer's full rewrite of runRepair resolved all 7;
       reviewer must examine the final implementation carefully.
+    type: retro
+    date: "2026-07-15"
+  - text: >
+      Retro — review iter-1 (2026-07-15): reviewer found a HIGH safety bug
+      (F-1) the coder + fixer both missed: the dirty-lock rebuild path and
+      crash-window candidate path rebuild a binding UNCONDITIONALLY without
+      a divergence check. The fixer had added a divergence check, but only
+      to the reconcile-OK branch (consistent lock) — NOT to the LockDirty
+      or crash-window branches. So a diverged remote + stale lock would be
+      silently "repaired" (the diverged remoteBodyHash baked into the
+      binding → next sync sees no remote drift → silent overwrite = data
+      loss). This is an INV-SAFE-1 violation in exactly the scenario the
+      spec F-5/DEC-4/AC-F5-1 target. LESSON: the fixer's full rewrite of
+      runRepair fixed the 7 structural test failures but introduced/
+      left a safety gap because it was tested only via the reconcile-OK
+      divergence path (TC-011), not the dirty-lock+divergence combination.
+      When a safety invariant (INV-SAFE-1) has multiple code paths, EACH
+      path needs its own divergence gate + test. The reviewer's per-path
+      audit caught this. Remediation: add divergence check to all rebuild
+      paths + a dedicated dirty-lock+diverged-remote integration test.
     type: retro
     date: "2026-07-15"
   - text: >
