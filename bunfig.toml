@@ -11,6 +11,12 @@ preload = ["./tests/mermaid.preload.ts"]
 
 # Coverage thresholds.
 #
+# Coverage is OPT-IN: pass `--coverage` to compute + enforce thresholds (the CI
+# fast-loop job does this on the comprehensive src/-covering suite). It is OFF by
+# default so tier-scoped runs (e.g. `bun test tests/e2e-mock/` — a regression gate
+# that exercises only a slice of src/) and everyday local runs are fast and do not
+# fail because a subset cannot meet a whole-src threshold.
+#
 # OQ-1 (MS-0002-start baseline): the typescript.md default is lines=0.80; lowered
 # to 0.70 here. Reason: src/domain/errors.ts's `assertNeverMarkSyncError` is an
 # exhaustive `never`-switch — its `default` block is a compile-time exhaustiveness
@@ -19,6 +25,5 @@ preload = ["./tests/mermaid.preload.ts"]
 # line coverage caps at ~71%. Bun enforces coverageThreshold per-file. Revisit at
 # MS-0002 end (e.g. adopt a Bun coverage-ignore comment if/when Bun supports one,
 # or restructure the proof). functions remains 0.80 (met at 100%).
-coverage = true
 coverageThreshold = { lines = 0.70, functions = 0.80 }
 coverageDir = "./coverage"

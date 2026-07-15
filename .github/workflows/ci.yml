@@ -67,7 +67,9 @@ jobs:
       - name: Test (unit + integration + golden — exclude E2E and BDD)
         # Exclude E2E (live-sandbox, run-e2e.yml) and BDD (cucumber CLI) from
         # the bun:test fast loop. BDD runs via `bun run test:bdd` below.
-        run: bun test tests/unit/ tests/integration/ tests/golden/
+        # --coverage: enforce the src/ coverage thresholds (bunfig.toml) on the
+        # comprehensive suite. Tier-scoped jobs (e2e-mock) run without coverage.
+        run: bun test --coverage tests/unit/ tests/integration/ tests/golden/
 
       - name: Check import boundaries (dependency-cruiser)
         # Ports-and-adapters tier enforcement (TDR-0006 / AC-F3-1).
