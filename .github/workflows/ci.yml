@@ -237,52 +237,78 @@ jobs:
             done
           '
 
-      - name: Report size/cold-start deltas vs baseline
-        if: runner.os == 'Linux'
-        run: |
-          echo "==> Size/cold-start delta report (non-blocking, DEC-6)"
-          echo "Comparing against .benchmarks/binaries.json baseline"
-          if [[ -f ".benchmarks/binaries.json" ]]; then
-            echo "Baseline loaded from .benchmarks/binaries.json"
-            echo ""
-            echo "Size deltas:"
-            for target in linux-x64 linux-arm64 win-x64; do
-              # Determine the binary path
-              if [[ "$target" == "win-x64" ]]; then
-                binary="./dist/marksync-win-x64.exe"
-              else
-                binary="./dist/marksync-${target}"
-              fi
+       - name: Report size/cold-start deltas vs baseline
+         if: runner.os == 'Linux'
+         run: |
+           echo "==> Size/cold-start delta report (non-blocking, DEC-6)"
+           echo "Comparing against .benchmarks/binaries.json baseline"
+           if [[ -f ".benchmarks/binaries.json" ]]; then
+             echo "Baseline loaded from .benchmarks/binaries.json"
+             echo ""
+             echo "Size deltas:"
+             for target in linux-x64 linux-arm64 win-x64; do
+               # Determine the binary path
+               if [[ "$target" == "win-x64" ]]; then
+                 binary="./dist/marksync-win-x64.exe"
+               else
+                 binary="./dist/marksync-${target}"
+               fi
 
-              # Get current bytes
-              if [[ -f "$binary" ]]; then
-                current_bytes=$(stat -c %s "$binary")
-                current_mb=$(echo "scale=2; $current_bytes / 1048576" | bc)
+               # Get current bytes
+               if [[ -f "$binary" ]]; then
+                 current_bytes=$(stat -c %s "$binary")
+                 current_mb=$(echo "scale=2; $current_bytes / 1048576" | bc)
 
-                # Get baseline from JSON
-                baseline_bytes=$(python3 -c "import json; print(json.load(open('.benchmarks/binaries.json'))['measurements'].get('$target', {}).get('bytes', 'null'))" 2>/dev/null || echo "null")
-                baseline_mb=$(python3 -c "import json; print(json.load(open('.benchmarks/binaries.json'))['measurements'].get('$target', {}).get('mb', 'null'))" 2>/dev/null || echo "null")
+                 # Get baseline from JSON
+                 baseline_bytes=$(python3 -c "import json; print(json.load(open('.benchmarks/binaries.json'))['measurements'].get('$target', {}).get('bytes', 'null'))" 2>/dev/null || echo "null")
+                 baseline_mb=$(python3 -c "import json; print(json.load(open('.benchmarks/binaries.json'))['measurements'].get('$target', {}).get('mb', 'null'))" 2>/dev/null || echo "null")
 
-                if [[ "$baseline_bytes" != "null" && "$baseline_mb" != "null" ]]; then
-                  delta_bytes=$((current_bytes - baseline_bytes))
-                  delta_mb=$(echo "scale=2; $current_mb - $baseline_mb" | bc)
+                 if [[ "$baseline_bytes" != "null" && "$baseline_mb" != "null" ]]; then
+                   delta_bytes=$((current_bytes - baseline_bytes))
+                   delta_mb=$(echo "scale=2; $current_mb - $baseline_mb" | bc)
 
-                  echo "  $target: ${current_mb} MB (baseline ${baseline_mb} MB, Δ ${delta_mb} MB)"
+                   echo "  $target: ${current_mb} MB (baseline ${baseline_mb} MB, Δ ${delta_mb} MB)"
 
-                  # Flag if > 90 MB (DEC-4: desired, not hard)
-                  if (( $(echo "$current_mb > 90" | bc -l) )); then
-                    echo "    WARNING: exceeds 90 MB desired budget (DEC-4)"
-                  fi
-                else
-                  echo "  $target: ${current_mb} MB (no baseline yet — first measurement)"
-                fi
-              fi
-            done
-            echo ""
-            echo "Policy: deltas are informational, never blocking (DEC-6)"
-          else
-            echo "No baseline found — will be created on first measurement"
-          fi
+                   # Flag if > 90 MB (DEC-4: desired, not hard)
+                   if (( $(echo "$current_mb > 90" | bc -l) )); then
+                     echo "    WARNING: exceeds 90 MB desired budget (DEC-4)"
+                   fi
+                 else
+                   echo "  $target: ${current_mb} MB (no baseline yet — first measurement)"
+                 fi
+               fi
+             done
+             echo ""
+             echo "Cold-start deltas:"
+             for target in linux-x64 linux-arm64 win-x64; do
+               # Get baseline cold-start from JSON
+               baseline_coldstart=$(python3 -c "import json; print(json.load(open('.benchmarks/binaries.json'))['measurements'].get('$target', {}).get('coldStartMs', {}).get('median', 'null'))" 2>/dev/null || echo "null")
+
+               if [[ "$baseline_coldstart" != "null" && "$baseline_coldstart" != "None" ]]; then
+                 # Read timings file (5 values in seconds, convert to ms)
+                 if [[ -f "timings" ]]; then
+                   timings_ms=$(awk '{printf "%.0f\n", $1 * 1000}' timings | sort -n)
+                   count=$(echo "$timings_ms" | wc -l)
+                   if [[ $count -ge 5 ]]; then
+                     # Calculate median (3rd value for sorted list of 5)
+                     current_median=$(echo "$timings_ms" | sed -n '3p')
+                     delta_ms=$((current_median - baseline_coldstart))
+                     echo "  $target: ${current_median} ms (baseline ${baseline_coldstart} ms, Δ ${delta_ms} ms, n=5)"
+                   else
+                     echo "  $target: insufficient timings data ($count values, expected 5)"
+                   fi
+                 else
+                   echo "  $target: no timings file (cold-start measurement may have failed)"
+                 fi
+               else
+                 echo "  $target: no baseline cold-start yet"
+               fi
+             done
+             echo ""
+             echo "Policy: deltas are informational, never blocking (DEC-6)"
+           else
+             echo "No baseline found — will be created on first measurement"
+           fi
 
       - name: Clean-OS Windows smoke (windows-latest, no Wine)
         if: runner.os == 'Windows'

@@ -35,7 +35,7 @@ ADR-0001 distribution promise. NFR-COMP-2 (clean-OS, no runtime). Spike E1-S3 va
 
 ## Detailed scope (deliverables)
 1. **`scripts/build-binaries.sh`** — refines the E1-S3 skeleton: compiles `src/cli/index.ts` (the real entrypoint from E2-S1/E2-S3) to `dist/marksync-linux-x64`, `dist/marksync-linux-arm64` (if supported), `dist/marksync-win-x64.exe`. Embeds the version from `package.json`.
-2. **Clean-OS smoke** — a CI job (Docker, `debian:slim`) runs `./dist/marksync-linux-x64 --version` and `doctor --json` (against a mock or the sandbox) → exits 0. Windows smoke via a `windows-latest` GitHub runner (no Wine needed — use a real Windows runner in CI).
+ 2. **Clean-OS smoke** — a CI job (Docker, `debian:stable-slim`) runs `./dist/marksync-linux-x64 --version` and `doctor --json` (against a mock or the sandbox) → exits 0. Windows smoke via a `windows-latest` GitHub runner (no Wine needed — use a real Windows runner in CI).
 3. **Size + cold-start measurement** — record `ls -la` size + `time ./marksync --version` cold-start; persist to `.benchmarks/binaries.json` (commit-tracked); CI reports deltas, not hard fail.
 4. **Signing spike (documented)** — the `osslsigncode` command for Windows Authenticode (from E1-S3); document where a real cert plugs in. macOS notarization OUT of scope.
 5. **Release workflow** — `.github/workflows/release.yml` triggered on tag: builds the matrix, attaches binaries + checksums (+ SBOM via `syft` per R-SEC-1/NFR-SEC-4) to a GitHub Release.
