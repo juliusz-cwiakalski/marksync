@@ -160,11 +160,11 @@ Historical change docs (`doc/changes/2026-07/2026-07-08--GH-17--auth-provider/**
 
 **Tasks**:
 
-- [ ] **2.1** Author `doc/decisions/TDR-0010-credential-validation-v1-current-user.md` (slug finalized by `@decision-advisor`; proposed slug per OQ-1 resolution). Content per the repo decision-record template and spec §15 DEC-1:
+- [x] **2.1** Author `doc/decisions/TDR-0010-credential-validation-v1-current-user.md` (slug finalized by `@decision-advisor`; proposed slug per OQ-1 resolution). Content per the repo decision-record template and spec §15 DEC-1:
   - **Decision**: switch the credential-validation probe from v2 `/wiki/api/v2/user/by-me` to v1 `/wiki/rest/api/user/current`, superseding GH-17 DEC-5's v2-only choice.
   - **Rationale / evidence**: (a) inception spike `doc/inception/integration-scenarios/01-authentication.md:39` recorded v2 as "undocumented/unstable … returned 400 in the spike" and v1 `/user/current` as "proven live" (200 with `accountId` + `displayName`); (b) production confirmed the v2 400 (`INVALID_REQUEST_PARAMETER` for `generic-content-type`); (c) this takes the v1 fallback GH-17 DEC-5 explicitly deferred ("add it only if a tenant/credential lacks v2") — framed as taking the deferred fallback, **not** a retroactive condemnation of GH-17; (d) the v1 response satisfies `AccountIdentity` with no schema change; (e) rejected alternative — degrading the `credentials` check to `warn` when downstream checks pass — does not actually validate credentials and masks genuinely bad tokens.
   - **Supersedes**: GH-17 DEC-5 (v2-only). **Consequences**: v2 retired from credential validation; no dual path; revisit trigger = Atlassian deprecates v1 `/user/current`. (AC-8, DEC-1)
-- [ ] **2.2** Add the TDR-0010 entry to `doc/decisions/00-index.md` registry table: `| [TDR-0010](./TDR-0010-credential-validation-v1-current-user.md) | TDR | Credential-validation probe — v1 user/current (supersedes GH-17 DEC-5) | Proposed | 2026-07-26 | Juliusz Ćwiąkalski |`. Sequence confirmed: the index tops out at TDR-0009, so TDR-0010 is the next free per-type slot (spec OQ-1 / test-plan OQ-TST-1). (AC-8, TC-TDR-001)
+- [x] **2.2** Add the TDR-0010 entry to `doc/decisions/00-index.md` registry table: `| [TDR-0010](./TDR-0010-credential-validation-v1-current-user.md) | TDR | Credential-validation probe — v1 user/current (supersedes GH-17 DEC-5) | Proposed | 2026-07-26 | Juliusz Ćwiąkalski |`. Sequence confirmed: the index tops out at TDR-0009, so TDR-0010 is the next free per-type slot (spec OQ-1 / test-plan OQ-TST-1). (AC-8, TC-TDR-001)
 
 **Acceptance Criteria**:
 
@@ -191,12 +191,12 @@ Historical change docs (`doc/changes/2026-07/2026-07-08--GH-17--auth-provider/**
 
 **Tasks**:
 
-- [ ] **3.1** Bump the version in `package.json` from `0.8.0` to `0.8.1` (patch, per `version_impact: patch`; spec §8.5). If `src/cli/commands/router.ts` carries a `CLI_VERSION` constant that must mirror `package.json` (GH-30 F-5 precedent), update it to `0.8.1` and confirm the drift-prevention test (if present) passes; otherwise no router change. (version_impact)
-- [ ] **3.2** Run the full quality gate: `bun run check` (lint + format:check + typecheck + test + check:boundaries) — all green (AC-7, TC-URL-008). Confirm the touched test files are picked up: `tests/unit/app/credentials.test.ts`, `tests/integration/credentials.test.ts`, `tests/integration/cli/commands/doctor.test.ts`, `tests/e2e-mock/mock-smoke-probe.test.ts`, `tests/e2e-mock/create-flow.test.ts`.
-- [ ] **3.3** Stale-reference verification: `rg "user/by-me" src/ tests/` returns **empty** (RSK-P1). Matches under `doc/changes/**` are frozen history (GH-17/GH-21/GH-30/GH-81) and MUST NOT be edited; matches under `doc/inception/`, `doc/overview/`, `doc/spec/`, `doc/planning/` are current-truth and are reconciled by `@doc-syncer` in lifecycle phase 7 (flagged in "Known doc-risk") — not blocked here.
-- [ ] **3.4** Backward-compatibility diff check: `git diff main -- src/domain/credentials.ts` shows **comment-only** changes (no interface body diff); `git diff main -- src/app/credentials.ts` shows the constant value/rename + comment + cause-string only (retry/backoff loop and status-mapping branches unchanged). Confirms AC-6 / NFR-3 (zero contract diff). (AC-6)
-- [ ] **3.5** Spec reconciliation sign-off: re-read spec §17 (AC-1..AC-8) against the delivered behavior + tests and confirm each AC is met (see Test Scenarios AC-coverage check). Confirm spec §15 DEC-1 is ratified as TDR-0010 (Phase 2) and spec §14 OQ-1 is resolved.
-- [ ] **3.6** Confirm the change is a single bug-fix PR ready for review: endpoint swap + test alignment + TDR-0010 + patch bump in one PR; no feature flag, no migration, no config change (spec §18). Release-note line: "doctor: credential check no longer false-fails — probe moved to the v1 current-user endpoint."
+- [x] **3.1** Bump the version in `package.json` from `0.8.0` to `0.8.1` (patch, per `version_impact: patch`; spec §8.5). If `src/cli/commands/router.ts` carries a `CLI_VERSION` constant that must mirror `package.json` (GH-30 F-5 precedent), update it to `0.8.1` and confirm the drift-prevention test (if present) passes; otherwise no router change. (version_impact)
+- [x] **3.2** Run the full quality gate: `bun run check` (lint + format:check + typecheck + test + check:boundaries) — all green (AC-7, TC-URL-008). Confirm the touched test files are picked up: `tests/unit/app/credentials.test.ts`, `tests/integration/credentials.test.ts`, `tests/integration/cli/commands/doctor.test.ts`, `tests/e2e-mock/mock-smoke-probe.test.ts`, `tests/e2e-mock/create-flow.test.ts`.
+- [x] **3.3** Stale-reference verification: `rg "user/by-me" src/ tests/` returns **empty** (RSK-P1). Matches under `doc/changes/**` are frozen history (GH-17/GH-21/GH-30/GH-81) and MUST NOT be edited; matches under `doc/inception/`, `doc/overview/`, `doc/spec/`, `doc/planning/` are current-truth and are reconciled by `@doc-syncer` in lifecycle phase 7 (flagged in "Known doc-risk") — not blocked here.
+- [x] **3.4** Backward-compatibility diff check: `git diff main -- src/domain/credentials.ts` shows **comment-only** changes (no interface body diff); `git diff main -- src/app/credentials.ts` shows the constant value/rename + comment + cause-string only (retry/backoff loop and status-mapping branches unchanged). Confirms AC-6 / NFR-3 (zero contract diff). (AC-6)
+- [x] **3.5** Spec reconciliation sign-off: re-read spec §17 (AC-1..AC-8) against the delivered behavior + tests and confirm each AC is met (see Test Scenarios AC-coverage check). Confirm spec §15 DEC-1 is ratified as TDR-0010 (Phase 2) and spec §14 OQ-1 is resolved.
+- [x] **3.6** Confirm the change is a single bug-fix PR ready for review: endpoint swap + test alignment + TDR-0010 + patch bump in one PR; no feature flag, no migration, no config change (spec §18). Release-note line: "doctor: credential check no longer false-fails — probe moved to the v1 current-user endpoint."
 
 **Acceptance Criteria**:
 
@@ -288,6 +288,6 @@ Historical change docs (`doc/changes/2026-07/2026-07-08--GH-17--auth-provider/**
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| Phase 1 | ☐ Pending | — | — | — | Atomic endpoint swap (src + test URL literals + new AC-4 unit test) |
-| Phase 2 | ☐ Pending | — | — | — | TDR-0010 + decision index entry |
-| Phase 3 | ☐ Pending | — | — | — | Version bump 0.8.0→0.8.1 + full gate + spec reconciliation |
+| Phase 1 | ✅ Complete | 2026-07-26 | 2026-07-26 | 1572b5c | Atomic endpoint swap (src + test URL literals + new AC-4 unit test) — `bun run check` green, all 1310 tests pass |
+| Phase 2 | ✅ Complete | 2026-07-26 | 2026-07-26 | 70537a2 | TDR-0010 + decision index entry — decision record authored and indexed |
+| Phase 3 | ✅ Complete | 2026-07-26 | 2026-07-26 | 97ef6b0 | Version bump 0.8.0→0.8.1 + full gate + spec reconciliation — `bun run check` green, `rg "user/by-me" src/ tests/` empty, backward-compatibility diffs confirmed |
