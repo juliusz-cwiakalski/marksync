@@ -171,12 +171,12 @@ This test plan validates the adversarial corpus and classification runner that r
 1. Scan the `tests/adversarial/` directory for all `*.md` fixtures
 2. For each fixture, parse its `*.classification.json` sidecar to extract unsupported node types
 3. Assert the corpus contains at least one fixture representing each required category:
-   - Nested tables (detected via `raw-html-block` or multi-level structure)
-   - At least three macro/app-content categories (e.g., `{toc}`, `{info}`, `{code}`, Jira macro, gliffy)
-   - Emoji (inline Unicode characters)
-   - At least one long page notably larger than the 33-fixture golden set (by byte/line count)
-   - Mixed task/regular lists (interleaved `- [ ]` and `-`/`1.` items)
-   - Raw HTML (both block-level `<div>` and inline `<b>`/`<i>`)
+    - Nested tables (detected via `raw-html-block` or multi-level structure)
+    - At least three macro/app-content categories (e.g., `{toc}`, `{info}`, `{code}`, Jira macro, gliffy)
+    - Emoji (inline Unicode characters)
+    - At least one long page (≥50 KB or ≥1000 lines — absolute floor per AC-F1-1)
+    - Mixed task/regular lists (interleaved `- [ ]` and `-`/`1.` items)
+    - Raw HTML (both block-level `<div>` and inline `<b>`/`<i>`)
 
 **Expected Outcome**:
 - All 6 required categories are represented in the corpus
@@ -188,7 +188,7 @@ This test plan validates the adversarial corpus and classification runner that r
 
 **Notes / Clarifications**:
 - Category detection may use sidecar node types, fixture content analysis, or fixture naming conventions
-- "Notably larger" for long page means at least 2x the size of the largest existing golden fixture
+- Long page requirement uses absolute floor of ≥50 KB or ≥1000 lines per AC-F1-1 (no relative sizing to existing fixtures)
 
 ---
 
@@ -469,6 +469,7 @@ This test plan validates the adversarial corpus and classification runner that r
 - Sanitization is primarily by construction (DEC-4 — synthetic corpus); grep is defense-in-depth
 - Concrete regex patterns are specified above; bare ID pattern narrowed to internal-issue-ref format only
 - Bare internal ID pattern is case-insensitive to catch variations (MS-123, ms-123, MS_123, etc.)
+- The bare-ID regex `(?:MS|GH|INT|TICKET|JIRA)[-_]\d{3,}` matches internal MarkSync issue-refs only; Confluence/Jira macro fixtures use the `PROJ-###` project-key shape (e.g. `ABC-123`), which does NOT match this regex, so the `macro-jira.md` fixture will not false-positive.
 
 ---
 
@@ -539,13 +540,12 @@ This test plan validates the adversarial corpus and classification runner that r
 **Steps**:
 1. Run `bun run check` in the repository root
 2. Wait for all phases to complete:
-   - `bun run lint` (ESLint)
-   - `bun run typecheck` (TypeScript)
-   - `bun test tests/unit/` (unit tests, including parity and multi-node collection)
-   - `bun test tests/integration/` (integration tests)
-   - `bun test tests/golden/` (golden tests, including classification runner)
-   - `bun test tests/adversarial/` (corpus inventory, PII audit)
-   - `bun run test:bdd` (Gherkin tests)
+    - `bun run lint` (ESLint)
+    - `bun run typecheck` (TypeScript)
+    - `bun test tests/unit/` (unit tests, including parity and multi-node collection)
+    - `bun test tests/integration/` (integration tests)
+    - `bun test tests/golden/` (golden tests, including classification runner and adversarial corpus tests)
+    - `bun run test:bdd` (Gherkin tests)
 3. Verify exit code is 0 (success)
 4. Verify no test failures or errors in output
 
@@ -656,6 +656,7 @@ None blocking. All resolved decisions are recorded in the spec (DEC-1 through DE
 |---------|------|--------|---------|
 | 1.0 | 2026-07-26 | Change Test Plan Writer | Initial test plan created from chg-GH-31-spec.md, testing-strategy.md, and existing classifier/golden test patterns |
 | 1.1 | 2026-07-26 | Change Test Plan Writer | Revised per DoR gate iter-1 findings: (1) DEC-5 runner/fixture split — runners moved to `tests/golden/adversarial/`, fixtures stay at `tests/adversarial/`; (2) MAJOR-4 — TC-001, TC-004, TC-005, TC-006, TC-008 relabeled as Golden tier (filesystem I/O tests); (3) MAJOR-5 — TC-004 added third branch for unsupported-fixture error handling (assert `result.ok === false`); (4) MINOR-10 — TC-008 defined concrete regexes for email, internal-ticket URL, and bare internal ID patterns; (5) MINOR-11 — Added TC-ADVERSARIAL-010 for hand-built-macro HAST classification (DEC-2); (6) MINOR-13 — TC-006 changed from 3× to 2× classification runs to match AC-F3-3 exactly; Updated §3.1, §3.2, §4.1, §4.2, §4.3, §5.1, §5.2, §7, and execution log accordingly. |
+| 1.2 | 2026-07-26 | Change Test Plan Writer | iter-3: propagate DEC-5 path + ≥50KB floor to TC-001/TC-009; TC-008 regex note; add TC-010 to execution log (DoR iter-2 fixes). |
 
 ## 10. Test Execution Log
 
@@ -670,5 +671,6 @@ None blocking. All resolved decisions are recorded in the spec (DEC-1 through DE
 | TC-ADVERSARIAL-007 | TBD | TBD | Pending execution |
 | TC-ADVERSARIAL-008 | TBD | TBD | Pending execution |
 | TC-ADVERSARIAL-009 | TBD | TBD | Pending execution |
+| TC-ADVERSARIAL-010 | TBD | TBD | Pending execution |
 
 ---
