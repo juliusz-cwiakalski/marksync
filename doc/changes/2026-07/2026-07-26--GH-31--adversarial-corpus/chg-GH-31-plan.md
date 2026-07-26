@@ -604,9 +604,9 @@ introduced, then finalize the change for doc-sync and review.
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| 1 | Pending | — | — | — | Collect-all classifier (DEC-1) |
-| 2 | Pending | — | — | — | Corpus fixtures + sidecars |
-| 3 | Pending | — | — | — | Classification runner (fidelity/no-drop/determinism) |
-| 4 | Pending | — | — | — | Corpus inventory + PII self-audit |
-| 5 | Pending | — | — | — | Published classification doc |
-| 6 | Pending | — | — | — | Final quality gate + finalize |
+| 1 | Completed | 2026-07-26 | 2026-07-26 | ceb0073 | Collect-all classifier (DEC-1) |
+| 2 | Completed | 2026-07-26 | 2026-07-26 | 666e088 | Corpus fixtures + sidecars |
+| 3 | Completed | 2026-07-26 | 2026-07-26 | 8db998e | Classification runner (fidelity/no-drop/determinism) |
+| 4 | Completed | 2026-07-26 | 2026-07-26 | 63cfd47 | Corpus inventory + PII self-audit |
+| 5 | Completed | 2026-07-26 | 2026-07-26 | bf26849 | Published classification doc |
+| 6 | Completed | 2026-07-26 | 2026-07-26 | 988c61e | Final quality gate + finalize |
