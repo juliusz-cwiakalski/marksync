@@ -31,14 +31,13 @@ This story introduces **no `src/` domain logic** (build/CI/release engineering o
 - Nine E2E release-tier test cases covering:
   1. Cross-compile success for linux-x64, linux-arm64, win-x64 from the real CLI using Bun 1.2.23
   2. Clean-OS linux-x64 runtime smoke on `debian:stable-slim` (no Bun/Node/Deno installed)
-  3. Clean-OS win-x64 runtime smoke on a `windows-latest` runner (no Wine)
+  3. Clean-OS win-x64.exe runtime smoke on a `windows-latest` runner (no Wine)
   4. Binary size measurement and persistence to `.benchmarks/binaries.json`
   5. Cold-start measurement and persistence to `.benchmarks/binaries.json`
-  6. Release workflow artifact assembly: binaries + SHA256SUMS + SBOM present on tag
+  6. Release workflow artifact assembly + matrix correctness: binaries + SHA256SUMS + SBOM present on tag (Linux amd64+arm64, Windows amd64; macOS NOT produced)
   7. Signing reference document presence (osslsigncode recipe documented)
   8. `bun run check` green (no src/ domain regression introduced)
   9. Secret hygiene scan (0 secrets; `$CERT_PASSWORD` is an env-var name)
-  10. Release matrix correctness (Linux amd64+arm64, Windows amd64; macOS NOT produced)
 - All tests execute in CI (per-push clean-OS smoke jobs; release workflow on tag).
 - Evidence follows GH-13 conventions: size via `stat -c %s` (bytes), MB = bytes ÷ 1,048,576 (binary); cold-start = fresh-process wall-clock via `/usr/bin/time -v`, n=5; clean-OS = `debian:stable-slim`.
 
