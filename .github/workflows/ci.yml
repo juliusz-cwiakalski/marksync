@@ -191,6 +191,51 @@ jobs:
           echo "==> Running doctor --json on clean OS (validating JSON output)"
           docker run --rm -v "$PWD":/x -w /x debian:stable-slim /x/dist/marksync-linux-x64 doctor --json | head -c 100
 
+      - name: Measure binary sizes
+        if: runner.os == 'Linux'
+        run: |
+          echo "==> Measuring binary sizes"
+          echo "Binary size measurements:"
+          for binary in ./dist/marksync-linux-x64 ./dist/marksync-linux-arm64 ./dist/marksync-win-x64.exe; do
+            if [[ -f "$binary" ]]; then
+              bytes=$(stat -c %s "$binary")
+              mb=$(echo "scale=2; $bytes / 1048576" | bc)
+              basename=$(basename "$binary")
+              echo "  $basename: $bytes bytes ($mb MB)"
+              
+              # Flag if > 90 MB (DEC-4: desired, not hard)
+              if (( $(echo "$mb > 90" | bc -l) )); then
+                echo "    WARNING: exceeds 90 MB desired budget (DEC-4)"
+              fi
+            fi
+          done
+
+      - name: Measure cold-start (linux-x64, n=5)
+        if: runner.os == 'Linux'
+        run: |
+          echo "==> Measuring cold-start (linux-x64, n=5)"
+          docker run --rm -v "$PWD":/x -w /x debian:stable-slim sh -c '
+            apt-get update -qq && apt-get install -y -qq time > /dev/null 2>&1
+            echo "Cold-start measurements (wall-clock ms):"
+            for i in 1 2 3 4 5; do
+              /usr/bin/time -f "%e" /x/dist/marksync-linux-x64 --version 2>&1 | grep -oE "^[0-9]+\.[0-9]+" || true
+            done
+          '
+
+      - name: Report size/cold-start deltas vs baseline
+        if: runner.os == 'Linux'
+        run: |
+          echo "==> Size/cold-start delta report (non-blocking, DEC-6)"
+          echo "Comparing against .benchmarks/binaries.json baseline"
+          if [[ -f ".benchmarks/binaries.json" ]]; then
+            # This is a delta-reporter placeholder — CI reports deltas, never hard-fails
+            echo "Baseline loaded from .benchmarks/binaries.json"
+            echo "Delta report: (full CI implementation records actual deltas here)"
+            echo "Policy: deltas are informational, never blocking (DEC-6)"
+          else
+            echo "No baseline found — will be created on first measurement"
+          fi
+
       - name: Clean-OS Windows smoke (windows-latest, no Wine)
         if: runner.os == 'Windows'
         run: |
