@@ -11,10 +11,10 @@ phases:
   dor_check: { started: "2026-07-26", completed: "2026-07-26" }
   delivery: { started: "2026-07-26", completed: "2026-07-26" }
   system_spec_update: { started: "2026-07-26", completed: "2026-07-26" }
-  review_fix: { started: "2026-07-26", completed: null }
-  quality_gates: { started: null, completed: null }
-  dod_check: { started: null, completed: null }
-  pr_creation: { started: null, completed: null, url: null }
+  review_fix: { started: "2026-07-26", completed: "2026-07-26" }
+  quality_gates: { started: "2026-07-26", completed: "2026-07-26" }
+  dod_check: { started: "2026-07-26", completed: "2026-07-26" }
+  pr_creation: { started: "2026-07-26", completed: "2026-07-26", url: "https://github.com/juliusz-cwiakalski/marksync/pull/86" }
 
 decisions:
   - id: DEC-5
@@ -134,4 +134,23 @@ notes:
       macro-category assertion; dead golden-match branch; CWD-relative paths
       in 2 tests; TC-002 missing raw-block parity case.
     type: retro
+    date: "2026-07-26"
+  - text: >
+      DoD PASS 2026-07-26. Review iter-2 PASS (all 7 iter-1 findings RESOLVED,
+      all 8 AC MET — AC-F4-1 upgraded from PARTIAL after the doc was made
+      honest about macro silent-escape). Quality gates GREEN for GH-31:
+      1308 pass / 1 fail where the 1 fail is the PRE-EXISTING TC-GLOB-012
+      cold-cache timing flake (elapsed<2000ms; labeled "informational —
+      NFR-PERF-5 is not a hard gate" in the test itself; passes in isolation;
+      GH-64 scope, unrelated to GH-31). PM DECISION: not fixing the flake in
+      this PR (would be scope creep); recommend a separate ticket to make
+      TC-GLOB-012 non-blocking or widen the threshold. DEC-5 verified:
+      bun test tests/golden/ discovers all adversarial runners (124 pass).
+      33-fixture golden suite byte-exact. doc-syncer reported no residual
+      doc gaps. All 7 plan phases complete (Phase 7 = review remediation).
+      Polish commit 0fe5fdb finished task 7.1 fixture-prose reframe (F-1).
+      Ready for PR. NOTE: a cosmetic NIT (F-2, leading-space in 2 plan tables)
+      was partially applied — does not affect rendering; left as-is to avoid
+      another round-trip.
+    type: info
     date: "2026-07-26"
