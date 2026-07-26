@@ -5,13 +5,13 @@ ados_distribution: redistributable
 id: SECURITY-BASELINE
 status: Draft
 created: 2026-07-05
-last_updated: 2026-07-15
+last_updated: 2026-07-26
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0006, ADR-0011]
-  related_changes: [GH-26]
+  related_changes: [GH-26, GH-32]
   summary: "Security baseline — secret management, redaction, dependency audit, converter injection safety, path-traversal confinement, and credential handling for MarkSync."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -117,7 +117,7 @@ Domain/Application produces CommandResult<T>
 |---|---|---|---|
 | Vulnerability scan | `osv-scanner` (or `npm audit`) | Every push (CI) | Advisory during inception; **blocking at `MS-0002`** |
 | License audit | `license-checker` | Every push (CI) | Reject GPL/AGPL/LGPL/UNLICENSED |
-| SBOM generation | `cyclonedx` or `syft` | Every release tag | **Planned — wired at `MS-0008` release readiness** (NFR-SEC-4) |
+| SBOM generation | `syft` (CycloneDX JSON) | Every release tag (`release.yml`) | **Wired (GH-32)** — a `syft` CycloneDX SBOM is generated and attached to every tagged GitHub Release alongside `SHA256SUMS` (NFR-SEC-4) |
 | Lock file pinning | `bun.lock` / `bun.lockb` committed | Every PR | Lock file must match `package.json` |
 
 ### Dependency rules

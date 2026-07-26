@@ -1,7 +1,7 @@
 ---
 id: MS2-E5-S1
 title: "quality-gate-wiring"
-status: todo
+status: done
 type: story
 priority: high
 epic: MS2-E5
@@ -12,6 +12,7 @@ feature_spec: ""
 decisions: [TDR-0004, TDR-0007]
 dependencies: { blocks: [], blocked_by: [MS2-E2-S1, MS2-E3-S6, MS2-E3-S7, MS2-E4-S1] }
 cross_cutting: [R-FEA-5, NFR-REL-1, NFR-REL-2, NFR-REL-8, INV-SEC-1]
+delivered_by: GH-29
 ---
 
 # MS2-E5-S1 — Quality gate wiring (all 6 test tiers)

@@ -1,7 +1,7 @@
 ---
 id: MS2-E5-S3
 title: "adversarial-public-corpus"
-status: todo
+status: done
 type: story
 priority: medium
 epic: MS2-E5
@@ -12,6 +12,7 @@ feature_spec: ""
 decisions: []
 dependencies: { blocks: [], blocked_by: [MS2-E3-S3, MS2-E3-S5] }
 cross_cutting: [A-VAL-2, R-FEA-9, NFR-REL-4]
+delivered_by: GH-31
 ---
 
 # MS2-E5-S3 — Adversarial public corpus

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "note": "Commit-tracked binary size + cold-start baseline. CI reports deltas (DEC-6), never hard-fails.",
+  "measurements": {
+    "linux-x64": {
+      "bytes": 101604521,
+      "mb": 96.90,
+      "coldStartMs": {
+        "min": 8,
+        "median": 10,
+        "max": 22,
+        "n": 5
+      }
+    },
+    "linux-arm64": {
+      "bytes": null,
+      "mb": null,
+      "coldStartMs": null
+    },
+    "win-x64": {
+      "bytes": 110224195,
+      "mb": 105.12
+    }
+  },
+  "baseline": {
+    "source": "GH-13 spike smoke-CLI (findings/bun-compile-smoke-findings.md §4)",
+    "supersededBy": "first real-CLI CI measurement",
+    "bun": "1.1.34"
+  }
+}

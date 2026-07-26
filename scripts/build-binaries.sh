@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
 #
-# scripts/build-binaries.sh — reusable cross-compile skeleton (E5-S4 handoff).
+# scripts/build-binaries.sh — production cross-compile build script (GH-32).
 #
-# Origin: GH-13 / MS2-E1-S3 — Bun single-binary cross-compile smoke spike.
-# Status: E5-S4 SKELETON, refined from the validated GH-13 spike invocations.
-#         NOT yet the production release matrix — E5-S4 (MS2-E5-S4) repoints the
-#         entry path to the real CLI and wires signing/checksums/SBOM into CI.
+# Origin: Refined from the GH-13 spike skeleton (MS2-E1-S3) into the production
+# release pipeline (MS2-E5-S4 / GH-32). Targets the real CLI entry point and
+# includes the full matrix (linux-x64, linux-arm64, win-x64).
 #
-# What this does (validated by the spike):
+# What this does:
 #   * bun build --compile --target=bun-linux-x64   <entry> --outfile <out>/marksync-linux-x64
+#   * bun build --compile --target=bun-linux-arm64 <entry> --outfile <out>/marksync-linux-arm64
 #   * bun build --compile --target=bun-windows-x64 <entry> --outfile <out>/marksync-win-x64.exe
 #   * sha256sum per produced binary -> <out>/SHA256SUMS
 #
-# What this does NOT do (TODO E5-S4):
+# What this does NOT do (deferred to MS-0003):
 #   * Authenticode-sign the Windows binary (see spikes/bun-compile-smoke/probes/signing-dry-run.md
 #     for the validated `osslsigncode` recipe; cert material plugs in there).
-#   * SBOM generation, release upload, CI matrix wiring.
+#   * SBOM generation, release upload (handled by .github/workflows/release.yml).
 #
-# Validated with: Bun 1.1.34 (DEC-2) on a Linux dev host. See
+# Validated with: Bun 1.2.23 (DEC-1) on a Linux dev host. See
 # findings/bun-compile-smoke-findings.md for the measured sizes / cold-start baseline.
 #
 # Usage:
@@ -28,19 +28,19 @@ set -euo pipefail
 # --- defaults ---------------------------------------------------------------
 TARGET="all"            # linux | windows | all
 OUT_DIR="${BUILD_OUT_DIR:-./dist}"
-ENTRY="${BUILD_ENTRY:-./src/cli.ts}"   # placeholder — E5-S4 repoints to the real CLI entry
+ENTRY="${BUILD_ENTRY:-src/cli/index.ts}"   # real CLI entry (GH-14)
 
 # --- usage ------------------------------------------------------------------
 usage() {
   cat <<'EOF'
 Usage: scripts/build-binaries.sh [options]
 
-Cross-compile a Bun single-binary per target (E5-S4 skeleton, GH-13 spike).
+Cross-compile a Bun single-binary per target (GH-32 production build script).
 
 Options:
   --target linux|windows|all   Target(s) to build (default: all)
   --out-dir DIR                Output directory (default: ./dist)
-  --entry PATH                 Bun entry file (default: ./src/cli.ts; E5-S4 repoints to the real CLI)
+  --entry PATH                 Bun entry file (default: src/cli/index.ts)
   -h, --help                   Show this help and exit
 
 Environment:
@@ -48,9 +48,8 @@ Environment:
   BUILD_ENTRY     Default for --entry
 
 Notes:
-  * Requires Bun (>= 1.1.34) on PATH. The linux-x64 + windows-x64 compile targets
-    are validated by the GH-13 spike; arm64/darwin targets are a stretch (see the
-    spike's findings doc).
+  * Requires Bun 1.2.23 on PATH (DEC-1 — matches package.json#engines.bun).
+  * Targets: linux-x64, linux-arm64 (stretch, see RSK-2), win-x64.
   * Does NOT sign the Windows binary. See
     spikes/bun-compile-smoke/probes/signing-dry-run.md for the osslsigncode recipe.
 EOF
@@ -82,37 +81,53 @@ case "$TARGET" in
 esac
 
 if ! command -v bun >/dev/null 2>&1; then
-  echo "error: bun not found on PATH (need >= 1.1.34, DEC-2)" >&2
+  echo "error: bun not found on PATH (need 1.2.23, DEC-1)" >&2
   exit 2
 fi
 if [[ ! -f "$ENTRY" ]]; then
-  echo "error: entry file not found: $ENTRY (use --entry to set the real CLI path; this is a skeleton)" >&2
+  echo "error: entry file not found: $ENTRY" >&2
   exit 2
 fi
 
 # --- build ------------------------------------------------------------------
 mkdir -p "$OUT_DIR"
-echo "build-binaries.sh (GH-13 skeleton) — target=$TARGET out-dir=$OUT_DIR entry=$ENTRY"
+echo "build-binaries.sh (GH-32 production build script) — target=$TARGET out-dir=$OUT_DIR entry=$ENTRY"
 echo "bun: $(bun --version)"
 
 build_one() {
-  local label="$1" target="$2" outfile="$3"
+  local label="$1" target="$2" outfile="$3" arch="$4"
   echo
   echo "==> [$label] bun build --compile --target=$target"
-  bun build --compile --target="$target" "$ENTRY" --outfile "$outfile"
-  echo "    produced: $outfile ($(stat -c %s "$outfile") bytes)"
-  sha256sum "$outfile" | sed "s|  .*|  $(basename "$outfile")|" >> "$OUT_DIR/SHA256SUMS.tmp"
+  if bun build --compile --target="$target" "$ENTRY" --outfile "$outfile"; then
+    echo "    produced: $outfile ($(stat -c %s "$outfile") bytes)"
+    sha256sum "$outfile" | sed "s|  .*|  $(basename "$outfile")|" >> "$OUT_DIR/SHA256SUMS.tmp"
+    return 0
+  else
+    local exit_code=$?
+    if [[ "$arch" == "arm" ]]; then
+      echo "    arm64: UNAVAILABLE — recorded for MS-0003 (RSK-2 / DEC-3)"
+      return 0  # Non-blocking: arm64 is a stretch, not a gate
+    else
+      return $exit_code
+    fi
+  fi
 }
 
 # Reset the checksum accumulator.
 : > "$OUT_DIR/SHA256SUMS.tmp"
 
 case "$TARGET" in
-  linux)   build_one linux   bun-linux-x64   "$OUT_DIR/marksync-linux-x64" ;;
-  windows) build_one windows bun-windows-x64 "$OUT_DIR/marksync-win-x64.exe" ;;
+  linux)
+    build_one linux   bun-linux-x64   "$OUT_DIR/marksync-linux-x64" amd
+    build_one linux   bun-linux-arm64 "$OUT_DIR/marksync-linux-arm64" arm
+    ;;
+  windows)
+    build_one windows bun-windows-x64 "$OUT_DIR/marksync-win-x64.exe" amd
+    ;;
   all)
-    build_one linux   bun-linux-x64   "$OUT_DIR/marksync-linux-x64"
-    build_one windows bun-windows-x64 "$OUT_DIR/marksync-win-x64.exe"
+    build_one linux   bun-linux-x64   "$OUT_DIR/marksync-linux-x64" amd
+    build_one linux   bun-linux-arm64 "$OUT_DIR/marksync-linux-arm64" arm
+    build_one windows bun-windows-x64 "$OUT_DIR/marksync-win-x64.exe" amd
     ;;
 esac
 
@@ -125,17 +140,16 @@ echo
 echo "==> SHA256SUMS ($OUT_DIR/SHA256SUMS)"
 cat "$OUT_DIR/SHA256SUMS"
 
-# --- signing TODO (E5-S4) ---------------------------------------------------
-# TODO(E5-S4): wire osslsigncode sign for the Windows binary — see the validated
+# --- signing TODO (MS-0003) ---------------------------------------------------
+# TODO(MS-0003): wire osslsigncode sign for the Windows binary — see the validated
 # dry-run command at:
 #   spikes/bun-compile-smoke/probes/signing-dry-run.md
 # The production cert material plugs in at -pkcs12/-pass (or -certs/-key) +
-# -t <timestamp-url> -h sha256. Do NOT invoke signing here (no cert in this
-# skeleton; spec DEC-4).
+# -t <timestamp-url> -h sha256. Real signing is OUT of MS-0002 (DEC-7).
 if [[ "$TARGET" == "windows" || "$TARGET" == "all" ]]; then
   echo
-  echo "==> signing: SKIPPED (E5-S4 TODO — see spikes/bun-compile-smoke/probes/signing-dry-run.md)"
+  echo "==> signing: SKIPPED (MS-0003 — see spikes/bun-compile-smoke/probes/signing-dry-run.md)"
 fi
 
 echo
-echo "build-binaries.sh: done (target=$TARGET)."
+echo "build-binaries.sh: done (target=$TARGET). See doc/guides/binary-release-signing.md for the signing plug-in point."

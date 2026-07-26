@@ -6,13 +6,13 @@ ados_distribution: redistributable
 id: ROADMAP-ENGINEERING
 status: Draft
 created: 2026-07-03
-last_updated: 2026-07-15
+last_updated: 2026-07-26
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005]
-  related_changes: ["GH-69", "GH-81"]
+  related_changes: ["GH-69", "GH-81", "GH-32"]
 summary: "Engineering roadmap — MS-0002 MVP (safe one-way publisher / trust wedge), MS-0003 MLP (exceptional DX), then staged reverse-sync gates."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -106,7 +106,7 @@ _Outcome metrics that prove the milestone delivered user value. **Type:** Target
 ### Dependencies
 
 - **ADR-0002 Mermaid headless-render spike** must pass before `MS-0002` tooling locks — it is load-bearing for the TypeScript choice and the single-binary promise. If it requires Chromium, the language decision is revisited. A failed spike is a **language-level reconsideration and a multi-month `MS-0002` slip**, not merely a mitigation tweak; the `MS-0002` `code`-fallback above keeps the wedge shippable while full render moves to `MS-0003`.
-- Bun single-binary cross-compile + signing/notarization story (clean-OS smoke).
+- Bun single-binary cross-compile + signing/notarization story (clean-OS smoke) — **delivered in `MS-0002` (`GH-32`)**: linux-x64/arm64 + win-x64 binaries, `SHA256SUMS`, and a `syft` CycloneDX SBOM on a `v*` tag via `release.yml`; clean-OS smoke in CI on `debian:stable-slim` + `windows-latest`. macOS and real Windows signing are deferred to `MS-0003`; binary size ~97–105 MB exceeds the 90 MB desired budget (flagged, not blocking).
 - 3–5 design partners willing to install, test, and retain MarkSync in CI — **recruit ≥3 before `MS-0002` feature-lock; if 0 at feature-lock, slip the lock** (premortem `§18.1`).
 
 ### Validation approach
@@ -122,7 +122,7 @@ _Outcome metrics that prove the milestone delivered user value. **Type:** Target
 |---|---|---|---|
 | Safe publish with plan/diff | O1 | S1.1 | E1.1 (validated) |
 | Drift detection blocks overwrites | O1 | S1.2 | E1.2 (validated) |
-| Single-binary cross-OS distribution | O2 | S2.2 | E2.2 (unvalidated) |
+| Single-binary cross-OS distribution | O2 | S2.2 | E2.2 (validated — `GH-32`) |
 | In-process Mermaid fidelity | O3 | S3.1 | E3.1 (testing — load-bearing) |
 | Agent/CI-operable JSON contracts | O4 | S4.1 | E4.1 (unvalidated) |
 

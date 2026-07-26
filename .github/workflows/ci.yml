@@ -105,6 +105,218 @@ jobs:
         # Catches HTTP adapter regressions (GH-71, GH-66) on every PR.
         run: bun test tests/e2e-mock/
 
+  binary-smoke:
+    name: Binary Build + Clean-OS Smoke
+    runs-on: ${{ matrix.os }}
+    permissions: {}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        # Pinned to match fast-loop matrix (package.json#engines.bun; DEC-1)
+        bun-version: ["1.2.23"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ matrix.bun-version }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build binaries (all targets)
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            bash scripts/build-binaries.sh --target windows
+          else
+            bash scripts/build-binaries.sh --target all
+          fi
+        shell: bash
+
+      - name: Verify Bun version
+        run: |
+          bun_version=$(bun --version)
+          echo "Bun version: $bun_version"
+          if [[ "$bun_version" != "1.2.23" ]]; then
+            echo "ERROR: Bun version must be 1.2.23 (DEC-1), got $bun_version"
+            exit 1
+          fi
+        shell: bash
+
+      - name: Verify binary types (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          echo "==> Verifying binary types"
+          file ./dist/marksync-linux-x64 | grep -qE "ELF 64-bit.*x86-64" || { echo "FAIL: $(file ./dist/marksync-linux-x64)"; exit 1; }
+          file ./dist/marksync-linux-arm64 | grep -qE "ELF 64-bit.*(aarch64|ARM)" || echo "arm64: UNAVAILABLE — recorded for MS-0003"
+          file ./dist/marksync-win-x64.exe | grep -qE "PE32\+.*(Windows|x86-64)" || { echo "FAIL: $(file ./dist/marksync-win-x64.exe)"; exit 1; }
+
+      - name: Verify binary types (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          echo "==> Verifying binary types"
+          file ./dist/marksync-win-x64.exe | grep -q "PE32+ executable for MS Windows"
+        shell: bash
+
+      - name: Verify --version matches package.json (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          echo "==> Verifying --version output"
+          expected_version=$(bun -e 'console.log(require("./package.json").version)')
+          actual_version=$(./dist/marksync-linux-x64 --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+          if [[ "$actual_version" != "$expected_version" ]]; then
+            echo "ERROR: Version mismatch: expected $expected_version, got $actual_version"
+            exit 1
+          fi
+          echo "OK: version matches package.json"
+
+      - name: Verify --version matches package.json (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          echo "==> Verifying --version output"
+          expected_version=$(bun -e 'console.log(require("./package.json").version)')
+          actual_version=$(./dist/marksync-win-x64.exe --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+          if [[ "$actual_version" != "$expected_version" ]]; then
+            echo "ERROR: Version mismatch: expected $expected_version, got $actual_version"
+            exit 1
+          fi
+          echo "OK: version matches package.json"
+        shell: bash
+
+      - name: Clean-OS Linux smoke (debian:stable-slim, no runtime)
+        if: runner.os == 'Linux'
+        run: |
+          echo "==> Clean-OS Linux smoke: verifying no Bun/Node/Deno in container"
+          if docker run --rm debian:stable-slim sh -c 'command -v bun || command -v node || command -v deno'; then
+            echo "ERROR: a language runtime is present in the clean-OS image"; exit 1
+          fi
+          echo "OK: no Bun/Node/Deno on the clean-OS PATH (NFR-COMP-2)"
+
+          echo "==> Running --version on clean OS"
+          docker run --rm -v "$PWD":/x -w /x debian:stable-slim /x/dist/marksync-linux-x64 --version
+
+          echo "==> Running doctor --json on clean OS (validating JSON output)"
+          set +e
+          doctor_out=$(docker run --rm -v "$PWD":/x -w /x debian:stable-slim /x/dist/marksync-linux-x64 doctor --json 2>/dev/null)
+          doctor_exit=$?
+          echo "doctor exit=$doctor_exit (60=EXIT_HEALTH expected on clean OS with no git/config)"
+          printf '%s' "$doctor_out" | python3 -m json.tool >/dev/null && echo "OK: doctor emitted valid JSON" || { echo "ERROR: doctor did not emit valid JSON"; exit 1; }
+          set -e
+
+      - name: Measure binary sizes
+        if: runner.os == 'Linux'
+        run: |
+          echo "==> Measuring binary sizes"
+          echo "Binary size measurements:"
+          for binary in ./dist/marksync-linux-x64 ./dist/marksync-linux-arm64 ./dist/marksync-win-x64.exe; do
+            if [[ -f "$binary" ]]; then
+              bytes=$(stat -c %s "$binary")
+              mb=$(echo "scale=2; $bytes / 1048576" | bc)
+              basename=$(basename "$binary")
+              echo "  $basename: $bytes bytes ($mb MB)"
+              
+              # Flag if > 90 MB (DEC-4: desired, not hard)
+              if (( $(echo "$mb > 90" | bc -l) )); then
+                echo "    WARNING: exceeds 90 MB desired budget (DEC-4)"
+              fi
+            fi
+          done
+
+      - name: Measure cold-start (linux-x64, n=5)
+        if: runner.os == 'Linux'
+        continue-on-error: true
+        run: |
+          echo "==> Measuring cold-start (linux-x64, n=5)"
+          docker run --rm -v "$PWD":/x -w /x debian:stable-slim sh -c '
+            apt-get update -qq && apt-get install -y -qq time > /dev/null 2>&1 || { echo "warn: /usr/bin/time unavailable — cold-start skipped"; exit 0; }
+            echo "Cold-start measurements (wall-clock ms):"
+            for i in 1 2 3 4 5; do
+              /usr/bin/time -f "%e" /x/dist/marksync-linux-x64 --version >/dev/null 2>>timings || true
+            done
+          '
+
+      - name: Report size/cold-start deltas vs baseline
+        if: runner.os == 'Linux'
+        run: |
+          echo "==> Size/cold-start delta report (non-blocking, DEC-6)"
+          echo "Comparing against .benchmarks/binaries.json baseline"
+          if [[ -f ".benchmarks/binaries.json" ]]; then
+            echo "Baseline loaded from .benchmarks/binaries.json"
+            echo ""
+            echo "Size deltas:"
+            for target in linux-x64 linux-arm64 win-x64; do
+              # Determine the binary path
+              if [[ "$target" == "win-x64" ]]; then
+                binary="./dist/marksync-win-x64.exe"
+              else
+                binary="./dist/marksync-${target}"
+              fi
+
+              # Get current bytes
+              if [[ -f "$binary" ]]; then
+                current_bytes=$(stat -c %s "$binary")
+                current_mb=$(echo "scale=2; $current_bytes / 1048576" | bc)
+
+                # Get baseline from JSON
+                baseline_bytes=$(python3 -c "import json; print(json.load(open('.benchmarks/binaries.json'))['measurements'].get('$target', {}).get('bytes', 'null'))" 2>/dev/null || echo "null")
+                baseline_mb=$(python3 -c "import json; print(json.load(open('.benchmarks/binaries.json'))['measurements'].get('$target', {}).get('mb', 'null'))" 2>/dev/null || echo "null")
+
+                if [[ "$baseline_bytes" != "null" && "$baseline_mb" != "null" ]]; then
+                  delta_bytes=$((current_bytes - baseline_bytes))
+                  delta_mb=$(echo "scale=2; $current_mb - $baseline_mb" | bc)
+
+                  echo "  $target: ${current_mb} MB (baseline ${baseline_mb} MB, Δ ${delta_mb} MB)"
+
+                  # Flag if > 90 MB (DEC-4: desired, not hard)
+                  if (( $(echo "$current_mb > 90" | bc -l) )); then
+                    echo "    WARNING: exceeds 90 MB desired budget (DEC-4)"
+                  fi
+                else
+                  echo "  $target: ${current_mb} MB (no baseline yet — first measurement)"
+                fi
+              fi
+            done
+            echo ""
+            echo "Cold-start deltas:"
+            for target in linux-x64 linux-arm64 win-x64; do
+              # Get baseline cold-start from JSON
+              baseline_coldstart=$(python3 -c "import json; print(json.load(open('.benchmarks/binaries.json'))['measurements'].get('$target', {}).get('coldStartMs', {}).get('median', 'null'))" 2>/dev/null || echo "null")
+
+              if [[ "$baseline_coldstart" != "null" && "$baseline_coldstart" != "None" ]]; then
+                # Read timings file (5 values in seconds, convert to ms)
+                if [[ -f "timings" ]]; then
+                  timings_ms=$(awk '{printf "%.0f\n", $1 * 1000}' timings | sort -n)
+                  count=$(echo "$timings_ms" | wc -l)
+                  if [[ $count -ge 5 ]]; then
+                    # Calculate median (3rd value for sorted list of 5)
+                    current_median=$(echo "$timings_ms" | sed -n '3p')
+                    delta_ms=$((current_median - baseline_coldstart))
+                    echo "  $target: ${current_median} ms (baseline ${baseline_coldstart} ms, Δ ${delta_ms} ms, n=5)"
+                  else
+                    echo "  $target: insufficient timings data ($count values, expected 5)"
+                  fi
+                else
+                  echo "  $target: no timings file (cold-start measurement may have failed)"
+                fi
+              else
+                echo "  $target: no baseline cold-start yet"
+              fi
+            done
+            echo ""
+            echo "Policy: deltas are informational, never blocking (DEC-6)"
+          else
+            echo "No baseline found — will be created on first measurement"
+          fi
+
+      - name: Clean-OS Windows smoke (windows-latest, no Wine)
+        if: runner.os == 'Windows'
+        run: |
+          echo "==> Clean-OS Windows smoke: running --version"
+          ./dist/marksync-win-x64.exe --version
+          echo "OK: Windows binary runs on clean Windows runner (closes spike DEC-3)"
+
   dependency-audit:
     name: License Audit
     runs-on: ubuntu-latest

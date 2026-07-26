@@ -33,6 +33,7 @@ dist/
 coverage/
 .marksync/
 *.tsbuildinfo
+timings
 
 # Ephemeral dep-cruiser boundary probe (GH-21 TC-BND-001) — created at runtime
 # under src/domain/; never committed.

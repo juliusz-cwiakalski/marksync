@@ -6,7 +6,7 @@ decision_type: adr
 status: Accepted
 created: 2026-07-03
 decision_date: null
-last_updated: 2026-07-13
+last_updated: 2026-07-26
 summary: "Implement MarkSync in TypeScript compiled to per-platform single binaries (Bun `build --compile`) instead of Go, to reuse the official Mermaid library."
 owners:
   - Juliusz Ćwiąkalski
@@ -47,7 +47,7 @@ revisit_triggers:
   - "A production-grade pure-Go Mermaid renderer emerges and reaches the fidelity of the official library."
   - "The Mermaid headless-rendering spike (ADR-0002) proves the in-process official library cannot run headless without Chromium."
 links:
-  related_changes: ["GH-11", "GH-25"]
+  related_changes: ["GH-11", "GH-25", "GH-32"]
   supersedes: []
   superseded_by: []
   spec: ["../inception/system-specification-draft-from-ai-brainstorm.md"]
@@ -220,7 +220,7 @@ No accepted-risk exceptions are required.
 
 - [x] Exact headless rendering mechanism for Mermaid (in-process `mermaid.render()` via happy-dom/jsdom vs `mmdc` subprocess vs container) — **deferred to ADR-0002 / spike**; **resolved PARTIAL by GH-11 (2026-07-06).** The in-process happy-dom path runs under Bun with no Chromium (H1/H2/H3 PASS) but does **not** produce faithful output (H4 FAIL 0/5) — happy-dom and jsdom lack an SVG layout engine (`getBBox` returns zeros). Faithful rendering requires Chromium (violates C-2) or a validated SVG-layout shim (unvalidated; needs a follow-up spike).
 - [ ] Bun vs Deno final pick for single-binary compilation — small follow-on decision; both have `compile`. Recommend Bun as default pending the spike (owner: Juliusz Ćwiąkalski).
-- [ ] Whether binary signing/notarization tooling for Bun-compiled artifacts meets enterprise trust bar (owner: Juliusz Ćwiąkalski).
+- [ ] Whether binary signing/notarization tooling for Bun-compiled artifacts meets enterprise trust bar (owner: Juliusz Ćwiąkalski). **Partially addressed (GH-32):** a validated `osslsigncode` Authenticode dry-run recipe + cert plug-in point is documented in [`doc/guides/binary-release-signing.md`](../guides/binary-release-signing.md); provisioning a real certificate + building Windows SmartScreen / macOS notarization reputation remains `MS-0003+`.
 - [x] **Owner decision required (CEO-level):** is ADR-0001's load-bearing in-process-no-Chromium premise still viable given the GH-11 H4 FAIL? — **Resolved by CEO-DEC-1 (2026-07-13):** TypeScript/Bun is LOCKED IN (15 successful deliveries); the revisit trigger is resolved WITHOUT fundamental reconsideration. The H4 failure is a DOM-layout gap (happy-dom/jsdom lack an SVG layout engine), not a language-level catastrophe — a deterministic path exists. MS-0002 ships the `code` policy; faithful rendering is deferred to MS-0003+ (via a validated SVG-layout shim spike or, if that fails, a Chromium path requiring a separate owner decision). ADR-0001 is NOT superseded.
 
 ## Implementation Plan
@@ -247,6 +247,8 @@ This decision **reverses** spec §2.2 ("Go = Decided") and cascades across the t
 - **Metric: Cross-platform artifact completeness** — Target: release matrix produces Linux/macOS/Windows × amd64/arm64 artifacts — Window: first release.
 - **Metric: Mermaid in-process render** — Target: at least one Mermaid diagram renders via the official library without shelling to `mmdc` or a container — Window: ADR-0002 spike.
 - **Metric: Binary size / startup budget** — Target: documented and accepted ceiling (e.g., ≤ ~90 MB, cold-start within user-acceptable bound) — Window: first release.
+
+> **Delivery status (GH-32, `MS2-E5-S4` — release pipeline).** This ADR's distribution promise (C-2 single binary, no runtime; C-3 cross-platform) is now wired into a real release pipeline, not just spike-validated. The `binary-smoke` CI job proves the no-runtime promise continuously (linux-x64 on `debian:stable-slim`, win-x64.exe on a real `windows-latest` runner); the tag-triggered `release.yml` builds the linux-x64 + linux-arm64 + win-x64 matrix and attaches binaries + `SHA256SUMS` + a `syft` CycloneDX SBOM to each GitHub Release. Measured against the "desired, not hard" budget (NFR-PERF-1/2): linux-x64 ~96.90 MB / win-x64 ~105.12 MB (exceeds 90 MB, flagged-not-blocking per DEC-4); linux-x64 cold-start ~0.010 s median (~200× inside 2 s). macOS remains deferred to `MS-0003`. The CI smoke is structurally validated at delivery; the release workflow runs end-to-end on the first `v*` tag. **The TS-over-Go choice is not reconsidered** — the catastrophic-failure escalation was never triggered (CEO-DEC-1).
 
 ## Confidence Rating
 
@@ -288,3 +290,7 @@ is **resolved; ADR-0001 stands.** The resolution and its nuances:
 - **2026-07-13 (GH-25, lifecycle phase 7 reconciliation)** — Resolved the CEO-level owner decision left open by GH-11:
   - **CEO-DEC-1 (2026-07-13, CEO-agent under user-delegated autonomous authority):** TypeScript/Bun is LOCKED IN (15 successful deliveries); the revisit trigger is resolved WITHOUT fundamental reconsideration. The H4 failure is a DOM-layout gap (happy-dom/jsdom lack an SVG layout engine), not a language-level catastrophe — a deterministic path exists. MS-0002 ships the `code` policy; faithful rendering is deferred to MS-0003+ (via a validated SVG-layout shim spike or, if that fails, a Chromium path requiring a separate owner decision). ADR-0001 is NOT superseded.
   - Updated the "Revisit-trigger status" section: the revisit trigger is **resolved** (not merely activated); the catastrophic-FAIL escalation was never triggered and remains not-triggered; the owner-decision callout is now marked MADE. Resolved the corresponding Unresolved Question; updated the AI-assistance disclosure. Governance status remains `Accepted`. `last_updated` bumped to 2026-07-13; `links.related_changes` extended with `GH-25`.
+- **2026-07-26 (GH-32, lifecycle phase 7 reconciliation)** — Recorded that ADR-0001's distribution promise (C-2/C-3) is now wired into a real release pipeline (not just spike-validated):
+  - The `binary-smoke` CI job proves the no-runtime promise continuously (linux-x64 on `debian:stable-slim`; win-x64.exe on a real `windows-latest` runner — closes the spike's Windows-run deferral); the tag-triggered `release.yml` builds the linux-x64 + linux-arm64 + win-x64 matrix and attaches binaries + `SHA256SUMS` + a `syft` CycloneDX SBOM to each GitHub Release.
+  - Added a "Delivery status" note under Verification Criteria. Partially addressed the open signing Unresolved Question: a validated `osslsigncode` Authenticode dry-run recipe + cert plug-in point is now documented in `doc/guides/binary-release-signing.md` (real cert + SmartScreen/notarization reputation remain `MS-0003+`).
+  - **The TS-over-Go choice is not reconsidered** — the catastrophic-failure escalation was never triggered (CEO-DEC-1) and the binaries build + run on a clean OS. Governance status remains `Accepted`. `last_updated` bumped to 2026-07-26; `links.related_changes` extended with `GH-32`.

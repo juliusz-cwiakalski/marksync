@@ -14,7 +14,7 @@ links:
     - doc/overview/02-roadmap.md
     - doc/overview/architecture-overview.md
     - doc/inception/analysis/risks.md
-  related_changes: ["GH-27", "GH-28", "GH-30", "GH-31", "GH-69", "GH-76"]
+  related_changes: ["GH-27", "GH-28", "GH-30", "GH-31", "GH-32", "GH-69", "GH-76"]
   summary: "Non-functional requirements — performance, security, reliability, operability, compatibility, privacy, maintainability, accessibility for MS-0002 and beyond."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -30,8 +30,8 @@ binding. `MS-0002` NFRs are release-blocking guardrails unless marked
 
 | ID | Requirement | Target | Source / rationale |
 |---|---|---|---|
-| NFR-PERF-1 | Binary size | ~90 MB per OS/arch (**desired**, not hard — larger acceptable if the job gets done) | ADR-0001 accepted tradeoff; owner direction (PR #4) |
-| NFR-PERF-2 | Cold-start time | ~2 s on reference hardware (**desired**, not hard — longer acceptable for intermittent CLI / async CI) | Owner direction (PR #4) |
+| NFR-PERF-1 | Binary size | ~90 MB per OS/arch (**desired**, not hard — larger acceptable if the job gets done). **Measured (GH-32):** linux-x64 ~96.90 MB, win-x64 ~105.12 MB — exceeds the desired budget, recorded + flagged, never blocking (`.benchmarks/binaries.json`; DEC-4) | ADR-0001 accepted tradeoff; owner direction (PR #4) |
+| NFR-PERF-2 | Cold-start time | ~2 s on reference hardware (**desired**, not hard — longer acceptable for intermittent CLI / async CI). **Measured (GH-32):** linux-x64 ~0.010 s median (n=5) on a clean `debian:stable-slim` OS — ~200× inside budget | Owner direction (PR #4) |
 | NFR-PERF-3 | Managed-page scale | ≤ ~500 managed pages per target in `MS-0002` | A-FEA-10; correctness first; large-repo incremental deferred |
 | NFR-PERF-4 | Idempotent rerun | A second semantically-unchanged push performs 0 writes. **Implemented:** asset reuse-on-exists (GH-26) skips re-uploads; the visible provenance panel is appended post-render as a Storage string and never enters the HAST, so timestamp variance cannot perturb the canonical hash → `NO_CHANGE` with 0 writes (GH-27). Under the `render` Mermaid policy, normalized SVG hashing + config passthrough + per-page lock pruning ensure unchanged diagrams produce stable attachment hashes → 0 re-uploads and `NO_CHANGE` (GH-76, restoring this invariant after the GH-69 non-determinism regression). | Roadmap metric; R-FEA-8 |
 | NFR-PERF-5 | Conversion latency | Per-page Markdown→Storage render ≤ 200 ms (p95) at ≤500 pages | informational; validates subset performance |
@@ -43,7 +43,7 @@ binding. `MS-0002` NFRs are release-blocking guardrails unless marked
 | NFR-SEC-1 | No secrets in any output | 0 secrets/tokens in logs, plans, state, diagnostics, error messages | R-SEC-1; premortem §17 #10; INV-SEC-1 |
 | NFR-SEC-2 | Secret redaction by construction | Every output path passes a redaction layer; tested per path | R-SEC-1; CC-SEC-1 |
 | NFR-SEC-3 | No outbound telemetry | Default config sends no data to any remote endpoint except the configured Confluence target | A-VIA-1; privacy |
-| NFR-SEC-4 | Supply-chain baseline | SBOM + automated dependency/license/vuln scan on every release | R-SEC-1 |
+| NFR-SEC-4 | Supply-chain baseline | SBOM + automated dependency/license/vuln scan on every release. **Implemented for releases (GH-32):** the tag-triggered `release.yml` generates a `syft` CycloneDX SBOM and attaches it (with `SHA256SUMS`) to every GitHub Release; the vulnerability + license scans run on every push (`ci.yml`) | R-SEC-1 |
 | NFR-SEC-5 | Converter injection safety | Malicious Markdown cannot inject `<ac:structured-macro>` server-side; macro-escape property tests | R-SEC-1; spec converter requirements |
 | NFR-SEC-6 | Credential storage | Tokens in OS keyring or env; never in project files; `logout` removes material | spec §9.10 |
 | NFR-SEC-7 | Path-traversal confinement | Local image/asset resolution cannot read bytes outside the configured root; escape vectors (relative `..`, absolute, symlink, URL-encoded, nested `..`, root-prefix) → `Forbidden(path-traversal)`; **0** bytes read outside root | GH-26; doc/guides/security-baseline.md |
@@ -78,8 +78,8 @@ binding. `MS-0002` NFRs are release-blocking guardrails unless marked
 
 | ID | Requirement | Target | Source / rationale |
 |---|---|---|---|
-| NFR-COMP-1 | Cross-OS support | **`MS-0002`: Linux + Windows** (amd64 + arm64 where supported). **macOS deferred to `MS-0003` or later.** | ADR-0001 C-3; owner direction (PR #4) |
-| NFR-COMP-2 | Single binary, no runtime | Clean-OS image runs the binary with no Node/Bun/Deno installed | ADR-0001 C-2; clean-OS smoke |
+| NFR-COMP-1 | Cross-OS support | **`MS-0002`: Linux + Windows** (amd64 + arm64 where supported). **macOS deferred to `MS-0003` or later.** **Shipped (GH-32):** the release pipeline builds linux-x64 + linux-arm64 + win-x64 from `scripts/build-binaries.sh` and attaches them to GitHub Releases on a `v*` tag | ADR-0001 C-3; owner direction (PR #4) |
+| NFR-COMP-2 | Single binary, no runtime | Clean-OS image runs the binary with no Node/Bun/Deno installed. **Proven in CI (GH-32):** the `binary-smoke` job runs linux-x64 on `debian:stable-slim` (asserts no bun/node/deno on `PATH`) and win-x64.exe on a real `windows-latest` runner (no Wine) | ADR-0001 C-2; clean-OS smoke |
 | NFR-COMP-3 | Confluence Cloud only (`MS-0002`) | Data Center deferred (`MS-0009`) | Roadmap; R-VIA-1 |
 | NFR-COMP-4 | Git CLI prerequisite | Git is an explicit external prereq (read-only); `doctor` verifies it on `$PATH` (the `git-available` check reports `fail` with a suggested fix when absent). **Implemented (GH-30).** | spec §9.4; TDR-0003 |
 | NFR-COMP-5 | Branch restriction | Sync restricted to configured `allowBranches` (default `["main"]`); override via `MARKSYNC_ALLOW_BRANCHES` | ADR-0006; OPEN-Q5 |

@@ -1,0 +1,172 @@
+# MarkSync Release Workflow — Tag-triggered binary distribution
+#
+# Triggers on: git tags matching `v*` (e.g., v0.8.0)
+# Builds: Linux (amd64 + arm64) + Windows (amd64) binaries
+# Attaches: Binaries + SHA256SUMS + CycloneDX SBOM to GitHub Release
+#
+# Implements: AC-COMP-1, AC-REL-1, NFR-SBOM-1, NFR-CHK-1
+# Resolves: OQ-1 (PLN-DEC-1: syft emitting CycloneDX JSON)
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+# Cancel in-progress runs for the same ref to avoid duplicate releases
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    name: Build + Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to attach assets to the release
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for version accuracy
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          # Pinned to 1.2.23 (DEC-1 — matches package.json#engines.bun)
+          bun-version: "1.2.23"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build binaries (all targets)
+        run: bash scripts/build-binaries.sh --target all
+
+      - name: Verify Bun version
+        run: |
+          bun_version=$(bun --version)
+          echo "Bun version: $bun_version"
+          if [[ "$bun_version" != "1.2.23" ]]; then
+            echo "ERROR: Bun version must be 1.2.23 (DEC-1), got $bun_version"
+            exit 1
+          fi
+
+      - name: Verify --version matches package.json
+        run: |
+          expected_version=$(bun -e 'console.log(require("./package.json").version)')
+          actual_version=$(./dist/marksync-linux-x64 --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+          if [[ "$actual_version" != "$expected_version" ]]; then
+            echo "ERROR: Version mismatch: expected $expected_version, got $actual_version"
+            exit 1
+          fi
+          echo "OK: version $actual_version matches package.json"
+
+      - name: Verify SHA256SUMS
+        run: |
+          if [[ ! -f "./dist/SHA256SUMS" ]]; then
+            echo "ERROR: SHA256SUMS not found"
+            exit 1
+          fi
+          echo "==> SHA256SUMS content:"
+          cat ./dist/SHA256SUMS
+          # Verify at least 2 hashes (linux-x64 + win-x64; arm64 may be absent)
+          hash_count=$(wc -l < ./dist/SHA256SUMS)
+          if [[ "$hash_count" -lt 2 ]]; then
+            echo "ERROR: Expected at least 2 hashes in SHA256SUMS, got $hash_count"
+            exit 1
+          fi
+          echo "OK: SHA256SUMS contains $hash_count hashes"
+
+      - name: Generate SBOM (syft CycloneDX JSON)
+        # Pinned to v0.24.0 (latest stable at plan time, bundles Syft 1.42.3)
+        # Do NOT use floating @v0 tag (DEC-1 determinism)
+        uses: anchore/sbom-action@v0.24.0
+        with:
+          output-file: marksync-sbom.cyclonedx.json
+          format: cyclonedx-json
+
+      - name: Verify SBOM generated
+        run: |
+          if [[ ! -f "marksync-sbom.cyclonedx.json" ]]; then
+            echo "ERROR: SBOM not generated"
+            exit 1
+          fi
+          echo "OK: SBOM generated"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ./dist/marksync-linux-x64
+            ./dist/marksync-linux-arm64
+            ./dist/marksync-win-x64.exe
+            ./dist/SHA256SUMS
+            ./marksync-sbom.cyclonedx.json
+          body: |
+            ## MarkSync ${{ github.ref_name }}
+
+            ### Artifacts
+
+            - **Linux (amd64)**: `marksync-linux-x64`
+            - **Linux (arm64)**: `marksync-linux-arm64` (if available; otherwise x64-only per DEC-3)
+            - **Windows (amd64)**: `marksync-win-x64.exe`
+            - **Checksums**: `SHA256SUMS` (verify with `sha256sum -c SHA256SUMS`)
+            - **SBOM**: `marksync-sbom.cyclonedx.json` (CycloneDX format)
+
+            ### Build Details
+
+            - **Bun version**: 1.2.23 (DEC-1 — matches package.json#engines.bun)
+            - **Build matrix**: Linux (amd64 + arm64) + Windows (amd64)
+            - **macOS**: Not included (deferred to MS-0003 per DEC-8)
+
+            ### Verification
+
+            ```bash
+            # Verify checksums
+            sha256sum -c SHA256SUMS
+
+            # Verify version
+            ./marksync-linux-x64 --version
+            ```
+
+            ### Signing
+
+            Windows Authenticode signing is documented in `doc/guides/binary-release-signing.md`.
+            Real production signing is out of scope for MS-0002 (DEC-7).
+
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+
+      - name: Verify release artifacts
+        # Asset-presence assertion (RSK-6 mitigation)
+        run: |
+          echo "==> Verifying release artifacts"
+          # List assets via GitHub CLI
+          assets=$(gh release view "${{ github.ref_name }}" --json assets -q '.assets[].name')
+          echo "Assets in release:"
+          echo "$assets"
+
+          # Required assets
+          required_assets=("marksync-linux-x64" "marksync-linux-arm64" "marksync-win-x64.exe" "SHA256SUMS" "marksync-sbom.cyclonedx.json")
+
+          for asset in "${required_assets[@]}"; do
+            if echo "$assets" | grep -q "^$asset$"; then
+              echo "  ✓ $asset found"
+            else
+              echo "  ✗ $asset NOT found (may be optional for arm64)"
+            fi
+          done
+
+          # Critical assets (must be present)
+          critical_assets=("marksync-linux-x64" "marksync-win-x64.exe" "SHA256SUMS" "marksync-sbom.cyclonedx.json")
+          for asset in "${critical_assets[@]}"; do
+            if ! echo "$assets" | grep -q "^$asset$"; then
+              echo "ERROR: Critical asset $asset not found in release"
+              exit 1
+            fi
+          done
+
+          echo "OK: All critical assets present"
+        env:
+          GH_TOKEN: ${{ github.token }}
