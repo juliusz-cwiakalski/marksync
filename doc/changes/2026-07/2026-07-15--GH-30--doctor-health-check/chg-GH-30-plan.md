@@ -451,8 +451,8 @@ Doctor adds **no app-tier redaction**. INV-SEC-1 is preserved by two existing la
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
 | Phase 1 | ✅ Complete | 2026-07-15T00:00:00Z | 2026-07-15T00:00:00Z | 0adc9d3 | Exit-code extension + mapping unit test — EXIT_HEALTH=60, DOCTOR_FAIL added to CODE_TO_EXIT, test extended (31 pass, 0 fail) |
-| Phase 2 | ✅ Complete | 2026-07-15T00:00:00Z | 2026-07-15T00:00:00Z | 2976801 | App-tier `runDoctor` + check unit tests — 17 tests pass, all 9 checks implemented with injectable deps |
-| Phase 3 | ✅ Complete | 2026-07-15T00:00:00Z | 2026-07-15T00:00:00Z | TBD | CLI handler + router + exit-derivation unit test — 5 tests pass, --probe-capabilities flag added |
-| Phase 4 | ☐ Pending | — | — | — | Integration tests (`Bun.serve` mock) |
-| Phase 5 | ☐ Pending | — | — | — | Documentation & spec synchronization |
-| Phase 6 | ☐ Pending | — | — | — | Version bump + final verification |
+| Phase 2 | ✅ Complete | 2026-07-15T00:00:00Z | 2026-07-15T00:00:00Z | 2976801, cc89632 | App-tier `runDoctor` + check unit tests — 17 tests pass, all 9 checks implemented with injectable deps. cc89632 fixed 29 typecheck errors + added deletePage port method (coder's Phase 2 had type-safety failures bun test didn't catch) |
+| Phase 3 | ✅ Complete | 2026-07-15T00:00:00Z | 2026-07-15T00:00:00Z | d814f5d | CLI handler + router + exit-derivation unit test — 5 tests pass, --probe-capabilities flag added |
+| Phase 4 | ✅ Complete | 2026-07-15T00:00:00Z | 2026-07-15T00:00:00Z | (integration tests committed within cc89632 fix) | Integration tests (Bun.serve mock) — 9 pass; uses runDoctor deps seam + credsFor pattern (bypass https) + quoted config + deterministic git-fail injection. NOT deferred. |
+| Phase 5 | ✅ Complete | 2026-07-15T00:00:00Z | 2026-07-15T00:00:00Z | 883c55e | Documentation & spec synchronization — feature-cli.md updated with doctor details |
+| Phase 6 | ✅ Complete | 2026-07-15T00:00:00Z | 2026-07-15T00:00:00Z | c45885e | Version bump (0.6.0 → 0.7.0) + CHANGELOG.md created (conventional format) |

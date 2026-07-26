@@ -11,10 +11,10 @@ phases:
   test_planning: { started: "2026-07-15T20:35:00Z", completed: "2026-07-15T20:50:00Z" }
   delivery_planning: { started: "2026-07-15T20:50:00Z", completed: "2026-07-15T21:05:00Z" }
   dor_check: { started: "2026-07-15T21:05:00Z", completed: "2026-07-15T21:35:00Z" }
-  delivery: { started: "2026-07-15T21:40:00Z", completed: null }
+  delivery: { started: "2026-07-15T21:40:00Z", completed: "2026-07-15T22:30:00Z" }
   system_spec_update: { started: null, completed: null }
   review_fix: { started: null, completed: null }
-  quality_gates: { started: null, completed: null }
+  quality_gates: { started: "2026-07-15T22:30:00Z", completed: "2026-07-15T22:35:00Z" }
   dod_check: { started: null, completed: null }
   pr_creation: { started: null, completed: null, url: null }
 
@@ -34,6 +34,53 @@ open_questions: []
 blockers: []
 
 notes:
+  - text: >
+      Retro — SERIOUS: coder Phase 2 (src/app/doctor.ts) has 29 typecheck
+      errors that bun test did NOT catch (Bun strips types without full
+      checking; coder reported "bun run check green" but typecheck was
+      broken). Errors reveal REAL bugs, not type noise: (1) target.deletePage
+      hallucinated — does NOT exist on TargetSystem port (self-cleaning
+      scratch-page probe AC-F3-2 cannot work against the real adapter);
+      (2) .value/.error accessed on Result without .ok narrowing (unsafe,
+      pervasive); (3) ConfluenceCredentials built incomplete (missing
+      email/mode) — credsResult.value IS already complete, should pass
+      directly; (4) Page.pageId used (should be Page.id); (5) humanMessage
+      accessed on MarkSyncError union without narrowing to InvalidConfig;
+      (6) AccountIdentity.email (doesn't exist — has accountId/displayName);
+      (7) string|null null-handling. Unit tests passed only because the
+      injected mock TargetSystem had deletePage (more methods than the real
+      port) — mock-conformance gap. Root cause: coder relied on bun test
+      (transpile-only) instead of bun run typecheck (tsc) for the type
+      gate; the "green" claim concealed a broken typecheck. PROCESS FIX:
+      quality gates must run bun run typecheck explicitly, not just bun test.
+      Delegate comprehensive fix to @fixer.
+    type: retro
+    date: "2026-07-15"
+  - text: >
+      Delivery + quality_gates COMPLETE. Coder Phases 1-3,5-6 (commits
+      0adc9d3, 2976801, d814f5d, 883c55e, c45885e, 679dbde, 903405c) +
+      @fixer remediation (cc89632): integration tests fixed (9 pass via
+      runDoctor deps seam + credsFor pattern + quoted config + deterministic
+      git-fail injection) AND 29 typecheck errors in doctor.ts resolved +
+      deletePage added to TargetSystem port + ConfluenceTarget adapter
+      (DELETE /content/{id}) + all TargetSystem mocks updated for
+      conformance. bun run check GREEN: typecheck 0 errors, 1247 pass/0 fail,
+      depcruise clean (103 modules), format clean. 231 biome lint warnings
+      are pre-existing/non-fatal (sha256Hex etc., not doctor). Version
+      0.6.0→0.7.0. Phase 4 (integration tests) is COMPLETE not deferred.
+    type: info
+    date: "2026-07-15"
+  - text: >
+      PM decision: add deletePage(id) to TargetSystem port + ConfluenceTarget
+      adapter (DELETE /wiki/rest/api/content/{id}). Required by AC-F3-2
+      (self-cleaning scratch-page probe: "created and then deleted"). Spec
+      §8.1 listed adapter methods but omitted delete; AC-F3-2 requires it.
+      Minor justified port extension, not new domain logic. Confluence
+      supports page deletion. This is a spec-implementation deviation: the
+      spec assumed delete existed; documenting it here + the @fixer will
+      note it. Does NOT change AC intent.
+    type: decision
+    date: "2026-07-15"
   - text: >
       DoR iter-2 READY_WITH_MINOR_NOTES. All 5 iter-1 findings resolved
       (both majors: exit-codes test extension + §16 handler control-flow;
