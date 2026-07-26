@@ -1,0 +1,192 @@
+version: 1
+iteration: 2
+mode: local
+work_item_ref: GH-31
+branch: feat/GH-31/adversarial-corpus
+status: PASS
+summary: >
+  Re-review after iter-1 remediation (commits d8d42f8 + 086d527). Both iter-1
+  blocking MAJORs are RESOLVED: (MAJOR-1) the classification doc is now honest
+  about the macro silent-escape path — namespaced macro tags authored in Markdown
+  are parsed as inline raw HTML and escaped at render (render ok:true, no flag),
+  while block-level raw HTML fast-fails as raw-html-block; the [] sidecars match
+  reality and TC-005 passes; (MAJOR-2) unsupported.ts now has a single shared
+  walker (collectAll) consumed by both findUnsupported and findAllUnsupported,
+  giving parity by-construction, with the first-hit guarantee preserved (incl.
+  the unsupported-parent-with-unsupported-child case) and the render path still
+  on findUnsupported. All 4 MINOR/NIT (raw-block parity case, count-test rename,
+  distinct-category assertion, dead-branch removal, import.meta.url resolution)
+  are resolved. All AC-F1-1..F6-1 are MET — AC-F4-1 upgrades from PARTIAL to MET.
+  The 33-fixture golden suite is byte-exact and all GH-31-scoped tests are green
+  (the lone full-run failure is TC-GLOB-012, an unrelated cold-cache timing flake
+  in a test GH-31 does not touch; it passes in isolation). Two non-blocking new
+  findings: a MEDIUM residual (macro fixture prose still mislabels "raw HTML
+  block" against their [] sidecars — the unfinished "reframe fixtures" half of
+  task 7.1) and a LOW cosmetic table-formatting regression in the plan logs.
+  Recommendation: PROCEED to quality gates / PR, addressing the two cleanup items
+  opportunistically before the PR.
+severity_breakdown:
+  critical: 0
+  high: 0
+  medium: 1
+  low: 1
+  info: 2
+spec_compliance: PASS
+plan_compliance: PASS
+iter1_findings:
+  - id: MAJOR-1
+    title: "Macro doc honesty"
+    status: RESOLVED
+    note: >
+      doc/quality/adversarial-corpus-classification.md now states plainly that
+      namespaced macro tags (<ac:structured-macro>, gliffy) authored in Markdown
+      are parsed as inline raw HTML and silently escaped at render (ok:true, no
+      flag), while block-level raw HTML (<div>, raw <table>) fast-fails as
+      raw-html-block. The doc no longer claims a macro fast-fail that doesn't
+      occur. Macro/app fixture [] sidecars match reality; TC-ADVERSARIAL-005
+      passes. Caveat: the FIXTURE PROSE reframe (sub-part of plan task 7.1) was
+      not done — see NEW-1.
+  - id: MAJOR-2
+    title: "Shared walker"
+    status: RESOLVED
+    note: >
+      src/domain/markdown/unsupported.ts has ONE shared walker (collectAll)
+      consumed by both findUnsupported (= collectAll(...)[0] ?? null) and
+      findAllUnsupported. The duplicated raw-block branch (old walk + walkCollect)
+      is eliminated; parity is now by-construction. First-hit guarantee preserved
+      (TC-002 covers the unsupported-parent-with-unsupported-child edge case;
+      all[0] == old first hit). Render path (storage.ts) still uses
+      findUnsupported — DEC-1/NG-2 holds. 33-fixture golden suite byte-exact;
+      TC-002/003/010 + adversarial runner green. No regression.
+  - id: NIT-1
+    title: "Raw-html-block parity case in TC-002"
+    status: RESOLVED
+    note: "Added at unsupported.test.ts TC-ADVERSARIAL-002 (raw-at-root)."
+  - id: MINOR-1
+    title: "Corpus count test renamed to category-coverage floor"
+    status: RESOLVED
+    note: >
+      Renamed to "category coverage floor met (corpus is category-complete at
+      current size)" with the 12-fixture vs ~20-40 aspirational deviation noted.
+  - id: MINOR-2
+    title: "Macro-category assertion requires >=3 distinct categories"
+    status: RESOLVED
+    note: >
+      Now extracts distinct category names via Set dedup with an explicit
+      allow-list (toc/info/code/expand/jira/gliffy) and asserts size >= 3.
+  - id: MINOR-3
+    title: "Dead golden-match branch removed"
+    status: RESOLVED
+    note: >
+      Dead hasGolden branch in classification-runner TC-004 removed with a
+      justifying comment (GFM byte-fidelity locked by the 33-fixture suite).
+  - id: MINOR-4
+    title: "import.meta.url fixture resolution"
+    status: RESOLVED
+    note: >
+      corpus-inventory.test.ts and pii-audit.test.ts switched from CWD-relative
+      join("tests","adversarial") to import.meta.url-based resolution (matching
+      the golden-runner convention).
+ac_status:
+  AC-F1-1: MET
+  AC-F2-1: MET
+  AC-F3-1: MET
+  AC-F3-2: MET
+  AC-F3-3: MET
+  AC-F4-1: MET
+  AC-F5-1: MET
+  AC-F6-1: MET
+findings:
+  - id: F-1
+    severity: medium
+    confidence: high
+    category: doc-consistency
+    location: tests/adversarial/macro-toc.md:3
+    message: >
+      All 6 macro/app fixtures (macro-toc/info/code/expand/jira +
+      app-gliffy-representation) still state in their prose "It is represented as
+      a raw HTML block", while their committed classification sidecars are []
+      and the real pipeline silently escapes the inline macro tag (render ok:true,
+      no flag). This is the unfinished "Reframe the macro/app .md fixtures"
+      sub-instruction of plan task 7.1 — the DOC was reframed but the FIXTURES
+      were not. It creates a contradiction within each fixture (prose vs sidecar)
+      and against the now-honest doc, which explicitly directs readers to these
+      fixtures as the silent-escape demonstration.
+    suggestion: >
+      Update the one-line prose in each of the 6 fixtures to describe the
+      silent-escape path (e.g. "authored as an inline macro tag in Markdown,
+      parsed as inline raw HTML and escaped at render (render succeeds, no flag;
+      [] classification sidecar)"). The sidecars already match reality — no
+      classification change needed.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-2
+    severity: low
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-07/2026-07-26--GH-31--adversarial-corpus/chg-GH-31-plan.md:619
+    message: >
+      Commit 086d527 introduced a leading space on every row of BOTH the Plan
+      Revision Log and the Execution Log tables (" | Version ..." / " | Phase
+      ..."). All other tables in the plan have no leading space, so this is an
+      inconsistent cosmetic markdown regression from the edit.
+    suggestion: >
+      Strip the single leading space before the leading "|" on each row of both
+      log tables to restore consistent GFM table formatting.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-3
+    severity: info
+    confidence: high
+    category: performance
+    location: src/domain/markdown/unsupported.ts:119
+    message: >
+      findUnsupported now delegates to collectAll and returns all[0], so it
+      performs a full-tree walk even when the first node is unsupported — the old
+      walk short-circuited at the first hit. The first-hit CORRECTNESS guarantee
+      is preserved (all[0] == old first hit, verified incl. unsupported-parent
+      case); only first-hit EFFICIENCY is lost. This is the intended tradeoff of
+      by-construction parity via a single walker; trees are small and the
+      function is called once per render, not in a hot loop.
+    suggestion: >
+      No action required. If full-walk cost ever matters, a shared generator/
+      visitor with findFirst/findAll consumers could restore short-circuiting
+      while keeping a single source of truth.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-4
+    severity: info
+    confidence: medium
+    category: documentation
+    location: doc/quality/adversarial-corpus-classification.md:12
+    message: >
+      The UnsupportedConstruct row example was changed from <aside> to
+      "<table> at block scope". This is accurate for raw-HTML <table> blocks
+      (-> raw-html-block, as in nested-tables.md), but table is also a supported
+      GFM element, so a casual reader could momentarily conflate the two. The
+      "raw HTML" + "at block scope" qualifiers and the supported-subset list
+      ("Tables (flat, single-level)") mitigate the ambiguity.
+    suggestion: >
+      Optional clarity tweak: "(raw HTML <table> block, not a GFM pipe-table)".
+      No factual error; non-blocking.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+reviewed_at: 2026-07-26T15:43:23Z
+next_step: >
+  PROCEED to quality gates / PR. The two blocking iter-1 MAJORs are resolved and
+  all ACs are MET. Recommended (non-blocking) before the PR: apply F-1 (6
+  one-line fixture-prose edits) and F-2 (strip leading spaces in the plan log
+  tables). No new remediation phase required — these are polish items on the
+  already-completed Phase 7.

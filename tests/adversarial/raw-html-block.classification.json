@@ -1,0 +1,17 @@
+[
+	{
+		"kind": "UnsupportedConstruct",
+		"construct": "raw-html-block",
+		"sourcePath": "raw-html-block.md"
+	},
+	{
+		"kind": "UnsupportedConstruct",
+		"construct": "raw-html-block",
+		"sourcePath": "raw-html-block.md"
+	},
+	{
+		"kind": "UnsupportedConstruct",
+		"construct": "raw-html-block",
+		"sourcePath": "raw-html-block.md"
+	}
+]

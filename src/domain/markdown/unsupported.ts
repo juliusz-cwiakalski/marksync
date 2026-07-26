@@ -70,6 +70,43 @@ export function classifyUnsupported(
 }
 
 /**
+ * Walk `root` depth-first and collect ALL unsupported nodes, or an empty array
+ * if the tree is clean. A `raw` node that is a direct child of the root is a
+ * raw HTML *block* (unsupported); a `raw` node nested inside an element is
+ * inline raw (escaped at render — DEC-4 — and not flagged).
+ */
+function collectAll(root: Root, sourcePath: string): MarkSyncError[] {
+	const results: MarkSyncError[] = [];
+
+	function walk(node: AnyNode, parent: AnyNode): void {
+		if (node.type === "raw" && parent.type === "root") {
+			results.push({
+				kind: "UnsupportedConstruct",
+				construct: "raw-html-block",
+				sourcePath,
+			});
+			return;
+		}
+		const hit = classifyUnsupported(node, sourcePath);
+		if (hit) {
+			results.push(hit);
+		}
+		if (node.type === "element") {
+			for (const child of (node as Element).children) {
+				walk(child as AnyNode, node);
+			}
+		} else if (node.type === "root") {
+			for (const child of (node as Root).children) {
+				walk(child as AnyNode, node);
+			}
+		}
+	}
+
+	walk(root, root);
+	return results;
+}
+
+/**
  * Walk `root` depth-first and return the first unsupported node's error, or
  * `null` if the tree is clean. A `raw` node that is a direct child of the root
  * is a raw HTML *block* (unsupported); a `raw` node nested inside an element is
@@ -79,33 +116,19 @@ export function findUnsupported(
 	root: Root,
 	sourcePath: string,
 ): MarkSyncError | null {
-	return walk(root, root, sourcePath);
+	const all = collectAll(root, sourcePath);
+	return all[0] ?? null;
 }
 
-function walk(
-	node: AnyNode,
-	parent: AnyNode,
+/**
+ * Walk `root` depth-first and collect ALL unsupported nodes, or an empty array
+ * if the tree is clean. Reuses the same allow-list + raw-block detection as
+ * `findUnsupported`; the classification verdict is identical on a per-node
+ * basis (DEC-1 parity guarantee).
+ */
+export function findAllUnsupported(
+	root: Root,
 	sourcePath: string,
-): MarkSyncError | null {
-	if (node.type === "raw" && parent.type === "root") {
-		return {
-			kind: "UnsupportedConstruct",
-			construct: "raw-html-block",
-			sourcePath,
-		};
-	}
-	const hit = classifyUnsupported(node, sourcePath);
-	if (hit) return hit;
-	if (node.type === "element") {
-		for (const child of (node as Element).children) {
-			const found = walk(child as AnyNode, node, sourcePath);
-			if (found) return found;
-		}
-	} else if (node.type === "root") {
-		for (const child of (node as Root).children) {
-			const found = walk(child as AnyNode, node, sourcePath);
-			if (found) return found;
-		}
-	}
-	return null;
+): MarkSyncError[] {
+	return collectAll(root, sourcePath);
 }

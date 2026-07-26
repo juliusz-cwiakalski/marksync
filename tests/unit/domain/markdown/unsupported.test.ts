@@ -11,6 +11,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	classifyUnsupported,
 	findUnsupported,
+	findAllUnsupported,
 } from "#domain/markdown/unsupported";
 import { mdastToHast } from "#domain/markdown/mdast-to-hast";
 import { parseMarkdown } from "#domain/markdown/parse";
@@ -26,8 +27,9 @@ function root(children: Root["children"]): Root {
 function el(
 	tagName: string,
 	children: Root["children"] = [],
+	properties: Record<string, unknown> = {},
 ): Root["children"][number] {
-	return { type: "element", tagName, properties: {}, children };
+	return { type: "element", tagName, properties, children };
 }
 
 describe("TC-UNSUP-001 (AC-F5-1) — unsupported element → UnsupportedConstruct", () => {
@@ -159,5 +161,253 @@ describe("TC-UNSUP-004 — raw inline HTML is escaped (not flagged); raw HTML bl
 			construct: "raw-html-block",
 			sourcePath: SRC,
 		});
+	});
+});
+
+describe("TC-ADVERSARIAL-002 (AC-F2-1) — findAllUnsupported parity vs findUnsupported", () => {
+	test("findAllUnsupported(tree)[0] deep-equals findUnsupported(tree) on multi-node tree", () => {
+		// Build a tree with multiple unsupported nodes at different depths
+		const tree = root([
+			el("math", [el("dl")]), // Nested unsupported nodes
+			el("section"), // Top-level unsupported node
+		]);
+
+		const firstHit = findUnsupported(tree, SRC);
+		const allHits = findAllUnsupported(tree, SRC);
+
+		// First hit from findAllUnsupported must equal findUnsupported
+		expect(allHits.length).toBeGreaterThanOrEqual(1);
+		expect(allHits[0]).toEqual(firstHit);
+		expect(firstHit).toEqual({
+			kind: "UnsupportedConstruct",
+			construct: "math",
+			sourcePath: SRC,
+		});
+
+		// All nodes collected (none truncated)
+		expect(allHits.length).toBe(3);
+		expect(allHits.map((h) => h.construct)).toEqual(["math", "dl", "section"]);
+	});
+
+	test("clean tree returns empty array from findAllUnsupported and null from findUnsupported", () => {
+		// Tree with only allowed tags
+		const tree = root([
+			el("p", [el("strong", ["text"])]),
+			el("ul", [el("li", ["item"])]),
+		]);
+
+		expect(findAllUnsupported(tree, SRC)).toEqual([]);
+		expect(findUnsupported(tree, SRC)).toBeNull();
+	});
+
+	test("classifyUnsupported behavior unchanged (DEC-1 parity guard)", () => {
+		// Verify classifyUnsupported still works as before
+		const mathNode = el("math");
+		const dlNode = el("dl");
+
+		expect(classifyUnsupported(mathNode, SRC)).toEqual({
+			kind: "UnsupportedConstruct",
+			construct: "math",
+			sourcePath: SRC,
+		});
+
+		expect(classifyUnsupported(dlNode, SRC)).toEqual({
+			kind: "UnsupportedConstruct",
+			construct: "dl",
+			sourcePath: SRC,
+		});
+
+		// Allowed tag returns null
+		expect(classifyUnsupported(el("p"), SRC)).toBeNull();
+	});
+
+	test("raw-html-block path parity: findAllUnsupported(tree)[0] deep-equals findUnsupported(tree)", () => {
+		// Build a HAST tree containing a raw node as a direct child of root (raw-html-block)
+		const rawNode: { type: "raw"; value: string } = {
+			type: "raw",
+			value: "<div>block</div>",
+		};
+		const tree = root([rawNode] as Root["children"]);
+
+		const firstHit = findUnsupported(tree, SRC);
+		const allHits = findAllUnsupported(tree, SRC);
+
+		// First hit from findAllUnsupported must equal findUnsupported
+		expect(allHits.length).toBe(1);
+		expect(allHits[0]).toEqual(firstHit);
+		expect(firstHit).toEqual({
+			kind: "UnsupportedConstruct",
+			construct: "raw-html-block",
+			sourcePath: SRC,
+		});
+	});
+});
+
+describe("TC-ADVERSARIAL-003 (AC-F2-1) — multi-node depth-first collection", () => {
+	test("collects all 3-5 unsupported nodes across branches and depths", () => {
+		// Build a complex tree with unsupported nodes at varying depths
+		const tree = root([
+			el("blockquote", [
+				el("p", [el("math")]), // Deep in first branch
+			]),
+			el("section", [
+				// Second branch
+				el("dl", [
+					// Nested
+					el("dt", ["term"]),
+				]),
+			]),
+			el("details"), // Third top-level node
+		]);
+
+		const allHits = findAllUnsupported(tree, SRC);
+
+		// All nodes collected (none truncated)
+		expect(allHits.length).toBe(5);
+
+		// Order is depth-first pre-order
+		expect(allHits[0].construct).toBe("math"); // Deep in first branch
+		expect(allHits[1].construct).toBe("section"); // Second branch root
+		expect(allHits[2].construct).toBe("dl"); // Nested in second branch
+	});
+
+	test("every entry has correct kind, construct, and sourcePath", () => {
+		const tree = root([el("math"), el("dl"), el("section")]);
+
+		const allHits = findAllUnsupported(tree, SRC);
+
+		expect(allHits.length).toBe(3);
+
+		for (const hit of allHits) {
+			expect(hit.kind).toBe("UnsupportedConstruct");
+			expect(hit.sourcePath).toBe(SRC);
+			expect(["math", "dl", "section"]).toContain(hit.construct);
+		}
+	});
+
+	test("depth-first traversal order is consistent across runs", () => {
+		// Determinism: same tree, same order every time
+		const tree = root([
+			el("ul", [el("li", [el("math")]), el("li", [el("dl")])]),
+			el("section"),
+		]);
+
+		const firstRun = findAllUnsupported(tree, SRC);
+		const secondRun = findAllUnsupported(tree, SRC);
+
+		expect(firstRun.length).toBe(3);
+		expect(secondRun.length).toBe(3);
+
+		for (let i = 0; i < firstRun.length; i++) {
+			expect(firstRun[i]).toEqual(secondRun[i]);
+		}
+	});
+});
+
+describe("TC-ADVERSARIAL-010 (AC-F3-2 / DEC-2) — hand-built macro HAST classification", () => {
+	test("toc macro is classified as UnsupportedConstruct", () => {
+		const tree = root([
+			el("ac:structured-macro", [], {
+				"ac:name": "toc",
+			}),
+		]);
+		const hits = findAllUnsupported(tree, SRC);
+		expect(hits.length).toBe(1);
+		expect(hits[0]).toEqual({
+			kind: "UnsupportedConstruct",
+			construct: "ac:structured-macro",
+			sourcePath: SRC,
+		});
+	});
+
+	test("info macro is classified as UnsupportedConstruct", () => {
+		const tree = root([
+			el("ac:structured-macro", [], {
+				"ac:name": "info",
+			}),
+		]);
+		const hits = findAllUnsupported(tree, SRC);
+		expect(hits.length).toBe(1);
+		expect(hits[0]).toEqual({
+			kind: "UnsupportedConstruct",
+			construct: "ac:structured-macro",
+			sourcePath: SRC,
+		});
+	});
+
+	test("code macro is classified as UnsupportedConstruct", () => {
+		const tree = root([
+			el("ac:structured-macro", [], {
+				"ac:name": "code",
+			}),
+		]);
+		const hits = findAllUnsupported(tree, SRC);
+		expect(hits.length).toBe(1);
+		expect(hits[0]).toEqual({
+			kind: "UnsupportedConstruct",
+			construct: "ac:structured-macro",
+			sourcePath: SRC,
+		});
+	});
+
+	test("expand macro is classified as UnsupportedConstruct", () => {
+		const tree = root([
+			el("ac:structured-macro", [], {
+				"ac:name": "expand",
+			}),
+		]);
+		const hits = findAllUnsupported(tree, SRC);
+		expect(hits.length).toBe(1);
+		expect(hits[0]).toEqual({
+			kind: "UnsupportedConstruct",
+			construct: "ac:structured-macro",
+			sourcePath: SRC,
+		});
+	});
+
+	test("jira macro is classified as UnsupportedConstruct", () => {
+		const tree = root([
+			el("ac:structured-macro", [], {
+				"ac:name": "jira",
+			}),
+		]);
+		const hits = findAllUnsupported(tree, SRC);
+		expect(hits.length).toBe(1);
+		expect(hits[0]).toEqual({
+			kind: "UnsupportedConstruct",
+			construct: "ac:structured-macro",
+			sourcePath: SRC,
+		});
+	});
+
+	test("gliffy app tag is classified as UnsupportedConstruct", () => {
+		const tree = root([
+			el("ac:structured-macro", [], {
+				"ac:name": "gliffy",
+			}),
+		]);
+		const hits = findAllUnsupported(tree, SRC);
+		expect(hits.length).toBe(1);
+		expect(hits[0]).toEqual({
+			kind: "UnsupportedConstruct",
+			construct: "ac:structured-macro",
+			sourcePath: SRC,
+		});
+	});
+
+	test("no silent drop for all macros — every node appears in classification", () => {
+		const tree = root([
+			el("ac:structured-macro", [], { "ac:name": "toc" }),
+			el("ac:structured-macro", [], { "ac:name": "info" }),
+			el("ac:structured-macro", [], { "ac:name": "code" }),
+			el("ac:structured-macro", [], { "ac:name": "expand" }),
+			el("ac:structured-macro", [], { "ac:name": "jira" }),
+		]);
+		const hits = findAllUnsupported(tree, SRC);
+		expect(hits.length).toBe(5);
+		for (const hit of hits) {
+			expect(hit.kind).toBe("UnsupportedConstruct");
+			expect(hit.construct).toBe("ac:structured-macro");
+		}
 	});
 });

@@ -1,0 +1,156 @@
+change_id: GH-31
+title: "[MS2-E5-S3] Adversarial public corpus"
+branch: feat/GH-31/adversarial-corpus
+change_folder: doc/changes/2026-07/2026-07-26--GH-31--adversarial-corpus
+
+phases:
+  clarify_scope: { started: "2026-07-26", completed: "2026-07-26" }
+  specification: { started: "2026-07-26", completed: "2026-07-26" }
+  test_planning: { started: "2026-07-26", completed: "2026-07-26" }
+  delivery_planning: { started: "2026-07-26", completed: "2026-07-26" }
+  dor_check: { started: "2026-07-26", completed: "2026-07-26" }
+  delivery: { started: "2026-07-26", completed: "2026-07-26" }
+  system_spec_update: { started: "2026-07-26", completed: "2026-07-26" }
+  review_fix: { started: "2026-07-26", completed: "2026-07-26" }
+  quality_gates: { started: "2026-07-26", completed: "2026-07-26" }
+  dod_check: { started: "2026-07-26", completed: "2026-07-26" }
+  pr_creation: { started: "2026-07-26", completed: "2026-07-26", url: "https://github.com/juliusz-cwiakalski/marksync/pull/86" }
+
+decisions:
+  - id: DEC-5
+    text: >
+      Test RUNNERS (classification-runner, corpus-inventory, pii-audit) live
+      at tests/golden/adversarial/*.test.ts (golden-tier — real pipeline,
+      committed sidecars/goldens, no mocks); FIXTURES (data) stay at
+      tests/adversarial/ per the story's explicit path. Rationale: CI glob
+      tests/golden/ already discovers tests/golden/adversarial/, so no ci.yml
+      change needed (resolves DoR BLOCKER finding 1); runners are sanctioned
+      by the existing golden tier, not a new unsanctioned tier (resolves MAJOR
+      finding 4); no testing-strategy.md tier registration required (resolves
+      MAJOR finding 7); mirrors the existing tests/golden/markdown/ runner +
+      tests/golden/fixtures/markdown/ data split.
+    date: "2026-07-26"
+open_questions: []
+blockers: []
+
+notes:
+  - text: >
+      Intake 2026-07-26. Fresh delivery on clean main (a83e05d). Deps
+      MS2-E3-S3 (GH-20) + MS2-E3-S5 (GH-22) both CLOSED — no blocked label
+      needed. No story-blocking questions; CEO pre-resolved R1 (sanitization:
+      automated grep + human review) + Q1 (corpus size ~20-40).
+  - text: >
+      Scope clarification (PM, non-blocking): this is a TEST+DOCS story with
+      one minor src/ addition. (1) MS-0002 pipeline is ONE-WAY
+      Markdown→Storage, so Confluence macros/app-content/gliffy are NOT
+      authorable in GFM → represented as raw-HTML blocks (→ raw-html-block
+      UnsupportedConstruct) or hand-built HAST nodes (precedent:
+      unsupported.test.ts builds math/dl/section by hand). (2) AC "every
+      unsupported node classified" requires a collect-all variant because
+      findUnsupported() returns only the FIRST hit — coder adds
+      findAllUnsupported() (or runner-level walk) returning all hits; no
+      behavior change to existing findUnsupported. (3) "Drift stability" AC =
+      classification DETERMINISM (classify corpus twice → identical
+      classification.json), NOT the sync-state classify() in
+      src/domain/state/classifier.ts. (4) Corpus is SYNTHETIC adversarial
+      fixtures (no real design-partner pages exist pre-launch); sanitized by
+      construction + grep self-audit.
+    type: decision
+    date: "2026-07-26"
+  - text: >
+      Known doc impacts (for @doc-syncer phase 7): (a) NEW
+      doc/quality/adversarial-corpus-classification.md (deliverable — user-facing
+      classification table); (b) doc/spec/features/feature-safe-publish.md
+      markdown-pipeline row — note adversarial corpus as regression suite +
+      the new findAllUnsupported export; (c) .ai/rules/testing-strategy.md —
+      register the adversarial tier/category under golden+integration; (d)
+      possibly doc/spec/nonfunctional.md NFR-REL-4 (fidelity) — link corpus
+      as evidence. doc/quality/ currently only has test-specs/.
+    type: risk
+    date: "2026-07-26"
+  - text: >
+      Retro — DoR iter-1 NOT_READY (2026-07-26): @readiness-reviewer caught 2
+      BLOCKERs + 5 MAJORs + 6 MINOR/NIT. BLOCKERs: (1) CI runs only
+      tests/unit|integration|golden — tests/adversarial/ would be CI-invisible,
+      defeating the regression-suite purpose; (2) spec §13 dependency row
+      wrongly claims corpus "stress-tests E3-S5/GH-22 sync drift classifier",
+      contradicting DEC-3/NG-3. MAJORs: "long page" proxy (2× largest golden
+      = only 1.7KB) too small; TC-001 tier "Unit" does FS I/O + tests/adversarial/
+      unsanctioned tier; TC-004 omits unsupported-fixture branch
+      (renderStorage returns ok=false); {expand} macro silently dropped from
+      deliverable list; plan omits testing-strategy.md tier registration.
+      PM DECISION D5 resolves BLOCKER-1 + MAJOR-4 + MAJOR-7 at once by
+      relocating RUNNERS to tests/golden/adversarial/ (golden-tier, CI-covered,
+      sanctioned) while keeping fixtures at tests/adversarial/ per story. Gap
+      not caught earlier: the three author agents (spec/test-plan/plan)
+      independently chose tests/adversarial/ for runners without checking CI
+      wiring or tier sanctioning — a cross-artifact consistency gap the DoR
+      gate exists to catch. Process improvement: author agents should verify
+      new test directories against ci.yml + testing-strategy.md tiers before
+      committing paths.       Reopening specification/test_planning/delivery_planning
+      for iter-2 fixes.
+    type: retro
+    date: "2026-07-26"
+  - text: >
+      Delivery complete 2026-07-26. @coder executed all 6 plan phases (commits
+      ceb0073..0dfe61c). bun run check GREEN: 1308 pass/0 fail (up from 1248
+      on main), typecheck clean, boundaries clean. 33-fixture golden suite
+      still byte-exact (39 tests). DEC-5 verified: bun test tests/golden/
+      discovers all 3 adversarial runners (classification-runner 36 tests,
+      corpus-inventory 7, pii-audit 4). 12 synthetic fixtures + 12 mandatory
+      classification sidecars covering all 6 AC-F1-1 categories (long-page =
+      1509 lines). Minor coder adjustments (all in-spec): (1) removed a fake
+      email + MS-0002 ref from initial fixtures to pass the PII self-audit
+      (TC-008) — self-validating guardrail worked as designed; (2) emoji
+      detection switched from regex range to explicit emoji set to avoid
+      range issues; (3) source-path normalized to bare filename in sidecars.
+      src/domain/markdown/unsupported.ts is the only src/ touch (additive
+      findAllUnsupported, +67 lines, refactored walker to share predicate).
+      All 8 AC PASS per coder self-report; @reviewer will verify.
+    type: info
+    date: "2026-07-26"
+  - text: >
+      Retro — review iter-1 FAIL (2026-07-26): @reviewer caught 2 MAJORs.
+      MAJOR-1 is the significant one: DEC-2/spec assumed Confluence macros
+      authored as <ac:structured-macro> in Markdown would be raw-HTML BLOCKS
+      (→ raw-html-block fast-fail). In REALITY remark parses namespaced tags
+      as INLINE raw HTML → silently escaped at render (ok:true, no flag,
+      findAllUnsupported returns []). The classification doc claimed
+      fast-fail — factually wrong. The corpus therefore SURFACED a genuine
+      ADR-0005 silent-degradation vector (macros → escaped literal text,
+      no warning) — which is exactly what an adversarial corpus is FOR.
+      Honest fix: correct the doc to state macros silently escape (known
+      limitation, MS-0003+), reframe fixtures; do NOT pretend a fast-fail
+      that doesn't happen. MAJOR-2: plan mandated shared-traversal refactor
+      (parity by construction); coder delivered duplicated walker (walk +
+      walkCollect) — parity by-test not by-construction. Both MAJORs are
+      legit; routing remediation to @coder. Gap not caught earlier: the
+      spec/plan's DEC-2 macro representation assumption was never validated
+      against the real remark parser before delivery — a "trust the
+      assumption" gap. Process improvement: for any spec claim about parser
+      behavior, the spec-writer/plan-writer should verify with a 5-line
+      repro before committing it as a DEC. Also MINORs: corpus count 12
+      (below ~20-40 target, but AC is category coverage not count); weak
+      macro-category assertion; dead golden-match branch; CWD-relative paths
+      in 2 tests; TC-002 missing raw-block parity case.
+    type: retro
+    date: "2026-07-26"
+  - text: >
+      DoD PASS 2026-07-26. Review iter-2 PASS (all 7 iter-1 findings RESOLVED,
+      all 8 AC MET — AC-F4-1 upgraded from PARTIAL after the doc was made
+      honest about macro silent-escape). Quality gates GREEN for GH-31:
+      1308 pass / 1 fail where the 1 fail is the PRE-EXISTING TC-GLOB-012
+      cold-cache timing flake (elapsed<2000ms; labeled "informational —
+      NFR-PERF-5 is not a hard gate" in the test itself; passes in isolation;
+      GH-64 scope, unrelated to GH-31). PM DECISION: not fixing the flake in
+      this PR (would be scope creep); recommend a separate ticket to make
+      TC-GLOB-012 non-blocking or widen the threshold. DEC-5 verified:
+      bun test tests/golden/ discovers all adversarial runners (124 pass).
+      33-fixture golden suite byte-exact. doc-syncer reported no residual
+      doc gaps. All 7 plan phases complete (Phase 7 = review remediation).
+      Polish commit 0fe5fdb finished task 7.1 fixture-prose reframe (F-1).
+      Ready for PR. NOTE: a cosmetic NIT (F-2, leading-space in 2 plan tables)
+      was partially applied — does not affect rendering; left as-is to avoid
+      another round-trip.
+    type: info
+    date: "2026-07-26"

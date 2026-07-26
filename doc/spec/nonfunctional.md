@@ -5,7 +5,7 @@ ados_distribution: redistributable
 id: NONFUNCTIONAL
 status: Draft
 created: 2026-07-04
-last_updated: 2026-07-15
+last_updated: 2026-07-26
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
@@ -14,7 +14,7 @@ links:
     - doc/overview/02-roadmap.md
     - doc/overview/architecture-overview.md
     - doc/inception/analysis/risks.md
-  related_changes: ["GH-27", "GH-28", "GH-30", "GH-69", "GH-76"]
+  related_changes: ["GH-27", "GH-28", "GH-30", "GH-31", "GH-69", "GH-76"]
   summary: "Non-functional requirements — performance, security, reliability, operability, compatibility, privacy, maintainability, accessibility for MS-0002 and beyond."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -55,7 +55,7 @@ binding. `MS-0002` NFRs are release-blocking guardrails unless marked
 | NFR-REL-1 | Zero silent overwrites | 0 incidents where a remote edit is overwritten without an explicit conflict | INV-SAFE-1; R-VAL-4; roadmap guardrail |
 | NFR-REL-2 | Drift-detection effectiveness | 100% of supported remote-edit scenarios detected & blocked | Roadmap guardrail |
 | NFR-REL-3 | Conflict false-positive rate | < 5% | Roadmap guardrail; R-FEA-8 |
-| NFR-REL-4 | Conversion fidelity | 100% of canonical GFM fixtures survive Markdown→Storage round-trip | Roadmap guardrail; ADR-0005 |
+| NFR-REL-4 | Conversion fidelity | 100% of canonical GFM fixtures survive Markdown→Storage round-trip | Roadmap guardrail; ADR-0005. Regression-locked by the 33-fixture GFM golden suite and, against real-world content categories the canonical subset excludes, the adversarial corpus (`tests/adversarial/` + golden-tier runner `tests/golden/adversarial/`, GH-31) |
 | NFR-REL-5 | Concurrency safety | Two overlapping CI plans never let the older overwrite the newer | A-FEA-7; R-FEA-7 |
 | NFR-REL-6 | REMOTE_MISSING invariant | A remotely-deleted managed page is never silently re-created | INV-SAFE-2; roadmap invariant |
 | NFR-REL-7 | Partial-apply recoverability | An interrupted apply is recoverable via journal replay / `repair-state` without duplicates. **Implemented (GH-28):** `marksync repair-state` completes a post-transaction interruption idempotently (already-applied → 0 writes) and rebuilds mid-transaction crash-window bindings from the remote — each page written at most once across the crashed run and the repair run combined. | R-FEA-4; spec §9.3/§9.8 |
