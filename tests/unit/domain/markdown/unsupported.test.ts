@@ -220,6 +220,27 @@ describe("TC-ADVERSARIAL-002 (AC-F2-1) — findAllUnsupported parity vs findUnsu
 		// Allowed tag returns null
 		expect(classifyUnsupported(el("p"), SRC)).toBeNull();
 	});
+
+	test("raw-html-block path parity: findAllUnsupported(tree)[0] deep-equals findUnsupported(tree)", () => {
+		// Build a HAST tree containing a raw node as a direct child of root (raw-html-block)
+		const rawNode: { type: "raw"; value: string } = {
+			type: "raw",
+			value: "<div>block</div>",
+		};
+		const tree = root([rawNode] as Root["children"]);
+
+		const firstHit = findUnsupported(tree, SRC);
+		const allHits = findAllUnsupported(tree, SRC);
+
+		// First hit from findAllUnsupported must equal findUnsupported
+		expect(allHits.length).toBe(1);
+		expect(allHits[0]).toEqual(firstHit);
+		expect(firstHit).toEqual({
+			kind: "UnsupportedConstruct",
+			construct: "raw-html-block",
+			sourcePath: SRC,
+		});
+	});
 });
 
 describe("TC-ADVERSARIAL-003 (AC-F2-1) — multi-node depth-first collection", () => {

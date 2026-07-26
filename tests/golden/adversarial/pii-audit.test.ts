@@ -2,10 +2,11 @@
 // TC-ADVERSARIAL-008 (AC-F5-1 / NFR-SEC-1 / INV-SEC-1).
 
 import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
-const adversarialDir = join("tests", "adversarial");
+const here = dirname(new URL(import.meta.url).pathname);
+const adversarialDir = join(here, "..", "..", "adversarial");
 
 describe("TC-ADVERSARIAL-008 (AC-F5-1 / NFR-SEC-1 / INV-SEC-1) — PII self-audit clean", () => {
 	test("email pattern returns 0 matches across all artifacts", () => {

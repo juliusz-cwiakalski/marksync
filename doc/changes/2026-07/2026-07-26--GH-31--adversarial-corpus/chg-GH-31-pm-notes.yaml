@@ -5,13 +5,13 @@ change_folder: doc/changes/2026-07/2026-07-26--GH-31--adversarial-corpus
 
 phases:
   clarify_scope: { started: "2026-07-26", completed: "2026-07-26" }
-  specification: { started: "2026-07-26", completed: null }
-  test_planning: { started: "2026-07-26", completed: null }
-  delivery_planning: { started: "2026-07-26", completed: null }
-  dor_check: { started: "2026-07-26", completed: null }
-  delivery: { started: null, completed: null }
-  system_spec_update: { started: null, completed: null }
-  review_fix: { started: null, completed: null }
+  specification: { started: "2026-07-26", completed: "2026-07-26" }
+  test_planning: { started: "2026-07-26", completed: "2026-07-26" }
+  delivery_planning: { started: "2026-07-26", completed: "2026-07-26" }
+  dor_check: { started: "2026-07-26", completed: "2026-07-26" }
+  delivery: { started: "2026-07-26", completed: "2026-07-26" }
+  system_spec_update: { started: "2026-07-26", completed: "2026-07-26" }
+  review_fix: { started: "2026-07-26", completed: null }
   quality_gates: { started: null, completed: null }
   dod_check: { started: null, completed: null }
   pr_creation: { started: null, completed: null, url: null }
@@ -87,7 +87,51 @@ notes:
       wiring or tier sanctioning — a cross-artifact consistency gap the DoR
       gate exists to catch. Process improvement: author agents should verify
       new test directories against ci.yml + testing-strategy.md tiers before
-      committing paths. Reopening specification/test_planning/delivery_planning
+      committing paths.       Reopening specification/test_planning/delivery_planning
       for iter-2 fixes.
+    type: retro
+    date: "2026-07-26"
+  - text: >
+      Delivery complete 2026-07-26. @coder executed all 6 plan phases (commits
+      ceb0073..0dfe61c). bun run check GREEN: 1308 pass/0 fail (up from 1248
+      on main), typecheck clean, boundaries clean. 33-fixture golden suite
+      still byte-exact (39 tests). DEC-5 verified: bun test tests/golden/
+      discovers all 3 adversarial runners (classification-runner 36 tests,
+      corpus-inventory 7, pii-audit 4). 12 synthetic fixtures + 12 mandatory
+      classification sidecars covering all 6 AC-F1-1 categories (long-page =
+      1509 lines). Minor coder adjustments (all in-spec): (1) removed a fake
+      email + MS-0002 ref from initial fixtures to pass the PII self-audit
+      (TC-008) — self-validating guardrail worked as designed; (2) emoji
+      detection switched from regex range to explicit emoji set to avoid
+      range issues; (3) source-path normalized to bare filename in sidecars.
+      src/domain/markdown/unsupported.ts is the only src/ touch (additive
+      findAllUnsupported, +67 lines, refactored walker to share predicate).
+      All 8 AC PASS per coder self-report; @reviewer will verify.
+    type: info
+    date: "2026-07-26"
+  - text: >
+      Retro — review iter-1 FAIL (2026-07-26): @reviewer caught 2 MAJORs.
+      MAJOR-1 is the significant one: DEC-2/spec assumed Confluence macros
+      authored as <ac:structured-macro> in Markdown would be raw-HTML BLOCKS
+      (→ raw-html-block fast-fail). In REALITY remark parses namespaced tags
+      as INLINE raw HTML → silently escaped at render (ok:true, no flag,
+      findAllUnsupported returns []). The classification doc claimed
+      fast-fail — factually wrong. The corpus therefore SURFACED a genuine
+      ADR-0005 silent-degradation vector (macros → escaped literal text,
+      no warning) — which is exactly what an adversarial corpus is FOR.
+      Honest fix: correct the doc to state macros silently escape (known
+      limitation, MS-0003+), reframe fixtures; do NOT pretend a fast-fail
+      that doesn't happen. MAJOR-2: plan mandated shared-traversal refactor
+      (parity by construction); coder delivered duplicated walker (walk +
+      walkCollect) — parity by-test not by-construction. Both MAJORs are
+      legit; routing remediation to @coder. Gap not caught earlier: the
+      spec/plan's DEC-2 macro representation assumption was never validated
+      against the real remark parser before delivery — a "trust the
+      assumption" gap. Process improvement: for any spec claim about parser
+      behavior, the spec-writer/plan-writer should verify with a 5-line
+      repro before committing it as a DEC. Also MINORs: corpus count 12
+      (below ~20-40 target, but AC is category coverage not count); weak
+      macro-category assertion; dead golden-match branch; CWD-relative paths
+      in 2 tests; TC-002 missing raw-block parity case.
     type: retro
     date: "2026-07-26"

@@ -557,6 +557,27 @@ introduced, then finalize the change for doc-sync and review.
 
 ---
 
+### Phase 7: Review remediation (iter-1 findings)
+
+**Goal**: Address the @reviewer iter-1 FAIL (2 MAJORs + 4 MINOR/NIT). Items 1-2 are blocking; 3-7 land in the same phase.
+
+**Tasks** (from reviewer iter-1, precise):
+
+- [ ] **7.1 (MAJOR-1, blocking)** Make macro handling honest end-to-end. The real remark parser parses namespaced macro tags (`<ac:structured-macro …>`, gliffy) authored in Markdown as **inline** raw HTML → silently escaped at render (render `ok:true`, `findAllUnsupported` returns `[]`) — NOT a `raw-html-block` fast-fail as the doc claims. Correct `doc/quality/adversarial-corpus-classification.md` (the "Requires manual macro" / handling table row + the "What Requires Manual Workarounds" section) to state plainly: namespaced/block-looking macro tags authored in Markdown are parsed as inline raw HTML and silently escaped (render succeeds, no flag), whereas truly block-level raw HTML (`<div>`, `<table>`) fast-fails as `raw-html-block`. Add a one-line known-limitation note that macro silent-escape is a degradation vector tracked for MS-0003+. Reframe the macro/app `.md` fixtures (and their `[]` sidecars) as "demonstrates the silent-escape path" — the sidecars already match reality; do NOT fabricate a fast-fail. Do NOT change the hand-built HAST TC-010 (that correctly proves macros-as-HAST-elements ARE flagged — a different path). Re-run the classification runner to confirm sidecars still match.
+- [ ] **7.2 (MAJOR-2, blocking)** Refactor `src/domain/markdown/unsupported.ts` to a single shared predicate-driven traversal consumed by BOTH `findUnsupported` and `findAllUnsupported`, eliminating the duplicated raw-block branch (currently `walk` + `walkCollect` copy-paste). Implementation: extract one walker that collects every hit (e.g. `walkAll(root, sourcePath): MarkSyncError[]`), then define `findUnsupported` as `walkAll(...)[0] ?? null` (or a shared generator/visitor + `findFirst`/`findAll` consumers). Keep `findUnsupported`/`classifyUnsupported` behavior identical (DEC-1). Re-run TC-002/003/010 + the 33-fixture golden suite + the adversarial runner to confirm no regression.
+- [ ] **7.3 (NIT-1)** Add a `raw`-at-root (raw-html-block) case to TC-002 in `tests/unit/domain/markdown/unsupported.test.ts` asserting `findAllUnsupported(tree)[0]` deep-equals `findUnsupported(tree)` — locks the now-shared raw-block path at unit tier.
+- [ ] **7.4 (MINOR-1)** Corpus count: either grow toward ~20-40 OR rename the count test in `tests/golden/adversarial/corpus-inventory.test.ts` ("total fixture count is within target range (20-40)" currently asserts `>= 12`) to "category coverage floor" and record the 12-fixture/category-complete state as an explicit note. Recommend: rename + record deviation (AC is category coverage, not raw count).
+- [ ] **7.5 (MINOR-2)** Strengthen the "≥3 macro/app-content categories" assertion in corpus-inventory to require ≥3 **distinct** category names (e.g. `expect(new Set(macroCategoryNames).size).toBeGreaterThanOrEqual(3)` with an explicit allow-list), not just ≥3 fixtures matching one of the names.
+- [ ] **7.6 (MINOR-3)** Dead golden-match branch in `classification-runner.test.ts` TC-004: either commit ≥1 `.storage.xhtml` golden for a deterministic supported fixture (e.g. `mixed-task-regular-lists.md`) OR remove the dead branch with a justifying comment that GFM byte-fidelity is locked by the 33-fixture suite. Recommend: remove the dead branch + comment (avoids maintenance; the 33-fixture suite already locks GFM byte-fidelity).
+- [ ] **7.7 (MINOR-4)** Switch `corpus-inventory.test.ts` and `pii-audit.test.ts` from CWD-relative `join("tests", "adversarial")` to `import.meta.url`-based resolution (`dirname(new URL(import.meta.url).pathname)`) to match the golden-runner convention and survive non-repo-root CWD.
+- [ ] **7.8** Re-run `bun run check` green; confirm 33-fixture golden suite still byte-exact; update the Execution Log + revision log.
+
+**Acceptance Criteria**: all reviewer iter-1 findings resolved; `bun run check` green; no regression.
+
+**Completion signal**: `fix(adversarial): GH-31 review iter-1 remediation (macro doc honesty + shared walker)`
+
+---
+
 ## Test Scenarios
 
 | ID | Scenario | Phases | AC |
@@ -610,3 +631,4 @@ introduced, then finalize the change for doc-sync and review.
 | 4 | Completed | 2026-07-26 | 2026-07-26 | 63cfd47 | Corpus inventory + PII self-audit |
 | 5 | Completed | 2026-07-26 | 2026-07-26 | bf26849 | Published classification doc |
 | 6 | Completed | 2026-07-26 | 2026-07-26 | 988c61e | Final quality gate + finalize |
+| 7 | In Progress | 2026-07-26 | — | — | Review iter-1 remediation (2 MAJOR + 4 MINOR/NIT) |

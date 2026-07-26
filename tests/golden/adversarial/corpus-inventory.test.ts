@@ -2,10 +2,11 @@
 // TC-ADVERSARIAL-001 (AC-F1-1).
 
 import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
-const adversarialDir = join("tests", "adversarial");
+const here = dirname(new URL(import.meta.url).pathname);
+const adversarialDir = join(here, "..", "..", "adversarial");
 
 interface Fixture {
 	name: string;
@@ -43,16 +44,39 @@ describe("TC-ADVERSARIAL-001 (AC-F1-1) — corpus category coverage inventory", 
 		expect(names).toContain("nested-tables");
 	});
 
-	test("≥3 macro/app-content categories are represented", () => {
+	test("≥3 distinct macro/app-content categories are represented", () => {
 		const macroFixtures = fixtures.filter(
 			(f) => f.name.startsWith("macro-") || f.name.startsWith("app-"),
 		);
 		expect(macroFixtures.length).toBeGreaterThanOrEqual(3);
-		const names = macroFixtures
-			.map((f) => f.name)
-			.sort()
-			.join(", ");
-		expect(names).toMatch(/macro-(toc|info|code|expand|jira)/);
+
+		// Extract distinct category names from fixture names
+		const allowedCategories = [
+			"toc",
+			"info",
+			"code",
+			"expand",
+			"jira",
+			"gliffy",
+		];
+		const categories = new Set<string>();
+		for (const fixture of macroFixtures) {
+			const match = fixture.name.match(
+				/macro-(toc|info|code|expand|jira)|app-(gliffy)/,
+			);
+			if (match) {
+				const category = match[1] || match[2];
+				if (category) {
+					categories.add(category);
+				}
+			}
+		}
+
+		// Require ≥3 distinct categories (not just ≥3 fixtures)
+		expect(categories.size).toBeGreaterThanOrEqual(3);
+		for (const category of categories) {
+			expect(allowedCategories).toContain(category);
+		}
 	});
 
 	test("emoji category is represented", () => {
@@ -114,8 +138,11 @@ describe("TC-ADVERSARIAL-001 (AC-F1-1) — corpus category coverage inventory", 
 		expect(inlineClassifications.length).toBe(0); // Inline HTML is escaped
 	});
 
-	test("total fixture count is within target range (20-40)", () => {
-		expect(fixtures.length).toBeGreaterThanOrEqual(12); // Current count
-		expect(fixtures.length).toBeLessThanOrEqual(40); // Upper bound
+	test("category coverage floor met (corpus is category-complete at current size)", () => {
+		// The corpus is 12 fixtures, covering all 6 required categories.
+		// This is below the ~20-40 aspirational target but meets the AC-F1-1
+		// requirement for category coverage, not raw fixture count.
+		expect(fixtures.length).toBeGreaterThanOrEqual(12);
+		expect(fixtures.length).toBeLessThanOrEqual(40);
 	});
 });

@@ -8,9 +8,9 @@ MarkSync classifies unsupported nodes into three categories based on how they ar
 
 | Handling Category | Examples | MarkSync Behavior | Authorable in MS-0002? |
 |-------------------|----------|-------------------|------------------------|
-| **Escaped** | Inline raw HTML (`<b>`, `<em>`, `<span>`) | Escaped at render (e.g., `&lt;b&gt;`), not flagged as unsupported | **Yes** — write inline HTML in Markdown |
-| **`UnsupportedConstruct`** | Block-level raw HTML (`<div>`, `<aside>`); non-allow-listed element tags (`<dl>`, `<math>`, `<section>`) | Render fast-fails on the first such node with `UnsupportedConstruct: <tag>` error | **No** — will block conversion |
-| **Requires manual macro / future MS-0003+ support** | Confluence macros (`{toc}`, `{info}`, `{code}`, `{expand}`, Jira), app/gliffy content, nested tables | Render fast-fails with `UnsupportedConstruct: <tag>` or `UnsupportedConstruct: raw-html-block` | **No** — requires manual Confluence editing or future MS-0003+ support |
+| **Escaped** | Inline raw HTML (`<b>`, `<em>`, `<span>`); namespaced macro tags (`<ac:structured-macro>`, gliffy/app content) authored in Markdown as inline raw HTML | Escaped at render (e.g., `&lt;b&gt;`, `&lt;ac:structured-macro&gt;`), not flagged as unsupported | **Yes** — write inline HTML in Markdown (macros appear as escaped literal text) |
+| **`UnsupportedConstruct`** | Block-level raw HTML (`<div>`, `<table>` at block scope); non-allow-listed element tags (`<dl>`, `<math>`, `<section>`) | Render fast-fails on the first such node with `UnsupportedConstruct: <tag>` error | **No** — will block conversion |
+| **Requires manual macro / future MS-0003+ support** | Confluence macros (`{toc}`, `{info}`, `{code}`, `{expand}`, Jira), app/gliffy content, nested tables | When authored as raw-HTML blocks in Markdown (e.g., `<div>...</div>`), fast-fails as `raw-html-block`. When authored as inline macro tags in Markdown, silently escaped (render succeeds, macro appears as escaped literal text) — a known degradation vector tracked for MS-0003+. Hand-constructed HAST macro nodes in tests ARE correctly classified as `UnsupportedConstruct: <tag>` (different path). | **No** — requires manual Confluence editing or future MS-0003+ support |
 
 ## MS-0002 Pipeline Limitations
 
@@ -28,6 +28,7 @@ To include the above content in Confluence via MS-0002, you must:
 
 1. **Edit the page in Confluence** after publishing to add macros manually.
 2. **Use raw HTML blocks** in Markdown (e.g., `<div>...</div>`), which will be flagged as `UnsupportedConstruct: raw-html-block` and block conversion.
+3. **Known limitation**: Namespaced macro tags (e.g., `<ac:structured-macro>`) authored directly in Markdown as inline raw HTML are silently escaped at render — the macro appears as escaped literal text (`&lt;ac:structured-macro&gt;…`) rather than being functional. This is a degradation vector tracked for MS-0003+ (ADR-0005). Hand-constructed HAST macro nodes in tests are correctly classified as `UnsupportedConstruct` (a different code path).
 
 ### What Is Supported (Canonical GFM Subset)
 
@@ -59,6 +60,7 @@ The **adversarial corpus** (`tests/adversarial/`) regression-locks this behavior
   - Fidelity: Supported constructs convert correctly (NFR-REL-4).
   - No silent drop: Every unsupported node is enumerated (ADR-0005).
   - Drift stability: Classification is deterministic.
+  - Macro fixtures demonstrate the silent-escape path: macro tags authored as inline raw HTML in Markdown render successfully with escaped literal text (`[]` classification sidecars), not fast-fail.
 - **Inventory test** (`tests/golden/adversarial/corpus-inventory.test.ts`) ensures all 6 real-world categories are covered.
 - **PII self-audit** (`tests/golden/adversarial/pii-audit.test.ts`) verifies fixtures contain no PII.
 
@@ -74,3 +76,7 @@ Findings from this corpus may drive per-construct expansion decisions in future 
 - Enhanced raw HTML support
 
 Each expansion will be a separate story with its own spec and impact analysis.
+
+## Known Limitations
+
+- **Macro silent-escape**: Namespaced macro tags (e.g., `<ac:structured-macro>`) authored as inline raw HTML in Markdown are silently escaped at render, appearing as escaped literal text rather than functional macros. This is a degradation vector tracked for MS-0003+ (ADR-0005). The adversarial corpus macro fixtures demonstrate this path with `[]` classification sidecars. Hand-constructed HAST macro nodes in tests (TC-ADVERSARIAL-010) correctly verify that macros-as-HAST-elements ARE classified as `UnsupportedConstruct` (a different code path).

@@ -66,21 +66,18 @@ describe("TC-ADVERSARIAL-004 (AC-F3-1 / NFR-REL-4) — fidelity", () => {
 					)[0].construct;
 					expect(result.error.construct).toBe(expectedConstruct);
 				}
-			} else if (fixture.hasGolden) {
-				// Success fixture with golden: byte-match
-				expect(result.ok).toBe(true);
-				if (!result.ok) throw new Error(`render failed for ${fixture.name}`);
-				const expected = readFileSync(
-					join(fixturesDir, `${fixture.name}.storage.xhtml`),
-					"utf8",
-				);
-				expect(result.value.body).toBe(expected);
 			} else {
-				// Success fixture without golden: assert succeeds only
+				// Success fixture: assert succeeds only
 				expect(result.ok).toBe(true);
 			}
 		});
 	}
+
+	// Note: GFM byte-fidelity is locked by the 33-fixture golden suite at
+	// tests/golden/markdown/storage-renderer.test.ts. The adversarial tier
+	// asserts render succeeds (ok:true) for supported fixtures and fast-fails
+	// for unsupported ones. No .storage.xhtml goldens are committed here to
+	// avoid duplication.
 });
 
 describe("TC-ADVERSARIAL-005 (AC-F3-2 / ADR-0005 / F-5) — no silent drop", () => {
