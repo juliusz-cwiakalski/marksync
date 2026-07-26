@@ -108,6 +108,7 @@ export interface TargetSystem {
 	getPage(id: string): Promise<Result<Page, MarkSyncError>>;
 	createPage(req: CreatePageRequest): Promise<Result<Page, MarkSyncError>>;
 	updatePage(req: UpdatePageRequest): Promise<Result<Page, MarkSyncError>>;
+	deletePage(pageId: string): Promise<Result<void, MarkSyncError>>;
 	movePage(req: MovePageRequest): Promise<Result<Page, MarkSyncError>>;
 	getProperty(
 		pageId: string,

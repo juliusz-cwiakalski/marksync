@@ -83,6 +83,9 @@ describe("integration assets", () => {
 					version: 1,
 				});
 			},
+			deletePage: async (): Promise<Result<void, never>> => {
+				return Res.ok(undefined);
+			},
 			getProperty: async (): Promise<Result<string | undefined, never>> => {
 				return Res.ok(undefined);
 			},

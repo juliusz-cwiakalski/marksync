@@ -37,7 +37,7 @@ import { syncCommand } from "#cli/commands/sync";
  * The version displayed in `--version` / help. Kept in lock-step with
  * `package.json` until a runtime version source is wired.
  */
-export const CLI_VERSION = "0.6.0";
+export const CLI_VERSION = "0.7.0";
 
 /** The global flags as Cliffy surfaces them to an action (post-camelCase). */
 export interface GlobalCommandFlags {
@@ -191,8 +191,18 @@ export function buildCommand(): CommandRouter {
 			capture("sync", flags as GlobalCommandFlags, await syncCommand());
 		})
 		.command("doctor", "Run health checks against the local corpus and config.")
+		.option(
+			"--probe-capabilities",
+			"Also probe content-property and attachment capability via a self-cleaning scratch page (writes).",
+		)
 		.action(async (flags) => {
-			capture("doctor", flags as GlobalCommandFlags, await doctorCommand());
+			capture(
+				"doctor",
+				flags as GlobalCommandFlags,
+				await doctorCommand({
+					probeCapabilities: Boolean(flags.probeCapabilities),
+				}),
+			);
 		})
 		.command(
 			"repair-state",

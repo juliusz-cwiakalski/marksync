@@ -1,0 +1,275 @@
+version: 1
+iteration: 1
+mode: local
+work_item_ref: GH-30
+branch: feat/GH-30/doctor-health-check
+status: FAIL
+summary: >
+  The doctor health-check is structurally sound and the full quality gate is
+  green (1247 pass / 0 fail; typecheck, boundaries, lint, format all clean).
+  The core value proposition holds: read-only default (verified 0 writes in
+  TC-DOCTOR-013), exit 60 on any fail with data always present and error unset
+  (DEC-4/TDR-0009 honored), self-cleaning scratch-page probe (TC-DOCTOR-019),
+  no token leakage (INV-SEC-1), additive EXIT_HEALTH=60/DOCTOR_FAIL extension,
+  and clean DEC-1 tier discipline. HOWEVER, two HIGH-severity defects block an
+  honest PASS: (1) the space-access/parent-page forbidden-detection branches
+  check `error.kind === "Auth"` but the real Confluence adapter returns
+  `kind: "Forbidden"` for 403s — so AC-F2-2's "distinguishing unreachable from
+  forbidden" degrades to a generic message against the real target; (2) the
+  two unit tests that claim to cover that path mock an impossible
+  `{ kind: "Auth", authKind: "Forbidden" }` variant that does not exist in the
+  MarkSyncError union, masking the bug (same defect class as the earlier
+  hallucinated deletePage). A medium renderer-AC gap (AC-F5-1 warn path
+  unimplemented) and a CLI_VERSION release-contract mismatch (0.6.0 vs 0.7.0)
+  round out the blocking items. Remediation phase appended to the plan.
+severity_breakdown:
+  critical: 0
+  high: 2
+  medium: 3
+  low: 3
+  info: 2
+spec_compliance: FAIL
+plan_compliance: FAIL
+findings:
+  - id: F-1
+    severity: high
+    confidence: high
+    category: correctness
+    location: src/app/doctor.ts:372,411
+    message: >
+      The space-access and parent-page checks detect a 403-forbidden outcome
+      with `error.kind === "Auth"`, but the real Confluence adapter (PageService,
+      RestrictionsService, etc.) returns `{ kind: "Forbidden", pageId, operation }`
+      for 403s. `kind: "Auth"` is only ever produced by credential resolution
+      (resolveCredentials/validateCredentials), never by TargetSystem operations.
+      Against the real adapter the forbidden-specific detail/fix branch is dead
+      code: a 403 falls through to the generic "Space access failed: Forbidden" /
+      "Parent page access failed: Forbidden" message with the generic fix, so
+      AC-F2-2's "distinguishing unreachable from forbidden" requirement is not
+      honestly met in production. Status is still `fail` and exit is still 60, so
+      the CI gate and report still function, but the AI-readable distinction the
+      AC requires is lost.
+    suggestion: >
+      Change both guards to `error.kind === "Forbidden"` (the real domain kind
+      for 403). Re-run TC-DOCTOR-004.2/005.2 with the corrected mock shape (see
+      F-2) and assert the distinguishing detail ("not accessible (403
+      forbidden)" vs "Base URL unreachable") and the distinct fix.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-2
+    severity: high
+    confidence: high
+    category: correctness
+    location: tests/unit/app/doctor.test.ts:326,413
+    message: >
+      TC-DOCTOR-004.2 and TC-DOCTOR-005.2 mock `{ kind: "Auth", authKind: "Forbidden" }`
+      to exercise the forbidden path. This variant does NOT exist in MarkSyncError:
+      the `Auth` arm's `authKind` is `MissingCredentials | InvalidBaseUrl |
+      InvalidCredentials | AuthUnreachable` — there is no `Forbidden` authKind, and
+      target 403s are a separate `kind: "Forbidden"`. The impossible variant
+      satisfies the buggy `kind === "Auth"` guard (F-1), making the tests pass
+      while masking the production defect. This is the same failure class as the
+      earlier hallucinated `deletePage` that bun-test (type-stripping) could not
+      catch. Additionally, integration TC-DOCTOR-017/018 only assert the
+      `space-access`/`parent-page` status is `fail`, not the distinguishing
+      detail, so they pass despite F-1.
+    suggestion: >
+      Replace both mocks with the real shape `{ kind: "Forbidden", pageId: "...",
+      operation: "..." }`. After fixing F-1, assert the detail contains "403" /
+      "forbidden" (and "unreachable" in the TC-DOCTOR-004.1/005-not-found arms).
+      Strengthen integration TC-DOCTOR-017/018 to assert the distinguishing
+      detail text, not just the fail status, so the AC-F2-2 contract is gated.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-3
+    severity: medium
+    confidence: high
+    category: correctness
+    location: src/app/doctor.ts:590
+    message: >
+      The permission-visibility enrichment guards on
+      `restrictionsResult.ok && restrictionsResult.value`, but the real
+      `getRestrictions` returns `PageRestrictions = { pageId, restricted: boolean }`
+      — an always-truthy object. So the "Restrictions detected on parent page"
+      branch is ALWAYS taken against the real adapter, even when the page is open
+      (`restricted: false`). The unit mock masks this by returning arrays
+      (`[]` falsy / `[{...}]` truthy) instead of the PageRestrictions object.
+      Impact is cosmetic (both branches emit `warn` and never gate), but the
+      "specifics" enrichment is wrong against reality.
+    suggestion: >
+      Narrow on the real field: `restrictionsResult.value.restricted`. Fix the
+      mockTarget `getRestrictions` override to return `{ pageId, restricted: ... }`
+      (the port shape), not arrays.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-4
+    severity: medium
+    confidence: high
+    category: spec-compliance
+    location: src/app/doctor.ts:614-620,97-111
+    message: >
+      AC-F5-1 requires "Given the renderer dependency surface fails to
+      initialize ... the renderer check reports warn with a fix (informational)."
+      The implementation hardcodes the renderer check as `pass` in both the main
+      path (line 614) and the `advisoryChecks()` helper (line 105), and
+      `DoctorDeps` exposes no renderer seam, so the warn path is neither
+      implemented nor testable. TC-DOCTOR-008 is mislabeled "Renderer
+      initialization fails → renderer warn" but injects no failure and asserts
+      `status).toBe("pass")`. The plan's RSK-R1 hedging ("pass with informational
+      message for now") is a coder note, not a spec/AC amendment.
+    suggestion: >
+      Either (a) add a renderer probe + an injectable renderer seam on
+      DoctorDeps, implement the warn-on-init-failure path, and correct
+      TC-DOCTOR-008/TC-DOCTOR-021 to inject the failure and assert `warn` + a
+      `fix`; or (b) formally descope AC-F5-1's warn path via a spec + plan
+      revision (amend AC-F5-1 to "informational pass; warn path deferred to
+      MS-0003") and rename TC-DOCTOR-008 accordingly. F-5 is warn-only and never
+      gates, so either resolution is acceptable — but the current AC-vs-code
+      mismatch must be reconciled, not left silent.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-5
+    severity: medium
+    confidence: high
+    category: plan-compliance
+    location: src/cli/commands/router.ts:40
+    message: >
+      `CLI_VERSION = "0.6.0"` mismatches `package.json` `"version": "0.7.0"`.
+      Plan task 6.1 explicitly required updating CLI_VERSION to match the
+      minor bump; the execution log marks Phase 6 ✅ Complete and commit
+      c45885e bumped package.json to 0.7.0, but CLI_VERSION was never touched.
+      `marksync --version` therefore reports 0.6.0 on a 0.7.0 release — a
+      release-contract inconsistency. (router.ts was edited for the
+      --probe-capabilities flag, so the file was touched this change but the
+      version constant was missed.)
+    suggestion: >
+      Set `export const CLI_VERSION = "0.7.0";` in router.ts and add/extend a
+      test asserting CLI_VERSION === package.json version so this cannot drift
+      again. Mark plan task 6.1 done only after this lands.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-6
+    severity: low
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-07/2026-07-15--GH-30--doctor-health-check/chg-GH-30-plan.md
+    message: >
+      Plan task-checkbox hygiene is broken, making the task audit unreliable.
+      Phase 2 tasks 2.3–2.8 are duplicated (checked copy at lines 171-197 AND
+      unchecked copy at lines 201-227). Phase 4 tasks 4.1–4.11, Phase 5 tasks
+      5.1–5.4, and Phase 6 tasks 6.1–6.5 are all still unchecked `[ ]` even
+      though the execution log marks every phase ✅ Complete. This conflates
+      OPEN_TASKS / DONE_BUT_UNCHECKED and undermines the plan as a source of
+      truth.
+    suggestion: >
+      Reconcile checkboxes with actual delivery: remove the duplicate Phase 2
+      block, and check off the genuinely-delivered Phase 4/5/6 tasks (or reopen
+      the ones genuinely incomplete — notably 6.1 per F-5).
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-7
+    severity: low
+    confidence: medium
+    category: correctness
+    location: tests/unit/app/doctor.test.ts:36-43,454-477
+    message: >
+      `mockTarget()` returns `createPage`/`updatePage` values shaped `{ pageId }`,
+      but the port `Page` type is `{ id, title, version, body? }`. doctor.ts:497
+      reads `createResult.value.id`, which would be `undefined` under this mock.
+      No unit test exercises a successful probe=true create, so the divergence
+      never surfaces, but the mock does not match the port contract. Separately,
+      TC-DOCTOR-006 only asserts `createPage` was not called; plan task 2.7
+      required asserting none of `createPage`/`putProperty`/`attachmentExists`/
+      `uploadAttachment` were called for the read-only default.
+    suggestion: >
+      Align the mock `Page` shape to `{ id, title, version }`, and in TC-DOCTOR-006
+      spy on all four probe methods and assert zero calls (strengthening the
+      read-only-default guarantee).
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-8
+    severity: low
+    confidence: medium
+    category: correctness
+    location: src/app/doctor.ts:179-183
+    message: >
+      `runDoctor` unconditionally `await import`s `#app/config`, `#app/credentials`,
+      and `#app/ports` on every call, even when every dependency is injected
+      (overriding them). The real modules (and their transitive imports) always
+      load in unit tests, which partly defeats the injectable-deps isolation
+      design. Not a tier violation (boundaries green) and not incorrect, just an
+      odd choice vs. a static top-level import with `impl ?? real` defaults.
+    suggestion: >
+      Prefer static top-level imports for the sibling app modules and use
+      `loadConfigImpl ?? loadConfig` defaults (already the pattern for the other
+      deps). Drop the dynamic imports unless lazy-loading is intentional (it
+      isn't justified here).
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-9
+    severity: info
+    confidence: high
+    category: correctness
+    location: tests/unit/cli/output/exit-codes.test.ts:26
+    message: >
+      This test imports via a deep relative path
+      `"../../../../src/cli/output/exit-codes.ts"`. The repo code-review
+      checklist and the plan constraint require `#`-prefixed import aliases
+      (no deep relative paths) for tests. The file pre-existed GH-30 (which only
+      extended it), so this is a pre-existing inconsistency rather than a new
+      violation, but it was touched this change.
+    suggestion: >
+      Switch the import to `#cli/output` opportunistically (boy-scout rule on
+      touch).
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-10
+    severity: info
+    confidence: medium
+    category: correctness
+    location: src/cli/commands/doctor.ts:38
+    message: >
+      On the abort path the handler computes
+      `exitCode: mapped.code ? codeToExitCode(mapped.code) : EXIT_HEALTH`.
+      Falling back to `EXIT_HEALTH` (60) for an unexpected infrastructure error
+      conflates the doctor-health-fail signal with a genuine command error;
+      `EXIT_INTERNAL` (99) would be semantically correct. The branch is
+      essentially dead (mapMarkSyncErrorToCommandError always returns a code),
+      so this is cosmetic.
+    suggestion: >
+      Use `EXIT_INTERNAL` as the fallback (or rely on `codeToExitCode` returning
+      EXIT_INTERNAL for unknown codes and drop the ternary).
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+reviewed_at: 2026-07-26T00:00:00Z
+next_step: EXECUTE_REMEDIATION_PHASE

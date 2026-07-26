@@ -86,6 +86,10 @@ export class ConfluenceTarget implements TargetSystem {
 		return this.pages.update(req);
 	}
 
+	deletePage(pageId: string): Promise<Result<void, MarkSyncError>> {
+		return this.pages.delete(pageId);
+	}
+
 	movePage(req: MovePageRequest): Promise<Result<Page, MarkSyncError>> {
 		return this.pages.move(req);
 	}

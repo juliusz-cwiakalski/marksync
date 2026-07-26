@@ -129,6 +129,33 @@ export class PageService {
 		}
 		return mapPage(response.value.status, response.value.json);
 	}
+
+	/** Delete a page via the v1 content endpoint (spike H5; the doctor probe self-clean). */
+	async delete(id: string): Promise<Result<void, MarkSyncError>> {
+		const response = await this.client.request(
+			"DELETE",
+			this.client.v1(`/content/${id}`),
+		);
+		if (!response.ok) return response;
+		if (response.value.status >= 200 && response.value.status < 300) {
+			return Result.ok(undefined);
+		}
+		if (response.value.status === 404) {
+			return Result.err({ kind: "RemoteMissing", pageId: id });
+		}
+		if (response.value.status === 403) {
+			return Result.err({
+				kind: "Forbidden",
+				pageId: id,
+				operation: "deletePage",
+			});
+		}
+		return Result.err({
+			kind: "RemoteUnreachable",
+			status: response.value.status,
+			cause: unreachableCause(response.value.status, "page delete"),
+		});
+	}
 }
 
 /**

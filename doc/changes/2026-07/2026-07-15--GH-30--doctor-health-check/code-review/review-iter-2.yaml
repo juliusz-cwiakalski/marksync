@@ -1,0 +1,185 @@
+version: 1
+iteration: 2
+mode: local
+work_item_ref: GH-30
+branch: feat/GH-30/doctor-health-check
+status: PASS
+summary: >
+  Re-review after iter-1 remediation (commits 4ed0d1e + a9d73de). ALL ten
+  iter-1 findings are resolved at their core, including both HIGH blockers:
+  the forbidden-detection guards now key on the real adapter error shape
+  `kind === "Forbidden"` (verified against src/domain/errors.ts:46), and the
+  two unit tests that masked the bug now use the real
+  `{ kind: "Forbidden", pageId, operation }` variant AND assert the
+  distinguishing detail ("403"/"forbidden") + the permissions fix — so a
+  regression of F-1 is now caught at the unit level. AC-F2-2 (distinguishing
+  unreachable from forbidden) is genuinely gated against the real shape. The
+  DEC-7 descope (renderer check = informational `pass` for MS-0002) is
+  internally consistent across spec (F-5, AC-F1-1, AC-F5-1, Appendix A),
+  implementation (doctor.ts:615 + advisoryChecks), and tests (TC-DOCTOR-008
+  asserts `pass`); no leftover text claims a renderer `warn` path for MS-0002.
+  The F-5/F-8/F-10 fixes introduced no new issues: other error-kind handling
+  (git RemoteUnreachable, creds authKind, page RemoteMissing) is untouched and
+  correct; the static-import refactor preserves the injection seam (production
+  falls back to real impls, tests inject all deps); the CLI_VERSION drift test
+  is meaningful and passes. The full gate is green: `bun run check` → 1248
+  pass / 0 fail, typecheck clean, depcruise 0 violations. The only residual
+  items are LOW/INFO advisories (integration TC-DOCTOR-017/018 still assert
+  only the fail status, not the distinguishing detail text — plan task 7.2's
+  integration sub-clause; a stale TC-DOCTOR-008 title; a stale mock override;
+  a cosmetic spec-vs-detail wording nuance) — none blocking. Verdict: PASS.
+iter_1_resolution:
+  F-1: >
+    RESOLVED — src/app/doctor.ts:370,409 now guard on
+    `error.kind === "Forbidden"` (confirmed real shape at
+    src/domain/errors.ts:46). Detail/fix strings honestly distinguish
+    forbidden (permissions — "not accessible (403 forbidden)" /
+    "Verify spaceKey and account permissions") from unreachable (network —
+    "Base URL unreachable" / "Check MARKSYNC_CONFLUENCE_BASE_URL and network
+    connectivity"). AC-F2-2 met against the real adapter.
+  F-2: >
+    RESOLVED (core) — tests/unit/app/doctor.test.ts:343,432 now mock the
+    real `{ kind:"Forbidden", pageId, operation }` shape and assert the
+    distinguishing detail (lines 361-363, 450-452). The impossible
+    `{kind:"Auth",authKind:"Forbidden"}` variant is gone; the unit tests now
+    catch an F-1 regression. PARTIAL on the integration sub-clause (see F-1
+    below) — TC-DOCTOR-017/018 still assert only status, not detail.
+  F-3: >
+    RESOLVED — src/app/doctor.ts:588 narrows on
+    `restrictionsResult.value.restricted` (confirmed field at
+    src/domain/target/port.ts:94); default mockTarget returns the real
+    PageRestrictions shape `{ pageId, restricted }` (test line 72).
+  F-4: >
+    RESOLVED (DESCOPE DEC-7) — spec amended consistently. F-5 (line 91/106),
+    AC-F1-1 (line 277), AC-F5-1 (line 285), Appendix A (line 362), DEC-7
+    (line 260) all state informational `pass` for MS-0002; impl hardcodes
+    `pass` (doctor.ts:615 + advisoryChecks:110); TC-DOCTOR-008 asserts `pass`.
+    No remaining text claims a renderer `warn` for MS-0002. Accepted descope.
+  F-5: >
+    RESOLVED — src/cli/commands/router.ts:40 CLI_VERSION = "0.7.0"; drift
+    test (router.test.ts:28-32) reads package.json.version and asserts
+    equality — meaningful and passing.
+  F-6: >
+    RESOLVED — no `- [ ]` remain in the plan; duplicated Phase 2 block
+    removed; Phase 4/5/6 checked; Phase 7 remediation phase appended and
+    fully checked.
+  F-7: >
+    RESOLVED — mockTarget createPage/updatePage return `{ id, title,
+    version }` (port Page shape); TC-DOCTOR-006 spies all four probe methods
+    and asserts zero calls in the read-only default (test lines 526-529).
+  F-8: >
+    RESOLVED — src/app/doctor.ts:13-15 static imports + 182-186
+    `impl ?? real`; injection seam preserved (production doctorCommand injects
+    nothing → real impls used; unit tests inject all deps → real modules
+    imported but not invoked).
+  F-9: >
+    RESOLVED — tests/unit/cli/output/exit-codes.test.ts:13-26 imports via
+    `#cli/output` alias.
+  F-10: >
+    RESOLVED — src/cli/commands/doctor.ts:38 err-arm fallback uses
+    EXIT_INTERNAL (not EXIT_HEALTH).
+severity_breakdown:
+  critical: 0
+  high: 0
+  medium: 0
+  low: 1
+  info: 3
+spec_compliance: PASS
+plan_compliance: PASS
+findings:
+  - id: F-1
+    severity: low
+    confidence: high
+    category: plan-compliance
+    location: tests/integration/cli/commands/doctor.test.ts:320,361
+    message: >
+      TC-DOCTOR-017 and TC-DOCTOR-018 still assert only the `space-access` /
+      `parent-page` check `status === "fail"`, not the distinguishing detail
+      text. Plan remediation task 7.2 explicitly required strengthening these
+      integration tests to "assert the distinguishing detail text (not only
+      the fail status), so AC-F2-2 is genuinely gated against the real
+      adapter," and 7.2 is marked `[x]` done — but the integration assertion
+      was not added (CHECKED_BUT_MISSING for that sub-clause). This is
+      NON-BLOCKING: the unit TC-DOCTOR-004.2/005.2 now use the real
+      `{ kind: "Forbidden" }` shape AND assert the "403"/"forbidden"/
+      "permissions" detail, so AC-F2-2 is genuinely regression-guarded at the
+      unit level; the integration tests additionally exercise the real 403/404
+      HTTP path and pass. The AC's intent is met; only the redundant
+      integration belt is missing.
+    suggestion: >
+      Either add `expect(findCheck(report, "space-access")?.detail).toContain
+      ("forbidden")` (and the parent-page analogue) to TC-DOCTOR-017/018, or
+      amend plan task 7.2 to record that the unit suite (TC-DOCTOR-004.2/005.2)
+      carries the AC-F2-2 gating responsibility so the plan reads truthfully.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-2
+    severity: info
+    confidence: high
+    category: correctness
+    location: tests/unit/app/doctor.test.ts:579
+    message: >
+      TC-DOCTOR-008's title is stale after the DEC-7 descope: it reads
+      "Renderer initialization fails → renderer warn" but the test asserts
+      `rendererCheck?.status).toBe("pass")`. The behavior is correct
+      (informational `pass` per DEC-7); only the test name is misleading.
+    suggestion: >
+      Rename to e.g. "TC-DOCTOR-008: Renderer check reports informational
+      pass (DEC-7, MS-0002)" so the title matches the assertion and the
+      accepted descope.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-3
+    severity: info
+    confidence: high
+    category: correctness
+    location: tests/unit/app/doctor.test.ts:637
+    message: >
+      The TC-DOCTOR-009 `getRestrictions` override still returns the legacy
+      array shape `{ ok: true, value: [] }` rather than the real
+      `PageRestrictions` port shape `{ pageId, restricted }` that the F-3
+      remediation applied to the default `mockTarget` (line 72) and to
+      TC-DOCTOR-007/009.3. It is functionally harmless (`[].restricted` is
+      `undefined`, falsy → the standing-advisory else branch), so TC-DOCTOR-009
+      passes, but the override does not match the port contract.
+    suggestion: >
+      Align the override to `{ ok: true, value: { pageId: "123", restricted:
+      false } }` for consistency with the port shape and the other overrides.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-4
+    severity: info
+    confidence: medium
+    category: spec-compliance
+    location: src/app/doctor.ts:616
+    message: >
+      Cosmetic spec-vs-detail wording nuance under the accepted DEC-7
+      descope: AC-F5-1, F-5 (§5.1 line 106), and DEC-7 state the renderer
+      check "surfaces the configured mermaid policy (`code`/`skip`/`render`)
+      in the detail," but the implementation's detail string is generic —
+      "Renderer availability informational (MS-0002 uses Kroki remote
+      rendering; check not yet implemented)" — and does not read or surface
+      the configured policy value. The load-bearing behavior (`pass`, never
+      gates) is fully consistent across spec/impl/tests; only the detail
+      content diverges from the spec's wording.
+    suggestion: >
+      Either read `config.render.mermaid` and include the policy in the
+      detail, or relax the spec wording (AC-F5-1 / F-5 / DEC-7) to drop the
+      "surfaces the configured policy" claim for MS-0002. Optional; the
+      descope decision itself is accepted and not in question.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+reviewed_at: 2026-07-26T00:00:00Z
+next_step: PROCEED

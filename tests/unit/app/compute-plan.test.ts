@@ -120,6 +120,7 @@ marksync:
 					title: "Test",
 					version: 1,
 				}),
+			deletePage: async () => Res.ok(undefined),
 			getProperty: async () => Res.ok(undefined),
 			putProperty: async () => Res.ok(undefined),
 			uploadAttachment: async () =>
@@ -207,6 +208,7 @@ marksync:
 					title: "Test",
 					version: 1,
 				}),
+			deletePage: async () => Res.ok(undefined),
 			getProperty: async () => Res.ok(undefined),
 			putProperty: async () => Res.ok(undefined),
 			uploadAttachment: async () =>
@@ -301,6 +303,7 @@ marksync:
 					title: "Test",
 					version: 1,
 				}),
+			deletePage: async () => Res.ok(undefined),
 			getProperty: async () => Res.ok(undefined),
 			putProperty: async () => Res.ok(undefined),
 			uploadAttachment: async () =>
@@ -421,6 +424,7 @@ marksync:
 					title: "Test",
 					version: 1,
 				}),
+			deletePage: async () => Res.ok(undefined),
 			getProperty: async () => Res.ok(undefined),
 			putProperty: async () => Res.ok(undefined),
 			uploadAttachment: async () =>
@@ -507,6 +511,7 @@ marksync:
 					title: "Doc without UUID",
 					version: 1,
 				}),
+			deletePage: async () => Res.ok(undefined),
 			getProperty: async () => Res.ok(undefined),
 			putProperty: async () => Res.ok(undefined),
 			uploadAttachment: async () =>
@@ -600,6 +605,7 @@ marksync:
 					title: "Test",
 					version: 1,
 				}),
+			deletePage: async () => Res.ok(undefined),
 			getProperty: async () => Res.ok(undefined),
 			putProperty: async () => Res.ok(undefined),
 			uploadAttachment: async () =>
@@ -706,6 +712,7 @@ marksync:
 					title: "Doc with UUID",
 					version: 1,
 				}),
+			deletePage: async () => Res.ok(undefined),
 			getProperty: async () => Res.ok(undefined),
 			putProperty: async () => Res.ok(undefined),
 			uploadAttachment: async () =>
@@ -806,6 +813,7 @@ marksync:
 					title: "Test",
 					version: 1,
 				}),
+			deletePage: async () => Res.ok(undefined),
 			getProperty: async () => Res.ok(undefined),
 			putProperty: async () => Res.ok(undefined),
 			uploadAttachment: async () =>

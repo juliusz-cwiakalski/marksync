@@ -172,6 +172,9 @@ function makeTarget(): TargetSystem & {
 		): Promise<Result<Page, MarkSyncError>> {
 			return Res.err({ kind: "Forbidden", pageId: "", operation: "move" });
 		},
+		async deletePage(_pageId: string): Promise<Result<void, MarkSyncError>> {
+			return Res.ok(undefined);
+		},
 		async getProperty(
 			_pageId: string,
 			_key: string,

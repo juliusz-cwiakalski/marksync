@@ -9,7 +9,7 @@ last_updated: 2026-07-15
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: [GH-15, GH-17, GH-18, GH-28, GH-74]
+  related_changes: [GH-15, GH-17, GH-18, GH-28, GH-30, GH-74]
   decisions: [ADR-0011, TDR-0002]
   contracts: []
 ---
@@ -46,7 +46,7 @@ JSON/NDJSON output.
 | `init` | Initialize MarkSync in a repo: if `marksync.yml` is absent, write a starter config (round-trips through `loadConfig`); if it already exists, leave it untouched. Then assign a UUID v7 to each discovered managed document's front-matter (`marksync.uuid`). UUID injection is idempotent — a document that already has an identity is left unchanged. |
 | `plan` | Compute sync plan (dry-run): what will be created/updated/moved/no-op |
 | `sync` | Execute plan: apply changes to Confluence |
-| `doctor` | Health check: auth, permissions, API connectivity, config validity |
+| `doctor` | Health check: verify Git availability, config validity, credentials (auth + base URL), space access, parent-page existence/writability, permission/visibility advisory, and renderer availability. Reports `pass`/`warn`/`fail`/`skipped` per check with AI-readable detail and suggested fixes. Read-only by default; `--probe-capabilities` opt-in runs self-cleaning scratch-page capability probes (content-property + attachment). Returns `DoctorReport` with per-check results; exit code is `0` when no gating check fails, `60` (`EXIT_HEALTH` / `DOCTOR_FAIL`) when any gating check reports `fail`. **Data is always present**; `error` is never set on the success path (DEC-4 / TDR-0009). *(delivered — GH-30)* |
 | `repair-state` | Recover from a stale/dirty lock or an interrupted apply. **Dry-run by default** (`--dry-run`, 0 writes); `--apply` executes the planned repairs and updates the committed lock. Emits a structured `RepairReport` with stable per-item diagnostic codes (repaired / skipped / needs-human-action). *(delivered — GH-28)* |
 
 ### 3.2 Output strategy (ADR-0011)
@@ -120,8 +120,12 @@ parses args, delegates to domain services, and renders `CommandResult<T>`.
 - [ ] JSON output is valid and parseable by AI agents without human interpretation.
 - [ ] Exit codes are stable and documented.
 - [ ] Color is auto-disabled when not a TTY or `NO_COLOR` set (NFR-A11Y-1).
-- [ ] `doctor` verifies: auth, base URL, space access, permissions, config
-      validity (surfaces `ConfigError`/`InvalidConfig` from `loadConfig`).
+- [ ] `doctor` verifies the MS-0002-minimal set: Git availability, config
+      validity (surfaces `ConfigError`/`InvalidConfig` from `loadConfig`),
+      credentials (auth + base URL via real `GET /user/by-me`), space access,
+      parent-page existence/writability, plus advisory permission/visibility
+      and renderer checks; read-only by default with `--probe-capabilities`
+      opt-in. *(delivered — GH-30)*
 - [ ] `--dry-run` / `plan` shows every intended mutation before any write.
 
 ## 6. References

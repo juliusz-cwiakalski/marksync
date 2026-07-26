@@ -19,9 +19,17 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
 	buildCommand,
+	CLI_VERSION,
 	resolveColorPolicyFromFlags,
 	resolveOutputFormat,
 } from "#cli/commands/router";
+import packageJson from "../../../../package.json" with { type: "json" };
+
+describe("CLI_VERSION drift prevention (F-5)", () => {
+	test("CLI_VERSION matches package.json version", () => {
+		expect(CLI_VERSION).toBe(packageJson.version);
+	});
+});
 
 describe("resolveOutputFormat — global flag → format mapping (F-8)", () => {
 	test("--json → json (shorthand for --output=json)", () => {
