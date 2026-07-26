@@ -324,6 +324,8 @@ No new product telemetry and no outbound telemetry (NFR-SEC-3). Observability fo
 - `bun run check` green; **no `src/` domain-logic change**.
 - macOS deferred (MS-0003); the story's AC list is the DoD.
 
+**Validation boundary — release-triggered ACs (accepted, not a gap).** `release.yml` triggers on a `v*` tag, which is a post-merge action: a release tag cannot be cut inside the delivery PR. Therefore **AC-REL-1** and **AC-COMP-1** receive **structural validation at delivery** only — the release workflow YAML exists, is well-formed, references the correct build matrix (linux-x64 + linux-arm64 + win-x64; macOS absent) and the correct artifact set (binaries + `SHA256SUMS` + SBOM), and lints cleanly via the `ci.yml` YAML-lint job. Full end-to-end validation — the workflow actually running, a GitHub Release being created, and the real artifacts being produced and attached — is **deferred to the first real `v*` tag cut** after merge, at which point `release.yml` runs and produces the GitHub Release with binaries + `SHA256SUMS` + SBOM. This is an accepted, documented validation boundary; all other ACs (AC-BUILD-1, AC-RUN1-1, AC-RUN2-1, AC-SIZE-1, AC-START-1, AC-SIGN-1, AC-CI-1, AC-SEC-1) are validated end-to-end at delivery.
+
 ## 18. ROLLOUT & CHANGE MANAGEMENT (HIGH-LEVEL)
 
 This change is additive release engineering (no runtime/contract migration):
