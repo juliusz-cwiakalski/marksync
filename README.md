@@ -97,8 +97,8 @@ bun run src/cli/index.ts --version   # prints the current version (e.g. marksync
 `package.json#engines`):
 
 ```bash
-bash scripts/build-binaries.sh --target linux-x64
-./build/marksync-linux-x64 --version
+bash scripts/build-binaries.sh --target linux
+./dist/marksync-linux-x64 --version
 ```
 
 See the [release runbook](doc/guides/release-runbook.md) for the tag-triggered
