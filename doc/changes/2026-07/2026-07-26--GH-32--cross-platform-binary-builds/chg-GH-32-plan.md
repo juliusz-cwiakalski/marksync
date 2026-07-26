@@ -864,10 +864,12 @@ All ten spec ACs satisfied, each traceable to ≥1 phase + ≥1 TC (spec §17.1)
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| Phase 1 | PENDING | — | — | — | refine build-binaries.sh (real CLI + arm64) + wire router.ts version source |
-| Phase 2 | PENDING | — | — | — | clean-OS smoke CI jobs (linux Docker + windows runner) |
-| Phase 3 | PENDING | — | — | — | `.benchmarks/binaries.json` + CI delta-report |
-| Phase 4 | PENDING | — | — | — | signing reference doc |
-| Phase 5 | PENDING | — | — | — | `release.yml` + SBOM + SHA256SUMS |
-| Phase 6 | PENDING | — | — | — | version bump 0.8.0 + quality-gate verification |
-| Phase 7 | PENDING (conditional) | — | — | — | post-review remediation (skipped if review PASSES) |
+| Phase 1 | DONE | 2026-07-26 | 2026-07-26 | `af841c3` | build-binaries.sh repointed to src/cli/index.ts + linux-arm64; router.ts version-source wiring (import pkg from package.json) |
+| Phase 2 | DONE | 2026-07-26 | 2026-07-26 | `cc72319` | binary-smoke job (linux debian:stable-slim Docker + windows-latest runner) |
+| Phase 3 | DONE | 2026-07-26 | 2026-07-26 | `ba88792` | .benchmarks/binaries.json seeded with spike baseline + CI size/cold-start delta-report |
+| Phase 4 | DONE | 2026-07-26 | 2026-07-26 | `0b0a9e0` | doc/guides/binary-release-signing.md (references spike osslsigncode recipe) |
+| Phase 5 | DONE | 2026-07-26 | 2026-07-26 | `9f73980` | .github/workflows/release.yml (tag-triggered matrix + SHA256SUMS + SBOM via syft CycloneDX) |
+| Phase 6 | DONE | 2026-07-26 | 2026-07-26 | `bf95217` | package.json 0.7.0 → 0.8.0 (single-source via Phase 1 wiring); bun run check green |
+| Phase 7 | DONE | 2026-07-26 | 2026-07-26 | `efedc82` `4fc9aff` `228661d` `6c3fc44` `c07eca4` | post-review remediation: B-1 doctor EXIT_HEALTH=60 tolerance, M-1 real delta comparison, M-2 binding no-runtime check, m-1..m-4 + nits; then ci.yml YAML-indentation fix (c07eca4) caught by doc-yaml-lint equivalent |
+
+> Inline task checkboxes (`- [ ]`) above were not cosmetically ticked during `/run-plan`; phase completion is canonicalized in this Execution Log + verified by review iter-2 PASS (all 10 ACs) + the commit history.
