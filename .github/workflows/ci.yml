@@ -108,6 +108,7 @@ jobs:
   binary-smoke:
     name: Binary Build + Clean-OS Smoke
     runs-on: ${{ matrix.os }}
+    permissions: {}
     strategy:
       fail-fast: false
       matrix:
@@ -157,7 +158,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           echo "==> Verifying --version output"
-          expected_version=$(node -p "require('./package.json').version")
+          expected_version=$(bun -e 'console.log(require("./package.json").version)')
           actual_version=$(./dist/marksync-linux-x64 --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
           if [[ "$actual_version" != "$expected_version" ]]; then
             echo "ERROR: Version mismatch: expected $expected_version, got $actual_version"
@@ -169,7 +170,7 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           echo "==> Verifying --version output"
-          expected_version=$(node -p "require('./package.json').version")
+          expected_version=$(bun -e 'console.log(require("./package.json").version)')
           actual_version=$(./dist/marksync-win-x64.exe --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
           if [[ "$actual_version" != "$expected_version" ]]; then
             echo "ERROR: Version mismatch: expected $expected_version, got $actual_version"
@@ -182,14 +183,21 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           echo "==> Clean-OS Linux smoke: verifying no Bun/Node/Deno in container"
-          docker run --rm debian:stable-slim sh -c 'command -v bun node deno; echo "exit=$?"'
-          docker run --rm debian:stable-slim sh -c 'command -v bun node deno' || echo "exit=127 (correct: no runtime present)"
-          
+          if docker run --rm debian:stable-slim sh -c 'command -v bun || command -v node || command -v deno'; then
+            echo "ERROR: a language runtime is present in the clean-OS image"; exit 1
+          fi
+          echo "OK: no Bun/Node/Deno on the clean-OS PATH (NFR-COMP-2)"
+
           echo "==> Running --version on clean OS"
           docker run --rm -v "$PWD":/x -w /x debian:stable-slim /x/dist/marksync-linux-x64 --version
-          
+
           echo "==> Running doctor --json on clean OS (validating JSON output)"
-          docker run --rm -v "$PWD":/x -w /x debian:stable-slim /x/dist/marksync-linux-x64 doctor --json | head -c 100
+          set +e
+          doctor_out=$(docker run --rm -v "$PWD":/x -w /x debian:stable-slim /x/dist/marksync-linux-x64 doctor --json 2>/dev/null)
+          doctor_exit=$?
+          echo "doctor exit=$doctor_exit (60=EXIT_HEALTH expected on clean OS with no git/config)"
+          printf '%s' "$doctor_out" | python3 -m json.tool >/dev/null && echo "OK: doctor emitted valid JSON" || { echo "ERROR: doctor did not emit valid JSON"; exit 1; }
+          set -e
 
       - name: Measure binary sizes
         if: runner.os == 'Linux'
@@ -212,13 +220,14 @@ jobs:
 
       - name: Measure cold-start (linux-x64, n=5)
         if: runner.os == 'Linux'
+        continue-on-error: true
         run: |
           echo "==> Measuring cold-start (linux-x64, n=5)"
           docker run --rm -v "$PWD":/x -w /x debian:stable-slim sh -c '
-            apt-get update -qq && apt-get install -y -qq time > /dev/null 2>&1
+            apt-get update -qq && apt-get install -y -qq time > /dev/null 2>&1 || { echo "warn: /usr/bin/time unavailable — cold-start skipped"; exit 0; }
             echo "Cold-start measurements (wall-clock ms):"
             for i in 1 2 3 4 5; do
-              /usr/bin/time -f "%e" /x/dist/marksync-linux-x64 --version 2>&1 | grep -oE "^[0-9]+\.[0-9]+" || true
+              /usr/bin/time -f "%e" /x/dist/marksync-linux-x64 --version >/dev/null 2>>timings || true
             done
           '
 
@@ -228,9 +237,42 @@ jobs:
           echo "==> Size/cold-start delta report (non-blocking, DEC-6)"
           echo "Comparing against .benchmarks/binaries.json baseline"
           if [[ -f ".benchmarks/binaries.json" ]]; then
-            # This is a delta-reporter placeholder — CI reports deltas, never hard-fails
             echo "Baseline loaded from .benchmarks/binaries.json"
-            echo "Delta report: (full CI implementation records actual deltas here)"
+            echo ""
+            echo "Size deltas:"
+            for target in linux-x64 linux-arm64 win-x64; do
+              # Determine the binary path
+              if [[ "$target" == "win-x64" ]]; then
+                binary="./dist/marksync-win-x64.exe"
+              else
+                binary="./dist/marksync-${target}"
+              fi
+
+              # Get current bytes
+              if [[ -f "$binary" ]]; then
+                current_bytes=$(stat -c %s "$binary")
+                current_mb=$(echo "scale=2; $current_bytes / 1048576" | bc)
+
+                # Get baseline from JSON
+                baseline_bytes=$(python3 -c "import json; print(json.load(open('.benchmarks/binaries.json'))['measurements'].get('$target', {}).get('bytes', 'null'))" 2>/dev/null || echo "null")
+                baseline_mb=$(python3 -c "import json; print(json.load(open('.benchmarks/binaries.json'))['measurements'].get('$target', {}).get('mb', 'null'))" 2>/dev/null || echo "null")
+
+                if [[ "$baseline_bytes" != "null" && "$baseline_mb" != "null" ]]; then
+                  delta_bytes=$((current_bytes - baseline_bytes))
+                  delta_mb=$(echo "scale=2; $current_mb - $baseline_mb" | bc)
+
+                  echo "  $target: ${current_mb} MB (baseline ${baseline_mb} MB, Δ ${delta_mb} MB)"
+
+                  # Flag if > 90 MB (DEC-4: desired, not hard)
+                  if (( $(echo "$current_mb > 90" | bc -l) )); then
+                    echo "    WARNING: exceeds 90 MB desired budget (DEC-4)"
+                  fi
+                else
+                  echo "  $target: ${current_mb} MB (no baseline yet — first measurement)"
+                fi
+              fi
+            done
+            echo ""
             echo "Policy: deltas are informational, never blocking (DEC-6)"
           else
             echo "No baseline found — will be created on first measurement"
