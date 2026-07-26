@@ -1,0 +1,57 @@
+change_id: GH-31
+title: "[MS2-E5-S3] Adversarial public corpus"
+branch: feat/GH-31/adversarial-corpus
+change_folder: doc/changes/2026-07/2026-07-26--GH-31--adversarial-corpus
+
+phases:
+  clarify_scope: { started: "2026-07-26", completed: "2026-07-26" }
+  specification: { started: "2026-07-26", completed: "2026-07-26" }
+  test_planning: { started: "2026-07-26", completed: "2026-07-26" }
+  delivery_planning: { started: "2026-07-26", completed: "2026-07-26" }
+  dor_check: { started: "2026-07-26", completed: null }
+  delivery: { started: null, completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+
+decisions: []
+open_questions: []
+blockers: []
+
+notes:
+  - text: >
+      Intake 2026-07-26. Fresh delivery on clean main (a83e05d). Deps
+      MS2-E3-S3 (GH-20) + MS2-E3-S5 (GH-22) both CLOSED — no blocked label
+      needed. No story-blocking questions; CEO pre-resolved R1 (sanitization:
+      automated grep + human review) + Q1 (corpus size ~20-40).
+  - text: >
+      Scope clarification (PM, non-blocking): this is a TEST+DOCS story with
+      one minor src/ addition. (1) MS-0002 pipeline is ONE-WAY
+      Markdown→Storage, so Confluence macros/app-content/gliffy are NOT
+      authorable in GFM → represented as raw-HTML blocks (→ raw-html-block
+      UnsupportedConstruct) or hand-built HAST nodes (precedent:
+      unsupported.test.ts builds math/dl/section by hand). (2) AC "every
+      unsupported node classified" requires a collect-all variant because
+      findUnsupported() returns only the FIRST hit — coder adds
+      findAllUnsupported() (or runner-level walk) returning all hits; no
+      behavior change to existing findUnsupported. (3) "Drift stability" AC =
+      classification DETERMINISM (classify corpus twice → identical
+      classification.json), NOT the sync-state classify() in
+      src/domain/state/classifier.ts. (4) Corpus is SYNTHETIC adversarial
+      fixtures (no real design-partner pages exist pre-launch); sanitized by
+      construction + grep self-audit.
+    type: decision
+    date: "2026-07-26"
+  - text: >
+      Known doc impacts (for @doc-syncer phase 7): (a) NEW
+      doc/quality/adversarial-corpus-classification.md (deliverable — user-facing
+      classification table); (b) doc/spec/features/feature-safe-publish.md
+      markdown-pipeline row — note adversarial corpus as regression suite +
+      the new findAllUnsupported export; (c) .ai/rules/testing-strategy.md —
+      register the adversarial tier/category under golden+integration; (d)
+      possibly doc/spec/nonfunctional.md NFR-REL-4 (fidelity) — link corpus
+      as evidence. doc/quality/ currently only has test-specs/.
+    type: risk
+    date: "2026-07-26"
