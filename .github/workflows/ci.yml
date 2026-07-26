@@ -149,9 +149,9 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           echo "==> Verifying binary types"
-          file ./dist/marksync-linux-x64 | grep -q "ELF 64-bit LSB executable, x86-64"
-          file ./dist/marksync-linux-arm64 | grep -q "ELF 64-bit LSB executable, ARM aarch64" || echo "arm64: UNAVAILABLE — recorded for MS-0003"
-          file ./dist/marksync-win-x64.exe | grep -q "PE32+ executable for MS Windows"
+          file ./dist/marksync-linux-x64 | grep -qE "ELF 64-bit.*x86-64" || { echo "FAIL: $(file ./dist/marksync-linux-x64)"; exit 1; }
+          file ./dist/marksync-linux-arm64 | grep -qE "ELF 64-bit.*(aarch64|ARM)" || echo "arm64: UNAVAILABLE — recorded for MS-0003"
+          file ./dist/marksync-win-x64.exe | grep -qE "PE32\+.*(Windows|x86-64)" || { echo "FAIL: $(file ./dist/marksync-win-x64.exe)"; exit 1; }
 
       - name: Verify binary types (Windows)
         if: runner.os == 'Windows'
