@@ -82,6 +82,21 @@ export function findUnsupported(
 	return walk(root, root, sourcePath);
 }
 
+/**
+ * Walk `root` depth-first and collect ALL unsupported nodes, or an empty array
+ * if the tree is clean. Reuses the same allow-list + raw-block detection as
+ * `findUnsupported`; the classification verdict is identical on a per-node
+ * basis (DEC-1 parity guarantee).
+ */
+export function findAllUnsupported(
+	root: Root,
+	sourcePath: string,
+): MarkSyncError[] {
+	const results: MarkSyncError[] = [];
+	walkCollect(root, root, sourcePath, results);
+	return results;
+}
+
 function walk(
 	node: AnyNode,
 	parent: AnyNode,
@@ -108,4 +123,34 @@ function walk(
 		}
 	}
 	return null;
+}
+
+function walkCollect(
+	node: AnyNode,
+	parent: AnyNode,
+	sourcePath: string,
+	results: MarkSyncError[],
+): void {
+	if (node.type === "raw" && parent.type === "root") {
+		results.push({
+			kind: "UnsupportedConstruct",
+			construct: "raw-html-block",
+			sourcePath,
+		});
+		return;
+	}
+	const hit = classifyUnsupported(node, sourcePath);
+	if (hit) {
+		results.push(hit);
+		// Don't return — continue collecting all nodes
+	}
+	if (node.type === "element") {
+		for (const child of (node as Element).children) {
+			walkCollect(child as AnyNode, node, sourcePath, results);
+		}
+	} else if (node.type === "root") {
+		for (const child of (node as Root).children) {
+			walkCollect(child as AnyNode, node, sourcePath, results);
+		}
+	}
 }

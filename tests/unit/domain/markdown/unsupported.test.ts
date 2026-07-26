@@ -11,6 +11,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	classifyUnsupported,
 	findUnsupported,
+	findAllUnsupported,
 } from "#domain/markdown/unsupported";
 import { mdastToHast } from "#domain/markdown/mdast-to-hast";
 import { parseMarkdown } from "#domain/markdown/parse";
@@ -159,5 +160,129 @@ describe("TC-UNSUP-004 — raw inline HTML is escaped (not flagged); raw HTML bl
 			construct: "raw-html-block",
 			sourcePath: SRC,
 		});
+	});
+});
+
+describe("TC-ADVERSARIAL-002 (AC-F2-1) — findAllUnsupported parity vs findUnsupported", () => {
+	test("findAllUnsupported(tree)[0] deep-equals findUnsupported(tree) on multi-node tree", () => {
+		// Build a tree with multiple unsupported nodes at different depths
+		const tree = root([
+			el("math", [el("dl")]), // Nested unsupported nodes
+			el("section"), // Top-level unsupported node
+		]);
+
+		const firstHit = findUnsupported(tree, SRC);
+		const allHits = findAllUnsupported(tree, SRC);
+
+		// First hit from findAllUnsupported must equal findUnsupported
+		expect(allHits.length).toBeGreaterThanOrEqual(1);
+		expect(allHits[0]).toEqual(firstHit);
+		expect(firstHit).toEqual({
+			kind: "UnsupportedConstruct",
+			construct: "math",
+			sourcePath: SRC,
+		});
+
+		// All nodes collected (none truncated)
+		expect(allHits.length).toBe(3);
+		expect(allHits.map((h) => h.construct)).toEqual(["math", "dl", "section"]);
+	});
+
+	test("clean tree returns empty array from findAllUnsupported and null from findUnsupported", () => {
+		// Tree with only allowed tags
+		const tree = root([
+			el("p", [el("strong", ["text"])]),
+			el("ul", [el("li", ["item"])]),
+		]);
+
+		expect(findAllUnsupported(tree, SRC)).toEqual([]);
+		expect(findUnsupported(tree, SRC)).toBeNull();
+	});
+
+	test("classifyUnsupported behavior unchanged (DEC-1 parity guard)", () => {
+		// Verify classifyUnsupported still works as before
+		const mathNode = el("math");
+		const dlNode = el("dl");
+
+		expect(classifyUnsupported(mathNode, SRC)).toEqual({
+			kind: "UnsupportedConstruct",
+			construct: "math",
+			sourcePath: SRC,
+		});
+
+		expect(classifyUnsupported(dlNode, SRC)).toEqual({
+			kind: "UnsupportedConstruct",
+			construct: "dl",
+			sourcePath: SRC,
+		});
+
+		// Allowed tag returns null
+		expect(classifyUnsupported(el("p"), SRC)).toBeNull();
+	});
+});
+
+describe("TC-ADVERSARIAL-003 (AC-F2-1) — multi-node depth-first collection", () => {
+	test("collects all 3-5 unsupported nodes across branches and depths", () => {
+		// Build a complex tree with unsupported nodes at varying depths
+		const tree = root([
+			el("blockquote", [
+				el("p", [el("math")]), // Deep in first branch
+			]),
+			el("section", [ // Second branch
+				el("dl", [ // Nested
+					el("dt", ["term"]),
+				]),
+			]),
+			el("details"), // Third top-level node
+		]);
+
+		const allHits = findAllUnsupported(tree, SRC);
+
+		// All nodes collected (none truncated)
+		expect(allHits.length).toBe(5);
+
+		// Order is depth-first pre-order
+		expect(allHits[0].construct).toBe("math"); // Deep in first branch
+		expect(allHits[1].construct).toBe("section"); // Second branch root
+		expect(allHits[2].construct).toBe("dl"); // Nested in second branch
+	});
+
+	test("every entry has correct kind, construct, and sourcePath", () => {
+		const tree = root([
+			el("math"),
+			el("dl"),
+			el("section"),
+		]);
+
+		const allHits = findAllUnsupported(tree, SRC);
+
+		expect(allHits.length).toBe(3);
+
+		for (const hit of allHits) {
+			expect(hit.kind).toBe("UnsupportedConstruct");
+			expect(hit.sourcePath).toBe(SRC);
+			expect(["math", "dl", "section"]).toContain(hit.construct);
+		}
+	});
+
+	test("depth-first traversal order is consistent across runs", () => {
+		// Determinism: same tree, same order every time
+		const tree = root([
+			el("ul", [
+				el("li", [el("math")]),
+				el("li", [el("dl")]),
+			]),
+			el("section"),
+		]);
+
+		const firstRun = findAllUnsupported(tree, SRC);
+		const secondRun = findAllUnsupported(tree, SRC);
+
+		expect(firstRun.length).toBe(3);
+		expect(secondRun.length).toBe(3);
+
+		for (let i = 0; i < firstRun.length; i++) {
+			expect(firstRun[i]).toEqual(secondRun[i]);
+		}
 	});
 });
