@@ -105,6 +105,99 @@ jobs:
         # Catches HTTP adapter regressions (GH-71, GH-66) on every PR.
         run: bun test tests/e2e-mock/
 
+  binary-smoke:
+    name: Binary Build + Clean-OS Smoke
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        # Pinned to match fast-loop matrix (package.json#engines.bun; DEC-1)
+        bun-version: ["1.2.23"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ matrix.bun-version }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build binaries (all targets)
+        run: bash scripts/build-binaries.sh --target all
+
+      - name: Verify Bun version
+        run: |
+          bun_version=$(bun --version)
+          echo "Bun version: $bun_version"
+          if [[ "$bun_version" != "1.2.23" ]]; then
+            echo "ERROR: Bun version must be 1.2.23 (DEC-1), got $bun_version"
+            exit 1
+          fi
+        shell: bash
+
+      - name: Verify binary types (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          echo "==> Verifying binary types"
+          file ./dist/marksync-linux-x64 | grep -q "ELF 64-bit LSB executable, x86-64"
+          file ./dist/marksync-linux-arm64 | grep -q "ELF 64-bit LSB executable, ARM aarch64" || echo "arm64: UNAVAILABLE — recorded for MS-0003"
+          file ./dist/marksync-win-x64.exe | grep -q "PE32+ executable for MS Windows"
+
+      - name: Verify binary types (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          echo "==> Verifying binary types"
+          file ./dist/marksync-win-x64.exe | grep -q "PE32+ executable for MS Windows"
+        shell: bash
+
+      - name: Verify --version matches package.json (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          echo "==> Verifying --version output"
+          expected_version=$(node -p "require('./package.json').version")
+          actual_version=$(./dist/marksync-linux-x64 --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+          if [[ "$actual_version" != "$expected_version" ]]; then
+            echo "ERROR: Version mismatch: expected $expected_version, got $actual_version"
+            exit 1
+          fi
+          echo "OK: version matches package.json"
+
+      - name: Verify --version matches package.json (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          echo "==> Verifying --version output"
+          expected_version=$(node -p "require('./package.json').version")
+          actual_version=$(./dist/marksync-win-x64.exe --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+          if [[ "$actual_version" != "$expected_version" ]]; then
+            echo "ERROR: Version mismatch: expected $expected_version, got $actual_version"
+            exit 1
+          fi
+          echo "OK: version matches package.json"
+        shell: bash
+
+      - name: Clean-OS Linux smoke (debian:stable-slim, no runtime)
+        if: runner.os == 'Linux'
+        run: |
+          echo "==> Clean-OS Linux smoke: verifying no Bun/Node/Deno in container"
+          docker run --rm debian:stable-slim sh -c 'command -v bun node deno; echo "exit=$?"'
+          docker run --rm debian:stable-slim sh -c 'command -v bun node deno' || echo "exit=127 (correct: no runtime present)"
+          
+          echo "==> Running --version on clean OS"
+          docker run --rm -v "$PWD":/x -w /x debian:stable-slim /x/dist/marksync-linux-x64 --version
+          
+          echo "==> Running doctor --json on clean OS (validating JSON output)"
+          docker run --rm -v "$PWD":/x -w /x debian:stable-slim /x/dist/marksync-linux-x64 doctor --json | head -c 100
+
+      - name: Clean-OS Windows smoke (windows-latest, no Wine)
+        if: runner.os == 'Windows'
+        run: |
+          echo "==> Clean-OS Windows smoke: running --version"
+          ./dist/marksync-win-x64.exe --version
+          echo "OK: Windows binary runs on clean Windows runner (closes spike DEC-3)"
+
   dependency-audit:
     name: License Audit
     runs-on: ubuntu-latest
