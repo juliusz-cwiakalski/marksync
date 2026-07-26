@@ -12,8 +12,8 @@ phases:
   delivery_planning: { started: "2026-07-15T20:50:00Z", completed: "2026-07-15T21:05:00Z" }
   dor_check: { started: "2026-07-15T21:05:00Z", completed: "2026-07-15T21:35:00Z" }
   delivery: { started: "2026-07-15T21:40:00Z", completed: "2026-07-15T22:30:00Z" }
-  system_spec_update: { started: null, completed: null }
-  review_fix: { started: null, completed: null }
+  system_spec_update: { started: "2026-07-15T22:40:00Z", completed: "2026-07-15T22:50:00Z" }
+  review_fix: { started: "2026-07-15T22:50:00Z", completed: null }
   quality_gates: { started: "2026-07-15T22:30:00Z", completed: "2026-07-15T22:35:00Z" }
   dod_check: { started: null, completed: null }
   pr_creation: { started: null, completed: null, url: null }
@@ -56,6 +56,35 @@ notes:
       Delegate comprehensive fix to @fixer.
     type: retro
     date: "2026-07-15"
+  - text: >
+      Review iter-1 FAIL → remediation committed (4ed0d1e). 10 findings
+      (2 high, 3 med, 3 low, 2 info). HIGH: F-1 doctor checked error.kind
+      === "Auth" for forbidden but real adapter returns kind:"Forbidden" →
+      AC-F2-2 dead code; F-2 unit tests mocked impossible {kind:"Auth",
+      authKind:"Forbidden"} variant masking F-1 (same false-confidence
+      failure class as the hallucinated deletePage). MED: F-3
+      PageRestrictions truthiness (real obj always-truthy → use .restricted);
+      F-5 CLI_VERSION 0.6.0≠package.json 0.7.0 (task 6.1 not done); F-4
+      AC-F5-1 renderer hardcoded pass not warn. @coder fixed F-1/F-2/F-3/F-5
+      + F-6/7/8/9/10 (plan hygiene, mock Page shapes, static imports, import
+      alias, EXIT_INTERNAL fallback). F-4 RESOLVED AS DESCOPE (DEC-7): MS-0002
+      renderer check = informational pass (no in-process renderer to probe;
+      Kroki warn path deferred to MS-0003). PM amended spec AC-F5-1/F-5/
+      Appendix A/AC-F1-1 + added DEC-7 to keep spec honest with descope.
+      Gates green: 1248 pass/0 fail, typecheck clean, boundaries clean.
+      Awaiting iter-2 re-review.
+    type: info
+    date: "2026-07-15"
+  - text: >
+      PM decision (DEC-7): descope AC-F5-1 renderer warn path to MS-0003.
+      MS-0002 renderer check = informational pass (surfaces configured
+      mermaid policy); warn-on-unavailable deferred. Justified: no
+      in-process renderer surface in MS-0002 (Kroki remote only under
+      render policy); meaningful probe not cleanly in-scope. Check never
+      gates (unchanged). Spec amended to match.
+    type: decision
+    date: "2026-07-15"
+    ref: DEC-7
   - text: >
       Delivery + quality_gates COMPLETE. Coder Phases 1-3,5-6 (commits
       0adc9d3, 2976801, d814f5d, 883c55e, c45885e, 679dbde, 903405c) +
