@@ -4,7 +4,7 @@
 id: chg-GH-32-test-plan
 status: Proposed
 created: 2026-07-26T18:30:00Z
-last_updated: 2026-07-26T18:30:00Z
+last_updated: 2026-07-26T19:00:00Z
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 labels: [MS-0002, release-pipeline, binary-builds, bun-compile, ci, sbom, cross-platform]
@@ -28,7 +28,7 @@ This story introduces **no `src/` domain logic** (build/CI/release engineering o
 
 ### 1.1 In Scope
 
-- Ten E2E release-tier test cases covering:
+- Nine E2E release-tier test cases covering:
   1. Cross-compile success for linux-x64, linux-arm64, win-x64 from the real CLI using Bun 1.2.23
   2. Clean-OS linux-x64 runtime smoke on `debian:stable-slim` (no Bun/Node/Deno installed)
   3. Clean-OS win-x64 runtime smoke on a `windows-latest` runner (no Wine)
@@ -223,19 +223,20 @@ Per `.ai/rules/testing-strategy.md`, the E2E (release) tier validates "end-to-en
 2. Run the binary on the clean OS: `docker run --rm -v "$PWD":/x -w /x debian:stable-slim ./dist/marksync-linux-x64 --version`.
 3. Assert the command exits **0** and prints the `package.json` version.
 4. Run the `doctor --json` command against a mock or sandbox (e.g., `docker run --rm -v "$PWD":/x -w /x debian:stable-slim ./dist/marksync-linux-x64 doctor --json`).
-5. Assert the `doctor` command exits **0** (or the appropriate exit code for a valid mock/sandbox response).
-6. Record the docker-run output, the `command -v` output, and the `debian:stable-slim` image digest.
+5. Assert the command produces **valid JSON output** (parseable JSON containing the expected DoctorReport structure).
+6. Record the actual exit code: 0 if all checks pass, or 60 (=EXIT_HEALTH per `src/cli/output/exit-codes.ts`) if a health check fails in the minimal smoke context. Do NOT hard-assert exit 0 — the smoke proves the binary boots and `doctor` runs + emits well-formed JSON.
+7. Record the docker-run output, the `command -v` output, and the `debian:stable-slim` image digest.
 
 **Expected Outcome**:
 
 - `command -v bun node deno` returns exit 127 inside the container (no language runtime — NFR-COMP-2 satisfied).
 - `./dist/marksync-linux-x64 --version` exits 0 and prints the correct version.
-- `./dist/marksync-linux-x64 doctor --json` exits 0 (valid mock/sandbox response).
+- `./dist/marksync-linux-x64 doctor --json` produces **valid JSON output** (well-formed DoctorReport structure). Record the actual exit code: 0 if all checks pass, or 60 (=EXIT_HEALTH) if a health check fails in the minimal smoke context.
 - → **AC-RUN1-1 satisfied**.
 
 **Evidence captured**: CI docker-run logs (exit codes, stdout/stderr), `command -v` output, image digest.
 
-**Pass/Fail criteria**: PASS iff exit 0 for `--version` and `doctor --json`, version string matches, and no Bun/Node/Deno present in the container. If it fails → AC-RUN1-1 FAIL; NFR-RUN-1 not met; record the failure mode for owner review.
+**Pass/Fail criteria**: PASS iff exit 0 for `--version`, version string matches, `doctor --json` produces valid JSON, and no Bun/Node/Deno present in the container. If it fails → AC-RUN1-1 FAIL; NFR-RUN-1 not met; record the failure mode for owner review.
 
 **Notes / Clarifications**: This TC builds on the spike's TC-BCS-003 pattern. The key differences: (a) real CLI (not spike smoke CLI); (b) `debian:stable-slim` (not `debian:slim` — DEC-2 reconciliation); (c) includes `doctor --json` smoke (against mock/sandbox). The spike validated the clean-OS no-runtime promise on the smoke CLI; this story validates it on the real CLI and closes the image-tag hazard.
 
@@ -542,7 +543,7 @@ Per `.ai/rules/testing-strategy.md`, the E2E (release) tier validates "end-to-en
 - **Runtime / build tool:** Bun **1.2.23** (pinned — DEC-1; matches `package.json#engines.bun` + `ci.yml`).
 - **Clean-OS images:**
   - `debian:stable-slim` (primary — glibc) for linux-x64 smoke. **Critical:** NOT `debian:slim` (which is not a published tag — DEC-2).
-  - No `alpine` smoke in this story (out of scope per spec NG-8; spike TC-BCS-004 recorded the musl/glibc note as non-blocking).
+  - No `alpine` smoke in this story (out of scope per spec §7.3; spike TC-BCS-004 recorded the musl/glibc note as non-blocking).
 - **Release trigger:** GitHub tag push (e.g., `v0.7.0`) triggers `.github/workflows/release.yml`.
 - **Network:** minimal. The build and smoke tests run locally within CI runners and Docker containers. The release workflow attaches artifacts to GitHub Releases via the GitHub API (platform infra). No outbound telemetry (NFR-SEC-3).
 

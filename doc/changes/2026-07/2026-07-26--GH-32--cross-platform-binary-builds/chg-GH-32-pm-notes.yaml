@@ -1,0 +1,120 @@
+change_id: GH-32
+title: "[MS2-E5-S4] Cross-platform binary builds"
+slug: cross-platform-binary-builds
+branch: feat/GH-32/cross-platform-binary-builds
+change_folder: doc/changes/2026-07/2026-07-26--GH-32--cross-platform-binary-builds
+
+phases:
+  clarify_scope: { started: "2026-07-26T18:15:00Z", completed: "2026-07-26T18:30:00Z" }
+  specification: { started: "2026-07-26T18:30:00Z", completed: "2026-07-26T19:00:00Z" }
+  test_planning: { started: "2026-07-26T19:00:00Z", completed: "2026-07-26T19:20:00Z" }
+  delivery_planning: { started: "2026-07-26T19:20:00Z", completed: "2026-07-26T19:45:00Z" }
+  dor_check: { started: "2026-07-26T19:45:00Z", completed: null, iterations: 1, last_verdict: "NOT_READY" }
+  delivery: { started: null, completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+
+decisions: []
+open_questions: []
+blockers: []
+
+doc_risks:
+  - text: >
+      doc/spec/nonfunctional.md — NFR-PERF-1 (≤90MB desired) /
+      NFR-PERF-2 (≤2s cold-start) / NFR-COMP-1 (Linux+Windows MS-0002) /
+      NFR-COMP-2 (clean-OS, no runtime) / NFR-SEC-4 (SBOM on release):
+      spike GH-13 produced concrete evidence (H1-H5 PASS, sizes ~97-105MB
+      EXCEED 90MB desired but flagged-not-blocking per DEC-5). @doc-syncer
+      should add evidence pointers to the spike findings + the new release
+      pipeline. DO NOT reword "desired, not hard".
+  - text: >
+      ADR-0001 — distribution/runtime choice (C-2 single binary no runtime,
+      C-3 cross-platform): spike already supplied enabling evidence;
+      @doc-syncer may add a forward-pointer to the E5-S4 release pipeline
+      and the Signing Unresolved Question partial-address. Do NOT
+      autonomously reconsider TS-over-Go.
+  - text: >
+      doc/planning/milestones/MS-2/MS2-E5--quality-and-ops/MS2-E5-S4--binary-builds.md
+      — story status: todo → done (flip on delivery); spike GH-13 already
+      noted the unblock.
+  - text: >
+      New user-facing docs may be needed: a release/runbook doc describing
+      how to cut a release (tag → release.yml → artifacts). Candidate
+      location: doc/ops/ or doc/guides/. @doc-syncer to decide.
+
+notes:
+  - text: >
+      RETRO — DoR iter-1 NOT_READY (1 BLOCKER + 3 MINOR + 2 NIT). The BLOCKER
+      is a genuine, well-caught contradiction: plan simultaneously asserted
+      C-NO-SRC (zero src/ changes) + PLN-DEC-3 (bump package.json 0.7.0→0.8.0)
+      + DM-3/AC-BUILD-1 (binary --version == package.json#version). But
+      src/cli/commands/router.ts:40 hardcodes `export const CLI_VERSION =
+      "0.7.0"` with NO runtime package.json read (comment: "Kept in lock-step
+      with package.json until a runtime version source is wired"). So bumping
+      only package.json → binary still reports 0.7.0 → AC-BUILD-1 FAILs at
+      DoD; and the build script's --define process.env.MARKSYNC_VERSION is a
+      no-op unless router.ts reads it. PROCESS LESSON: the plan over-constrained
+      C-NO-SRC beyond the spec's own G-7/§16 carve-out ("a trivial version-embed
+      touch... the only conceivable exception"). The plan-writer dropped that
+      carve-out silently. Fix = relax C-NO-SRC to permit the surgical
+      version-source wiring in router.ts (import pkg from package.json —
+      works in both dev and bun build --compile since Bun inlines JSON imports
+      at build time). This permanently fixes the drift the code comment
+      itself flags. MINORS: test-plan §1.1 TC count (Ten→Nine), TC-RUN-001
+      doctor exit-code assertion (doctor returns EXIT_HEALTH=60 on failing
+      check, NOT 0 — align with plan task 2.2 which correctly asserts JSON
+      validity), alpine NG citation (§7.3 not NG-8); spec §17.1 DoD should
+      note AC-REL-1/AC-COMP-1 are structurally validated at delivery (release.yml
+      triggers on v* tag = post-merge), full e2e on first tag. NIT: SBOM action
+      pin floating (anchore/sbom-action@v0) — pin concrete version. Reopening
+      delivery_planning (BLOCKER + nit), test_planning (minors), specification
+      (minor) in parallel — fixes are independent sweeps with no AC/TC ID
+      contract changes.
+    type: retro
+    workItemRef: GH-32
+    date: "2026-07-26"
+  - text: >
+      INTAKE — GH-32 [MS2-E5-S4] Cross-platform binary builds. State
+      detection: ticket OPEN, no open PR, no GH-32 branch → NEW delivery.
+      main HEAD = d3d42ee (GH-31 squash-merge). Clean tree. Both deps
+      resolved (GH-13, GH-14). Build/CI/release-engineering story — NO src/
+      domain logic; turns validated GH-13 spike into a real release pipeline.
+      Story file authoritative: doc/planning/milestones/MS-2/MS2-E5--quality-and-ops/MS2-E5-S4--binary-builds.md
+      (CEO-resolved R1 arm64, R2 size; decisions ADR-0001; cross-cutting
+      A-FEA-2, A-FEA-10, NFR-PERF-1/2, NFR-COMP-1).
+    type: info
+    date: "2026-07-26"
+  - text: >
+      CRITICAL VERSION-PIN HAZARD identified at intake: spike GH-13 pinned
+      Bun 1.1.34 for its one-time validation. CI (ci.yml) + package.json
+      pin Bun 1.2.23. The release workflow MUST use 1.2.23 to match CI —
+      NOT the spike's 1.1.34. The targets (bun-linux-x64, bun-linux-arm64,
+      bun-windows-x64) are stable across these versions (spike TC-BCS-008
+      confirmed arm64 targets exist). Spec/plan must encode this.
+    type: risk
+    date: "2026-07-26"
+  - text: >
+      DOCKER TAG RECONCILIATION (from spike findings): story scope text says
+      "debian:slim" but debian:slim is NOT a published Docker Hub tag. The
+      canonical current Debian slim tag is debian:stable-slim (used + verified
+      clean-OS by spike H2). Spec/plan MUST use debian:stable-slim.
+    type: info
+    date: "2026-07-26"
+  - text: >
+      EXISTING ASSETS at intake: scripts/build-binaries.sh EXISTS as a GH-13
+      skeleton (entry placeholder ./src/cli.ts — must repoint to
+      src/cli/index.ts; signing TODO marker; SHA256SUMS accumulator).
+      spikes/bun-compile-smoke/probes/signing-dry-run.md EXISTS with the
+      validated osslsigncode recipe (sign Form A PKCS#12 + Form B PEM,
+      verify, extract-signature, cert plug-in table). findings/
+      bun-compile-smoke-findings.md EXISTS with H1-H5 verdicts + E5-S4
+      baseline measurements (linux 96.90MB / win 105.12MB / cold-start
+      0.010s median). .github/workflows/release.yml does NOT exist (create).
+      .benchmarks/ does NOT exist (create). dist/ does NOT exist (build
+      output, gitignore). Real CLI entry: src/cli/index.ts (confirmed via
+      src/cli/ glob).
+    type: info
+    date: "2026-07-26"
