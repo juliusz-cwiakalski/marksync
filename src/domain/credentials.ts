@@ -22,7 +22,7 @@ export interface ConfluenceCredentials {
 
 /**
  * The success payload of `validateCredentials` — the current-user identity
- * parsed from Confluence's `GET /wiki/api/v2/user/by-me` (GH-17 DM-3).
+ * parsed from Confluence's `GET /wiki/rest/api/user/current` (GH-88 / TDR-0010).
  */
 export interface AccountIdentity {
 	accountId: string;

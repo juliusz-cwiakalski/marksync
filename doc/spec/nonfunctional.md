@@ -14,7 +14,7 @@ links:
     - doc/overview/02-roadmap.md
     - doc/overview/architecture-overview.md
     - doc/inception/analysis/risks.md
-  related_changes: ["GH-27", "GH-28", "GH-30", "GH-31", "GH-32", "GH-69", "GH-76"]
+  related_changes: ["GH-27", "GH-28", "GH-30", "GH-31", "GH-32", "GH-69", "GH-76", "GH-88"]
   summary: "Non-functional requirements — performance, security, reliability, operability, compatibility, privacy, maintainability, accessibility for MS-0002 and beyond."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -71,7 +71,7 @@ binding. `MS-0002` NFRs are release-blocking guardrails unless marked
 | NFR-OBS-1 | Stable exit codes | Documented, machine-parseable exit codes per error class. **Implemented:** the 10-class set (`EXIT_OK`/`USAGE`/`CONFIG`/`AUTH`/`CONFLICT`/`REMOTE_MISSING`/`INVARIANT`/`HEALTH`/`RENDER_UNAVAILABLE`/`INTERNAL`) is delivered in `src/cli/output/exit-codes.ts`; `EXIT_HEALTH`=60 / `DOCTOR_FAIL` added for `doctor` (GH-30 / TDR-0009, additive — no existing code reclassified). | North star guardrail; spec §9.1 |
 | NFR-OBS-2 | Structured output | JSON/NDJSON output with stable schema; run ID on every result | North star; AI-agent operability |
 | NFR-OBS-3 | Diagnostic codes | Stable machine-readable codes for known failure classes; human remediation text. **Implemented (GH-28, `MS-0002` informational):** `repair-state` emits the stable `REPAIR_DIAGNOSTIC_CODES` set (repaired / skipped / needs-human-action) with per-item human notes via the `RepairReport`. | `MS-0003` target; `MS-0002` informational |
-| NFR-OBS-4 | `doctor` health-check | Capability + permission + visibility discovery before any create/adopt. **Implemented (GH-30):** `marksync doctor` runs the MS-0002-minimal 9-check set — `git-available`, `config-valid`, `credentials` (real `GET /user/by-me`), `space-access`, `parent-page`, `content-property` (opt-in), `attachment` (opt-in), `permission-visibility` (advisory), `renderer` (advisory) — emitting a structured `DoctorReport` (per-check status + AI-readable detail + suggested fix). Read-only by default; `--probe-capabilities` opt-in runs a self-cleaning scratch-page probe. CI-gateable via `EXIT_HEALTH` (60) on any gating `fail` while `data` stays present (DEC-4 / TDR-0009). | R-FEA-10; spec §9.1; `MS-0002` minimal, `MS-0003` full |
+| NFR-OBS-4 | `doctor` health-check | Capability + permission + visibility discovery before any create/adopt. **Implemented (GH-30):** `marksync doctor` runs the MS-0002-minimal 9-check set — `git-available`, `config-valid`, `credentials` (real `GET /user/current`), `space-access`, `parent-page`, `content-property` (opt-in), `attachment` (opt-in), `permission-visibility` (advisory), `renderer` (advisory) — emitting a structured `DoctorReport` (per-check status + AI-readable detail + suggested fix). Read-only by default; `--probe-capabilities` opt-in runs a self-cleaning scratch-page probe. CI-gateable via `EXIT_HEALTH` (60) on any gating `fail` while `data` stays present (DEC-4 / TDR-0009). | R-FEA-10; spec §9.1; `MS-0002` minimal, `MS-0003` full |
 | NFR-OBS-5 | Plan/diff before write | Dry-run is first-class; no mutation without a reviewable plan | North star; spec §9.1 |
 
 ## Compatibility & portability (`MS-0002` binding)

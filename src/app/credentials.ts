@@ -15,8 +15,8 @@ const ENV_BASE_URL = "MARKSYNC_CONFLUENCE_BASE_URL";
 const ENV_EMAIL = "MARKSYNC_USER_EMAIL";
 const ENV_API_TOKEN = "MARKSYNC_API_TOKEN";
 
-/** v2 "current user" — the sole MS-0002 validation endpoint (no v1 fallback). */
-const USER_BY_ME_PATH = "/wiki/api/v2/user/by-me";
+/** v1 current-user — the sole MS-0002 validation endpoint (GH-88 / TDR-0010; supersedes GH-17 DEC-5). */
+const USER_CURRENT_PATH = "/wiki/rest/api/user/current";
 
 /** Max retries after a 429 before giving up (RSK-4 — bounded, never an open loop). */
 const MAX_429_RETRIES = 2;
@@ -92,7 +92,7 @@ export async function validateCredentials(
 	options?: AuthProviderOptions,
 ): Promise<Result<AccountIdentity, AuthError>> {
 	const doFetch = options?.fetch ?? fetch;
-	const url = `${creds.baseUrl}${USER_BY_ME_PATH}`;
+	const url = `${creds.baseUrl}${USER_CURRENT_PATH}`;
 
 	for (let attempt = 0; attempt <= MAX_429_RETRIES; attempt++) {
 		const isLastAttempt = attempt === MAX_429_RETRIES;
@@ -157,7 +157,7 @@ async function parseIdentity(
 		const cause = e instanceof Error ? e.message : String(e);
 		return Result.err({ kind: "Auth", authKind: "AuthUnreachable", cause });
 	}
-	// Manual narrowing on the documented v2 fields (RSK-6 — `zod` lands in E3).
+	// Manual narrowing on the documented v1 fields (RSK-6 — `zod` lands in E3).
 	if (body !== null && typeof body === "object") {
 		const record = body as Record<string, unknown>;
 		const accountId = record.accountId;
@@ -169,7 +169,7 @@ async function parseIdentity(
 	return Result.err({
 		kind: "Auth",
 		authKind: "AuthUnreachable",
-		cause: "unexpected user/by-me response shape",
+		cause: "unexpected user/current response shape",
 	});
 }
 

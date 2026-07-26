@@ -142,9 +142,9 @@ describe("TC-E2EMOCK-002 — create flow (GH-71 unwrap, AC-F2-1, AC-4)", () => {
 		// The attachment upload test is in attachment-dedup.test.ts
 		// Here we verify the basic flow works
 
-		// No GET /user/by-me (never called during pipeline run per DEC-1)
+		// No GET /user/current (never called during pipeline run per DEC-1)
 		const getUserByMe = mock.captured.filter(
-			(r) => r.method === "GET" && r.path === "/wiki/api/v2/user/by-me",
+			(r) => r.method === "GET" && r.path === "/wiki/rest/api/user/current",
 		);
 		expect(getUserByMe.length).toBe(0);
 	});

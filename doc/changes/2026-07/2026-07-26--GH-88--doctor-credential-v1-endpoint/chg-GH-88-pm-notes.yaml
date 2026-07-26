@@ -1,0 +1,73 @@
+change_id: GH-88
+title: "fix: doctor credential check false negative — /wiki/api/v2/user/by-me returns 400"
+slug: doctor-credential-v1-endpoint
+branch: fix/GH-88/doctor-credential-v1-endpoint
+type: bug
+
+phases:
+  clarify_scope: { started: "2026-07-26T22:24:00Z", completed: "2026-07-26T22:30:00Z" }
+  specification: { started: "2026-07-26T22:31:00Z", completed: "2026-07-26T22:33:00Z" }
+  test_planning: { started: "2026-07-26T22:33:00Z", completed: "2026-07-26T22:38:00Z" }
+  delivery_planning: { started: "2026-07-26T22:38:00Z", completed: "2026-07-26T22:44:00Z" }
+  dor_check: { started: "2026-07-26T22:44:00Z", completed: "2026-07-26T22:50:00Z" }
+  delivery: { started: "2026-07-26T22:50:00Z", completed: "2026-07-26T23:05:00Z" }
+  system_spec_update: { started: "2026-07-26T23:05:00Z", completed: "2026-07-26T23:12:00Z" }
+  review_fix: { started: "2026-07-26T23:12:00Z", completed: "2026-07-26T23:20:00Z" }
+  quality_gates: { started: "2026-07-26T23:20:00Z", completed: "2026-07-26T23:22:00Z" }
+  dod_check: { started: "2026-07-26T23:22:00Z", completed: "2026-07-26T23:26:00Z" }
+  pr_creation: { started: "2026-07-26T23:26:00Z", completed: "2026-07-26T23:32:00Z", url: "https://github.com/juliusz-cwiakalski/marksync/pull/89", pr_number: 89 }
+
+decisions: []
+open_questions: []
+blockers: []
+
+notes:
+  - text: >
+      Intake (2026-07-26): Bug fix. `marksync doctor` credential check reports
+      false `fail` ("Auth endpoint unreachable") because `validateCredentials`
+      (src/app/credentials.ts:19,90-148) probes `/wiki/api/v2/user/by-me`, which
+      now returns HTTP 400 (Atlassian API routing change). Non-200/non-401/403/
+      non-429 → AuthUnreachable → doctor credentials check `fail` → exit 60
+      (DOCTOR_FAIL). Downstream checks (space-access, parent-page, content-
+      property, attachment) all PASS because creds resolve fine and use other
+      endpoints — so `worstStatus=fail` is solely from the credentials check.
+      Non-blocking for publish/sync/repair. FIX DIRECTION DECIDED (option 1 from
+      ticket + inception evidence): switch the validation endpoint from v2
+      `/wiki/api/v2/user/by-me` to v1 `/wiki/rest/api/user/current`. DECISIVE
+      EVIDENCE: doc/inception/integration-scenarios/01-authentication.md:39
+      already documents v2 user/by-me as "undocumented/unstable and returned 400
+      in the spike" — and v1 /user/current as the validated, live-proven (200)
+      endpoint with compatible shape {accountId, displayName, ...} (lines 8,
+      24-37). GH-17 DEC-5 explicitly deferred the v1 fallback "add it only if a
+      tenant/credential lacks v2" — production has now confirmed v2 is broken, so
+      we take the deferred path. This REVERSES DEC-5's v2-only choice → a TDR
+      must record the reversal (delegate to @decision-advisor during delivery).
+      SCOPE is small/surgical: (1) src/app/credentials.ts path constant +
+      comments, (2) src/domain/credentials.ts doc comment (line 25), (3) test
+      URL assertions (unit tests/unit/app/credentials.test.ts:216-221; integration
+      tests/integration/credentials.test.ts:81; doctor integration
+      tests/integration/cli/commands/doctor.test.ts ×8 references), (4) e2e-mock
+      route handler tests/e2e-mock/mock-confluence-server.ts:169 + smoke probe
+      tests/e2e-mock/mock-smoke-probe.test.ts:20-21, (5) docs sync (glossary.md:45,
+      ubiquitous-language.md:146,148 — both reference v2 user/by-me; system specs
+      if any reference it). GH-17 historical change docs are NOT touched (frozen
+      history). No blocking questions for human — ticket + inception evidence are
+      unambiguous. Decision is PM-decided (autonomous) per "decide to unblock";
+      will be ratified as a TDR by @decision-advisor. Version bump: 0.8.0→0.8.1
+      (patch — bug fix). Likely tiers: unit + integration (credentials URL
+      mapping + doctor wiring), e2e-mock (route handler rename). No new tiers.
+      Working tree clean on main (61093d8). Labels applied: change, MS-0002, bug,
+      in-progress.
+    type: info
+    workItemRef: GH-88
+    date: "2026-07-26"
+  - text: >
+      Retro — housekeeping (2026-07-26): discovered GH-32 (PR #87, merged
+      2026-07-26T19:41:43Z, 61093d8) MERGED + CLOSED since last session while
+      pm-context listed it as active_change (PR open). Moved to
+      recently_delivered, pruned GH-64 (oldest, kept 10). 21st recurrence of
+      pm-context stale on out-of-band merge. Root cause unchanged: pm-context
+      not updated when PR merges out-of-band (human/CEO).
+    type: retro
+    workItemRef: GH-88
+    date: "2026-07-26"

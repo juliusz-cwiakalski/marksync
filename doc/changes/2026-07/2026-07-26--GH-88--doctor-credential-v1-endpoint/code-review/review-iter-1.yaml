@@ -1,0 +1,72 @@
+version: 1
+iteration: 1
+mode: local
+work_item_ref: GH-88
+branch: fix/GH-88/doctor-credential-v1-endpoint
+status: PASS
+summary: >
+  The GH-88 endpoint swap is a clean, minimal, backward-compatible bug fix that
+  fully meets its spec. The credential-validation probe now targets the
+  inception-proven v1 `/wiki/rest/api/user/current` endpoint; `src/app/credentials.ts`
+  shows ONLY the constant rename (`USER_BY_ME_PATH` → `USER_CURRENT_PATH`) + value
+  swap + comment/cause-string alignment, with the retry/backoff loop and status
+  mapping byte-for-byte unchanged. `src/domain/credentials.ts` is comment-only.
+  The new TC-AUTH-008-EXTRA unit test genuinely proves the v1 body (with extra
+  fields `type`/`accountType`/`publicName`/`_links`) narrows to exactly
+  `{ accountId, displayName }` (it asserts `Object.keys(result.value).sort()`
+  equals `["accountId","displayName"]`). The full quality gate is green
+  (`bun run check` exit 0; 1310 pass / 0 fail; typecheck + boundaries + format
+  clean — the 231 lint warnings are pre-existing in untouched files). `rg
+  "user/by-me" src/ tests/` is empty; all 8 doctor route handlers, the e2e-mock
+  route, smoke probe, and create-flow no-call assertion reference v1. INV-SEC-1
+  is preserved (authHeader/masked-email isolation untouched). TDR-0010 is
+  well-authored — it frames the reversal as taking the previously-deferred v1
+  fallback (explicitly "not a retroactive condemnation of GH-17"), cites the
+  inception-spike + production-400 evidence, and is correctly indexed as the
+  next per-type slot. All 8 spec ACs are met and all 12 plan tasks are checked
+  and verified. Frozen history (GH-17/GH-21/GH-30/GH-81 change docs, inception
+  `01-authentication.md`) is untouched. The single low-severity finding is a
+  doc-sync completeness gap: 2 `doc/planning/milestones/` files retain stale v2
+  `user/by-me` references that the plan's own task 3.3 classified as
+  current-truth requiring reconciliation. It does not affect runtime behavior or
+  any AC and does not block merge.
+severity_breakdown:
+  critical: 0
+  high: 0
+  medium: 0
+  low: 1
+  info: 0
+spec_compliance: PASS
+plan_compliance: PASS
+findings:
+  - id: F-1
+    severity: low
+    confidence: high
+    category: doc-sync
+    location: doc/planning/milestones/MS-2/MS2-E2--foundation/MS2-E2-S4--auth-provider.md:32, doc/planning/milestones/MS-2/MS2-E5--quality-and-ops/MS2-E5-S2--doctor.md:30
+    message: >
+      The doc-sync phase (commit a5eb9e7) reconciled the four docs enumerated in
+      the plan's "Known doc-risk" list (glossary.md, ubiquitous-language.md,
+      feature-cli.md, nonfunctional.md) to v1, but missed two `doc/planning/milestones/`
+      files that still cite the retired v2 endpoint as current. MS2-E2-S4 line 32
+      lists v2 `GET /wiki/api/v2/user/by-me` as the primary probe (the "(or v1
+      user/current)" aside is now backwards — v1 is the sole probe), and MS2-E5-S2
+      line 30 still says `real GET /user/by-me`. The plan's own task 3.3 explicitly
+      classified `doc/planning/` as current-truth "reconciled by @doc-syncer in
+      lifecycle phase 7", and spec OQ-2 asked for exactly this repo-wide scan
+      ("Are there current-truth docs beyond glossary.md and ubiquitous-language.md
+      that cite the v2 validation endpoint?"). Impact is documentation-accuracy
+      only in lower-tier planning artifacts — zero runtime, contract, or AC impact.
+    suggestion: >
+      Flip the two planning-doc references to v1 `/wiki/rest/api/user/current`
+      (reword MS2-E2-S4 so v1 is the sole probe, not the parenthetical
+      alternative) and add them to the doc-sync coverage so a future `rg
+      "user/by-me"` current-truth scan returns only intentional historical
+      citations. Optional; can be picked up in a follow-up doc-sync touch.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+reviewed_at: 2026-07-26T00:00:00Z
+next_step: PROCEED

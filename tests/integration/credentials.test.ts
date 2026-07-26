@@ -66,7 +66,7 @@ function jsonResponse(
 	});
 }
 
-describe("validateCredentials — TC-INT-AUTH-001 probe 200 → identity (AC-3)", () => {
+describe("validateCredentials — TC-INT-AUTH-001 probe 200 → identity (AC-4)", () => {
 	test("200 {accountId, displayName} → Result.ok(identity) with the Basic authHeader on the wire", async () => {
 		const server = serveMock(() =>
 			jsonResponse(200, { accountId: "abc-123", displayName: "Jane Operator" }),
@@ -78,7 +78,7 @@ describe("validateCredentials — TC-INT-AUTH-001 probe 200 → identity (AC-3)"
 			expect(result.value.accountId).toBe("abc-123");
 			expect(result.value.displayName).toBe("Jane Operator");
 			expect(server.requests[0]?.url).toBe(
-				`${server.origin}/wiki/api/v2/user/by-me`,
+				`${server.origin}/wiki/rest/api/user/current`,
 			);
 			expect(server.requests[0]?.authorization).toBe(
 				credsFor(server.origin).authHeader,

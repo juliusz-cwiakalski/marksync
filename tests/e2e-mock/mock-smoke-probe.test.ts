@@ -17,10 +17,13 @@ describe("TC-E2EMOCK-SMOKE-001 — Phase-1 mock smoke probe", () => {
 		await server.stop();
 	});
 
-	test("GET /wiki/api/v2/user/by-me → 200 { accountId, displayName }", async () => {
-		const response = await fetch(`${server.origin}/wiki/api/v2/user/by-me`, {
-			headers: { Authorization: "Bearer fake-token" },
-		});
+	test("GET /wiki/rest/api/user/current → 200 { accountId, displayName }", async () => {
+		const response = await fetch(
+			`${server.origin}/wiki/rest/api/user/current`,
+			{
+				headers: { Authorization: "Bearer fake-token" },
+			},
+		);
 
 		expect(response.status).toBe(200);
 		const body = await response.json();

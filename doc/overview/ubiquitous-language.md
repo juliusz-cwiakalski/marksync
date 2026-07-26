@@ -6,13 +6,13 @@ ados_distribution: redistributable
 id: UBIQUITOUS-LANGUAGE
 status: Draft
 created: 2026-07-05
-last_updated: 2026-07-14
+last_updated: 2026-07-26
 owners: [Juliusz Ćwiąkalski]
 area: domain
 document_classification: current-truth
 links:
-  related_decisions: [ADR-0005, ADR-0006, ADR-0010, ADR-0011, PDR-0001, TDR-0003]
-  related_changes: [GH-15, GH-17, GH-18, GH-19, GH-20, GH-21, GH-22, GH-23, GH-24, GH-26, GH-27, GH-74, GH-76]
+  related_decisions: [ADR-0005, ADR-0006, ADR-0010, ADR-0011, PDR-0001, TDR-0003, TDR-0010]
+  related_changes: [GH-15, GH-17, GH-18, GH-19, GH-20, GH-21, GH-22, GH-23, GH-24, GH-26, GH-27, GH-74, GH-76, GH-88]
   summary: "Ubiquitous language — the precise, bounded-context vocabulary binding domain concepts to code for MarkSync's Markdown-to-TargetSystem synchronization domain."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -143,9 +143,9 @@ validates the credential against Confluence, never retaining the raw token
 | Term | Meaning | Type | Relationships |
 |---|---|---|---|
 | **ConfluenceCredentials** | The resolved Confluence credential consumers receive (`src/domain/credentials.ts`): `{ baseUrl, authHeader, email (masked), mode: "api-token" }`. `authHeader` is an opaque `"Basic …"` secret never serialized to any output path; the raw token is not a field on the object. | Value object | produced by → Credential Provider |
-| **AccountIdentity** | The success payload of `validateCredentials` (`src/domain/credentials.ts`): `{ accountId, displayName }`, parsed from Confluence's v2 `user/by-me` response. | Value object | produced by → Credential Provider |
+| **AccountIdentity** | The success payload of `validateCredentials` (`src/domain/credentials.ts`): `{ accountId, displayName }`, parsed from Confluence's v1 `user/current` response. | Value object | produced by → Credential Provider |
 | **AuthError** | The auth-failure arm (`kind: "Auth"`) of the `MarkSyncError` union, discriminated further on `authKind` (`MissingCredentials` \| `InvalidBaseUrl` \| `InvalidCredentials` \| `AuthUnreachable`). The credential provider narrows its `Result` error channel to this arm. | Value object (error) | member of → MarkSyncError |
-| **Credential Provider** | Application service (`resolveCredentials` / `validateCredentials` / `maskEmail`, `src/app/credentials.ts`) that reads the canonical env vars, builds the opaque `authHeader`, masks the email, and probes Confluence's v2 `user/by-me` endpoint via an injected `fetch`. Imports only `#domain/*`; the raw token is consumed inside `base64` and never stored on a returned object. | Application service | produces → ConfluenceCredentials, AccountIdentity; emits → AuthError |
+| **Credential Provider** | Application service (`resolveCredentials` / `validateCredentials` / `maskEmail`, `src/app/credentials.ts`) that reads the canonical env vars, builds the opaque `authHeader`, masks the email, and probes Confluence's v1 `user/current` endpoint via an injected `fetch`. Imports only `#domain/*`; the raw token is consumed inside `base64` and never stored on a returned object. | Application service | produces → ConfluenceCredentials, AccountIdentity; emits → AuthError |
 
 ### State (shared base, lock, cache)
 

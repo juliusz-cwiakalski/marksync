@@ -5,12 +5,12 @@ ados_distribution: project-generated
 id: SPEC-CLI
 status: Current
 created: 2026-07-06
-last_updated: 2026-07-15
+last_updated: 2026-07-26
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: [GH-15, GH-17, GH-18, GH-28, GH-30, GH-74]
-  decisions: [ADR-0011, TDR-0002]
+  related_changes: [GH-15, GH-17, GH-18, GH-28, GH-30, GH-74, GH-88]
+  decisions: [ADR-0011, TDR-0002, TDR-0010]
   contracts: []
 ---
 
@@ -68,10 +68,11 @@ JSON/NDJSON output.
   `MARKSYNC_USER_EMAIL`, `MARKSYNC_API_TOKEN` (canonical — see `.env.example`).
   Missing/empty vars → `AuthError { authKind: "MissingCredentials" }`; a
   non-`https` base URL → `InvalidBaseUrl`.
-- **Validation:** `validateCredentials` probes Confluence's v2 `user/by-me`
-  endpoint (no v1 fallback) via an injected `fetch` and returns the account
-  identity or a typed `AuthError` (401/403 → `InvalidCredentials`, no retry;
-  network error → `AuthUnreachable`; 429 → bounded backoff).
+- **Validation:** `validateCredentials` probes Confluence's v1 `user/current`
+  endpoint via an injected `fetch` and returns the account identity or a typed
+  `AuthError` (401/403 → `InvalidCredentials`, no retry; network error →
+  `AuthUnreachable`; 429 → bounded backoff). _(v1 is the sole probe since GH-88
+  / TDR-0010 — the former v2 `user/by-me` probe returns HTTP 400 in production.)_
 - **Error contract:** auth failures map to four stable codes —
   `AUTH_MISSING_CREDENTIALS`, `AUTH_INVALID_BASE_URL`,
   `AUTH_INVALID_CREDENTIALS`, `AUTH_UNREACHABLE` — all → exit 20 (`EXIT_AUTH`);
@@ -104,7 +105,7 @@ parses args, delegates to domain services, and renders `CommandResult<T>`.
 | CommandRouter | Cliffy command/flag parsing |
 | ResultRenderer | `CommandResult<T>` → JSON/NDJSON/human output |
 | RedactionLayer | Centralized secret scrubbing for all output |
-| AuthProvider | Resolves Confluence API-token credentials from env into an opaque auth header and validates them against Confluence (v2 `user/by-me`); raw token never retained (INV-SEC-1) |
+| AuthProvider | Resolves Confluence API-token credentials from env into an opaque auth header and validates them against Confluence (v1 `user/current`); raw token never retained (INV-SEC-1) |
 | ConfigLoader | Reads + ajv-validates `marksync.yml`, returns `Result<ProjectConfig, ConfigError>` (YAML parse → `allErrors` → `applyDefaults`); pure — no Git/tree I/O (`src/app/config.ts`) |
 
 ### 4.3 Key decisions
@@ -122,7 +123,7 @@ parses args, delegates to domain services, and renders `CommandResult<T>`.
 - [ ] Color is auto-disabled when not a TTY or `NO_COLOR` set (NFR-A11Y-1).
 - [ ] `doctor` verifies the MS-0002-minimal set: Git availability, config
       validity (surfaces `ConfigError`/`InvalidConfig` from `loadConfig`),
-      credentials (auth + base URL via real `GET /user/by-me`), space access,
+      credentials (auth + base URL via real `GET /user/current`), space access,
       parent-page existence/writability, plus advisory permission/visibility
       and renderer checks; read-only by default with `--probe-capabilities`
       opt-in. *(delivered — GH-30)*
