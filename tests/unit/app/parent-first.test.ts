@@ -48,6 +48,7 @@ describe("applyPlan parent-first ordering (TC-UNIT-003)", () => {
 				title: "Test",
 				version: 1,
 			}),
+		deletePage: async () => Res.ok(undefined),
 		getProperty: async () => Res.ok(undefined),
 		putProperty: async () => Res.ok(undefined),
 		uploadAttachment: async () =>

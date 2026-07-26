@@ -1,7 +1,11 @@
 // Doctor orchestration (GH-30 / TDR-0009 / ADR-0011).
 
 import type { Result } from "#domain/result";
-import type { MarkSyncError } from "#domain/errors";
+import type { AuthError, ConfigError, MarkSyncError } from "#domain/errors";
+import type {
+	AccountIdentity,
+	ConfluenceCredentials,
+} from "#domain/credentials";
 import { Result as Res } from "#domain/result";
 import type { Repository } from "#domain/git/port";
 import type { TargetSystem } from "#domain/target/port";
@@ -56,17 +60,14 @@ export interface DoctorDeps {
 	probeCapabilities: boolean;
 	fetch?: typeof fetch;
 	loadConfig?: (cwd: string) => Result<ProjectConfig, MarkSyncError>;
-	resolveCredentials?: () => Result<
-		{ baseUrl: string; authHeader: string; email: string },
-		MarkSyncError
-	>;
+	resolveCredentials?: () => Result<ConfluenceCredentials, AuthError>;
 	validateCredentials?: (
-		creds: { baseUrl: string; authHeader: string },
+		creds: ConfluenceCredentials,
 		options?: { fetch?: typeof fetch },
-	) => Promise<Result<{ accountId: string; email: string }, MarkSyncError>>;
+	) => Promise<Result<AccountIdentity, AuthError>>;
 	createRepository?: (repoPath: string) => Repository;
 	createTarget?: (
-		creds: { baseUrl: string; authHeader: string },
+		creds: ConfluenceCredentials,
 		spaceKey: string,
 	) => TargetSystem;
 }
@@ -92,8 +93,25 @@ function computeSummary(checks: readonly DoctorCheck[]): DoctorSummary {
 	};
 }
 
+/** The always-on advisory checks (warn-only / informational). */
+function advisoryChecks(): DoctorCheck[] {
+	return [
+		{
+			check: DOCTOR_CHECK_IDS.PERMISSION_VISIBILITY,
+			status: "warn",
+			detail:
+				"Assuming full read access to the configured subtree; a 403 will be treated as warn+skip, not delete (R-FEA-10)",
+		},
+		{
+			check: DOCTOR_CHECK_IDS.RENDERER,
+			status: "pass",
+			detail: "Renderer availability informational (check not yet implemented)",
+		},
+	];
+}
+
 /** Extract spaceKey from config or return err. */
-function extractSpaceKey(config: ProjectConfig): Result<string, MarkSyncError> {
+function extractSpaceKey(config: ProjectConfig): Result<string, ConfigError> {
 	const targetConfig = config.targets.default;
 	if (!targetConfig) {
 		return Res.err({
@@ -117,7 +135,7 @@ function extractSpaceKey(config: ProjectConfig): Result<string, MarkSyncError> {
 /** Extract parentPageId from config or return err. */
 function extractParentPageId(
 	config: ProjectConfig,
-): Result<string, MarkSyncError> {
+): Result<string, ConfigError> {
 	const targetConfig = config.targets.default;
 	if (!targetConfig) {
 		return Res.err({
@@ -214,7 +232,6 @@ export async function runDoctor(
 
 	// If config is invalid, skip downstream checks that depend on it
 	if (!configResult.ok) {
-		// Add skipped checks
 		checks.push(
 			{
 				check: DOCTOR_CHECK_IDS.CREDENTIALS,
@@ -241,31 +258,15 @@ export async function runDoctor(
 				status: "skipped",
 				detail: "Skipped: config validation failed",
 			},
+			...advisoryChecks(),
 		);
 
-		// Always add warn-only checks
-		checks.push(
-			{
-				check: DOCTOR_CHECK_IDS.PERMISSION_VISIBILITY,
-				status: "warn",
-				detail:
-					"Assuming full read access to the configured subtree; a 403 will be treated as warn+skip, not delete (R-FEA-10)",
-			},
-			{
-				check: DOCTOR_CHECK_IDS.RENDERER,
-				status: "pass",
-				detail:
-					"Renderer availability informational (check not yet implemented)",
-			},
-		);
-
-		const report: DoctorReport = {
+		return Res.ok({
 			checks,
 			summary: computeSummary(checks),
 			worstStatus: deriveWorstStatus(checks),
 			probeCapabilities,
-		};
-		return Res.ok(report);
+		});
 	}
 
 	const config = configResult.value;
@@ -273,9 +274,9 @@ export async function runDoctor(
 	// --- Check 3: credentials ---
 	const resolveCreds = resolveCredsImpl ?? resolveCredentials;
 	const credsResult = resolveCreds();
+	let creds: ConfluenceCredentials | null = null;
 	if (!credsResult.ok) {
 		const missing =
-			credsResult.error.kind === "Auth" &&
 			credsResult.error.authKind === "MissingCredentials"
 				? credsResult.error.missing.join(", ")
 				: "MARKSYNC_USER_EMAIL, MARKSYNC_API_TOKEN, MARKSYNC_CONFLUENCE_BASE_URL";
@@ -287,20 +288,10 @@ export async function runDoctor(
 		});
 	} else {
 		const validateCreds = validateCredsImpl ?? validateCredentials;
-		const validation = await validateCreds(
-			{
-				baseUrl: credsResult.value.baseUrl,
-				authHeader: credsResult.value.authHeader,
-			},
-			{ fetch },
-		);
+		const validation = await validateCreds(credsResult.value, { fetch });
 		if (!validation.ok) {
-			const isInvalid =
-				validation.error.kind === "Auth" &&
-				validation.error.authKind === "InvalidCredentials";
-			const isUnreachable =
-				validation.error.kind === "Auth" &&
-				validation.error.authKind === "AuthUnreachable";
+			const isInvalid = validation.error.authKind === "InvalidCredentials";
+			const isUnreachable = validation.error.authKind === "AuthUnreachable";
 			checks.push({
 				check: DOCTOR_CHECK_IDS.CREDENTIALS,
 				status: "fail",
@@ -308,9 +299,7 @@ export async function runDoctor(
 					? "Confluence rejected the credentials"
 					: isUnreachable
 						? "Auth endpoint unreachable"
-						: validation.error.kind === "Auth"
-							? `Authentication failed: ${validation.error.authKind}`
-							: `Authentication error: ${validation.error.kind}`,
+						: `Authentication failed: ${validation.error.authKind}`,
 				fix: isInvalid
 					? "Verify MARKSYNC_API_TOKEN and MARKSYNC_CONFLUENCE_BASE_URL"
 					: isUnreachable
@@ -318,21 +307,17 @@ export async function runDoctor(
 						: "Verify credentials configuration",
 			});
 		} else {
+			creds = credsResult.value;
 			checks.push({
 				check: DOCTOR_CHECK_IDS.CREDENTIALS,
 				status: "pass",
-				detail: `Authenticated as ${validation.value.email} (masked)`,
+				detail: `Authenticated as ${validation.value.displayName}`,
 			});
 		}
 	}
 
-	// Skip space and parent checks if creds failed
-	const credsPassed =
-		checks.find(
-			(c) => c.check === DOCTOR_CHECK_IDS.CREDENTIALS && c.status === "fail",
-		) === undefined;
-
-	if (!credsPassed) {
+	// Skip downstream checks if credentials failed (resolution or validation).
+	if (!creds) {
 		checks.push(
 			{
 				check: DOCTOR_CHECK_IDS.SPACE_ACCESS,
@@ -354,35 +339,22 @@ export async function runDoctor(
 				status: "skipped",
 				detail: "Skipped: credentials validation failed",
 			},
+			...advisoryChecks(),
 		);
 
-		// Always add warn-only checks
-		checks.push(
-			{
-				check: DOCTOR_CHECK_IDS.PERMISSION_VISIBILITY,
-				status: "warn",
-				detail:
-					"Assuming full read access to the configured subtree; a 403 will be treated as warn+skip, not delete (R-FEA-10)",
-			},
-			{
-				check: DOCTOR_CHECK_IDS.RENDERER,
-				status: "pass",
-				detail:
-					"Renderer availability informational (check not yet implemented)",
-			},
-		);
-
-		const report: DoctorReport = {
+		return Res.ok({
 			checks,
 			summary: computeSummary(checks),
 			worstStatus: deriveWorstStatus(checks),
 			probeCapabilities,
-		};
-		return Res.ok(report);
+		});
 	}
+
+	const createTargetFn = createTargetImpl ?? createTarget;
 
 	// --- Check 4: space-access ---
 	const spaceKeyResult = extractSpaceKey(config);
+	const spaceKey = spaceKeyResult.ok ? spaceKeyResult.value : null;
 	if (!spaceKeyResult.ok) {
 		checks.push({
 			check: DOCTOR_CHECK_IDS.SPACE_ACCESS,
@@ -391,19 +363,9 @@ export async function runDoctor(
 			fix: spaceKeyResult.error.humanMessage,
 		});
 	} else {
-		const spaceKey = spaceKeyResult.value;
-		const createTargetFn = createTargetImpl ?? createTarget;
-		const target = createTargetFn(
-			{
-				baseUrl: credsResult.value.baseUrl,
-				authHeader: credsResult.value.authHeader,
-			},
-			spaceKey,
-		);
-
-		// Probe space access via search
+		const target = createTargetFn(creds, spaceKeyResult.value);
 		const searchResult = await target.searchPages(
-			`type=page and space=${spaceKey}`,
+			`type=page and space=${spaceKeyResult.value}`,
 		);
 		if (!searchResult.ok) {
 			const isUnreachable = searchResult.error.kind === "RemoteUnreachable";
@@ -414,25 +376,26 @@ export async function runDoctor(
 				detail: isUnreachable
 					? "Base URL unreachable"
 					: isForbidden
-						? `Space ${spaceKey} not accessible (403 forbidden)`
+						? `Space ${spaceKeyResult.value} not accessible (403 forbidden)`
 						: `Space access failed: ${searchResult.error.kind}`,
 				fix: isUnreachable
 					? "Check MARKSYNC_CONFLUENCE_BASE_URL and network connectivity"
 					: isForbidden
-						? `Verify spaceKey "${spaceKey}" and account permissions`
+						? `Verify spaceKey "${spaceKeyResult.value}" and account permissions`
 						: "Check space access configuration",
 			});
 		} else {
 			checks.push({
 				check: DOCTOR_CHECK_IDS.SPACE_ACCESS,
 				status: "pass",
-				detail: `Space ${spaceKey} is accessible`,
+				detail: `Space ${spaceKeyResult.value} is accessible`,
 			});
 		}
 	}
 
 	// --- Check 5: parent-page ---
 	const parentPageIdResult = extractParentPageId(config);
+	const parentPageId = parentPageIdResult.ok ? parentPageIdResult.value : null;
 	if (!parentPageIdResult.ok) {
 		checks.push({
 			check: DOCTOR_CHECK_IDS.PARENT_PAGE,
@@ -440,18 +403,9 @@ export async function runDoctor(
 			detail: parentPageIdResult.error.humanMessage,
 			fix: parentPageIdResult.error.humanMessage,
 		});
-	} else {
-		const parentPageId = parentPageIdResult.value;
-		const createTargetFn = createTargetImpl ?? createTarget;
-		const target = createTargetFn(
-			{
-				baseUrl: credsResult.value.baseUrl,
-				authHeader: credsResult.value.authHeader,
-			},
-			spaceKeyResult.value,
-		);
-
-		const pageResult = await target.getPage(parentPageId);
+	} else if (spaceKey) {
+		const target = createTargetFn(creds, spaceKey);
+		const pageResult = await target.getPage(parentPageIdResult.value);
 		if (!pageResult.ok) {
 			const isNotFound = pageResult.error.kind === "RemoteMissing";
 			const isForbidden = pageResult.error.kind === "Auth";
@@ -459,23 +413,30 @@ export async function runDoctor(
 				check: DOCTOR_CHECK_IDS.PARENT_PAGE,
 				status: "fail",
 				detail: isNotFound
-					? `Parent page ${parentPageId} not found (404)`
+					? `Parent page ${parentPageIdResult.value} not found (404)`
 					: isForbidden
-						? `Parent page ${parentPageId} not writable (403 forbidden)`
+						? `Parent page ${parentPageIdResult.value} not writable (403 forbidden)`
 						: `Parent page access failed: ${pageResult.error.kind}`,
 				fix: isNotFound
-					? `Verify parentPageId "${parentPageId}" in marksync.yml`
+					? `Verify parentPageId "${parentPageIdResult.value}" in marksync.yml`
 					: isForbidden
-						? `Check page permissions for ${parentPageId}`
+						? `Check page permissions for ${parentPageIdResult.value}`
 						: "Check parent page configuration",
 			});
 		} else {
 			checks.push({
 				check: DOCTOR_CHECK_IDS.PARENT_PAGE,
 				status: "pass",
-				detail: `Parent page ${parentPageId} exists and is readable`,
+				detail: `Parent page ${parentPageIdResult.value} exists and is readable`,
 			});
 		}
+	} else {
+		// spaceKey not configured — space-access already failed; cannot construct a target.
+		checks.push({
+			check: DOCTOR_CHECK_IDS.PARENT_PAGE,
+			status: "skipped",
+			detail: "Skipped: spaceKey not configured",
+		});
 	}
 
 	// --- Check 6 & 7: content-property and attachment (probe only) ---
@@ -492,22 +453,38 @@ export async function runDoctor(
 				detail: "Skipped: --probe-capabilities flag not set",
 			},
 		);
-	} else {
-		// Self-cleaning capability probe: create scratch page, probe, delete
-		const createTargetFn = createTargetImpl ?? createTarget;
-		const target = createTargetFn(
+	} else if (!spaceKey || !parentPageId) {
+		// Cannot construct a target without both keys (space/parent already failed).
+		checks.push(
 			{
-				baseUrl: credsResult.value.baseUrl,
-				authHeader: credsResult.value.authHeader,
+				check: DOCTOR_CHECK_IDS.CONTENT_PROPERTY,
+				status: "skipped",
+				detail: "Skipped: spaceKey or parentPageId not configured",
 			},
-			spaceKeyResult.value,
+			{
+				check: DOCTOR_CHECK_IDS.ATTACHMENT,
+				status: "skipped",
+				detail: "Skipped: spaceKey or parentPageId not configured",
+			},
 		);
-		const parentPageId = parentPageIdResult.value;
+	} else {
+		// Self-cleaning capability probe (AC-F3-2): create a scratch page, probe, then
+		// delete. The delete is in `finally` so the page is always cleaned up; a delete
+		// failure is advisory (warn note) and never overwrites the probe results or
+		// gates the exit (RSK-2).
+		const target = createTargetFn(creds, spaceKey);
 		const scratchTitle = `marksync-doctor-probe-${Date.now()}`;
 		let scratchPageId: string | null = null;
+		let createFailedKind: string | null = null;
+		let probed = false;
+		let contentStatus: DoctorStatus = "skipped";
+		let contentDetail = "";
+		let contentFix: string | undefined;
+		let attachStatus: DoctorStatus = "skipped";
+		let attachDetail = "";
+		let attachFix: string | undefined;
 
 		try {
-			// Create scratch page
 			const createResult = await target.createPage({
 				parentId: parentPageId,
 				title: scratchTitle,
@@ -515,11 +492,56 @@ export async function runDoctor(
 				message: "marksync doctor capability probe",
 			});
 			if (!createResult.ok) {
+				createFailedKind = createResult.error.kind;
+			} else {
+				scratchPageId = createResult.value.id;
+				const putPropertyResult = await target.putProperty(
+					scratchPageId,
+					"marksync.metadata",
+					'{"probe":true}',
+				);
+				if (putPropertyResult.ok) {
+					contentStatus = "pass";
+					contentDetail = "Content property API is writable";
+				} else {
+					contentStatus = "fail";
+					contentDetail = `Failed to write test property: ${putPropertyResult.error.kind}`;
+					contentFix = "Check content property API permissions";
+				}
+
+				const attachResult = await target.attachmentExists(
+					scratchPageId,
+					"test.png",
+				);
+				if (attachResult.ok) {
+					attachStatus = "pass";
+					attachDetail = "Attachment endpoint is reachable";
+				} else {
+					attachStatus = "fail";
+					attachDetail = `Attachment endpoint probe failed: ${attachResult.error.kind}`;
+					attachFix = "Check attachment API permissions";
+				}
+				probed = true;
+			}
+		} finally {
+			// Self-clean: always attempt to delete the scratch page if it was created.
+			// A failure surfaces as an advisory note on the content-property detail; it
+			// never changes the probe pass/fail outcome (RSK-2).
+			let cleanupNote = "";
+			if (scratchPageId) {
+				const deleteResult = await target.deletePage(scratchPageId);
+				if (!deleteResult.ok) {
+					cleanupNote =
+						" (warn: scratch page cleanup failed — page left behind)";
+				}
+			}
+
+			if (createFailedKind !== null) {
 				checks.push(
 					{
 						check: DOCTOR_CHECK_IDS.CONTENT_PROPERTY,
 						status: "fail",
-						detail: `Failed to create scratch page: ${createResult.error.kind}`,
+						detail: `Failed to create scratch page: ${createFailedKind}`,
 						fix: "Check write permissions on the parent page subtree",
 					},
 					{
@@ -528,129 +550,58 @@ export async function runDoctor(
 						detail: "Skipped: scratch page creation failed",
 					},
 				);
+			} else if (!probed) {
+				checks.push(
+					{
+						check: DOCTOR_CHECK_IDS.CONTENT_PROPERTY,
+						status: "fail",
+						detail: "Capability probe did not complete",
+						fix: "Re-run with --probe-capabilities",
+					},
+					{
+						check: DOCTOR_CHECK_IDS.ATTACHMENT,
+						status: "skipped",
+						detail: "Skipped: capability probe did not complete",
+					},
+				);
 			} else {
-				scratchPageId = createResult.value.pageId;
-
-				// Probe content property
-				const putPropertyResult = await target.putProperty(
-					scratchPageId,
-					"marksync.metadata",
-					'{"probe":true}',
-				);
-				if (!putPropertyResult.ok) {
-					checks.push({
+				checks.push(
+					{
 						check: DOCTOR_CHECK_IDS.CONTENT_PROPERTY,
-						status: "fail",
-						detail: `Failed to write test property: ${putPropertyResult.error.kind}`,
-						fix: "Check content property API permissions",
-					});
-				} else {
-					checks.push({
-						check: DOCTOR_CHECK_IDS.CONTENT_PROPERTY,
-						status: "pass",
-						detail: "Content property API is writable",
-					});
-				}
-
-				// Probe attachment endpoint (check if it responds)
-				const attachResult = await target.attachmentExists(
-					scratchPageId,
-					"test.png",
+						status: contentStatus,
+						detail: contentDetail + cleanupNote,
+						...(contentFix !== undefined ? { fix: contentFix } : {}),
+					},
+					{
+						check: DOCTOR_CHECK_IDS.ATTACHMENT,
+						status: attachStatus,
+						detail: attachDetail,
+						...(attachFix !== undefined ? { fix: attachFix } : {}),
+					},
 				);
-				if (!attachResult.ok) {
-					checks.push({
-						check: DOCTOR_CHECK_IDS.ATTACHMENT,
-						status: "fail",
-						detail: `Attachment endpoint probe failed: ${attachResult.error.kind}`,
-						fix: "Check attachment API permissions",
-					});
-				} else {
-					checks.push({
-						check: DOCTOR_CHECK_IDS.ATTACHMENT,
-						status: "pass",
-						detail: "Attachment endpoint is reachable",
-					});
-				}
-
-				// Delete scratch page (self-cleaning)
-				const deleteResult = await target.deletePage(scratchPageId);
-				if (!deleteResult.ok) {
-					// Warn but don't fail — the probe already succeeded
-					checks.push({
-						check: DOCTOR_CHECK_IDS.ATTACHMENT,
-						status: checks.find(
-							(c) =>
-								c.check === DOCTOR_CHECK_IDS.ATTACHMENT && c.status === "pass",
-						)
-							? "pass"
-							: "fail",
-						detail: checks.find(
-							(c) =>
-								c.check === DOCTOR_CHECK_IDS.ATTACHMENT && c.status === "pass",
-						)
-							? "Attachment endpoint is reachable (scratch page deletion failed — left behind)"
-							: `Attachment endpoint probe failed: ${attachResult.error.kind} (scratch page deletion failed — left behind)`,
-					});
-				}
-			}
-		} finally {
-			// Ensure scratch page is deleted even if an error occurred
-			if (scratchPageId) {
-				const deleteResult = await target.deletePage(scratchPageId);
-				if (!deleteResult.ok) {
-					// If we already reported a warn about leftover, skip; otherwise report
-					const hasLeftoverWarn = checks.some(
-						(c) =>
-							c.check === DOCTOR_CHECK_IDS.ATTACHMENT &&
-							c.detail.includes("scratch page deletion failed"),
-					);
-					if (!hasLeftoverWarn) {
-						checks.push({
-							check: DOCTOR_CHECK_IDS.ATTACHMENT,
-							status: checks.find(
-								(c) =>
-									c.check === DOCTOR_CHECK_IDS.ATTACHMENT &&
-									c.status === "pass",
-							)
-								? "pass"
-								: "fail",
-							detail: checks.find(
-								(c) =>
-									c.check === DOCTOR_CHECK_IDS.ATTACHMENT &&
-									c.status === "pass",
-							)
-								? "Attachment endpoint is reachable (scratch page deletion failed — left behind)"
-								: (checks.find(
-										(c) =>
-											c.check === DOCTOR_CHECK_IDS.ATTACHMENT &&
-											c.status === "fail",
-									)?.detail ??
-									"Attachment endpoint probe failed (scratch page deletion failed)"),
-						});
-					}
-				}
 			}
 		}
 	}
 
 	// --- Check 8: permission-visibility (warn-only) ---
-	const createTargetFn = createTargetImpl ?? createTarget;
-	const target = createTargetFn(
-		{
-			baseUrl: credsResult.value.baseUrl,
-			authHeader: credsResult.value.authHeader,
-		},
-		spaceKeyResult.value,
-	);
-	const parentPageId = parentPageIdResult.value;
-	const restrictionsResult = await target.getRestrictions(parentPageId);
-	if (restrictionsResult.ok && restrictionsResult.value) {
-		checks.push({
-			check: DOCTOR_CHECK_IDS.PERMISSION_VISIBILITY,
-			status: "warn",
-			detail:
-				"Restrictions detected on parent page — assuming full read access to the configured subtree; a 403 will be treated as warn+skip, not delete (R-FEA-10)",
-		});
+	if (spaceKey && parentPageId) {
+		const target = createTargetFn(creds, spaceKey);
+		const restrictionsResult = await target.getRestrictions(parentPageId);
+		if (restrictionsResult.ok && restrictionsResult.value) {
+			checks.push({
+				check: DOCTOR_CHECK_IDS.PERMISSION_VISIBILITY,
+				status: "warn",
+				detail:
+					"Restrictions detected on parent page — assuming full read access to the configured subtree; a 403 will be treated as warn+skip, not delete (R-FEA-10)",
+			});
+		} else {
+			checks.push({
+				check: DOCTOR_CHECK_IDS.PERMISSION_VISIBILITY,
+				status: "warn",
+				detail:
+					"Assuming full read access to the configured subtree; a 403 will be treated as warn+skip, not delete (R-FEA-10)",
+			});
+		}
 	} else {
 		checks.push({
 			check: DOCTOR_CHECK_IDS.PERMISSION_VISIBILITY,
@@ -668,11 +619,10 @@ export async function runDoctor(
 			"Renderer availability informational (MS-0002 uses Kroki remote rendering; check not yet implemented)",
 	});
 
-	const report: DoctorReport = {
+	return Res.ok({
 		checks,
 		summary: computeSummary(checks),
 		worstStatus: deriveWorstStatus(checks),
 		probeCapabilities,
-	};
-	return Res.ok(report);
+	});
 }

@@ -47,15 +47,11 @@ function mockTarget(overrides: Partial<TargetSystem> = {}): TargetSystem {
 		getProperty: overrides.getProperty ?? (() => ({ ok: true, value: "{}" })),
 		putProperty:
 			overrides.putProperty ?? (() => ({ ok: true, value: undefined })),
-		deleteProperty:
-			overrides.deleteProperty ?? (() => ({ ok: true, value: undefined })),
 		attachmentExists:
 			overrides.attachmentExists ?? (() => ({ ok: true, value: false })),
 		uploadAttachment:
 			overrides.uploadAttachment ??
 			(() => ({ ok: true, value: { id: "att-1" } })),
-		deleteAttachment:
-			overrides.deleteAttachment ?? (() => ({ ok: true, value: undefined })),
 		getRestrictions:
 			overrides.getRestrictions ?? (() => ({ ok: true, value: [] })),
 		listAttachments:

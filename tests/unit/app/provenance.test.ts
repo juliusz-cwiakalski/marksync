@@ -74,6 +74,7 @@ describe("applyPlan provenance wiring (TC-UNIT-002)", () => {
 				title: "Test",
 				version: 1,
 			}),
+		deletePage: async () => Res.ok(undefined),
 		getProperty: async () => Res.ok(undefined),
 		putProperty: async () => Res.ok(undefined),
 		uploadAttachment: async () =>

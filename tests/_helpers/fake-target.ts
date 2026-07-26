@@ -282,6 +282,15 @@ export class FakeTarget implements TargetSystem {
 		);
 	}
 
+	deletePage(pageId: string): Promise<Result<void, MarkSyncError>> {
+		if (!this.pages.has(pageId)) {
+			return Promise.resolve(Res.err({ kind: "RemoteMissing", pageId }));
+		}
+		this.pages.delete(pageId);
+		this.versionCounter.delete(pageId);
+		return Promise.resolve(Res.ok(undefined));
+	}
+
 	getProperty(
 		pageId: string,
 		key: string,
