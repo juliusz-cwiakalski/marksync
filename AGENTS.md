@@ -173,6 +173,8 @@ doc/
 | [.ai/agent/code-review-instructions.md](.ai/agent/code-review-instructions.md) | Repo-specific code review checklist |
 | [doc/guides/dev-environment.md](doc/guides/dev-environment.md) | Local dev setup, prerequisites, scripts |
 | [doc/guides/security-baseline.md](doc/guides/security-baseline.md) | Secret management, redaction, dependency audit |
+| [doc/guides/release-runbook.md](doc/guides/release-runbook.md) | Tag-triggered binary release pipeline (GH-32) |
+| [doc/guides/binary-release-signing.md](doc/guides/binary-release-signing.md) | Windows Authenticode signing plug-in point |
 | [doc/guides/accessibility-baseline.md](doc/guides/accessibility-baseline.md) | CLI output accessibility, provenance panel contract |
 | [doc/decisions/00-index.md](doc/decisions/00-index.md) | Decision records index (ADR/PDR/TDR registry) |
 | [.env.example](.env.example) | Canonical environment variable list (no values) |
