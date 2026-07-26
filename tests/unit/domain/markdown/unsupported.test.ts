@@ -27,8 +27,9 @@ function root(children: Root["children"]): Root {
 function el(
 	tagName: string,
 	children: Root["children"] = [],
+	properties: Record<string, unknown> = {},
 ): Root["children"][number] {
-	return { type: "element", tagName, properties: {}, children };
+	return { type: "element", tagName, properties, children };
 }
 
 describe("TC-UNSUP-001 (AC-F5-1) — unsupported element → UnsupportedConstruct", () => {
@@ -228,8 +229,10 @@ describe("TC-ADVERSARIAL-003 (AC-F2-1) — multi-node depth-first collection", (
 			el("blockquote", [
 				el("p", [el("math")]), // Deep in first branch
 			]),
-			el("section", [ // Second branch
-				el("dl", [ // Nested
+			el("section", [
+				// Second branch
+				el("dl", [
+					// Nested
 					el("dt", ["term"]),
 				]),
 			]),
@@ -248,11 +251,7 @@ describe("TC-ADVERSARIAL-003 (AC-F2-1) — multi-node depth-first collection", (
 	});
 
 	test("every entry has correct kind, construct, and sourcePath", () => {
-		const tree = root([
-			el("math"),
-			el("dl"),
-			el("section"),
-		]);
+		const tree = root([el("math"), el("dl"), el("section")]);
 
 		const allHits = findAllUnsupported(tree, SRC);
 
@@ -268,10 +267,7 @@ describe("TC-ADVERSARIAL-003 (AC-F2-1) — multi-node depth-first collection", (
 	test("depth-first traversal order is consistent across runs", () => {
 		// Determinism: same tree, same order every time
 		const tree = root([
-			el("ul", [
-				el("li", [el("math")]),
-				el("li", [el("dl")]),
-			]),
+			el("ul", [el("li", [el("math")]), el("li", [el("dl")])]),
 			el("section"),
 		]);
 
@@ -283,6 +279,114 @@ describe("TC-ADVERSARIAL-003 (AC-F2-1) — multi-node depth-first collection", (
 
 		for (let i = 0; i < firstRun.length; i++) {
 			expect(firstRun[i]).toEqual(secondRun[i]);
+		}
+	});
+});
+
+describe("TC-ADVERSARIAL-010 (AC-F3-2 / DEC-2) — hand-built macro HAST classification", () => {
+	test("toc macro is classified as UnsupportedConstruct", () => {
+		const tree = root([
+			el("ac:structured-macro", [], {
+				"ac:name": "toc",
+			}),
+		]);
+		const hits = findAllUnsupported(tree, SRC);
+		expect(hits.length).toBe(1);
+		expect(hits[0]).toEqual({
+			kind: "UnsupportedConstruct",
+			construct: "ac:structured-macro",
+			sourcePath: SRC,
+		});
+	});
+
+	test("info macro is classified as UnsupportedConstruct", () => {
+		const tree = root([
+			el("ac:structured-macro", [], {
+				"ac:name": "info",
+			}),
+		]);
+		const hits = findAllUnsupported(tree, SRC);
+		expect(hits.length).toBe(1);
+		expect(hits[0]).toEqual({
+			kind: "UnsupportedConstruct",
+			construct: "ac:structured-macro",
+			sourcePath: SRC,
+		});
+	});
+
+	test("code macro is classified as UnsupportedConstruct", () => {
+		const tree = root([
+			el("ac:structured-macro", [], {
+				"ac:name": "code",
+			}),
+		]);
+		const hits = findAllUnsupported(tree, SRC);
+		expect(hits.length).toBe(1);
+		expect(hits[0]).toEqual({
+			kind: "UnsupportedConstruct",
+			construct: "ac:structured-macro",
+			sourcePath: SRC,
+		});
+	});
+
+	test("expand macro is classified as UnsupportedConstruct", () => {
+		const tree = root([
+			el("ac:structured-macro", [], {
+				"ac:name": "expand",
+			}),
+		]);
+		const hits = findAllUnsupported(tree, SRC);
+		expect(hits.length).toBe(1);
+		expect(hits[0]).toEqual({
+			kind: "UnsupportedConstruct",
+			construct: "ac:structured-macro",
+			sourcePath: SRC,
+		});
+	});
+
+	test("jira macro is classified as UnsupportedConstruct", () => {
+		const tree = root([
+			el("ac:structured-macro", [], {
+				"ac:name": "jira",
+			}),
+		]);
+		const hits = findAllUnsupported(tree, SRC);
+		expect(hits.length).toBe(1);
+		expect(hits[0]).toEqual({
+			kind: "UnsupportedConstruct",
+			construct: "ac:structured-macro",
+			sourcePath: SRC,
+		});
+	});
+
+	test("gliffy app tag is classified as UnsupportedConstruct", () => {
+		const tree = root([
+			el("ac:structured-macro", [], {
+				"ac:name": "gliffy",
+			}),
+		]);
+		const hits = findAllUnsupported(tree, SRC);
+		expect(hits.length).toBe(1);
+		expect(hits[0]).toEqual({
+			kind: "UnsupportedConstruct",
+			construct: "ac:structured-macro",
+			sourcePath: SRC,
+		});
+	});
+
+	test("no silent drop for all macros — every node appears in classification", () => {
+		const tree = root([
+			el("ac:structured-macro", [], { "ac:name": "toc" }),
+			el("ac:structured-macro", [], { "ac:name": "info" }),
+			el("ac:structured-macro", [], { "ac:name": "code" }),
+			el("ac:structured-macro", [], { "ac:name": "expand" }),
+			el("ac:structured-macro", [], { "ac:name": "jira" }),
+		]);
+		const hits = findAllUnsupported(tree, SRC);
+		expect(hits.length).toBe(5);
+		for (const hit of hits) {
+			expect(hit.kind).toBe("UnsupportedConstruct");
+			expect(hit.construct).toBe("ac:structured-macro");
 		}
 	});
 });
