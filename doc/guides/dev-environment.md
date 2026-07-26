@@ -5,13 +5,13 @@ ados_distribution: redistributable
 id: DEV-ENVIRONMENT
 status: Draft
 created: 2026-07-05
-last_updated: 2026-07-15
+last_updated: 2026-07-26
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, TDR-0002, TDR-0003, TDR-0004, TDR-0005, TDR-0006, TDR-0008]
-  related_changes: [GH-14, GH-81]
+  related_changes: [GH-14, GH-32, GH-81]
   summary: "Developer environment setup guide — prerequisites, install, scripts, and common workflows for MarkSync contributors."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -83,7 +83,7 @@ _All scripts are defined in `package.json`. Run them as `bun run <script>`._
 | `bun test tests/e2e-mock/` | Mock e2e — full-pipeline scenarios vs an in-process Confluence mock (secrets-free) | CI `e2e-mock` job (`ci.yml`); mandatory on every PR |
 | `bun test tests/e2e/` | Live-sandbox E2E (requires credentials) | Separate gate (`run-e2e.yml`) |
 | `bun test --update-snapshots` | Update golden-fixture snapshots | Explicit, reviewed action |
-| `bun run build` | `bun build --compile` | Single-binary build — _not yet defined (lands MS2-E5-S4)_ |
+| `bash scripts/build-binaries.sh --target all` | `bun build --compile` per OS/arch | Cross-compile the real CLI to linux-x64 + linux-arm64 + win-x64 (+ `SHA256SUMS`); output under `./dist/` (GH-32) |
 | `bun run bench` | repo-local benchmark gate (TDR-0004 §8) | _Not yet defined_ |
 
 Conventional Commits are enforced: the husky `commit-msg` hook (local) and the
@@ -122,9 +122,9 @@ marksync login --keyring
 # From source (no compile):
 bun run src/cli/index.ts plan --config marksync.yaml --dry-run
 
-# Compiled binary:
-bun run build
-./dist/marksync plan --config marksync.yaml --dry-run
+# Compiled binary (cross-compile the matrix into ./dist/):
+bash scripts/build-binaries.sh --target all
+./dist/marksync-linux-x64 plan --config marksync.yaml --dry-run
 ```
 
 ## IDE recommendations
@@ -183,10 +183,17 @@ Settings (`.vscode/settings.json` target):
 
 ### Cross-compile fails
 
-- Bun `build --compile` cross-compile matrix is evolving. Pin the Bun version
-  per release.
+- The production build script is `scripts/build-binaries.sh` (GH-32). It is
+  validated against Bun **1.2.23** (pinned in `package.json#engines.bun` + CI) —
+  do not use the spike's one-time `1.1.34` validation pin.
+- `linux-arm64` is a stretch target: if the pinned Bun rejects
+  `bun-linux-arm64`, the script records `arm64: UNAVAILABLE` and continues
+  x64-only (DEC-3) rather than failing the build.
 - Check [ADR-0001](../decisions/ADR-0001-implementation-language-and-runtime.md)
-  for known cross-compile issues.
+  for known cross-compile issues; see
+  [binary release signing](./binary-release-signing.md) for the Windows
+  Authenticode plug-in point and [release runbook](./release-runbook.md) for
+  cutting a release.
 
 ## Contributing
 
