@@ -5,11 +5,11 @@ ados_distribution: project-generated
 id: SPEC-CONFLUENCE-ADAPTER
 status: Current
 created: 2026-07-06
-last_updated: 2026-07-14
+last_updated: 2026-07-15
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: [GH-21, GH-26, GH-27, GH-66, GH-71]
+  related_changes: [GH-21, GH-26, GH-27, GH-30, GH-66, GH-71]
   decisions: [ADR-0005, ADR-0006, ADR-0010]
   contracts: []
 ---
@@ -45,9 +45,10 @@ transport surface — client, per-surface services, and the provenance formatter
 
 ### 3.1 Capabilities
 
-- **Page CRUD:** create, read, update, move via the v2 REST API. `updatePage`
-  carries the current `title` (the v2 PUT requires it) and sends
-  `version.number = baseVersion + 1`.
+- **Page CRUD:** create, read, update, move via the v2 REST API, and delete via
+  the v1 REST API (`DELETE /content/{id}` — used by the `doctor` self-cleaning
+  scratch-page probe, GH-30). `updatePage` carries the current `title` (the v2
+  PUT requires it) and sends `version.number = baseVersion + 1`.
 - **Body rendering:** `renderBody(hast, opts)` delegates to the GH-20 Storage
   renderer (`renderStorage`) and returns `{ body, hash, warnings }`. The input is
   canonical HAST (not MDAST) — the app layer runs `parseMarkdown` → `mdastToHast`
@@ -92,6 +93,7 @@ transport surface — client, per-surface services, and the provenance formatter
 | Operation | API | Notes |
 |---|---|---|
 | Page create/read/update/move | v2 | Primary surface |
+| Page delete | v1 | `DELETE /content/{id}` — `doctor` self-cleaning scratch-page probe (GH-30) |
 | Content properties | v1 | `marksync.metadata` key-based GET/POST/PUT; the v2 path expects a property ID, not a key |
 | Attachments upload/update/list | v1-only | Not in v2 |
 | Search (CQL) | v1-only | Not in v2 |
@@ -140,7 +142,7 @@ adapter-agnostic value types (`Page`, `CreatePageRequest`, `UpdatePageRequest`
 | Component | Module | Responsibility |
 |---|---|---|
 | ConfluenceClient | `src/infra/confluence/client.ts` | Native-`fetch` HTTP transport; `v1`/`v2` URL builders rooted at `baseUrl`; `authHeader` injection; redacted logging; 429 backoff → `RateLimited`; 5xx retry → `RemoteUnreachable`; 401/403 never retried |
-| PageService | `src/infra/confluence/pages.ts` | Page create/read/update/move via v2; the 409-conflict parse → typed `Conflict`; 403 → `Forbidden`; 404 → `RemoteMissing` |
+| PageService | `src/infra/confluence/pages.ts` | Page create/read/update/move via v2 + delete via v1 (`DELETE /content/{id}`); the 409-conflict parse → typed `Conflict`; 403 → `Forbidden`; 404 → `RemoteMissing` |
 | PropertyService | `src/infra/confluence/properties.ts` | `marksync.metadata` string content-property read/write via v1 (key-based GET/POST/PUT with `version.number` handling; lock cross-check) |
 | AttachmentService | `src/infra/confluence/attachments.ts` | Multipart upload (v1); 400-duplicate-filename idempotency signal → "already exists"; existence + list. `/data` update removed (hash-naming makes it unnecessary: changed bytes → new filename → fresh create) |
 | SearchService | `src/infra/confluence/search.ts` | CQL page discovery via v1 (minimal) |

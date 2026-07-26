@@ -5,7 +5,7 @@ ados_distribution: redistributable
 id: SECURITY-BASELINE
 status: Draft
 created: 2026-07-05
-last_updated: 2026-07-13
+last_updated: 2026-07-15
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
@@ -237,7 +237,7 @@ safety control: it prevents accidental sync from feature branches or
 work-in-progress branches.
 
 - Override via `MARKSYNC_ALLOW_BRANCHES` env (CI use case).
-- `doctor` reports the current branch and whether it is allowed.
+- The branch gate is enforced at plan/sync time (`computePlan` raises `ForbiddenBranch` → exit 2); `doctor` does not gate on branch in `MS-0002`.
 
 ## Logging
 

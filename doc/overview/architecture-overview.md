@@ -6,13 +6,13 @@ ados_distribution: redistributable
 id: ARCHITECTURE-OVERVIEW
 status: Draft
 created: 2026-07-04
-last_updated: 2026-07-14
+last_updated: 2026-07-15
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005, ADR-0006, TDR-0003, ADR-0010]
-  related_changes: [GH-18, GH-20, GH-21, GH-22, GH-23, GH-24, GH-26, GH-27, GH-63, GH-64, GH-66, GH-69, GH-76, GH-77]
+  related_changes: [GH-18, GH-20, GH-21, GH-22, GH-23, GH-24, GH-26, GH-27, GH-30, GH-63, GH-64, GH-66, GH-69, GH-76, GH-77]
   summary: "Architecture overview — ports-and-adapters CLI; Markdown→Storage pipeline; Confluence Cloud adapter; UUID+lock state model; no hosted backend."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -109,7 +109,7 @@ section below govern residence and dependency direction._
 | Component | Container | Tier | Responsibility |
 |---|---|---|---|
 | Confluence client | MarkSync binary | infrastructure | `ConfluenceClient` → Cloud REST v2/v1; native `fetch`, `v1`/`v2` URL builders rooted at `baseUrl`, `authHeader` injection, redacted logging, 429 backoff → `RateLimited`, 5xx retry → `RemoteUnreachable`; 401/403 never retried *(delivered — GH-21)* |
-| Confluence page service | MarkSync binary | infrastructure (adapter) | `PageService` (v2): page create/read/update/move + the brand-defining 409-conflict parse → typed `Conflict`; 403 → `Forbidden`; 404 → `RemoteMissing` *(delivered — GH-21)* |
+| Confluence page service | MarkSync binary | infrastructure (adapter) | `PageService` (v2): page create/read/update/delete/move + the brand-defining 409-conflict parse → typed `Conflict`; 403 → `Forbidden`; 404 → `RemoteMissing` (delete via v1 `DELETE /content/{id}` — the `doctor` scratch-page self-clean, GH-30) *(delivered — GH-21)* |
 | Confluence content property manager | MarkSync binary | infrastructure (adapter) | `PropertyService` (v1, key-based): `marksync.metadata` string property read/write (lock cross-check data); `getProperty` → `string | undefined`; `putProperty` create-or-update (POST, and on 409 GET `version.number` → PUT with incremented version) *(delivered — GH-21; switched to v1 — GH-66)* |
 | Confluence attachment manager | MarkSync binary | infrastructure | `AttachmentService` (v1-only): multipart upload, hash-named dedup, 400-duplicate idempotency signal → "already exists", existence + list. Changed bytes → new hash-named file → fresh create (no in-place `/data` update by design) *(delivered — GH-21)* |
 | Confluence Storage renderer | MarkSync binary | infrastructure (adapter) | HAST → Confluence Storage XHTML string-builder visitor (ADR-0005); `renderStorage(hast, opts) → { body, hash, warnings }` (`src/infra/confluence/render/storage.ts`); CDATA code bodies, omitted `ac:schema-version`/`ac:macro-id`, `<ac:task-list>` as its own block *(delivered — GH-20)* |
@@ -229,6 +229,7 @@ the integration-scenarios docs (`doc/inception/integration-scenarios/`)._
 | app → target system port | getPage | `getPage(id)` | `Result<Page, MarkSyncError>` | `RemoteMissing` (404), `Forbidden` (403), `RateLimited`, `RemoteUnreachable` |
 | app → target system port | createPage | `createPage(req)` | `Result<Page, MarkSyncError>` | `Forbidden`, `Conflict`, `RateLimited`, `RemoteUnreachable` |
 | app → target system port | updatePage | `updatePage(req)` (`req` carries `pageId`, `title`, `body`, `baseVersion`; v2 PUT requires `title`) | `Result<Page, MarkSyncError>` | `Conflict` (409 → drift), `Forbidden`, `RateLimited`, `RemoteUnreachable` |
+| app → target system port | deletePage | `deletePage(pageId)` | `Result<void, MarkSyncError>` | `RemoteMissing` (404), `Forbidden` (403), `RateLimited`, `RemoteUnreachable` (v1 `DELETE /wiki/rest/api/content/{id}`; required by the `doctor` self-cleaning scratch-page probe) *(delivered — GH-30)* |
 | app → target system port | movePage | `movePage(req)` | `Result<Page, MarkSyncError>` | `Forbidden`, `RateLimited`, `RemoteUnreachable` |
 | app → target system port | getProperty | `getProperty(pageId, key)` | `Result<string \| undefined, MarkSyncError>` | `Forbidden`, `RateLimited`, `RemoteUnreachable` (missing key → `ok(undefined)`) |
 | app → target system port | putProperty | `putProperty(pageId, key, value)` | `Result<void, MarkSyncError>` | `TooLarge`, `Forbidden`, `RateLimited`, `RemoteUnreachable` (create-or-update over v1; a property-PUT 409 is the rare concurrent race → `RemoteUnreachable`, not `Conflict` — GH-66 DEC-6) |
@@ -265,6 +266,7 @@ converter. The `Renderer` interface mirrors spec §9.11.
 | Concurrency control (CI) | push executor (wiring), concurrency gates (`src/domain/state/`), lock store |
 | Provenance (page history + visible panel + property) | Confluence page-history provenance, push executor (panel injection + property enrichment) |
 | `repair-state` | lock/journal store |
+| `doctor` health-check | app (`runDoctor` orchestration), credential provider, config loader, Confluence adapter (read + opt-in self-cleaning scratch-page probe) *(delivered — GH-30)* |
 | Reverse sync (later) | Confluence reverse converter, pull/conflict service |
 | JSON/machine-readable output | output service, CLI adapter |
 
