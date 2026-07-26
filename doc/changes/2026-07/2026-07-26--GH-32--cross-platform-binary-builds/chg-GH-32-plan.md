@@ -3,9 +3,9 @@
 # MIT License - see LICENSE file for full terms
 ados_distribution: project-generated
 id: chg-GH-32-cross-platform-binary-builds
-status: Proposed
+status: Updated
 created: 2026-07-26T19:30:00Z
-last_updated: 2026-07-26T19:30:00Z
+last_updated: 2026-07-26T20:15:00Z
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 labels: [MS-0002, release-pipeline, binary-builds, bun-compile, ci, sbom, cross-platform]
@@ -29,8 +29,10 @@ summary: >
   commit-tracked size/cold-start regression data, a documented Windows Authenticode signing
   plug-in point, and a per-release SBOM + SHA256 checksums — so MS-0002 honors ADR-0001's
   distribution promise (C-2 single binary no runtime; C-3 cross-platform) as downloadable
-  artifacts. Build/CI/release-engineering ONLY: no src/ domain-logic change (zero preferred).
-  Bun pin 1.2.23 (NOT the spike's 1.1.34); clean-OS image debian:stable-slim (NOT debian:slim).
+  artifacts. Build/CI/release-engineering ONLY: no src/ DOMAIN-LOGIC change — the sole src/ touch is
+  a trivial version-source wiring in src/cli/commands/router.ts (carved out by spec G-7/§16 as the
+  "trivial version-embed exception"). Bun pin 1.2.23 (NOT the spike's 1.1.34); clean-OS image
+  debian:stable-slim (NOT debian:slim).
 version_impact: minor
 ---
 
@@ -51,10 +53,14 @@ signing plug-in point, and adds a tag-triggered `release.yml` that attaches bina
 `SHA256SUMS` + a `syft`/CycloneDX SBOM to a GitHub Release.
 
 **This is build / CI / release engineering only.** It introduces **no `src/` domain logic**
-(spec G-7 / NG-8): zero `src/` change is preferred; the only non-infra touch is the `package.json`
-version bump (0.7.0 → 0.8.0). Every phase traces to spec acceptance criteria (AC-BUILD/RUN1/RUN2/
-SIZE/START/COMP/SIGN/REL/CI/SEC), functional capabilities (F-1…F-6), NFRs (NFR-CC/RUN/SIZE/START/
-SBOM/CHK/SEC/MAINT), and test-plan cases (TC-BUILD/RUN/SIZE/START/REL/SIGN/CI/SEC).
+(spec G-7 / NG-8). The sole `src/` touch is a **trivial version-source wiring** in
+`src/cli/commands/router.ts` (Phase 1 task 1.3) — explicitly carved out by spec G-7/§16 as the
+"trivial version-embed exception." It permanently eliminates the version-drift hazard (the existing
+code comment says "until a runtime version source is wired" — this plan wires it) and makes
+`package.json` the single source of truth that the version bump (Phase 6, 0.7.0 → 0.8.0) edits.
+Every phase traces to spec acceptance criteria (AC-BUILD/RUN1/RUN2/SIZE/START/COMP/SIGN/REL/CI/SEC),
+functional capabilities (F-1…F-6), NFRs (NFR-CC/RUN/SIZE/START/SBOM/CHK/SEC/MAINT), and test-plan
+cases (TC-BUILD/RUN/SIZE/START/REL/SIGN/CI/SEC).
 
 **How this connects to the change spec & test plan:** ACs/TCs/F-/NFR-/DEC-/RSK- IDs are
 referenced (not duplicated) from `chg-GH-32-spec.md` and `chg-GH-32-test-plan.md`. The coder
@@ -102,8 +108,9 @@ version (spec OQ-1 fallback).
 ### In Scope
 
 - **F-1** — Refine `scripts/build-binaries.sh`: repoint entry `./src/cli.ts` → `src/cli/index.ts`;
-  embed the `package.json` version; add `linux-arm64` (DEC-3); keep `SHA256SUMS` accumulator +
-  signing-TODO marker.
+  add `linux-arm64` (DEC-3); keep `SHA256SUMS` accumulator + signing-TODO marker. (The version embed
+  is wired in `src/cli/commands/router.ts` per Phase 1 task 1.3 — the spec G-7/§16 carve-out — not
+  by build-script plumbing.)
 - **F-2** — Clean-OS runtime smoke CI jobs: linux-x64 on Docker `debian:stable-slim` (no runtime;
   `--version` + `doctor --json` exit 0) and win-x64.exe on a real `windows-latest` runner
   (`--version` exit 0; closes spike DEC-3).
@@ -129,9 +136,13 @@ version (spec OQ-1 fallback).
 
 ### Constraints
 
-- **C-NO-SRC** — No `src/` domain-logic change (spec G-7 / NG-8). Verified at the review gate by
+- **C-NO-SRC-DOMAIN** — No `src/` DOMAIN-LOGIC change (spec G-7 / NG-8). The ONLY permitted `src/`
+  touch is the version-source wiring in `src/cli/commands/router.ts` (Phase 1 task 1.3) — explicitly
+  carved out by spec G-7/§16 as the "trivial version-embed exception." No domain/app/infra logic
+  changes (no command handlers, no serializers, no infra adapters). Verified at the review gate by
   `git diff` showing only `scripts/`, `.github/workflows/`, `.benchmarks/`, `doc/guides/`,
-  `package.json` (version only), and the plan/spec/test-plan artifacts.
+  `package.json` (version only), the one `src/cli/commands/router.ts` version-source edit, and the
+  plan/spec/test-plan artifacts.
 - **C-PIN-1** — Bun **1.2.23** is the single release/smoke pin, matching `package.json#engines.bun`
   + `ci.yml` (DEC-1). The spike's 1.1.34 must NOT propagate. TC-BUILD-001 asserts it.
 - **C-IMG-1** — Clean-OS linux image = `debian:stable-slim` (DEC-2); `debian:slim` is not published.
@@ -190,8 +201,9 @@ version (spec OQ-1 fallback).
 > invoked as `/run-plan GH-32 execute all remaining phases no review`.
 >
 > **Commit types** (TDR-0008 Conventional Commits, enforced by husky + commitlint + CI): this is
-> infra work → `build`, `ci`, `docs`, `chore`. No `feat` (no user-facing `src/` code). The version
-> bump is `chore(release):`.
+> infra work → `build`, `ci`, `docs`, `chore`. No `feat` — the sole `src/` touch (the Phase 1
+> `router.ts` version-source wiring) is release plumbing, not a user-facing feature, so it rides the
+> Phase 1 `build(scripts,cli)` commit. The version bump is `chore(release):`.
 >
 > **Version-pin reminder (DEC-1):** every CI/workflow step that sets up Bun uses
 > `oven-sh/setup-bun@v2` with `bun-version: "1.2.23"` — never the spike's 1.1.34.
@@ -202,12 +214,13 @@ version (spec OQ-1 fallback).
 
 ---
 
-### Phase 1: Refine `scripts/build-binaries.sh` (real CLI entry + arm64 + version embed)
+### Phase 1: Refine `scripts/build-binaries.sh` + wire `router.ts` version source (real CLI entry + arm64)
 
 **Goal**: Turn the GH-13 skeleton into a real-CLI build script. Repoint the entry from the
-placeholder `./src/cli.ts` to `src/cli/index.ts`, add the `linux-arm64` target (DEC-3), embed the
-`package.json` version so `--version` reports the real release version (DM-3), and retain the
-`SHA256SUMS` accumulator + signing-TODO marker. Verify it runs locally on Bun 1.2.23. F-1;
+placeholder `./src/cli.ts` to `src/cli/index.ts`, add the `linux-arm64` target (DEC-3), and wire
+the `package.json` version into `src/cli/commands/router.ts` (the sole `src/` touch — spec G-7/§16
+carve-out) so `--version` reports the real release version (DM-3), and retain the `SHA256SUMS`
+accumulator + signing-TODO marker. Verify it runs locally on Bun 1.2.23. F-1;
 AC-BUILD-1 (local half); story scope item 1.
 
 **Tasks**:
@@ -224,14 +237,30 @@ AC-BUILD-1 (local half); story scope item 1.
     in the script output and continue (x64-only) rather than `set -e`-failing the whole script —
     arm64 is a stretch, not a gate (DEC-3). Emit a clear `arm64: UNAVAILABLE — recorded for
     MS-0003` line.
-- [ ] **1.3** Embed the version from `package.json` so the compiled binary's `--version` matches
-  `package.json#version` (DM-3; RSK-7). Mechanism: `bun build --compile` embeds the process env at
-  build time — pass the version through a define, e.g.
-  `MARKSYNC_VERSION="$(node -p "require('./package.json').version")"` (or a Bun-native read) and
-  `--define "process.env.MARKSYNC_VERSION=$MARKSYNC_VERSION"` on each `bun build` invocation. If the
-  CLI already reads its version from `package.json` at runtime via an import, confirm that path
-  survives `--compile` (it does for JSON imports) and prefer it (zero new wiring). Either way, the
-  binary MUST print `package.json#version` for `--version`.
+- [ ] **1.3** **Wire a runtime version source in `src/cli/commands/router.ts`** — the ONE permitted
+  `src/` touch (C-NO-SRC-DOMAIN carve-out; spec G-7/§16 "trivial version-embed exception"). Today
+  `router.ts` hardcodes `export const CLI_VERSION = "0.7.0"` with a stale comment reading "Kept in
+  lock-step with `package.json` until a runtime version source is wired" — this task wires that
+  source. Replace the hardcoded literal with a `package.json` import so `CLI_VERSION` derives from
+  `pkg.version` and `package.json` becomes the single source of truth:
+  ```ts
+  import pkg from "../../../package.json" with { type: "json" };
+  // …
+  /** The version displayed in `--version` / help; single source of truth = package.json#version. */
+  export const CLI_VERSION = pkg.version;
+  ```
+  This is the correct engineering fix: the previous `--define process.env.MARKSYNC_VERSION=…`
+  fallback (recorded in v1.0 of this plan) was a **no-op** — `router.ts` never read that env var, so
+  bumping only `package.json` would have left the binary reporting `0.7.0` (AC-BUILD-1 / DM-3 would
+  FAIL at the DoD gate). Intent + guarantees: (a) single source of truth = `package.json#version`;
+  (b) Bun inlines JSON imports as build-time constants, so it works identically in `bun run` (dev)
+  and `bun build --compile` (the compiled binary bakes the value); (c) `tsconfig.json#
+  resolveJsonModule` is already `true`, so typecheck passes; (d) update the now-stale "Kept in
+  lock-step" comment (replaced above). The coder confirms the exact import form (relative
+  `../../../package.json` vs an `#imports` alias — match repo conventions) and that
+  `with { type: "json" }` is the Bun/TS import-attribute form in use. After this wiring the build
+  script needs **no** `--define` version plumbing. The binary MUST print `package.json#version` for
+  `--version` (DM-3; RSK-7; AC-BUILD-1).
 - [ ] **1.4** Keep the `SHA256SUMS` accumulator (one hash per binary, portable basenames) and the
   `TODO(E5-S4)` signing marker pointing at `spikes/bun-compile-smoke/probes/signing-dry-run.md`.
   Update the marker to `TODO(MS-0003)` (real signing is MS-0003+ per DEC-7) while keeping the
@@ -250,14 +279,15 @@ AC-BUILD-1 (local half); story scope item 1.
   linux-x64 + win-x64 (+ linux-arm64 or the RSK-2 contingency) (AC-BUILD-1 local; F-1; NFR-CC-1).
 - Must: each produced binary's `--version` matches `package.json#version` (DM-3; RSK-7).
 - Must: `SHA256SUMS` regenerated per build with portable basenames (NFR-CHK-1 precondition).
-- Must: no `src/` change (C-NO-SRC).
+- Must: the ONLY `src/` change is the `router.ts` version-source wiring (C-NO-SRC-DOMAIN carve-out;
+  spec G-7/§16); no domain/app/infra logic touched.
 
 **Acceptance Criteria → AC mapping**: **AC-BUILD-1** (local-build half; CI-build half completed in
 Phase 2). **Probe/TC mapping**: TC-BUILD-001 (local; the CI instance lands in Phase 2).
 
 **Files and modules**:
 
-- Code areas: `scripts/build-binaries.sh` (updated — entry repoint, arm64, version embed, pin note).
+- Code areas: `scripts/build-binaries.sh` (updated — entry repoint, arm64, pin note); `src/cli/commands/router.ts` (updated — the ONE permitted `src/` touch: version-source wiring per task 1.3, C-NO-SRC-DOMAIN carve-out).
 - System docs: none by the coder.
 
 **Tests**:
@@ -269,7 +299,7 @@ Phase 2). **Probe/TC mapping**: TC-BUILD-001 (local; the CI instance lands in Ph
 **Risks**: RSK-2 (arm64 unavailable → contingency, non-blocking); RSK-7 (version embed → asserted
 by `--version`); RSK-1 (pin → header + echo now say 1.2.23).
 
-**Completion signal**: `build(scripts): refine build-binaries.sh for real CLI + arm64 (GH-32)`
+**Completion signal**: `build(scripts,cli): refine build-binaries.sh + wire router.ts version source (GH-32)`
 
 ---
 
@@ -321,7 +351,7 @@ AC-BUILD-1 (the smoke first builds the binaries). F-2; AC-RUN1-1, AC-RUN2-1; sto
   (AC-RUN1-1; NFR-RUN-1; DEC-2).
 - Must: win-x64.exe exits 0 on a `windows-latest` runner with no Wine (AC-RUN2-1; NFR-RUN-2; DEC-5
   — closes spike DEC-3).
-- Must: no `src/` change (C-NO-SRC); secrets-free (C-SECRET).
+- Must: no `src/` change beyond the Phase 1 `router.ts` wiring (C-NO-SRC-DOMAIN); secrets-free (C-SECRET).
 
 **Acceptance Criteria → AC mapping**: **AC-BUILD-1** (CI half), **AC-RUN1-1**, **AC-RUN2-1**.
 **Probe/TC mapping**: TC-BUILD-001 (CI), TC-RUN-001, TC-RUN-002.
@@ -396,7 +426,7 @@ F-3; AC-SIZE-1, AC-START-1; story scope item 3.
   (NFR-MAINT-1; DEC-6; C-SIZE-SOFT).
 - Must: exceedance of 90 MB / 2 s is flagged, not blocking (DEC-4; AC-SIZE-1 / AC-START-1).
 - Must: `.benchmarks/` is NOT gitignored; `dist/` remains gitignored (C-TRACKED).
-- Must: no `src/` change (C-NO-SRC).
+- Must: no `src/` change beyond the Phase 1 `router.ts` wiring (C-NO-SRC-DOMAIN).
 
 **Acceptance Criteria → AC mapping**: **AC-SIZE-1**, **AC-START-1**. **Probe/TC mapping**:
 TC-SIZE-001, TC-START-001.
@@ -456,7 +486,7 @@ F-4; AC-SIGN-1; story scope item 4.
 - Must: the reference uses `$CERT_PASSWORD` as an env-var **name** only — no literal, no cert data
   (DEC-7; RSK-8; C-SECRET).
 - Must: the real-signing-OUT (MS-0002) and macOS-notarization-OUT (MS-0003) caveats are explicit.
-- Must: no verbatim duplication of the spike recipe (reference it); no `src/` change (C-NO-SRC).
+- Must: no verbatim duplication of the spike recipe (reference it); no `src/` change beyond the Phase 1 `router.ts` wiring (C-NO-SRC-DOMAIN).
 
 **Acceptance Criteria → AC mapping**: **AC-SIGN-1**. **Probe/TC mapping**: TC-SIGN-001.
 
@@ -499,11 +529,14 @@ Release. F-5, F-6; AC-COMP-1, AC-REL-1; NFR-SBOM-1, NFR-CHK-1; story scope items
   `dist/marksync-win-x64.exe`. macOS is NOT produced (DEC-8 / MS-0003). The script already
   generates `dist/SHA256SUMS` (Phase 1 retained it) — assert one hash per produced binary with
   portable basenames (NFR-CHK-1).
-- [ ] **5.3** SBOM generation (F-6 / NFR-SEC-4 / PLN-DEC-1): install `syft` (pin a version — use
-  `anchore/sbom-action@v0` with an explicit `version:` OR a direct `curl` install of a pinned syft
-  release). Generate `syft . -o cyclonedx-json=marksync-sbom.cyclonedx.json` from the repo root
-  (scans the built/installed dependency set). Make the SBOM step a **required** step (not
-  `continue-on-error`) — RSK-6 / RSK-9.
+- [ ] **5.3** SBOM generation (F-6 / NFR-SEC-4 / PLN-DEC-1): install `syft` via a **pinned**
+  `anchore/sbom-action@v0.24.0` — the latest stable release at plan time (released 2026-03-20;
+  bundles Syft 1.42.3). Do NOT use the floating `@v0` major tag (DEC-1 determinism: a floating tag
+  can silently move the SBOM toolchain under a tag-triggered release). Generate
+  `syft . -o cyclonedx-json=marksync-sbom.cyclonedx.json` from the repo root (scans the
+  built/installed dependency set). Make the SBOM step a **required** step (not `continue-on-error`)
+  — RSK-6 / RSK-9. Record the chosen pin (`v0.24.0`) in a workflow comment so the next bump is
+  intentional.
 - [ ] **5.4** Attach the artifact set to the GitHub Release (AC-REL-1): the three binaries (or
   x64-only + arm64 contingency), `SHA256SUMS`, and `marksync-sbom.cyclonedx.json`. Use
   `softprops/action-gh-release@v2` (or equivalent) with `files: |` listing each asset. The release
@@ -522,7 +555,7 @@ Release. F-5, F-6; AC-COMP-1, AC-REL-1; NFR-SBOM-1, NFR-CHK-1; story scope items
   NFR-CHK-1; PLN-DEC-1).
 - Must: the SBOM step is required (not `continue-on-error`) and the asset-presence assertion runs
   (RSK-6 / RSK-9).
-- Must: `permissions:` is least-privilege (`contents: write` only); no `src/` change (C-NO-SRC).
+- Must: `permissions:` is least-privilege (`contents: write` only); no `src/` change beyond the Phase 1 `router.ts` wiring (C-NO-SRC-DOMAIN).
 
 **Acceptance Criteria → AC mapping**: **AC-COMP-1** (matrix correctness, macOS excluded),
 **AC-REL-1** (artifact assembly). **Probe/TC mapping**: TC-REL-001 (structural validation in CI;
@@ -560,13 +593,17 @@ secret-hygiene scan clean. AC-CI-1, AC-SEC-1, AC-BUILD-1 (final), AC-COMP-1 (fin
 **Tasks**:
 
 - [ ] **6.1** Bump `package.json` `version` from `0.7.0` to `0.8.0` (PLN-DEC-3; `version_impact:
-  minor`). This is the ONLY non-infra edit. Do not touch `src/`, `imports`, `engines.bun`, or any
-  other field. (The version-embed mechanism from Phase 1 reads this value, so the released binary
-  reports `0.8.0`.)
+  minor`). After the Phase 1 `router.ts` version-source wiring, this is a **single-source edit**:
+  `router.ts` derives `CLI_VERSION` from `pkg.version` (the JSON import Bun bakes at build time), so
+  the compiled binary's `--version` reports `0.8.0` with no second edit anywhere (AC-BUILD-1 / DM-3).
+  Do not touch any other `package.json` field (`engines.bun` stays 1.2.23), any other `src/` file,
+  or `imports` — the only `src/` touch is the Phase 1 `router.ts` wiring (C-NO-SRC-DOMAIN).
 - [ ] **6.2** Run `bun run check` locally (lint + format:check + typecheck + test + check:boundaries)
-  and assert green. Because this story adds no `src/` domain logic, the existing suite (which already
-  guards INV-SAFE-1/2/3, INV-SEC-1, A-FEA-5, golden determinism, BDD invariants) passes unchanged
-  (AC-CI-1 / TC-CI-001). Investigate any failure as an unintended `src/` regression (C-NO-SRC).
+  and assert green. The Phase 1 `router.ts` edit is a pure constant-source swap (no behavior, no new
+  type, no boundary change — `pkg.version` is a `string`, same as the old literal), so the existing
+  suite (which guards INV-SAFE-1/2/3, INV-SEC-1, A-FEA-5, golden determinism, BDD invariants) passes
+  unchanged (AC-CI-1 / TC-CI-001). Investigate any failure as an unintended `src/` domain regression
+  (C-NO-SRC-DOMAIN).
 - [ ] **6.3** Verify all new/modified YAML parses: `python3 -c "import yaml,glob; [yaml.safe_load
   (open(f)) for f in glob.glob('.github/workflows/*.yml')]"` (mirrors the `doc-yaml-lint` CI job;
   covers the new `release.yml` + the updated `ci.yml`).
@@ -579,19 +616,21 @@ secret-hygiene scan clean. AC-CI-1, AC-SEC-1, AC-BUILD-1 (final), AC-COMP-1 (fin
   uses `$CERT_PASSWORD` as a **name** only (RSK-8).
 - [ ] **6.5** Final scope check: `git diff origin/main...HEAD --stat` shows ONLY `scripts/build-binaries.sh`,
   `.github/workflows/ci.yml`, `.github/workflows/release.yml`, `.benchmarks/binaries.json`,
-  `doc/guides/binary-release-signing.md`, `package.json` (version line), and the change-folder
-  artifacts (`doc/changes/.../chg-GH-32-*.md`). NO file under `src/` and no `tests/` change (C-NO-SRC).
+  `doc/guides/binary-release-signing.md`, `package.json` (version line), the ONE `src/` file
+  `src/cli/commands/router.ts` (Phase 1 version-source wiring — the C-NO-SRC-DOMAIN carve-out), and
+  the change-folder artifacts (`doc/changes/.../chg-GH-32-*.md`). NO other `src/` file and no
+  `tests/` change (C-NO-SRC-DOMAIN).
 - [ ] **6.6** Update this plan's Execution Log rows for Phases 1–6 (commit hashes, status DONE) so
   the DoD gate can verify phase completion.
 
 **Acceptance Criteria**:
 
-- Must: `package.json#version` is `0.8.0`; `engines.bun` unchanged at 1.2.23 (PLN-DEC-3; C-NO-SRC).
+- Must: `package.json#version` is `0.8.0`; `engines.bun` unchanged at 1.2.23; `router.ts` derives from it unchanged since Phase 1 (PLN-DEC-3; C-NO-SRC-DOMAIN).
 - Must: `bun run check` is green — no `src/` regression (AC-CI-1; TC-CI-001).
 - Must: all new YAML parses; the `doc-yaml-lint` CI job is green (C-YAML).
 - Must: the secret scan reports 0 secrets across all committed artifacts (AC-SEC-1; TC-SEC-001;
   NFR-SEC-1); `$CERT_PASSWORD` is a name only.
-- Must: `git diff` confirms zero `src/` change (C-NO-SRC).
+- Must: `git diff` confirms zero `src/` DOMAIN-LOGIC change; the only `src/` touch is the Phase 1 `router.ts` version-source wiring (C-NO-SRC-DOMAIN).
 
 **Acceptance Criteria → AC mapping**: **AC-CI-1**, **AC-SEC-1** (owned here); final consolidation
 of **AC-BUILD-1**, **AC-COMP-1**, **AC-REL-1** (mechanisms delivered in Phases 1–5, verified here).
@@ -607,8 +646,9 @@ of **AC-BUILD-1**, **AC-COMP-1**, **AC-REL-1** (mechanisms delivered in Phases 1
 
 - `bun run check`; YAML-lint parse; `gitleaks`/`rg` secret scan; `git diff --stat` scope check.
 
-**Risks**: a `bun run check` failure would indicate an unintended `src/` regression (C-NO-SRC) —
-investigate and revert the stray edit; do not "fix" by editing `src/` (that would violate spec G-7).
+**Risks**: a `bun run check` failure would indicate either an unintended `src/` domain regression
+or a problem with the Phase 1 `router.ts` wiring (C-NO-SRC-DOMAIN) — investigate; the legitimate
+`src/` touch is the version-source wiring only, and any *other* `src/` edit violates spec G-7.
 
 **Completion signal**: `chore(release): bump to 0.8.0 + verify binary-build quality gates (GH-32)`
 
@@ -638,7 +678,7 @@ surfaces actionable findings; it is skipped (logged as N/A) if review PASSES.
 
 - Must: every accepted finding is resolved and re-validated; rejected findings cite the governing
   DEC/NG/spec section.
-- Must: no remediation introduces a `src/` change (C-NO-SRC) or a committed secret (C-SECRET).
+- Must: no remediation introduces a `src/` DOMAIN-LOGIC change or extends the `router.ts` touch beyond the Phase 1 wiring (C-NO-SRC-DOMAIN), or commits a secret (C-SECRET).
 - Must: `bun run check` remains green after remediation.
 
 **Acceptance Criteria → AC mapping**: depends on the finding (preserves whichever AC the finding
@@ -739,12 +779,14 @@ touched). **Probe/TC mapping**: the relevant TC for the remediated area.
 
 ## Code-area coverage (DoR facet)
 
-> **No `src/` file is created, edited, or deleted (C-NO-SRC).** The only non-infra edit is the
-> `package.json` version line (Phase 6). Per-phase file inventory:
+> **No `src/` DOMAIN-LOGIC file is created, edited, or deleted (C-NO-SRC-DOMAIN).** The sole `src/`
+> touch is the Phase 1 version-source wiring in `src/cli/commands/router.ts` (the spec G-7/§16
+> "trivial version-embed exception"); the only other non-infra edit is the `package.json` version
+> line (Phase 6). Per-phase file inventory:
 
 | Phase | New/updated files |
 |-------|-------------------|
-| Phase 1 | `scripts/build-binaries.sh` (updated — entry repoint, arm64, version embed, pin note) |
+| Phase 1 | `scripts/build-binaries.sh` (updated — entry repoint, arm64, pin note); `src/cli/commands/router.ts` (updated — the ONE `src/` touch: version-source wiring, C-NO-SRC-DOMAIN carve-out) |
 | Phase 2 | `.github/workflows/ci.yml` (updated — new `binary-smoke` job + windows leg) |
 | Phase 3 | `.benchmarks/binaries.json` (new, commit-tracked); `.github/workflows/ci.yml` (updated — measurement + delta-report) |
 | Phase 4 | `doc/guides/binary-release-signing.md` (new) |
@@ -752,7 +794,8 @@ touched). **Probe/TC mapping**: the relevant TC for the remediated area.
 | Phase 6 | `package.json` (updated — `version` 0.7.0 → 0.8.0 only) |
 | Phase 7 | (varies — one of the above, per review finding) |
 
-**Files NOT created/modified:** anything under `src/`, `tests/`, `doc/decisions/**`, `doc/spec/**`,
+**Files NOT created/modified:** any `src/` file OTHER THAN the Phase 1 `src/cli/commands/router.ts`
+version-source wiring, anything under `tests/`, `doc/decisions/**`, `doc/spec/**`,
 `doc/planning/**`, `bun.lock` (the version bump does NOT add/remove deps, so the lockfile is
 regenerated by `bun install` only if it changes — verify it stays consistent), or the spike
 workspace (`spikes/bun-compile-smoke/**` — frozen, spec NG-7).
@@ -783,7 +826,7 @@ All ten spec ACs satisfied, each traceable to ≥1 phase + ≥1 TC (spec §17.1)
 - [ ] `.benchmarks/binaries.json` committed + CI delta-reporting wired (non-blocking).
 - [ ] `release.yml` produces the contract artifact set on tag (structurally validated; full on
   first tag).
-- [ ] **Zero `src/` domain-logic change** — `git diff` confirms only infra + `package.json` (version).
+- [ ] **Zero `src/` DOMAIN-LOGIC change** — `git diff` confirms only infra + `package.json` (version) + the one Phase 1 `src/cli/commands/router.ts` version-source wiring (C-NO-SRC-DOMAIN carve-out).
 - [ ] macOS deferred (MS-0003); real signing deferred (MS-0003+).
 - [ ] Bun pin = 1.2.23 everywhere (DEC-1); clean-OS image = `debian:stable-slim` (DEC-2).
 
@@ -812,6 +855,7 @@ All ten spec ACs satisfied, each traceable to ≥1 phase + ≥1 TC (spec §17.1)
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-26 | plan-writer (GH-32) | Initial implementation plan. 6 active phases + 1 conditional post-review phase, each one Conventional Commit (`build`/`ci`/`docs`/`chore` — no `feat`, no `src/` change). Derived from `chg-GH-32-spec.md` (AC-BUILD/RUN1/RUN2/SIZE/START/COMP/SIGN/REL/CI/SEC; F-1…F-6; NFR-CC/RUN/SIZE/START/SBOM/CHK/SEC/MAINT; DEC-1…DEC-8; RSK-1…RSK-8; OQ-1) and `chg-GH-32-test-plan.md` (TC-BUILD/RUN/SIZE/START/REL/SIGN/CI/SEC). Encoded PM hazards as load-bearing constraints: Bun pin 1.2.23 (DEC-1, NOT spike's 1.1.34); `debian:stable-slim` (DEC-2, NOT `debian:slim`). Resolved spec OQ-1 as PLN-DEC-1 (`syft` → CycloneDX JSON). Seeded `.benchmarks/binaries.json` from the spike baseline (PLN-DEC-2). Version bump 0.7.0 → 0.8.0 (PLN-DEC-3). Signing reference home = `doc/guides/binary-release-signing.md` (PLN-DEC-4). Includes Phase→AC→TC traceability, Doc-update coverage (lifecycle phase 7: nonfunctional.md, ADR-0001, MS2-E5-S4 story), Code-area coverage, and a Definition of Done mapping to all 10 ACs. References (does not duplicate) the GH-13 spike plan/findings/recipe. |
+| 1.1 | 2026-07-26 | plan-writer (GH-32, DoR iter-1) | DoR iter-1 remediation (status → Updated). **BLOCKER fix:** relaxed `C-NO-SRC` → `C-NO-SRC-DOMAIN` to permit the ONE spec-G-7/§16 "trivial version-embed" carve-out, and rewrote Phase 1 task 1.3 to wire a real runtime version source in `src/cli/commands/router.ts` (JSON import of `package.json`, baked by Bun at build time; works in dev + `--compile`; `resolveJsonModule` already enabled). Resolves the C-NO-SRC + PLN-DEC-3 + AC-BUILD-1/DM-3 contradiction — the prior `--define MARKSYNC_VERSION` was a no-op since `router.ts` never read it (a package.json-only bump would have left the binary reporting 0.7.0). Phase 6 task 6.1 restated as a single-source `package.json` edit that propagates via the Phase 1 wiring. Updated every "zero `src/` change" / `git diff` assertion (phase ACs, Phase 6 DoD check, Code-area coverage, Definition of Done) → "zero `src/` DOMAIN-LOGIC change; only `src/` touch = Phase 1 `router.ts`." **NIT fix:** pinned `anchore/sbom-action@v0.24.0` (was floating `@v0`) in Phase 5 task 5.3 (DEC-1 determinism). No AC/TC ID or phase-structure changes; 7 phases preserved. |
 
 ## Execution Log
 
@@ -820,7 +864,7 @@ All ten spec ACs satisfied, each traceable to ≥1 phase + ≥1 TC (spec §17.1)
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| Phase 1 | PENDING | — | — | — | refine build-binaries.sh (real CLI + arm64 + version embed) |
+| Phase 1 | PENDING | — | — | — | refine build-binaries.sh (real CLI + arm64) + wire router.ts version source |
 | Phase 2 | PENDING | — | — | — | clean-OS smoke CI jobs (linux Docker + windows runner) |
 | Phase 3 | PENDING | — | — | — | `.benchmarks/binaries.json` + CI delta-report |
 | Phase 4 | PENDING | — | — | — | signing reference doc |
