@@ -6,10 +6,13 @@ import type {
 	AccountIdentity,
 	ConfluenceCredentials,
 } from "#domain/credentials";
-import { Result as Res } from "#domain/result";
 import type { Repository } from "#domain/git/port";
 import type { TargetSystem } from "#domain/target/port";
 import type { ProjectConfig } from "#domain/config/types";
+import { Result as Res } from "#domain/result";
+import { loadConfig } from "#app/config";
+import { resolveCredentials, validateCredentials } from "#app/credentials";
+import { createRepository, createTarget } from "#app/ports";
 
 /** Stable check-id set — no magic strings (typescript.md). */
 export const DOCTOR_CHECK_IDS = {
@@ -175,17 +178,16 @@ export async function runDoctor(
 		createTarget: createTargetImpl,
 	} = deps;
 
-	// Import real implementations by default (injectable for tests)
-	const { loadConfig } = await import("#app/config");
-	const { resolveCredentials, validateCredentials } = await import(
-		"#app/credentials"
-	);
-	const { createRepository, createTarget } = await import("#app/ports");
+	// Use injected implementations or default to static imports
+	const loadCfg = loadConfigImpl ?? loadConfig;
+	const resolveCreds = resolveCredsImpl ?? resolveCredentials;
+	const validateCreds = validateCredsImpl ?? validateCredentials;
+	const createRepo = createRepoImpl ?? createRepository;
+	const createTargetFn = createTargetImpl ?? createTarget;
 
 	const checks: DoctorCheck[] = [];
 
 	// --- Check 1: git-available ---
-	const createRepo = createRepoImpl ?? createRepository;
 	const repo = createRepo(cwd);
 	const gitShaResult = repo.headSha();
 	if (!gitShaResult.ok) {
@@ -209,7 +211,6 @@ export async function runDoctor(
 	}
 
 	// --- Check 2: config-valid ---
-	const loadCfg = loadConfigImpl ?? loadConfig;
 	const configResult = loadCfg(cwd);
 	if (!configResult.ok) {
 		const humanMessage =
@@ -272,7 +273,6 @@ export async function runDoctor(
 	const config = configResult.value;
 
 	// --- Check 3: credentials ---
-	const resolveCreds = resolveCredsImpl ?? resolveCredentials;
 	const credsResult = resolveCreds();
 	let creds: ConfluenceCredentials | null = null;
 	if (!credsResult.ok) {
@@ -287,7 +287,7 @@ export async function runDoctor(
 			fix: `Set the missing environment variables: ${missing}`,
 		});
 	} else {
-		const validateCreds = validateCredsImpl ?? validateCredentials;
+		creds = credsResult.value;
 		const validation = await validateCreds(credsResult.value, { fetch });
 		if (!validation.ok) {
 			const isInvalid = validation.error.authKind === "InvalidCredentials";
@@ -350,8 +350,6 @@ export async function runDoctor(
 		});
 	}
 
-	const createTargetFn = createTargetImpl ?? createTarget;
-
 	// --- Check 4: space-access ---
 	const spaceKeyResult = extractSpaceKey(config);
 	const spaceKey = spaceKeyResult.ok ? spaceKeyResult.value : null;
@@ -369,7 +367,7 @@ export async function runDoctor(
 		);
 		if (!searchResult.ok) {
 			const isUnreachable = searchResult.error.kind === "RemoteUnreachable";
-			const isForbidden = searchResult.error.kind === "Auth";
+			const isForbidden = searchResult.error.kind === "Forbidden";
 			checks.push({
 				check: DOCTOR_CHECK_IDS.SPACE_ACCESS,
 				status: "fail",
@@ -408,7 +406,7 @@ export async function runDoctor(
 		const pageResult = await target.getPage(parentPageIdResult.value);
 		if (!pageResult.ok) {
 			const isNotFound = pageResult.error.kind === "RemoteMissing";
-			const isForbidden = pageResult.error.kind === "Auth";
+			const isForbidden = pageResult.error.kind === "Forbidden";
 			checks.push({
 				check: DOCTOR_CHECK_IDS.PARENT_PAGE,
 				status: "fail",
@@ -587,7 +585,7 @@ export async function runDoctor(
 	if (spaceKey && parentPageId) {
 		const target = createTargetFn(creds, spaceKey);
 		const restrictionsResult = await target.getRestrictions(parentPageId);
-		if (restrictionsResult.ok && restrictionsResult.value) {
+		if (restrictionsResult.ok && restrictionsResult.value.restricted) {
 			checks.push({
 				check: DOCTOR_CHECK_IDS.PERMISSION_VISIBILITY,
 				status: "warn",

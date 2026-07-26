@@ -23,7 +23,7 @@ import {
 	EXIT_REMOTE_MISSING,
 	EXIT_RENDER_UNAVAILABLE,
 	EXIT_USAGE,
-} from "../../../../src/cli/output/exit-codes.ts";
+} from "#cli/output";
 
 // The full DEC-2 table: stable `error.code` string → expected numeric exit.
 // Keep this in lock-step with `CODE_TO_EXIT` in src/cli/output/exit-codes.ts.

@@ -3,7 +3,7 @@
 import type { CommandResult } from "#cli/output";
 import type { DoctorReport } from "#app/doctor";
 import {
-	EXIT_HEALTH,
+	EXIT_INTERNAL,
 	EXIT_OK,
 	SCHEMA_VERSION,
 	codeToExitCode,
@@ -35,7 +35,7 @@ export async function doctorCommand(
 		return {
 			schemaVersion: SCHEMA_VERSION,
 			runId: crypto.randomUUID(),
-			exitCode: mapped.code ? codeToExitCode(mapped.code) : EXIT_HEALTH,
+			exitCode: mapped.code ? codeToExitCode(mapped.code) : EXIT_INTERNAL,
 			error: mapped,
 		};
 	}

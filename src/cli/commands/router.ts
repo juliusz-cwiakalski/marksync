@@ -37,7 +37,7 @@ import { syncCommand } from "#cli/commands/sync";
  * The version displayed in `--version` / help. Kept in lock-step with
  * `package.json` until a runtime version source is wired.
  */
-export const CLI_VERSION = "0.6.0";
+export const CLI_VERSION = "0.7.0";
 
 /** The global flags as Cliffy surfaces them to an action (post-camelCase). */
 export interface GlobalCommandFlags {

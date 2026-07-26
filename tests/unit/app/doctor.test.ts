@@ -35,12 +35,18 @@ function mockTarget(overrides: Partial<TargetSystem> = {}): TargetSystem {
 		searchPages: overrides.searchPages ?? (() => ({ ok: true, value: [] })),
 		createPage:
 			overrides.createPage ??
-			(() => ({ ok: true, value: { pageId: "new-123" } })),
+			(() => ({
+				ok: true,
+				value: { id: "new-123", title: "New", version: 1 },
+			})),
 		updatePage:
-			overrides.updatePage ?? (() => ({ ok: true, value: { pageId: "123" } })),
+			overrides.updatePage ??
+			(() => ({ ok: true, value: { id: "123", title: "Test", version: 1 } })),
 		deletePage:
 			overrides.deletePage ?? (() => ({ ok: true, value: undefined })),
-		movePage: overrides.movePage ?? (() => ({ ok: true, value: undefined })),
+		movePage:
+			overrides.movePage ??
+			(() => ({ ok: true, value: { id: "123", title: "Test", version: 1 } })),
 		renderBody:
 			overrides.renderBody ??
 			(() => ({ ok: true, value: { body: "", hash: "", warnings: [] } })),
@@ -51,9 +57,19 @@ function mockTarget(overrides: Partial<TargetSystem> = {}): TargetSystem {
 			overrides.attachmentExists ?? (() => ({ ok: true, value: false })),
 		uploadAttachment:
 			overrides.uploadAttachment ??
-			(() => ({ ok: true, value: { id: "att-1" } })),
+			(() => ({
+				ok: true,
+				value: {
+					id: "att-1",
+					pageId: "123",
+					filename: "test.png",
+					hash: "abc123",
+					version: 1,
+				},
+			})),
 		getRestrictions:
-			overrides.getRestrictions ?? (() => ({ ok: true, value: [] })),
+			overrides.getRestrictions ??
+			(() => ({ ok: true, value: { pageId: "123", restricted: false } })),
 		listAttachments:
 			overrides.listAttachments ?? (() => ({ ok: true, value: [] })),
 	};
@@ -249,6 +265,7 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 			resolveCredentials: resolveCredsMock,
 			validateCredentials: validateCredsMock,
 			createRepository: () => mockRepository(),
+			createTarget: () => mockTarget(),
 		});
 
 		expect(result.ok).toBe(true);
@@ -323,7 +340,7 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 		const mockTargetSystem = mockTarget({
 			searchPages: async () => ({
 				ok: false,
-				error: { kind: "Auth", authKind: "Forbidden" },
+				error: { kind: "Forbidden", pageId: "123", operation: "searchPages" },
 			}),
 		});
 
@@ -342,6 +359,8 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 		const spaceCheck = findCheck(report, DOCTOR_CHECK_IDS.SPACE_ACCESS);
 		expect(spaceCheck?.status).toBe("fail");
 		expect(spaceCheck?.detail).toContain("403");
+		expect(spaceCheck?.detail).toContain("forbidden");
+		expect(spaceCheck?.fix).toContain("permissions");
 		expect(report.summary.fail).toBe(1);
 	});
 
@@ -410,7 +429,7 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 			searchPages: async () => ({ ok: true, value: [] }),
 			getPage: async () => ({
 				ok: false,
-				error: { kind: "Auth", authKind: "Forbidden" },
+				error: { kind: "Forbidden", pageId: "123", operation: "getPage" },
 			}),
 		});
 
@@ -429,6 +448,8 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 		const parentCheck = findCheck(report, DOCTOR_CHECK_IDS.PARENT_PAGE);
 		expect(parentCheck?.status).toBe("fail");
 		expect(parentCheck?.detail).toContain("403");
+		expect(parentCheck?.detail).toContain("forbidden");
+		expect(parentCheck?.fix).toContain("permissions");
 		expect(report.summary.fail).toBe(1);
 	});
 
@@ -450,12 +471,39 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 			value: { accountId: "acc-123", email: "u***@test.com" },
 		});
 
-		const mockTargetSystem = mockTarget();
+		// Spy on all four probe methods
 		let createPageCalled = false;
-		mockTargetSystem.createPage = async () => {
-			createPageCalled = true;
-			return { ok: true, value: { pageId: "new-123" } };
-		};
+		let putPropertyCalled = false;
+		let attachmentExistsCalled = false;
+		let uploadAttachmentCalled = false;
+
+		const mockTargetSystem = mockTarget({
+			createPage: async () => {
+				createPageCalled = true;
+				return { ok: true, value: { id: "new-123", title: "New", version: 1 } };
+			},
+			putProperty: async () => {
+				putPropertyCalled = true;
+				return { ok: true, value: undefined };
+			},
+			attachmentExists: async () => {
+				attachmentExistsCalled = true;
+				return { ok: true, value: false };
+			},
+			uploadAttachment: async () => {
+				uploadAttachmentCalled = true;
+				return {
+					ok: true,
+					value: {
+						id: "att-1",
+						pageId: "123",
+						filename: "test.png",
+						hash: "abc123",
+						version: 1,
+					},
+				};
+			},
+		});
 
 		const result = await runDoctor({
 			cwd: "/repo",
@@ -474,7 +522,11 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 		expect(propCheck?.status).toBe("skipped");
 		expect(attachCheck?.status).toBe("skipped");
 		expect(report.summary.skipped).toBe(2);
-		expect(createPageCalled).toBe(false); // No probe port calls
+		// No probe port methods should be called for read-only default
+		expect(createPageCalled).toBe(false);
+		expect(putPropertyCalled).toBe(false);
+		expect(attachmentExistsCalled).toBe(false);
+		expect(uploadAttachmentCalled).toBe(false);
 	});
 
 	// TC-DOCTOR-007: Permission/visibility check emits warn
@@ -498,7 +550,7 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 		const mockTargetSystem = mockTarget({
 			getRestrictions: async () => ({
 				ok: true,
-				value: [{ operation: "read" }],
+				value: { pageId: "123", restricted: true },
 			}),
 		});
 
@@ -757,7 +809,7 @@ describe("runDoctor — unit tests (TC-DOCTOR-001..009 + TC-DOCTOR-012)", () => 
 		const mockTargetSystem = mockTarget({
 			getRestrictions: async () => ({
 				ok: true,
-				value: [{ operation: "read" }],
+				value: { pageId: "123", restricted: true },
 			}),
 		});
 
