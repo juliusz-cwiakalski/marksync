@@ -13,9 +13,9 @@ phases:
   delivery: { started: "2026-07-26T22:50:00Z", completed: "2026-07-26T23:05:00Z" }
   system_spec_update: { started: "2026-07-26T23:05:00Z", completed: "2026-07-26T23:12:00Z" }
   review_fix: { started: "2026-07-26T23:12:00Z", completed: "2026-07-26T23:20:00Z" }
-  quality_gates: { started: "2026-07-26T23:20:00Z", completed: null }
-  dod_check: { started: null, completed: null }
-  pr_creation: { started: null, completed: null, url: null, pr_number: null }
+  quality_gates: { started: "2026-07-26T23:20:00Z", completed: "2026-07-26T23:22:00Z" }
+  dod_check: { started: "2026-07-26T23:22:00Z", completed: "2026-07-26T23:26:00Z" }
+  pr_creation: { started: "2026-07-26T23:26:00Z", completed: null, url: null, pr_number: null }
 
 decisions: []
 open_questions: []
