@@ -1,7 +1,7 @@
 ---
 id: MS2-E5-S2
 title: "doctor-health-check"
-status: todo
+status: done
 type: story
 priority: medium
 epic: MS2-E5
@@ -12,6 +12,7 @@ feature_spec: doc/spec/features/feature-cli.md
 decisions: []
 dependencies: { blocks: [], blocked_by: [MS2-E2-S2, MS2-E2-S3, MS2-E2-S4, MS2-E3-S4] }
 cross_cutting: [R-USA-1, R-FEA-10, NFR-OBS-4]
+delivered_by: GH-30
 ---
 
 # MS2-E5-S2 — `doctor` health-check
