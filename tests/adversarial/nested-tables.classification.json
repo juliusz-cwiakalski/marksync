@@ -1,0 +1,7 @@
+[
+	{
+		"kind": "UnsupportedConstruct",
+		"construct": "raw-html-block",
+		"sourcePath": "tests/adversarial/nested-tables.md"
+	}
+]
