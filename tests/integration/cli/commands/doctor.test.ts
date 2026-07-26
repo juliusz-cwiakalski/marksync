@@ -112,7 +112,7 @@ describe("TC-DOCTOR-013..022: Doctor integration tests (Bun.serve() mock)", () =
 			fetch(req) {
 				record(req);
 				const path = new URL(req.url).pathname;
-				if (path === "/wiki/api/v2/user/by-me")
+				if (path === "/wiki/rest/api/user/current")
 					return jsonResponse(200, {
 						accountId: "acc-1",
 						displayName: "Test User",
@@ -165,7 +165,7 @@ describe("TC-DOCTOR-013..022: Doctor integration tests (Bun.serve() mock)", () =
 			fetch(req) {
 				record(req);
 				const path = new URL(req.url).pathname;
-				if (path === "/wiki/api/v2/user/by-me")
+				if (path === "/wiki/rest/api/user/current")
 					return jsonResponse(200, {
 						accountId: "acc-1",
 						displayName: "Test User",
@@ -226,7 +226,7 @@ describe("TC-DOCTOR-013..022: Doctor integration tests (Bun.serve() mock)", () =
 			fetch(req) {
 				record(req);
 				const path = new URL(req.url).pathname;
-				if (path === "/wiki/api/v2/user/by-me")
+				if (path === "/wiki/rest/api/user/current")
 					return jsonResponse(401, { message: `Invalid token: ${TOKEN}` });
 				return new Response("Not found", { status: 404 });
 			},
@@ -261,7 +261,7 @@ describe("TC-DOCTOR-013..022: Doctor integration tests (Bun.serve() mock)", () =
 			fetch(req) {
 				record(req);
 				const path = new URL(req.url).pathname;
-				if (path === "/wiki/api/v2/user/by-me")
+				if (path === "/wiki/rest/api/user/current")
 					return jsonResponse(401, { message: "Unauthorized" });
 				return new Response("Not found", { status: 404 });
 			},
@@ -292,7 +292,7 @@ describe("TC-DOCTOR-013..022: Doctor integration tests (Bun.serve() mock)", () =
 			fetch(req) {
 				record(req);
 				const path = new URL(req.url).pathname;
-				if (path === "/wiki/api/v2/user/by-me")
+				if (path === "/wiki/rest/api/user/current")
 					return jsonResponse(200, {
 						accountId: "acc-1",
 						displayName: "Test User",
@@ -327,7 +327,7 @@ describe("TC-DOCTOR-013..022: Doctor integration tests (Bun.serve() mock)", () =
 			fetch(req) {
 				record(req);
 				const path = new URL(req.url).pathname;
-				if (path === "/wiki/api/v2/user/by-me")
+				if (path === "/wiki/rest/api/user/current")
 					return jsonResponse(200, {
 						accountId: "acc-1",
 						displayName: "Test User",
@@ -368,7 +368,7 @@ describe("TC-DOCTOR-013..022: Doctor integration tests (Bun.serve() mock)", () =
 			fetch(req) {
 				record(req);
 				const path = new URL(req.url).pathname;
-				if (path === "/wiki/api/v2/user/by-me")
+				if (path === "/wiki/rest/api/user/current")
 					return jsonResponse(200, {
 						accountId: "acc-1",
 						displayName: "Test User",
@@ -447,7 +447,7 @@ describe("TC-DOCTOR-013..022: Doctor integration tests (Bun.serve() mock)", () =
 			fetch(req) {
 				record(req);
 				const path = new URL(req.url).pathname;
-				if (path === "/wiki/api/v2/user/by-me")
+				if (path === "/wiki/rest/api/user/current")
 					return jsonResponse(200, {
 						accountId: "acc-1",
 						displayName: "Test User",

@@ -198,7 +198,7 @@ describe("maskEmail — TC-AUTH-007 (AC-5)", () => {
 	});
 });
 
-describe("validateCredentials — TC-AUTH-008 200 → identity (AC-3)", () => {
+describe("validateCredentials — TC-AUTH-008 200 → identity (AC-4)", () => {
 	test("stub 200 {accountId, displayName} → Result.ok(identity)", async () => {
 		const { fetch } = stubFetch([
 			{
@@ -213,13 +213,40 @@ describe("validateCredentials — TC-AUTH-008 200 → identity (AC-3)", () => {
 		expect(result.value.displayName).toBe("Jane Operator");
 	});
 
-	test("the probe targets /wiki/api/v2/user/by-me with the opaque authHeader", async () => {
+	test("the probe targets /wiki/rest/api/user/current with the opaque authHeader", async () => {
 		const { fetch, calls } = stubFetch([
 			{ status: 200, body: { accountId: "1", displayName: "n" } },
 		]);
 		await validateCredentials(credsFor(), { fetch });
-		expect(calls[0]?.url).toBe(`${BASE_URL}/wiki/api/v2/user/by-me`);
+		expect(calls[0]?.url).toBe(`${BASE_URL}/wiki/rest/api/user/current`);
 		expect(calls[0]?.auth).toBe(credsFor().authHeader);
+	});
+
+	test("TC-AUTH-008-EXTRA: v1 200 with extra fields → identity narrowed (AC-4)", async () => {
+		// Stub with the inception-captured v1 body including extra fields.
+		const { fetch } = stubFetch([
+			{
+				status: 200,
+				body: {
+					accountId: "abc-123",
+					displayName: "Jane Operator",
+					type: "known",
+					accountType: "atlassian",
+					publicName: "jane",
+					_links: {
+						self: "https://example.atlassian.net/wiki/rest/api/user/current",
+					},
+				},
+			},
+		]);
+		const result = await validateCredentials(credsFor(), { fetch });
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		expect(result.value.accountId).toBe("abc-123");
+		expect(result.value.displayName).toBe("Jane Operator");
+		// Verify no extra fields are present (the two-field narrowing worked).
+		const keys = Object.keys(result.value).sort();
+		expect(keys).toEqual(["accountId", "displayName"]);
 	});
 });
 

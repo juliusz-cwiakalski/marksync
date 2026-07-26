@@ -166,7 +166,7 @@ export function createMockServer(): {
 		}
 
 		// ===== CREDENTIAL VALIDATION (not on e2e critical path per DEC-1) =====
-		if (req.method === "GET" && path === "/wiki/api/v2/user/by-me") {
+		if (req.method === "GET" && path === "/wiki/rest/api/user/current") {
 			return json(200, {
 				accountId: "5e7e5e5e5e5e5e5e5e5e5e5e",
 				displayName: "Mock User",
