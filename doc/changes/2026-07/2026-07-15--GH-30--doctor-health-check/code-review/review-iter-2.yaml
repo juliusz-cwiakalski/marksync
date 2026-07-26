@@ -29,44 +29,54 @@ summary: >
   integration sub-clause; a stale TC-DOCTOR-008 title; a stale mock override;
   a cosmetic spec-vs-detail wording nuance) — none blocking. Verdict: PASS.
 iter_1_resolution:
-  F-1: RESOLVED — src/app/doctor.ts:370,409 now guard on
+  F-1: >
+    RESOLVED — src/app/doctor.ts:370,409 now guard on
     `error.kind === "Forbidden"` (confirmed real shape at
     src/domain/errors.ts:46). Detail/fix strings honestly distinguish
-    forbidden (permissions: "not accessible (403 forbidden)" /
-    "Verify spaceKey and account permissions") from unreachable (network:
+    forbidden (permissions — "not accessible (403 forbidden)" /
+    "Verify spaceKey and account permissions") from unreachable (network —
     "Base URL unreachable" / "Check MARKSYNC_CONFLUENCE_BASE_URL and network
     connectivity"). AC-F2-2 met against the real adapter.
-  F-2: RESOLVED (core) — tests/unit/app/doctor.test.ts:343,432 now mock the
-    real `{ kind: "Forbidden", pageId, operation }` shape and assert the
+  F-2: >
+    RESOLVED (core) — tests/unit/app/doctor.test.ts:343,432 now mock the
+    real `{ kind:"Forbidden", pageId, operation }` shape and assert the
     distinguishing detail (lines 361-363, 450-452). The impossible
     `{kind:"Auth",authKind:"Forbidden"}` variant is gone; the unit tests now
     catch an F-1 regression. PARTIAL on the integration sub-clause (see F-1
-    below): TC-DOCTOR-017/018 still assert only status, not detail.
-  F-3: RESOLVED — src/app/doctor.ts:588 narrows on
+    below) — TC-DOCTOR-017/018 still assert only status, not detail.
+  F-3: >
+    RESOLVED — src/app/doctor.ts:588 narrows on
     `restrictionsResult.value.restricted` (confirmed field at
     src/domain/target/port.ts:94); default mockTarget returns the real
     PageRestrictions shape `{ pageId, restricted }` (test line 72).
-  F-4: RESOLVED (DESCOPE DEC-7) — spec amended consistently: F-5 (line 91/106),
+  F-4: >
+    RESOLVED (DESCOPE DEC-7) — spec amended consistently. F-5 (line 91/106),
     AC-F1-1 (line 277), AC-F5-1 (line 285), Appendix A (line 362), DEC-7
     (line 260) all state informational `pass` for MS-0002; impl hardcodes
     `pass` (doctor.ts:615 + advisoryChecks:110); TC-DOCTOR-008 asserts `pass`.
     No remaining text claims a renderer `warn` for MS-0002. Accepted descope.
-  F-5: RESOLVED — src/cli/commands/router.ts:40 CLI_VERSION = "0.7.0"; drift
+  F-5: >
+    RESOLVED — src/cli/commands/router.ts:40 CLI_VERSION = "0.7.0"; drift
     test (router.test.ts:28-32) reads package.json.version and asserts
     equality — meaningful and passing.
-  F-6: RESOLVED — no `- [ ]` remain in the plan; duplicated Phase 2 block
+  F-6: >
+    RESOLVED — no `- [ ]` remain in the plan; duplicated Phase 2 block
     removed; Phase 4/5/6 checked; Phase 7 remediation phase appended and
     fully checked.
-  F-7: RESOLVED — mockTarget createPage/updatePage return `{ id, title,
+  F-7: >
+    RESOLVED — mockTarget createPage/updatePage return `{ id, title,
     version }` (port Page shape); TC-DOCTOR-006 spies all four probe methods
     and asserts zero calls in the read-only default (test lines 526-529).
-  F-8: RESOLVED — src/app/doctor.ts:13-15 static imports + 182-186
+  F-8: >
+    RESOLVED — src/app/doctor.ts:13-15 static imports + 182-186
     `impl ?? real`; injection seam preserved (production doctorCommand injects
     nothing → real impls used; unit tests inject all deps → real modules
     imported but not invoked).
-  F-9: RESOLVED — tests/unit/cli/output/exit-codes.test.ts:13-26 imports via
+  F-9: >
+    RESOLVED — tests/unit/cli/output/exit-codes.test.ts:13-26 imports via
     `#cli/output` alias.
-  F-10: RESOLVED — src/cli/commands/doctor.ts:38 err-arm fallback uses
+  F-10: >
+    RESOLVED — src/cli/commands/doctor.ts:38 err-arm fallback uses
     EXIT_INTERNAL (not EXIT_HEALTH).
 severity_breakdown:
   critical: 0
