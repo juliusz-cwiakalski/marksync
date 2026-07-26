@@ -4,9 +4,9 @@
 source: https://github.com/juliusz/cwiakalski-agentic-delivery-os/blob/main/doc/templates/implementation-plan-template.md
 ados_distribution: redistributable
 id: chg-GH-31-adversarial-corpus
-status: Proposed
+status: Updated
 created: 2026-07-26T00:00:00Z
-last_updated: 2026-07-26T00:00:00Z
+last_updated: 2026-07-26T14:12:53Z
 owners: ["@cwiakalski"]
 service: marksync-cli
 labels: ["feature", "MS-0002", "MS2-E5", "priority:medium", "test", "corpus", "docs"]
@@ -50,7 +50,7 @@ block detection, so its per-node verdict is identical to the render path's.
 Parity is provable — `findAllUnsupported(tree)[0]` deep-equals
 `findUnsupported(tree)` on any tree (RSK-3 mitigation).
 
-All four PM decisions are settled (spec §15 DEC-1..4): no open questions block
+All five PM decisions are settled (spec §15 DEC-1..5): no open questions block
 delivery. Macros / app / gliffy content and nested tables are **not authorable**
 from `.md` in MS-0002's one-way Markdown→Storage pipeline (DEC-2), so they are
 represented two ways: as raw-HTML blocks in `.md` (classifier flags
@@ -59,7 +59,17 @@ tag shapes** (`ac:structured-macro`, gliffy/app tags) fed directly to
 `findAllUnsupported`, mirroring the precedent already in
 `tests/unit/domain/markdown/unsupported.test.ts`.
 
-**Decision needed**: none. All decisions resolved in spec §15.
+**DEC-5 (runner/fixture split)** — the test **runners** (classification-runner,
+corpus-inventory, pii-audit) live at `tests/golden/adversarial/*.test.ts` (golden
+tier — real pipeline, committed sidecars/goldens, no mocks); the test **fixtures**
+(data: `*.md`, `*.classification.json`, optional `*.storage.xhtml`) stay at
+`tests/adversarial/` per the story. The CI glob `tests/golden/` in
+`.github/workflows/ci.yml` already recursively discovers `tests/golden/adversarial/`,
+so **no ci.yml change is needed** — placing runners under `tests/golden/` makes them
+CI-visible without an edit (this is what resolves the DoR BLOCKER 1).
+
+**Decision needed**: none. All decisions resolved in spec §15 (DEC-1..5, including
+DEC-5 runner/fixture split).
 
 **Open questions**: none blocking.
 
@@ -72,12 +82,13 @@ tag shapes** (`ac:structured-macro`, gliffy/app tags) fed directly to
   unchanged (the render fast-fail path stays as-is).
 - **F-1 / DEC-4** — synthetic adversarial corpus `tests/adversarial/*.md` + committed
   `*.classification.json` sidecars covering the AC-F1-1 category list (≈20–40 fixtures).
-- **F-3 / DEC-3** — golden-tier classification runner
-  `tests/adversarial/classification-runner.test.ts` asserting fidelity, no-silent-drop,
-  and determinism per fixture, mirroring `tests/golden/markdown/storage-renderer.test.ts`.
-- **F-5 / AC-F5-1** — automated PII self-audit `tests/adversarial/pii-audit.test.ts`
+- **F-3 / DEC-3 / DEC-5** — golden-tier classification runner
+  `tests/golden/adversarial/classification-runner.test.ts` asserting fidelity, no-silent-drop,
+  and determinism per fixture (runners under `tests/golden/adversarial/`, fixtures at
+  `tests/adversarial/`), mirroring `tests/golden/markdown/storage-renderer.test.ts`.
+- **F-5 / AC-F5-1** — automated PII self-audit `tests/golden/adversarial/pii-audit.test.ts`
   (0 email / bare-ID / internal-ticket-URL matches across `tests/adversarial/**`).
-- **AC-F1-1** — corpus inventory `tests/adversarial/corpus-inventory.test.ts` (6 categories).
+- **AC-F1-1** — corpus inventory `tests/golden/adversarial/corpus-inventory.test.ts` (6 categories).
 - **F-4 / AC-F4-1** — user-facing classification doc
   `doc/quality/adversarial-corpus-classification.md`.
 - **F-6 / AC-F6-1** — `bun run check` green (lint + format + typecheck + tests + boundaries).
@@ -120,7 +131,9 @@ tag shapes** (`ac:structured-macro`, gliffy/app tags) fed directly to
   + human review before commit. Residual: Low.
 - **RSK-4** — hand-constructed macro HAST uses unrealistic tag shapes → the doc misleads.
   Mitigated by referencing real Confluence macro tag names per spec Appendix A; the
-  no-silent-drop assertion (TC-ADVERSARIAL-005) catches shape/verdict mismatches. Residual: Low.
+  hand-built-macro assertion (TC-ADVERSARIAL-010) verifies each real `ac:structured-macro`
+  shape is classified `UnsupportedConstruct: <tag>`, and TC-ADVERSARIAL-005 covers the
+  fixture-driven no-silent-drop. Residual: Low.
 - **RSK-5** — corpus pins fragile incidental shapes → maintenance burden. Mitigated by
   pinning sidecars at the classification contract (`MarkSyncError[]` of
   `UnsupportedConstruct` arms), not incidental render bytes. Residual: Low.
@@ -212,17 +225,17 @@ each paired with a committed, reviewed `*.classification.json` sidecar (DM-1).
 
 - [ ] **2.1** Create `tests/adversarial/` and author ≈20–40 `*.md` fixtures covering all
   six AC-F1-1 categories (use fixture names that signal the category, e.g.
-  `nested-tables.md`, `macro-toc.md`, `macro-info.md`, `macro-code.md`, `macro-jira.md`,
-  `app-gliffy-representation.md`, `emoji.md`, `long-page.md`, `mixed-task-regular-lists.md`,
-  `raw-html-block.md`, `raw-html-inline.md`):
+  `nested-tables.md`, `macro-toc.md`, `macro-info.md`, `macro-code.md`, `macro-expand.md`,
+  `macro-jira.md`, `app-gliffy-representation.md`, `emoji.md`, `long-page.md`,
+  `mixed-task-regular-lists.md`, `raw-html-block.md`, `raw-html-inline.md`):
   - **Nested tables** — raw-HTML block in `.md` (GFM tables are flat) → `raw-html-block`.
   - **≥3 macro/app-content categories** — represented as raw-HTML blocks in `.md`
     (classifier flags `raw-html-block`); the *hand-constructed HAST* shapes for these
     live in the runner (Phase 3), not the `.md`. Cover at least: `{toc}`, `{info}`,
-    `{code}`, Jira macro, gliffy/app content (per spec Appendix A).
+    `{code}`, `{expand}`, Jira macro, gliffy/app content (per spec Appendix A).
   - **Emoji** — inline Unicode in `.md` (remark passthrough); pin the converted/escaped form.
-  - **≥1 long page** notably larger than the 33-fixture golden set (≥2× the largest golden
-    fixture — TC-001 definition).
+  - **≥1 long page** at an absolute scale floor of **≥50 KB or ≥1000 lines** (AC-F1-1 —
+    an absolute floor to exercise NFR-PERF-5, not relative to the 33-fixture golden set).
   - **Mixed task/regular lists** — interleaved `- [ ]` and `-`/`1.` items.
   - **Raw HTML** — both block-level `<div>…</div>` and inline `<b>…</b>`.
 - [ ] **2.2** Generate each `*.classification.json` sidecar by running the **real**
@@ -230,10 +243,15 @@ each paired with a committed, reviewed `*.classification.json` sidecar (DM-1).
   findAllUnsupported(hast, sourcePath)` — and serializing the resulting `MarkSyncError[]`
   to JSON. Then **review** each sidecar against the fixture by hand before committing
   (it is the pinned contract for the no-silent-drop assertion; RSK-5).
-- [ ] **2.3** For fixtures that are pure supported content (e.g. `mixed-task-regular-lists`,
-  `emoji`, `long-page`), optionally commit a `*.storage.xhtml` golden for the fidelity
-  byte-match (Phase 3 TC-004). Skip the sidecar/commit for fixtures whose supported-only
-  render you do not want to pin.
+- [ ] **2.3** The `*.classification.json` **classification sidecar** is **MANDATORY** for
+  every fixture (DM-1) — it is the pinned contract for the no-silent-drop assertion
+  (Phase 3 TC-005); there is no fixture without one. Separately, for fixtures that are
+  pure supported content (e.g. `mixed-task-regular-lists`, `emoji`, `long-page`), you MAY
+  additionally commit an **optional fidelity golden** (`*.storage.xhtml`) for the byte-match
+  branch of Phase 3 TC-004. Only the optional `*.storage.xhtml` golden is skippable.
+  Terminology: "classification sidecar" refers strictly to `*.classification.json`
+  (mandatory); `*.storage.xhtml` is the optional fidelity golden, NOT a sidecar — do not
+  confuse the two, or you risk skipping the mandatory sidecar and breaking TC-005.
 - [ ] **2.4** Sanitize by construction (DEC-4): no email / bare-ID / internal-ticket-URL
   patterns in any authored fixture. (TC-008 in Phase 4 is the automated guardrail.)
 
@@ -282,32 +300,39 @@ behavior; mocking would invalidate the regression protection (`.ai/rules/testing
 
 **Tasks**:
 
-- [ ] **3.1** Create `tests/adversarial/classification-runner.test.ts` mirroring the
+- [ ] **3.1** Create `tests/golden/adversarial/classification-runner.test.ts` mirroring the
   `loadFixtures()` pattern in `tests/golden/markdown/storage-renderer.test.ts`: read every
   `*.md` + `*.classification.json` pair (and optional `*.storage.xhtml`) from
   `tests/adversarial/`. Use `readFileSync` / `readdirSync` / `dirname` / `join` from
   `node:fs` + `node:path` and `import.meta.url`, exactly like the golden runner.
 - [ ] **3.2** `describe("TC-ADVERSARIAL-004 (AC-F3-1 / NFR-REL-4) — fidelity")`: for each
-  fixture, run the real pipeline to `renderStorage(hast, { sourcePath })`. For fixtures
-  with a committed `*.storage.xhtml`, assert `result.ok === true` and
-  `result.value.body === expected` (byte-exact). For supported-only fixtures without a
-  golden, assert `result.ok === true` (supported constructs convert correctly). For
-  fixtures expected to be unsupported, assert the render result is the expected error
-  (mirroring the golden runner's error-fixture branch).
+  fixture, run the real pipeline to `renderStorage(hast, { sourcePath })` and exercise the
+  three TC-004 branches: (a) **golden-match** — fixtures with a committed `*.storage.xhtml`:
+  assert `result.ok === true` and `result.value.body === expected` (byte-exact);
+  (b) **assert-succeeds** — supported-only fixtures without a golden: assert
+  `result.ok === true` (supported constructs convert correctly); (c) **assert-error-fast-fail**
+  — fixtures whose `*.classification.json` records unsupported nodes (error fixtures):
+  assert `result.ok === false` and the error kind/construct matches the classification
+  (mirroring the golden runner's `isErrorFixture` branch — render fast-fails on the first
+  unsupported node exactly as the production path does).
 - [ ] **3.3** `describe("TC-ADVERSARIAL-005 (AC-F3-2 / ADR-0005 / F-5) — no silent drop")`:
   for each fixture, run `findAllUnsupported(hast, sourcePath)` and deep-compare the
   serialized JSON to the committed `*.classification.json` — every unsupported node
   present, none missing, none extra. Print a per-fixture diff on mismatch.
 - [ ] **3.4** `describe("TC-ADVERSARIAL-006 (AC-F3-3 / DEC-3) — drift stability")`: for
-  each fixture, run the classification pipeline twice (and a third time), serialize each
-  output, and assert byte-identical results across runs (DEC-3: classification
-  determinism, NOT sync three-way `classify()`).
+  each fixture, run the classification pipeline **twice** (AC-F3-3 requires "twice" — run
+  exactly twice, not thrice), serialize each output, and assert byte-identical results
+  across the two runs (DEC-3: classification determinism, NOT sync three-way `classify()`).
 - [ ] **3.5** For the macro / app / gliffy categories **not authorable in `.md`** (DEC-2),
-  add a `describe("TC-ADVERSARIAL-005 — hand-constructed macro/app HAST (DEC-2)")` block
-  that builds HAST nodes with **real Confluence macro tag shapes** (`ac:structured-macro`,
-  `{toc}`/`{info}`/`{code}`/Jira macro, gliffy/app tags) and feeds them directly to
-  `findAllUnsupported`, asserting each is classified `UnsupportedConstruct: <tag>` —
-  mirroring the hand-built-node precedent in `unsupported.test.ts` (RSK-4 mitigation).
+  add a `describe("TC-ADVERSARIAL-010 (AC-F3-2 / DEC-2) — hand-built macro/app HAST")`
+  block (per test plan TC-010, a **unit** test — NOT in the golden runner file). Per test
+  plan §7, TC-010 is grouped with TC-002/003 and extends
+  `tests/unit/domain/markdown/unsupported.test.ts`: build HAST nodes with **real Confluence
+  macro tag shapes** (`ac:structured-macro` with `ac:name` = `toc` / `info` / `code` /
+  `expand` / `jira`, plus gliffy/app tags) and feed them directly to `findAllUnsupported`,
+  asserting each is classified `UnsupportedConstruct: <tag>` with no silent drop — mirroring
+  the hand-built-node precedent already in that file (RSK-4 mitigation). It is distinct from
+  the fixture-driven golden runner in 3.1.
 - [ ] **3.6** Use `#domain/...` import aliases throughout; no deep relative paths. Keep
   the test-file header ≤3 lines (it is a test file, but the same style applies).
 
@@ -321,7 +346,9 @@ behavior; mocking would invalidate the regression protection (`.ai/rules/testing
 
 **Affected code areas**:
 
-- `tests/adversarial/classification-runner.test.ts` (new)
+- `tests/golden/adversarial/classification-runner.test.ts` (new — golden tier)
+- `tests/unit/domain/markdown/unsupported.test.ts` (extended in 3.5 with the TC-ADVERSARIAL-010
+  hand-built-macro describe block — per test plan TC-010 is a unit test grouped with TC-002/003)
 
 **System docs to update**:
 
@@ -329,7 +356,8 @@ behavior; mocking would invalidate the regression protection (`.ai/rules/testing
 
 **Tests**:
 
-- `bun test tests/adversarial/classification-runner.test.ts` — TC-ADVERSARIAL-004/005/006 green.
+- `bun test tests/golden/adversarial/classification-runner.test.ts` — TC-ADVERSARIAL-004/005/006 green.
+- `bun test tests/unit/domain/markdown/unsupported.test.ts` — TC-ADVERSARIAL-010 (hand-built-macro HAST, DEC-2) green.
 - `bun test tests/golden/markdown/storage-renderer.test.ts` — the 33-fixture suite still
   passes byte-exact (no regression from the new `findAllUnsupported` export).
 
@@ -350,21 +378,27 @@ Note the cast pattern from the golden runner:
 
 **Tasks**:
 
-- [ ] **4.1** Create `tests/adversarial/corpus-inventory.test.ts`
+- [ ] **4.1** Create `tests/golden/adversarial/corpus-inventory.test.ts`
   (`describe("TC-ADVERSARIAL-001 (AC-F1-1) — corpus category coverage inventory")`):
   scan `tests/adversarial/` for all `*.md` fixtures and their sidecars, then assert each
   of the six required categories is represented — nested tables; ≥3 macro/app-content
-  categories; emoji; ≥1 long page notably larger than the 33-fixture golden set (≥2× the
-  largest golden fixture); mixed task/regular lists; raw HTML (block + inline). Use
-  explicit per-category assertions with a message naming the covering fixture(s).
+  categories (incl. `{expand}`); emoji; ≥1 long page at the absolute scale floor
+  (≥50 KB or ≥1000 lines, per AC-F1-1); mixed task/regular lists; raw HTML (block + inline).
+  Use explicit per-category assertions with a message naming the covering fixture(s).
   Category detection may use fixture naming, sidecar node types, and content analysis.
-- [ ] **4.2** Create `tests/adversarial/pii-audit.test.ts`
+- [ ] **4.2** Create `tests/golden/adversarial/pii-audit.test.ts`
   (`describe("TC-ADVERSARIAL-008 (AC-F5-1 / NFR-SEC-1 / INV-SEC-1) — PII self-audit clean")`):
   read every committed artifact under `tests/adversarial/**` (`*.md`, `*.classification.json`,
-  `*.storage.xhtml`) and assert **0** matches for: email pattern
-  (`[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`), bare internal-ID patterns, and
-  internal-ticket-URL patterns (e.g. `https?://[^/]+/browse/[A-Z]+-\d+`). Document the
-  exact regexes in the test file. Report the searched patterns + match count (0).
+  `*.storage.xhtml`) and assert **0** matches for each of these concrete regexes (mirror them
+  exactly in the test file):
+  - **email** — `[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`
+  - **internal-ticket URL** — `https?://[^\s/]+/(?:browse|projects)/(?:[A-Z][A-Z0-9_]+-)\d+`
+    (matches Jira-style `/browse/PROJ-123` and `/projects/...`)
+  - **bare internal-issue-ref** — `(?:MS|GH|INT|TICKET|JIRA)[-_]\d{3,}` (case-insensitive;
+    narrowed to internal-issue-ref format — matches `MS-123`, `gh_456`, `INT-789`,
+    `TICKET-001`, `jira-1234`)
+
+  Report the searched patterns + match count (0).
 - [ ] **4.3** Use `#`-prefixed import aliases; keep headers ≤3 lines.
 
 **Acceptance Criteria**:
@@ -376,8 +410,8 @@ Note the cast pattern from the golden runner:
 
 **Affected code areas**:
 
-- `tests/adversarial/corpus-inventory.test.ts` (new)
-- `tests/adversarial/pii-audit.test.ts` (new)
+- `tests/golden/adversarial/corpus-inventory.test.ts` (new)
+- `tests/golden/adversarial/pii-audit.test.ts` (new)
 
 **System docs to update**:
 
@@ -385,7 +419,7 @@ Note the cast pattern from the golden runner:
 
 **Tests**:
 
-- `bun test tests/adversarial/corpus-inventory.test.ts tests/adversarial/pii-audit.test.ts` — green.
+- `bun test tests/golden/adversarial/corpus-inventory.test.ts tests/golden/adversarial/pii-audit.test.ts` — green.
 
 **Entry points to call**: filesystem reads only (`node:fs`, `node:path`); the inventory
 may parse sidecars as plain JSON. No pipeline imports required.
@@ -408,7 +442,7 @@ cannot author.
   - **`UnsupportedConstruct`** — block-level raw HTML (`raw-html-block`) and any
     non-allow-listed element tag (render fast-fails on the first hit).
   - **Requires manual macro / future MS-0003+ support** — Confluence macros (`{toc}`,
-    `{info}`, `{code}`, Jira), app/gliffy content, nested tables (not authorable from a
+    `{info}`, `{code}`, `{expand}`, Jira), app/gliffy content, nested tables (not authorable from a
     `.md` source in MS-0002 — DEC-2).
 - [ ] **5.2** State plainly what the one-way MS-0002 Markdown→Storage pipeline can and
   cannot author, reference DEC-2 for the macro/app-content carve-out, and point to the
@@ -458,14 +492,30 @@ introduced, then finalize the change for doc-sync and review.
   audit all pass; the parity + multi-node unit tests pass; the existing 33-fixture golden
   suite is still byte-exact; dependency-cruiser boundaries pass (the new
   `findAllUnsupported` is in `src/domain/` and imports nothing upward).
-- [ ] **6.2** If any issue surfaces, fix it (this is the only phase whose commit is
+- [ ] **6.2** **CI-glob visibility verification (DEC-5 / DoR BLOCKER 1)**: confirm the
+  adversarial runners are discovered by the CI-scoped invocation. Run
+  `bun test tests/golden/` (the exact glob `.github/workflows/ci.yml` uses) and verify it
+  picks up `tests/golden/adversarial/classification-runner.test.ts`,
+  `tests/golden/adversarial/corpus-inventory.test.ts`, and
+  `tests/golden/adversarial/pii-audit.test.ts`. This is a **verification step only** — NO
+  `ci.yml` edit. DEC-5 makes the runners CI-visible without a ci.yml change because they
+  live under the already-globbed `tests/golden/` (fixtures stay at `tests/adversarial/`,
+  which holds only data, no `*.test.ts`).
+- [ ] **6.3** If any issue surfaces, fix it (this is the only phase whose commit is
   conditional). If everything is already green after Phase 5, skip the commit and just
   record the green run in the Execution Log.
-- [ ] **6.3** **Spec reconciliation**: confirm `doc/spec/features/feature-safe-publish.md`
-  is updated in lifecycle phase 7 (`system_spec_update` / `@doc-syncer`) to reference the
-  adversarial corpus + classification doc alongside the 33-fixture golden row (spec §16).
-  This is NOT a coder commit — it is handed off to `@doc-syncer` after `/run-plan`.
-- [ ] **6.4** **Version bump**: `version_impact` is `patch`. Per repo conventions there is
+- [ ] **6.4** **Spec reconciliation + testing-strategy note (doc-sync handoff)**:
+  - Confirm `doc/spec/features/feature-safe-publish.md` is updated in lifecycle phase 7
+    (`system_spec_update` / `@doc-syncer`) to reference the adversarial corpus +
+    classification doc alongside the 33-fixture golden row (spec §16).
+  - `.ai/rules/testing-strategy.md` needs a **one-line addition** clarifying that the
+    adversarial corpus is a **golden-tier subcategory** under `tests/golden/adversarial/`
+    (fixtures at `tests/adversarial/`) — **NOT a new tier** (DEC-5). This is a minor
+    doc-sync item; the `@coder` may add it in this phase, or it is handed off to
+    `@doc-syncer` in lifecycle phase 7. It is listed here so it is not dropped.
+  These are NOT coder commits in this plan (unless the @coder picks up the one-line
+  testing-strategy note here) — they are finalized by `@doc-syncer` after `/run-plan`.
+- [ ] **6.5** **Version bump**: `version_impact` is `patch`. Per repo conventions there is
   no per-change version bump in the coder plan; the `package.json` version
   (`0.7.0`) is bumped at the MS-0002 release milestone, not per PR. Record `version_impact:
   patch` metadata only.
@@ -473,6 +523,8 @@ introduced, then finalize the change for doc-sync and review.
 **Acceptance Criteria**:
 
 - Must: AC-F6-1 — `bun run check` exit code 0.
+- Must: `bun test tests/golden/` (the CI glob) discovers and runs all three adversarial
+  runners under `tests/golden/adversarial/` (DEC-5 / BLOCKER 1 verification).
 - Must: the 33-fixture golden suite is still byte-exact (no regression).
 - Should: the full adversarial tier runs well within the CI fast-loop budget (NFR-PERF-5,
   informational; ≈20–40 fixtures through the real pipeline).
@@ -484,11 +536,19 @@ introduced, then finalize the change for doc-sync and review.
 **System docs to update**:
 
 - `doc/spec/features/feature-safe-publish.md` (updated in lifecycle phase 7, not here).
+- `.ai/rules/testing-strategy.md` — one-line addition noting the adversarial corpus is a
+  golden-tier subcategory under `tests/golden/adversarial/` (fixtures at `tests/adversarial/`),
+  NOT a new tier (DEC-5). May be added by `@coder` here or handed to `@doc-syncer` in phase 7
+  (see task 6.4). Listed here so it is not dropped.
 
 **Tests**:
 
 - `bun run check` green end-to-end.
-- `bun test tests/unit/ tests/integration/ tests/golden/ tests/adversarial/` green.
+- `bun test tests/golden/` (the CI-scoped glob) discovers and runs all three adversarial
+  runners under `tests/golden/adversarial/` (DEC-5 verification). Note: there are no
+  `*.test.ts` files under `tests/adversarial/` (it holds only fixtures), so the adversarial
+  runners are exercised entirely via the `tests/golden/` glob — no separate
+  `tests/adversarial/` test invocation is needed.
 
 **Entry points to call**: none new.
 
@@ -510,6 +570,7 @@ introduced, then finalize the change for doc-sync and review.
 | TC-ADVERSARIAL-007 | Classification doc published with handling table | P5 | AC-F4-1 |
 | TC-ADVERSARIAL-008 | PII self-audit: 0 email/ID/internal-ticket-URL matches | P4 | AC-F5-1, NFR-SEC-1, INV-SEC-1 |
 | TC-ADVERSARIAL-009 | Quality gate: `bun run check` green | P6 | AC-F6-1 |
+| TC-ADVERSARIAL-010 | Hand-built-macro HAST classification (DEC-2) — real `ac:structured-macro` shapes (`toc`/`info`/`code`/`expand`/`jira`) fed to `findAllUnsupported`, no silent drop | P3 (3.5) | AC-F3-2, DEC-2 |
 
 ## Artifacts and Links
 
@@ -523,9 +584,9 @@ introduced, then finalize the change for doc-sync and review.
 | Adversarial corpus fixtures | `tests/adversarial/*.md` | Test data (new) |
 | Classification sidecars | `tests/adversarial/*.classification.json` | Test data (new) |
 | Optional fidelity goldens | `tests/adversarial/*.storage.xhtml` | Test data (new, optional) |
-| Classification runner | `tests/adversarial/classification-runner.test.ts` | Test (new, golden tier) |
-| Corpus inventory test | `tests/adversarial/corpus-inventory.test.ts` | Test (new) |
-| PII self-audit test | `tests/adversarial/pii-audit.test.ts` | Test (new) |
+| Classification runner | `tests/golden/adversarial/classification-runner.test.ts` | Test (new, golden tier) |
+| Corpus inventory test | `tests/golden/adversarial/corpus-inventory.test.ts` | Test (new, golden tier) |
+| PII self-audit test | `tests/golden/adversarial/pii-audit.test.ts` | Test (new, golden tier) |
 | Classification doc | `doc/quality/adversarial-corpus-classification.md` | Quality doc (new) |
 | Feature spec (doc-sync) | `doc/spec/features/feature-safe-publish.md` | System spec (updated in lifecycle phase 7) |
 | Golden runner pattern | `tests/golden/markdown/storage-renderer.test.ts` | Reference (mirrored) |
@@ -537,6 +598,7 @@ introduced, then finalize the change for doc-sync and review.
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-26 | plan-writer | Initial plan from `chg-GH-31-spec.md` + `chg-GH-31-test-plan.md`; 6 execution phases aligned to AC-F1..F6 and TC-ADVERSARIAL-001..009. |
+| 1.1 | 2026-07-26 | plan-writer | Revised per DoR gate iter-1 findings + iter-2 spec/test-plan changes. (1) **DEC-5 runner/fixture split** — all RUNNERS moved to `tests/golden/adversarial/*.test.ts` (classification-runner, corpus-inventory, pii-audit); fixtures (`*.md`, `*.classification.json`, optional `*.storage.xhtml`) stay at `tests/adversarial/`. Updated In Scope, Phases 3/4, Artifacts table. (2) **BLOCKER 1** — added Phase 6.2 CI-glob visibility verification (`bun test tests/golden/` discovers the runners; NO ci.yml edit, per DEC-5); removed the stale `tests/adversarial/` test invocation. (3) **MAJOR 7** — added a one-line `.ai/rules/testing-strategy.md` doc-sync note (adversarial corpus = golden-tier subcategory, NOT a new tier) to Phase 6 System docs + task 6.4. (4) **MINOR 12** — Phase 2.3 reworded: `*.classification.json` sidecar is MANDATORY for every fixture (TC-005); only the optional `*.storage.xhtml` fidelity golden is skippable; "sidecar" reserved strictly for `*.classification.json`. (5) Spec/test-plan iter-2 sync — long-page floor = ≥50 KB or ≥1000 lines (absolute); `{expand}` added to macro lists (Phases 2.1, 3.5, 5.1); Phase 3.5 hand-built-macro block relabeled TC-005 → TC-ADVERSARIAL-010 (unit tier, in `unsupported.test.ts`) and added to the Test Scenarios table; TC-006 runs twice not thrice (Phase 3.4); TC-008 concrete PII regexes (Phase 4.2); TC-004 three branches made explicit (Phase 3.2). DEC-5 added to decisions context (all decisions DEC-1..5 resolved). |
 
 ## Execution Log
 
