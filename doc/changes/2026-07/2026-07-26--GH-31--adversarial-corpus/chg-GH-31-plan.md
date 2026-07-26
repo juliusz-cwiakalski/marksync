@@ -616,19 +616,20 @@ introduced, then finalize the change for doc-sync and review.
 
 ## Plan Revision Log
 
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0 | 2026-07-26 | plan-writer | Initial plan from `chg-GH-31-spec.md` + `chg-GH-31-test-plan.md`; 6 execution phases aligned to AC-F1..F6 and TC-ADVERSARIAL-001..009. |
-| 1.1 | 2026-07-26 | plan-writer | Revised per DoR gate iter-1 findings + iter-2 spec/test-plan changes. (1) **DEC-5 runner/fixture split** — all RUNNERS moved to `tests/golden/adversarial/*.test.ts` (classification-runner, corpus-inventory, pii-audit); fixtures (`*.md`, `*.classification.json`, optional `*.storage.xhtml`) stay at `tests/adversarial/`. Updated In Scope, Phases 3/4, Artifacts table. (2) **BLOCKER 1** — added Phase 6.2 CI-glob visibility verification (`bun test tests/golden/` discovers the runners; NO ci.yml edit, per DEC-5); removed the stale `tests/adversarial/` test invocation. (3) **MAJOR 7** — added a one-line `.ai/rules/testing-strategy.md` doc-sync note (adversarial corpus = golden-tier subcategory, NOT a new tier) to Phase 6 System docs + task 6.4. (4) **MINOR 12** — Phase 2.3 reworded: `*.classification.json` sidecar is MANDATORY for every fixture (TC-005); only the optional `*.storage.xhtml` fidelity golden is skippable; "sidecar" reserved strictly for `*.classification.json`. (5) Spec/test-plan iter-2 sync — long-page floor = ≥50 KB or ≥1000 lines (absolute); `{expand}` added to macro lists (Phases 2.1, 3.5, 5.1); Phase 3.5 hand-built-macro block relabeled TC-005 → TC-ADVERSARIAL-010 (unit tier, in `unsupported.test.ts`) and added to the Test Scenarios table; TC-006 runs twice not thrice (Phase 3.4); TC-008 concrete PII regexes (Phase 4.2); TC-004 three branches made explicit (Phase 3.2). DEC-5 added to decisions context (all decisions DEC-1..5 resolved). |
+ | Version | Date | Author | Changes |
+ |---------|------|--------|---------|
+ | 1.0 | 2026-07-26 | plan-writer | Initial plan from `chg-GH-31-spec.md` + `chg-GH-31-test-plan.md`; 6 execution phases aligned to AC-F1..F6 and TC-ADVERSARIAL-001..009. |
+ | 1.1 | 2026-07-26 | plan-writer | Revised per DoR gate iter-1 findings + iter-2 spec/test-plan changes. (1) **DEC-5 runner/fixture split** — all RUNNERS moved to `tests/golden/adversarial/*.test.ts` (classification-runner, corpus-inventory, pii-audit); fixtures (`*.md`, `*.classification.json`, optional `*.storage.xhtml`) stay at `tests/adversarial/`. Updated In Scope, Phases 3/4, Artifacts table. (2) **BLOCKER 1** — added Phase 6.2 CI-glob visibility verification (`bun test tests/golden/` discovers the runners; NO ci.yml edit, per DEC-5); removed the stale `tests/adversarial/` test invocation. (3) **MAJOR 7** — added a one-line `.ai/rules/testing-strategy.md` doc-sync note (adversarial corpus = golden-tier subcategory, NOT a new tier) to Phase 6 System docs + task 6.4. (4) **MINOR 12** — Phase 2.3 reworded: `*.classification.json` sidecar is MANDATORY for every fixture (TC-005); only the optional `*.storage.xhtml` fidelity golden is skippable; "sidecar" reserved strictly for `*.classification.json`. (5) Spec/test-plan iter-2 sync — long-page floor = ≥50 KB or ≥1000 lines (absolute); `{expand}` added to macro lists (Phases 2.1, 3.5, 5.1); Phase 3.5 hand-built-macro block relabeled TC-005 → TC-ADVERSARIAL-010 (unit tier, in `unsupported.test.ts`) and added to the Test Scenarios table; TC-006 runs twice not thrice (Phase 3.4); TC-008 concrete PII regexes (Phase 4.2); TC-004 three branches made explicit (Phase 3.2). DEC-5 added to decisions context (all decisions DEC-1..5 resolved). |
+ | 1.2 | 2026-07-26 | coder | Review iter-1 remediation: (7.1) Fixed classification doc to be honest about macro silent-escape path (inline macro tags escaped, not fast-failed). (7.2) Refactored unsupported.ts to single shared walker `collectAll` consumed by both `findUnsupported` and `findAllUnsupported`. (7.3) Added raw-html-block parity case to TC-002. (7.4) Renamed corpus count test to "category coverage floor". (7.5) Strengthened macro-category assertion to require distinct categories. (7.6) Removed dead golden-match branch in classification-runner. (7.7) Switched corpus-inventory and pii-audit to import.meta.url-based resolution. (7.8) Verified bun run check green; 33-fixture golden suite still byte-exact. |
 
 ## Execution Log
 
-| Phase | Status | Started | Completed | Commit | Notes |
-|-------|--------|---------|-----------|--------|-------|
-| 1 | Completed | 2026-07-26 | 2026-07-26 | ceb0073 | Collect-all classifier (DEC-1) |
-| 2 | Completed | 2026-07-26 | 2026-07-26 | 666e088 | Corpus fixtures + sidecars |
-| 3 | Completed | 2026-07-26 | 2026-07-26 | 8db998e | Classification runner (fidelity/no-drop/determinism) |
-| 4 | Completed | 2026-07-26 | 2026-07-26 | 63cfd47 | Corpus inventory + PII self-audit |
-| 5 | Completed | 2026-07-26 | 2026-07-26 | bf26849 | Published classification doc |
-| 6 | Completed | 2026-07-26 | 2026-07-26 | 988c61e | Final quality gate + finalize |
-| 7 | In Progress | 2026-07-26 | — | — | Review iter-1 remediation (2 MAJOR + 4 MINOR/NIT) |
+ | Phase | Status | Started | Completed | Commit | Notes |
+ |-------|--------|---------|-----------|--------|-------|
+ | 1 | Completed | 2026-07-26 | 2026-07-26 | ceb0073 | Collect-all classifier (DEC-1) |
+ | 2 | Completed | 2026-07-26 | 2026-07-26 | 666e088 | Corpus fixtures + sidecars |
+ | 3 | Completed | 2026-07-26 | 2026-07-26 | 8db998e | Classification runner (fidelity/no-drop/determinism) |
+ | 4 | Completed | 2026-07-26 | 2026-07-26 | 63cfd47 | Corpus inventory + PII self-audit |
+ | 5 | Completed | 2026-07-26 | 2026-07-26 | bf26849 | Published classification doc |
+ | 6 | Completed | 2026-07-26 | 2026-07-26 | 988c61e | Final quality gate + finalize |
+ | 7 | Completed | 2026-07-26 | 2026-07-26 | d8d42f8 | Review iter-1 remediation (2 MAJOR + 4 MINOR/NIT) |
