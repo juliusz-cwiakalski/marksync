@@ -32,12 +32,10 @@ import { initCommand } from "#cli/commands/init";
 import { planCommand } from "#cli/commands/plan";
 import { repairStateCommand } from "#cli/commands/repair-state";
 import { syncCommand } from "#cli/commands/sync";
+import pkg from "../../../package.json" with { type: "json" };
 
-/**
- * The version displayed in `--version` / help. Kept in lock-step with
- * `package.json` until a runtime version source is wired.
- */
-export const CLI_VERSION = "0.7.0";
+/** The version displayed in `--version` / help; single source of truth = package.json#version. */
+export const CLI_VERSION = pkg.version;
 
 /** The global flags as Cliffy surfaces them to an action (post-camelCase). */
 export interface GlobalCommandFlags {
