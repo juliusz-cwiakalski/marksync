@@ -38,9 +38,10 @@ before any bidirectional sync is attempted.
 **MS-0002 in progress** — the MVP safe one-way publisher. The project has
 completed its inception phase (north star, roadmap, architecture, domain model,
 conventions, quality baseline, ADOS framework integration) and a Confluence API
-validation spike (`MS-0001`). The project scaffolding is now in place: strict
-TypeScript + Bun toolchain, Biome lint/format, dependency-cruiser boundary
-enforcement, commitlint + husky, and the ports-and-adapters module skeleton.
+validation spike (`MS-0001`). The CLI is functional (publish/drift/identity
+flows, `doctor`, JSON output), and a tag-triggered binary release pipeline
+ships self-contained Linux + Windows binaries (`GH-32`). macOS and signed
+Windows builds are deferred to `MS-0003`.
 
 See the [roadmap](doc/overview/02-roadmap.md) for milestone details.
 
@@ -84,17 +85,25 @@ diagrams and the full component map.
 
 ## Getting started
 
-> The CLI is not yet installable — domain logic lands in subsequent `MS-0002`
-> stories. The scaffolding (toolchain, module skeleton, shared primitives) is
-> in place.
-
 **Quick dev loop:**
 
 ```bash
-bun install             # install devDeps
-bun run check           # lint + format:check + typecheck + test + check:boundaries
-bun run src/cli/index.ts # prints "marksync 0.0.0" (placeholder entrypoint)
+bun install               # install devDeps
+bun run check             # lint + format:check + typecheck + test + check:boundaries
+bun run src/cli/index.ts --version   # prints the current version (e.g. marksync 0.8.0)
 ```
+
+**Build a self-contained binary** (Bun `build --compile`; pinned Bun in
+`package.json#engines`):
+
+```bash
+bash scripts/build-binaries.sh --target linux-x64
+./build/marksync-linux-x64 --version
+```
+
+See the [release runbook](doc/guides/release-runbook.md) for the tag-triggered
+release pipeline and [binary release signing](doc/guides/binary-release-signing.md)
+for the Windows Authenticode plug-in point.
 
 **For contributors**, see the [dev environment guide](doc/guides/dev-environment.md)
 for prerequisites, setup, and scripts.

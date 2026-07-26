@@ -16,9 +16,11 @@ wiki/adapters may follow.
 - **State model**: source-side immutable UUID v7 + committed versioned lock +
   disposable `.marksync/` cache (`ADR-0006`).
 
-The repo is currently **post-inception, pre-implementation**: `MS-0001` (API
-validation spike) is complete; `MS-0002` (MVP safe one-way publisher) is the
-active milestone. See [doc/overview/02-roadmap.md](doc/overview/02-roadmap.md).
+The repo is **in active `MS-0002` implementation** (MVP safe one-way
+publisher): `MS-0001` (API validation spike) is complete, the CLI is
+functional (publish/drift/identity, `doctor`, JSON output), and a
+tag-triggered binary release pipeline ships self-contained Linux + Windows
+binaries (`GH-32`). See [doc/overview/02-roadmap.md](doc/overview/02-roadmap.md).
 
 > **New to ADOS?** See [doc/guides/onboarding-existing-project.md](doc/guides/onboarding-existing-project.md) or run `/bootstrap` to get started.
 
