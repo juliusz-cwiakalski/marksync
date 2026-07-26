@@ -64,7 +64,7 @@ This test plan validates the adversarial corpus and classification runner that r
 | AC-F1-1 | Corpus covers: nested tables; ≥3 macro/app-content categories; emoji; ≥1 long page; mixed task/regular lists; raw HTML | TC-ADVERSARIAL-001 | TODO |
 | AC-F2-1 | Collect-all classifier returns ALL unsupported nodes depth-first; parity with `findUnsupported` / `classifyUnsupported` unchanged | TC-ADVERSARIAL-002, TC-ADVERSARIAL-003 | TODO |
 | AC-F3-1 | Supported constructs convert correctly; golden byte-match where committed | TC-ADVERSARIAL-004 | TODO |
-| AC-F3-2 | No silent drop — classification equals sidecar exactly | TC-ADVERSARIAL-005 | TODO |
+| AC-F3-2 | No silent drop — classification equals sidecar exactly | TC-ADVERSARIAL-005, TC-ADVERSARIAL-010 | TODO |
 | AC-F3-3 | Drift stability — same corpus classified twice → byte-identical | TC-ADVERSARIAL-006 | TODO |
 | AC-F4-1 | Classification doc published with handling-category table | TC-ADVERSARIAL-007 | TODO |
 | AC-F5-1 | PII self-audit returns clean (0 email/ID/internal-ticket-URL matches) | TC-ADVERSARIAL-008 | TODO |
@@ -74,8 +74,8 @@ This test plan validates the adversarial corpus and classification runner that r
 
 | ID | Description | TC ID(s) |
 |----|-------------|----------|
-| DM-1 | `*.classification.json` sidecar contract — expected classification per corpus fixture | TC-ADVERSARIAL-005, TC-ADVERSARIAL-006 |
-| DM-2 | `findAllUnsupported` return shape — `MarkSyncError[]` (collect-all variant) | TC-ADVERSARIAL-002, TC-ADVERSARIAL-003 |
+| DM-1 | `*.classification.json` sidecar contract — expected classification per corpus fixture | TC-ADVERSARIAL-005, TC-ADVERSARIAL-006, TC-ADVERSARIAL-010 |
+| DM-2 | `findAllUnsupported` return shape — `MarkSyncError[]` (collect-all variant) | TC-ADVERSARIAL-002, TC-ADVERSARIAL-003, TC-ADVERSARIAL-010 |
 
 ### 3.3 Non-Functional Coverage (NFR-#)
 
@@ -101,12 +101,15 @@ This test plan validates the adversarial corpus and classification runner that r
 ### 4.2 Golden Tests (Classification Runner)
 
 - **Framework**: `bun:test` with real parser/bridge/renderer (no mocks, per TDR-0004 over-mocking guardrail)
-- **Root Directory**: `tests/adversarial/`
-- **Pattern**: `classification-runner.test.ts`
+- **Root Directory**: `tests/golden/adversarial/`
+- **Pattern**: `*.test.ts`
 - **Scope**:
+  - Corpus category coverage inventory: synthetic Markdown fixtures, committed classification sidecars
   - Fidelity assertions: supported constructs convert correctly; for fixtures with committed `.storage.xhtml`, byte-match
   - No-silent-drop assertions: emitted classification deep-equals committed sidecar
   - Drift stability assertions: classify same fixture twice → byte-identical output
+  - Hand-built-macro HAST classification: real Confluence macro tag shapes fed to `findAllUnsupported` (DEC-2)
+  - PII self-audit: automated grep scan across committed corpus artifacts
 - **Fixture Pattern**:
   - `tests/adversarial/*.md` — synthetic Markdown sources
   - `tests/adversarial/*.classification.json` — committed expected classification sidecars
@@ -116,11 +119,11 @@ This test plan validates the adversarial corpus and classification runner that r
 ### 4.3 Automation / CI Tests
 
 - **Framework**: `bun:test`
-- **Root Directory**: `tests/adversarial/`
-- **Pattern**: `pii-audit.test.ts`
+- **Root Directory**: `tests/golden/adversarial/`
+- **Pattern**: `*.test.ts` (runners discovered via CI glob `tests/golden/`)
 - **Scope**:
-  - Automated grep scan for email patterns, bare IDs, internal-ticket URLs across all committed corpus artifacts
-  - Category coverage inventory test asserting corpus contains required categories
+  - Golden-tier tests as defined in §4.2 are automatically discovered by CI
+  - All tests run as part of `bun test tests/golden/` (included in `bun run check`)
 
 ### 4.4 Manual / Documentation Tests
 
@@ -136,15 +139,16 @@ This test plan validates the adversarial corpus and classification runner that r
 
 | TC ID | Title | Type | Level | Priority | AC Coverage | Test Type |
 |-------|-------|------|-------|----------|-------------|-----------|
-| TC-ADVERSARIAL-001 | Corpus category coverage inventory | Happy Path | Important | High | AC-F1-1 | Unit |
+| TC-ADVERSARIAL-001 | Corpus category coverage inventory | Happy Path | Important | High | AC-F1-1 | Golden |
 | TC-ADVERSARIAL-002 | Parity test: findAllUnsupported vs findUnsupported | Regression | Critical | High | AC-F2-1 | Unit |
 | TC-ADVERSARIAL-003 | Multi-node collection depth-first | Happy Path | Critical | High | AC-F2-1 | Unit |
 | TC-ADVERSARIAL-004 | Fidelity: supported constructs convert correctly | Happy Path | Critical | High | AC-F3-1, NFR-REL-4 | Golden |
 | TC-ADVERSARIAL-005 | No-silent-drop: classification equals sidecar | Happy Path | Critical | High | AC-F3-2, F-2, F-3 | Golden |
 | TC-ADVERSARIAL-006 | Drift stability: deterministic classification output | Corner Case | Important | High | AC-F3-3, F-3 | Golden |
 | TC-ADVERSARIAL-007 | Classification doc published with handling table | Happy Path | Minor | Medium | AC-F4-1 | Manual |
-| TC-ADVERSARIAL-008 | PII self-audit clean across corpus artifacts | Happy Path | Critical | High | AC-F5-1, NFR-SEC-1, INV-SEC-1 | Unit (automation) |
+| TC-ADVERSARIAL-008 | PII self-audit clean across corpus artifacts | Happy Path | Critical | High | AC-F5-1, NFR-SEC-1, INV-SEC-1 | Golden |
 | TC-ADVERSARIAL-009 | Quality gate: bun run check green | Happy Path | Critical | High | AC-F6-1 | Manual (CI) |
+| TC-ADVERSARIAL-010 | Hand-built-macro HAST classification (DEC-2) | Happy Path | Important | High | AC-F3-2, DEC-2 | Unit |
 
 ### 5.2 Scenario Details
 
@@ -154,10 +158,10 @@ This test plan validates the adversarial corpus and classification runner that r
 **Impact Level**: Important
 **Priority**: High
 **Related IDs**: F-1, G-1, AC-F1-1
-**Test Type(s)**: Unit
+**Test Type(s)**: Golden
 **Automation Level**: Automated
-**Target Layer / Location**: `tests/adversarial/corpus-inventory.test.ts`
-**Tags**: @backend, @test
+**Target Layer / Location**: `tests/golden/adversarial/corpus-inventory.test.ts`
+**Tags**: @backend, @golden, @test
 
 **Preconditions**:
 - Adversarial corpus fixtures exist under `tests/adversarial/*.md`
@@ -271,7 +275,7 @@ This test plan validates the adversarial corpus and classification runner that r
 **Related IDs**: F-3, NFR-REL-4, AC-F3-1
 **Test Type(s)**: Golden
 **Automation Level**: Automated
-**Target Layer / Location**: `tests/adversarial/classification-runner.test.ts`
+**Target Layer / Location**: `tests/golden/adversarial/classification-runner.test.ts`
 **Tags**: @backend, @golden, @fidelity
 
 **Preconditions**:
@@ -283,26 +287,32 @@ This test plan validates the adversarial corpus and classification runner that r
 1. Load each corpus fixture `tests/adversarial/*.md`
 2. Run the real Markdown pipeline: `parseMarkdown` → `mdastToHast` → `renderStorage`
 3. For fixtures with committed `.storage.xhtml` golden:
-   - Assert that `renderStorage` succeeds (`result.ok` is `true`)
-   - Assert that the rendered body byte-matches the golden file
-4. For fixtures without golden files:
-   - Assert that `renderStorage` succeeds (supported constructs convert correctly)
-   - No byte-match assertion (golden not committed)
-5. Report pass/fail per fixture with clear error messages
+    - Assert that `renderStorage` succeeds (`result.ok` is `true`)
+    - Assert that the rendered body byte-matches the golden file
+4. For fixtures without golden files (supported constructs only):
+    - Assert that `renderStorage` succeeds (supported constructs convert correctly)
+    - No byte-match assertion (golden not committed)
+5. For fixtures with unsupported nodes detected in `*.classification.json` (error fixtures):
+    - Assert that `renderStorage` fails (`result.ok === false`)
+    - Assert that the error kind and construct match the classification
+6. Report pass/fail per fixture with clear error messages
 
 **Expected Outcome**:
 - All fixtures with supported constructs render successfully
 - Fixtures with committed `.storage.xhtml` byte-match their goldens exactly
+- Fixtures with unsupported nodes fail fast with correct error (no silent degradation)
 - 0 mis-conversions of supported constructs (NFR-REL-4 fidelity)
 - Existing 33-fixture golden suite continues to pass (no regression)
 
 **Postconditions**:
 - Conversion fidelity is regression-locked for adversarial content
+- Unsupported-node handling is validated (success vs fast-fail error per fixture type)
 
 **Notes / Clarifications**:
-- Mirrors existing golden runner pattern at `tests/golden/markdown/storage-renderer.test.ts`
+- Mirrors existing golden runner pattern at `tests/golden/markdown/storage-renderer.test.ts` lines ~73-79 (isErrorFixture handling)
 - NO mocks of pipeline (TDR-0004 over-mocking guardrail) — real parser/bridge/renderer
 - Entry points: `parseMarkdown`, `mdastToHast`, `findAllUnsupported` (for classification), `renderStorage`
+- Error fixtures follow existing pattern: committed `*.classification.json` with unsupported nodes → fast-fail error
 
 ---
 
@@ -314,7 +324,7 @@ This test plan validates the adversarial corpus and classification runner that r
 **Related IDs**: F-2, F-3, G-2, AC-F3-2, ADR-0005, F-5
 **Test Type(s)**: Golden
 **Automation Level**: Automated
-**Target Layer / Location**: `tests/adversarial/classification-runner.test.ts`
+**Target Layer / Location**: `tests/golden/adversarial/classification-runner.test.ts`
 **Tags**: @backend, @golden, @no-silent-drop
 
 **Preconditions**:
@@ -353,7 +363,7 @@ This test plan validates the adversarial corpus and classification runner that r
 **Related IDs**: F-3, G-2, AC-F3-3, DEC-3
 **Test Type(s)**: Golden
 **Automation Level**: Automated
-**Target Layer / Location**: `tests/adversarial/classification-runner.test.ts`
+**Target Layer / Location**: `tests/golden/adversarial/classification-runner.test.ts`
 **Tags**: @backend, @golden, @determinism
 
 **Preconditions**:
@@ -365,11 +375,9 @@ This test plan validates the adversarial corpus and classification runner that r
 3. Run the exact same pipeline a second time on the same fixture
 4. Deep-compare the two classification outputs
 5. Assert byte-identical results (0 bytes diff)
-6. Repeat for a third run to ensure consistency
 
 **Expected Outcome**:
 - First and second classification outputs are byte-identical for all fixtures
-- Second and third classification outputs are byte-identical for all fixtures
 - Classification is deterministic (idempotent)
 - DEC-3 distinction holds: this is classification determinism, not sync drift
 
@@ -379,6 +387,7 @@ This test plan validates the adversarial corpus and classification runner that r
 **Notes / Clarifications**:
 - Mirrors TC-MERM-002 in existing golden runner (mermaid fence byte-stability)
 - "Drift stability" = classification determinism (DEC-3), NOT sync three-way `classify()`
+- AC-F3-3 requires "twice" — this test runs exactly twice to match the requirement
 
 ---
 
@@ -428,10 +437,10 @@ This test plan validates the adversarial corpus and classification runner that r
 **Impact Level**: Critical
 **Priority**: High
 **Related IDs**: F-5, G-5, AC-F5-1, NFR-SEC-1, INV-SEC-1, DEC-4
-**Test Type(s)**: Unit (automation)
+**Test Type(s)**: Golden
 **Automation Level**: Automated
-**Target Layer / Location**: `tests/adversarial/pii-audit.test.ts`
-**Tags**: @backend, @security, @pii
+**Target Layer / Location**: `tests/golden/adversarial/pii-audit.test.ts`
+**Tags**: @backend, @golden, @security, @pii
 
 **Preconditions**:
 - Corpus artifacts are committed: `*.md`, `*.classification.json`, optional `*.storage.xhtml`
@@ -439,16 +448,16 @@ This test plan validates the adversarial corpus and classification runner that r
 **Steps**:
 1. Scan the `tests/adversarial/` directory for all committed artifacts
 2. Read each file's content
-3. Run regex grep for email patterns (e.g., `[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`)
-4. Run regex grep for bare ID patterns (e.g., context-specific internal IDs)
-5. Run regex grep for internal-ticket URL patterns (e.g., `https://jira.example.com/browse/ABC-123`)
+3. Run regex grep for email patterns: `[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`
+4. Run regex grep for internal-ticket URL patterns: `https?://[^\s/]+/(?:browse|projects)/(?:[A-Z][A-Z0-9_]+-)\d+` (matches Jira-style `/browse/PROJ-123` and `/projects/...`)
+5. Run regex grep for bare internal ID patterns: `(?:MS|GH|INT|TICKET|JIRA)[-_]\d{3,}` (case-insensitive; matches MS-123, gh_456, INT-789, TICKET-001, jira-1234)
 6. Assert total match count is 0 across all artifacts
 7. Report which patterns were searched and the match count (0)
 
 **Expected Outcome**:
 - 0 email pattern matches across all committed corpus artifacts
-- 0 bare ID matches across all committed corpus artifacts
 - 0 internal-ticket URL matches across all committed corpus artifacts
+- 0 bare internal ID matches across all committed corpus artifacts
 - PII self-audit test passes with clean output
 
 **Postconditions**:
@@ -458,7 +467,56 @@ This test plan validates the adversarial corpus and classification runner that r
 **Notes / Clarifications**:
 - Test runs as part of `bun run check` (CI fast loop)
 - Sanitization is primarily by construction (DEC-4 — synthetic corpus); grep is defense-in-depth
-- Specific regex patterns should be documented in the test file
+- Concrete regex patterns are specified above; bare ID pattern narrowed to internal-issue-ref format only
+- Bare internal ID pattern is case-insensitive to catch variations (MS-123, ms-123, MS_123, etc.)
+
+---
+
+---
+
+#### TC-ADVERSARIAL-010 - Hand-built-macro HAST classification (DEC-2)
+
+**Scenario Type**: Happy Path
+**Impact Level**: Important
+**Priority**: High
+**Related IDs**: AC-F3-2, DEC-2
+**Test Type(s)**: Unit
+**Automation Level**: Automated
+**Target Layer / Location**: `tests/unit/domain/markdown/unsupported.test.ts` (extend existing)
+**Tags**: @backend, @unit, @classification
+
+**Preconditions**:
+- `findAllUnsupported` function is exported from `src/domain/markdown/unsupported.ts`
+- HAST node construction utilities are available
+
+**Steps**:
+1. Build HAST nodes representing real Confluence macro tag shapes:
+    - `{toc}` macro → `ac:structured-macro` with `ac:name="toc"`
+    - `{info}` macro → `ac:structured-macro` with `ac:name="info"`
+    - `{code}` macro → `ac:structured-macro` with `ac:name="code"`
+    - `{expand}` macro → `ac:structured-macro` with `ac:name="expand"`
+    - Jira issue macro → `ac:structured-macro` with `ac:name="jira"` or `ri:jira*` attributes
+    - Gliffy/diagram app tags → `ac:structured-macro` with app-specific names or `ri:app*` attributes
+2. Call `findAllUnsupported(tree, sourcePath)` on each hand-built macro node
+3. Assert that each classification has `kind: "UnsupportedConstruct"`
+4. Assert that each `construct` matches the expected macro tag name
+5. Verify that no macro node is silently dropped (all appear in classification output)
+
+**Expected Outcome**:
+- All hand-built macro nodes are classified as `UnsupportedConstruct`
+- Each macro's `construct` field matches the expected tag name (e.g., `toc`, `info`, `code`, `expand`, `jira`)
+- 0 silent drops — every macro appears in classification
+- DEC-2 is validated: macros/app-content cannot be authored from Markdown; they are classified as unsupported
+
+**Postconditions**:
+- Macro classification behavior is regression-locked (DEC-2)
+- Classification doc accuracy is supported by test coverage
+
+**Notes / Clarifications**:
+- This is the "hand-built-macro/app HAST classification" defined in plan Phase 3.5
+- Mirrors TC-005's no-silent-drop focus but uses synthetic HAST nodes, not fixture files
+- Real Confluence macro tag shapes are used to ensure classification doc is accurate
+- Hand-built nodes isolate macro classification from fixture complexity
 
 ---
 
@@ -542,22 +600,23 @@ This test plan validates the adversarial corpus and classification runner that r
 
 | TC ID | Test File | Execution Command | Mocking Requirements | Implementation Status |
 |-------|-----------|-------------------|---------------------|----------------------|
-| TC-ADVERSARIAL-001 | `tests/adversarial/corpus-inventory.test.ts` | `bun test tests/adversarial/corpus-inventory.test.ts` | None | To Implement |
+| TC-ADVERSARIAL-001 | `tests/golden/adversarial/corpus-inventory.test.ts` | `bun test tests/golden/adversarial/corpus-inventory.test.ts` | None | To Implement |
 | TC-ADVERSARIAL-002 | `tests/unit/domain/markdown/unsupported.test.ts` (extend) | `bun test tests/unit/domain/markdown/unsupported.test.ts` | None | To Implement |
 | TC-ADVERSARIAL-003 | `tests/unit/domain/markdown/unsupported.test.ts` (extend) | `bun test tests/unit/domain/markdown/unsupported.test.ts` | None | To Implement |
-| TC-ADVERSARIAL-004 | `tests/adversarial/classification-runner.test.ts` | `bun test tests/adversarial/classification-runner.test.ts` | None — real parser/bridge/renderer (TDR-0004) | To Implement |
-| TC-ADVERSARIAL-005 | `tests/adversarial/classification-runner.test.ts` | `bun test tests/adversarial/classification-runner.test.ts` | None — real pipeline | To Implement |
-| TC-ADVERSARIAL-006 | `tests/adversarial/classification-runner.test.ts` | `bun test tests/adversarial/classification-runner.test.ts` | None — real pipeline | To Implement |
+| TC-ADVERSARIAL-004 | `tests/golden/adversarial/classification-runner.test.ts` | `bun test tests/golden/adversarial/classification-runner.test.ts` | None — real parser/bridge/renderer (TDR-0004) | To Implement |
+| TC-ADVERSARIAL-005 | `tests/golden/adversarial/classification-runner.test.ts` | `bun test tests/golden/adversarial/classification-runner.test.ts` | None — real pipeline | To Implement |
+| TC-ADVERSARIAL-006 | `tests/golden/adversarial/classification-runner.test.ts` | `bun test tests/golden/adversarial/classification-runner.test.ts` | None — real pipeline | To Implement |
 | TC-ADVERSARIAL-007 | `doc/quality/adversarial-corpus-classification.md` | Manual verification (DoD review) | N/A | To Implement |
-| TC-ADVERSARIAL-008 | `tests/adversarial/pii-audit.test.ts` | `bun test tests/adversarial/pii-audit.test.ts` | None | To Implement |
+| TC-ADVERSARIAL-008 | `tests/golden/adversarial/pii-audit.test.ts` | `bun test tests/golden/adversarial/pii-audit.test.ts` | None | To Implement |
 | TC-ADVERSARIAL-009 | CI workflow (`ci.yml`) | `bun run check` (CI) | N/A | Existing — Ensure new tests pass |
+| TC-ADVERSARIAL-010 | `tests/unit/domain/markdown/unsupported.test.ts` (extend) | `bun test tests/unit/domain/markdown/unsupported.test.ts` | None | To Implement |
 
 ### Implementation Notes
 
-- **Unit tests (TC-002, TC-003)**: Extend existing `tests/unit/domain/markdown/unsupported.test.ts` with new describe blocks for parity and multi-node collection. Follow existing pattern of hand-constructed HAST nodes (see TC-UNSUP-001 precedent).
-- **Classification runner (TC-004, TC-005, TC-006)**: Create new `tests/adversarial/classification-runner.test.ts` mirroring `tests/golden/markdown/storage-renderer.test.ts` structure. Use `loadFixtures()` pattern to iterate over `*.md` + `*.classification.json` pairs. NO mocks — real `parseMarkdown`, `mdastToHast`, `findAllUnsupported`, `renderStorage` entry points.
-- **Corpus inventory (TC-001)**: Create `tests/adversarial/corpus-inventory.test.ts` with parametrized tests for each category. Scan fixture directory, read sidecars, assert category representation.
-- **PII audit (TC-008)**: Create `tests/adversarial/pii-audit.test.ts` with regex patterns for emails, IDs, internal-ticket URLs. Scan all files in `tests/adversarial/` and assert 0 matches.
+- **Unit tests (TC-002, TC-003, TC-010)**: Extend existing `tests/unit/domain/markdown/unsupported.test.ts` with new describe blocks for parity, multi-node collection, and hand-built-macro HAST classification. Follow existing pattern of hand-constructed HAST nodes (see TC-UNSUP-001 precedent). TC-010 constructs real Confluence macro tag shapes to validate DEC-2 classification behavior.
+- **Classification runner (TC-004, TC-005, TC-006)**: Create new `tests/golden/adversarial/classification-runner.test.ts` mirroring `tests/golden/markdown/storage-renderer.test.ts` structure. Use `loadFixtures()` pattern to iterate over `*.md` + `*.classification.json` pairs. NO mocks — real `parseMarkdown`, `mdastToHast`, `findAllUnsupported`, `renderStorage` entry points. TC-004 includes third branch for error fixtures (assert `result.ok === false` per `isErrorFixture` pattern).
+- **Corpus inventory (TC-001)**: Create `tests/golden/adversarial/corpus-inventory.test.ts` with parametrized tests for each category. Scan fixture directory, read sidecars, assert category representation.
+- **PII audit (TC-008)**: Create `tests/golden/adversarial/pii-audit.test.ts` with concrete regex patterns for emails, internal-ticket URLs, and bare internal IDs (narrowed to `(?:MS|GH|INT|TICKET|JIRA)[-_]\d{3,}` case-insensitive). Scan all files in `tests/adversarial/` and assert 0 matches.
 - **Classification doc (TC-007)**: Create `doc/quality/adversarial-corpus-classification.md` with required table and DEC-2 references. Manual verification in DoD phase.
 
 ### Over-Mocking Guardrail (TDR-0004)
@@ -596,6 +655,7 @@ None blocking. All resolved decisions are recorded in the spec (DEC-1 through DE
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-07-26 | Change Test Plan Writer | Initial test plan created from chg-GH-31-spec.md, testing-strategy.md, and existing classifier/golden test patterns |
+| 1.1 | 2026-07-26 | Change Test Plan Writer | Revised per DoR gate iter-1 findings: (1) DEC-5 runner/fixture split — runners moved to `tests/golden/adversarial/`, fixtures stay at `tests/adversarial/`; (2) MAJOR-4 — TC-001, TC-004, TC-005, TC-006, TC-008 relabeled as Golden tier (filesystem I/O tests); (3) MAJOR-5 — TC-004 added third branch for unsupported-fixture error handling (assert `result.ok === false`); (4) MINOR-10 — TC-008 defined concrete regexes for email, internal-ticket URL, and bare internal ID patterns; (5) MINOR-11 — Added TC-ADVERSARIAL-010 for hand-built-macro HAST classification (DEC-2); (6) MINOR-13 — TC-006 changed from 3× to 2× classification runs to match AC-F3-3 exactly; Updated §3.1, §3.2, §4.1, §4.2, §4.3, §5.1, §5.2, §7, and execution log accordingly. |
 
 ## 10. Test Execution Log
 

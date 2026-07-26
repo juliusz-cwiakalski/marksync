@@ -5,9 +5,9 @@ change_folder: doc/changes/2026-07/2026-07-26--GH-31--adversarial-corpus
 
 phases:
   clarify_scope: { started: "2026-07-26", completed: "2026-07-26" }
-  specification: { started: "2026-07-26", completed: "2026-07-26" }
-  test_planning: { started: "2026-07-26", completed: "2026-07-26" }
-  delivery_planning: { started: "2026-07-26", completed: "2026-07-26" }
+  specification: { started: "2026-07-26", completed: null }
+  test_planning: { started: "2026-07-26", completed: null }
+  delivery_planning: { started: "2026-07-26", completed: null }
   dor_check: { started: "2026-07-26", completed: null }
   delivery: { started: null, completed: null }
   system_spec_update: { started: null, completed: null }
@@ -16,7 +16,20 @@ phases:
   dod_check: { started: null, completed: null }
   pr_creation: { started: null, completed: null, url: null }
 
-decisions: []
+decisions:
+  - id: DEC-5
+    text: >
+      Test RUNNERS (classification-runner, corpus-inventory, pii-audit) live
+      at tests/golden/adversarial/*.test.ts (golden-tier — real pipeline,
+      committed sidecars/goldens, no mocks); FIXTURES (data) stay at
+      tests/adversarial/ per the story's explicit path. Rationale: CI glob
+      tests/golden/ already discovers tests/golden/adversarial/, so no ci.yml
+      change needed (resolves DoR BLOCKER finding 1); runners are sanctioned
+      by the existing golden tier, not a new unsanctioned tier (resolves MAJOR
+      finding 4); no testing-strategy.md tier registration required (resolves
+      MAJOR finding 7); mirrors the existing tests/golden/markdown/ runner +
+      tests/golden/fixtures/markdown/ data split.
+    date: "2026-07-26"
 open_questions: []
 blockers: []
 
@@ -54,4 +67,27 @@ notes:
       possibly doc/spec/nonfunctional.md NFR-REL-4 (fidelity) — link corpus
       as evidence. doc/quality/ currently only has test-specs/.
     type: risk
+    date: "2026-07-26"
+  - text: >
+      Retro — DoR iter-1 NOT_READY (2026-07-26): @readiness-reviewer caught 2
+      BLOCKERs + 5 MAJORs + 6 MINOR/NIT. BLOCKERs: (1) CI runs only
+      tests/unit|integration|golden — tests/adversarial/ would be CI-invisible,
+      defeating the regression-suite purpose; (2) spec §13 dependency row
+      wrongly claims corpus "stress-tests E3-S5/GH-22 sync drift classifier",
+      contradicting DEC-3/NG-3. MAJORs: "long page" proxy (2× largest golden
+      = only 1.7KB) too small; TC-001 tier "Unit" does FS I/O + tests/adversarial/
+      unsanctioned tier; TC-004 omits unsupported-fixture branch
+      (renderStorage returns ok=false); {expand} macro silently dropped from
+      deliverable list; plan omits testing-strategy.md tier registration.
+      PM DECISION D5 resolves BLOCKER-1 + MAJOR-4 + MAJOR-7 at once by
+      relocating RUNNERS to tests/golden/adversarial/ (golden-tier, CI-covered,
+      sanctioned) while keeping fixtures at tests/adversarial/ per story. Gap
+      not caught earlier: the three author agents (spec/test-plan/plan)
+      independently chose tests/adversarial/ for runners without checking CI
+      wiring or tier sanctioning — a cross-artifact consistency gap the DoR
+      gate exists to catch. Process improvement: author agents should verify
+      new test directories against ci.yml + testing-strategy.md tiers before
+      committing paths. Reopening specification/test_planning/delivery_planning
+      for iter-2 fixes.
+    type: retro
     date: "2026-07-26"

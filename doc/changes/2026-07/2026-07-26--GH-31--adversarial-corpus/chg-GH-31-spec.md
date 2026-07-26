@@ -27,7 +27,7 @@ change:
 
 ## 1. SUMMARY
 
-This change delivers a sanitized **adversarial test corpus** under `tests/adversarial/` (synthetic `*.md` sources plus committed `*.classification.json` expected-classification sidecars) covering content categories the canonical GFM subset excludes — nested tables, Confluence macros and app/gliffy content, emoji, very long pages, mixed task/regular lists, and raw HTML. A **classification runner** runs each corpus document through the real Markdown pipeline (parse → MDAST→HAST → unsupported-node classify → `renderStorage`) and asserts three things: (a) fidelity — supported constructs convert correctly (NFR-REL-4); (b) no silent drop — every unsupported node is classified (ADR-0005 / F-5); (c) drift stability — classifying the same corpus twice yields byte-identical output (determinism). A **user-facing classification doc** is published at `doc/quality/adversarial-corpus-classification.md`. The single `src/` change is an additive **collect-all classifier variant** (`findAllUnsupported`), because the existing `findUnsupported` returns only the first unsupported node and cannot satisfy the "every unsupported node enumerated" assertion (DEC-1). The corpus is **synthetic** (no real design-partner pages exist pre-launch); sanitization is by construction plus an automated PII self-audit grep (DEC-4).
+This change delivers a sanitized **adversarial test corpus** under `tests/adversarial/` (synthetic `*.md` sources plus committed `*.classification.json` expected-classification sidecars) covering content categories the canonical GFM subset excludes — nested tables, Confluence macros and app/gliffy content, emoji, very long pages, mixed task/regular lists, and raw HTML. A **classification runner** (at `tests/golden/adversarial/*.test.ts` — golden tier; corpus fixtures stay at `tests/adversarial/` per DEC-5) runs each corpus document through the real Markdown pipeline (parse → MDAST→HAST → unsupported-node classify → `renderStorage`) and asserts three things: (a) fidelity — supported constructs convert correctly (NFR-REL-4); (b) no silent drop — every unsupported node is classified (ADR-0005 / F-5); (c) drift stability — classifying the same corpus twice yields byte-identical output (determinism). A **user-facing classification doc** is published at `doc/quality/adversarial-corpus-classification.md`. The single `src/` change is an additive **collect-all classifier variant** (`findAllUnsupported`), because the existing `findUnsupported` returns only the first unsupported node and cannot satisfy the "every unsupported node enumerated" assertion (DEC-1). The corpus is **synthetic** (no real design-partner pages exist pre-launch); sanitization is by construction plus an automated PII self-audit grep (DEC-4).
 
 ## 2. CONTEXT
 
@@ -91,7 +91,7 @@ Because the unsupported-node classifier and conversion fidelity are only exercis
 ### 5.1 Capability Details
 
 **F-1: Sanitized adversarial corpus**
-A set of synthetic fixtures under `tests/adversarial/`, each a `*.md` source paired with a committed, reviewed `*.classification.json` sidecar that records the expected classification of that document. Categories covered (AC-F1-1): nested tables; at least three macro/app-content categories; emoji; at least one long page notably larger than the 33-fixture golden set; mixed task/regular lists; raw HTML. The corpus is synthetic by construction (DEC-4) — authored to represent each real-world category without real PII entering the source.
+A set of synthetic fixtures under `tests/adversarial/`, each a `*.md` source paired with a committed, reviewed `*.classification.json` sidecar that records the expected classification of that document. Categories covered (AC-F1-1): nested tables; at least three macro/app-content categories; emoji; at least one long page (≥50 KB or ≥1000 lines — an absolute scale floor to exercise NFR-PERF-5); mixed task/regular lists; raw HTML. The corpus is synthetic by construction (DEC-4) — authored to represent each real-world category without real PII entering the source.
 
 **F-2: Collect-all classifier variant**
 A new export in the unsupported-node classifier module that walks the HAST tree depth-first and collects **all** unsupported nodes (not just the first), returning the full list of `MarkSyncError`. It reuses the existing allow-list and raw-block detection logic verbatim, so its classification verdict is identical to the existing classifier on a per-node basis — it simply does not stop at the first hit. The existing `findUnsupported` (first-only) and `classifyUnsupported` (single-node) behavior is **unchanged**; they remain the fast-fail path consumed by the render pipeline. The collect-all variant is consumed by the runner, not wired into render.
@@ -145,7 +145,7 @@ Flow 3: User authoring non-GFM content → classification doc
 ### 7.3 Deferred / Maybe-Later
 
 - **Per-construct GFM subset expansion.** Findings from this corpus may drive MS-0003+ stories that promote specific constructs (e.g., emoji passthrough, nested-table handling) from `UnsupportedConstruct` to supported — each its own per-construct decision.
-- **Real design-partner corpus ingestion.** If sanitized real pages become available post-launch, the corpus may be extended with a real-content tier alongside the synthetic fixtures.
+- **Real design-partner corpus ingestion (deviation, surfaced).** The story's scope wording contemplated seeding the corpus from real/sanitized design-partner pages. This change **deviates**: because no real design-partner pages exist pre-launch, the corpus is **synthetic by construction** (DEC-4). Sanitized real pages may extend the corpus with a real-content tier alongside the synthetic fixtures post-launch (MS-0003+) once design partners are onboarded.
 
 ## 8. INTERFACES & INTEGRATION CONTRACTS
 
@@ -194,8 +194,9 @@ N/A — no new telemetry. This is test infrastructure plus a static doc; the onl
 | RSK-1 | Corpus size over- or under-scoped (too few to cover categories, too many to maintain) | M | M | AC-F1-1 fixes the category-coverage list; the ~20–40 fixture target (Q1 / DEC-4) bounds the size; coverage is measured by category, not raw count | L |
 | RSK-2 | PII leaks into committed synthetic fixtures | H | L | Synthetic by construction (DEC-4); automated grep self-audit (AC-F5-1) + human review checklist before commit | L |
 | RSK-3 | Collect-all classifier diverges from the fast-fail classifier's allow-list logic (different verdicts) | M | L | DEC-1: the variant reuses the exact same allow-list and raw-block detection; a unit-test parity check proves `findAllUnsupported`'s first hit equals `findUnsupported` on the same tree | L |
-| RSK-4 | Hand-constructed HAST macro nodes use unrealistic tag shapes → the classification doc misleads users | M | L | Fixtures reference real Confluence macro tag names (`ac:structured-macro`, `{toc}`/`{info}`/`{code}` shapes, Jira/gliffy) so the doc reflects real handling | L |
+| RSK-4 | Hand-constructed HAST macro nodes use unrealistic tag shapes → the classification doc misleads users | M | L | Fixtures reference real Confluence macro tag names (`ac:structured-macro`, `{toc}`/`{info}`/`{code}`/`{expand}` shapes, Jira/gliffy) so the doc reflects real handling | L |
 | RSK-5 | Corpus pins fragile incidental shapes, becoming a maintenance burden / flaky | L | L | Sidecars pin at the classification contract (unsupported node types), not at incidental rendering details; the golden-runner pattern (committed, reviewed, explicit updates) is reused | L |
+| RSK-6 | Emoji rendering nondeterministic across platforms (Bun/platform/Unicode drift) breaks a committed byte-exact golden for the emoji fixture | L | L | Either (a) do not commit a byte-exact `.storage.xhtml` golden for the emoji fixture — assert only that render succeeds and the emoji is present in the output; or (b) pin the emoji set and skip the golden if platform drift is observed | L |
 
 ## 12. ASSUMPTIONS
 
@@ -209,7 +210,7 @@ N/A — no new telemetry. This is test infrastructure plus a static doc; the onl
 | Direction | Item | Notes |
 |-----------|------|-------|
 | Depends on | Markdown pipeline (parse → MDAST→HAST → classifier → canonicalize → render) — GH-20 | The runner exercises the real pipeline; all stages are delivered |
-| Depends on | Drift classifier (E3-S5, GH-22) + conversion fidelity (E3-S3, GH-20) | Both CLOSED/delivered — the corpus stress-tests them |
+| Depends on | Unsupported-node classifier (GH-20, F-5, `src/domain/markdown/unsupported.ts`) + conversion fidelity (GH-20, NFR-REL-4) | Delivered — the corpus stress-tests the unsupported-node classifier and conversion fidelity. NOTE: this is NOT the sync-state drift classifier (GH-22 / `src/domain/state/classifier.ts`), which the corpus does NOT exercise (DEC-3 / NG-3); the story's "drift" AC is classification determinism, not sync drift |
 | Depends on | ADR-0005 "do not silently degrade" (F-5 carve-out) + NFR-REL-4 fidelity | The load-bearing guarantees this corpus regression-locks |
 | Depends on | Golden runner pattern (`tests/golden/markdown/storage-renderer.test.ts`) | The classification runner mirrors its real-parser/no-mock shape |
 | Blocks | None | Standalone quality/ops story; findings feed future MS-0003+ construct-expansion decisions |
@@ -226,9 +227,10 @@ None blocking. The CEO-resolved items are captured as decisions:
 | ID | Decision | Rationale | Date |
 |----|----------|-----------|------|
 | DEC-1 | **Collect-all classifier variant.** Add a new export `findAllUnsupported(root, sourcePath): MarkSyncError[]` that walks the tree depth-first and collects ALL unsupported nodes; `findUnsupported`/`classifyUnsupported` behavior is unchanged (they remain the fast-fail render path) | `findUnsupported` returns only the first unsupported node, so it cannot satisfy "every unsupported node classified" (AC-F3-2). The variant is minimal, additive, and reuses the same allow-list + raw-block detection — no behavior change, no parallel logic | 2026-07-26 |
-| DEC-2 | **Macros/app-content representation.** Confluence macros (`{toc}`, `{info}`, `{code}`, Jira macro), gliffy/app content, and nested tables are NOT authorable in the canonical GFM subset from a `.md` source. They are represented two ways: (a) as raw-HTML blocks in `.md` (classifier flags `UnsupportedConstruct: raw-html-block`), and (b) as hand-constructed HAST nodes fed directly to the classifier (precedent: `tests/unit/domain/markdown/unsupported.test.ts` builds `math`/`dl`/`section` by hand). The classification doc states such content cannot be authored via Markdown in MS-0002 and requires a manual macro / future MS-0003+ support | MS-0002's pipeline is one-way Markdown→Storage. This is the honest, pipeline-consistent interpretation; hand-built nodes use realistic Confluence macro tag shapes so the doc is meaningful | 2026-07-26 |
+| DEC-2 | **Macros/app-content representation.** Confluence macros (`{toc}`, `{info}`, `{code}`, `{expand}`, Jira macro), gliffy/app content, and nested tables are NOT authorable in the canonical GFM subset from a `.md` source. They are represented two ways: (a) as raw-HTML blocks in `.md` (classifier flags `UnsupportedConstruct: raw-html-block`), and (b) as hand-constructed HAST nodes fed directly to the classifier (precedent: `tests/unit/domain/markdown/unsupported.test.ts` builds `math`/`dl`/`section` by hand). The classification doc states such content cannot be authored via Markdown in MS-0002 and requires a manual macro / future MS-0003+ support | MS-0002's pipeline is one-way Markdown→Storage. This is the honest, pipeline-consistent interpretation; hand-built nodes use realistic Confluence macro tag shapes so the doc is meaningful | 2026-07-26 |
 | DEC-3 | **"Drift stability" = classification determinism.** AC-F3-3 refers to determinism of the unsupported-node classification (run the classifier on the same corpus twice → byte-identical output), NOT the sync three-way `classify()` in `src/domain/state/classifier.ts` | Disambiguates two unrelated "classify" concepts; the runner asserts idempotency of classification output, not sync drift | 2026-07-26 |
 | DEC-4 | **Synthetic corpus.** No real design-partner pages exist pre-launch; the corpus is synthetic adversarial fixtures authored to represent each real-world content category. Sanitization is by construction (no real PII authored in) plus the automated grep self-audit (AC-F5-1) as a guardrail | Resolves R1 (sanitization approach) and Q1 (size ~20–40 fixtures). Synthetic-by-construction is the strongest sanitization guarantee; the grep is defense-in-depth | 2026-07-26 |
+| DEC-5 | **Test-runner vs. fixture location split.** The test **runners** (classification-runner, corpus-inventory, pii-audit) live at `tests/golden/adversarial/*.test.ts` (golden tier — real pipeline, committed sidecars/goldens, no mocks). The test **fixtures** (data: `*.md`, `*.classification.json`, optional `*.storage.xhtml`) stay at `tests/adversarial/` per the story's explicit fixture path | CI glob `tests/golden/` already discovers `tests/golden/adversarial/` (no ci.yml change needed); runners are sanctioned by the existing golden tier, not a new unsanctioned tier; mirrors the existing `tests/golden/markdown/` runner + `tests/golden/fixtures/markdown/` data split | 2026-07-26 |
 
 ## 16. AFFECTED COMPONENTS (HIGH-LEVEL)
 
@@ -236,7 +238,7 @@ None blocking. The CEO-resolved items are captured as decisions:
 |-----------|--------|
 | Unsupported-node classifier (`src/domain/markdown/unsupported.ts`) | Updated — new additive `findAllUnsupported` export (DEC-1); `findUnsupported`/`classifyUnsupported` unchanged |
 | Adversarial corpus (`tests/adversarial/`) | New — synthetic `*.md` sources + committed `*.classification.json` sidecars |
-| Classification runner (`tests/adversarial/`) | New — golden-tier fidelity + no-silent-drop + determinism assertions |
+| Classification runner (`tests/golden/adversarial/`) | New — golden-tier fidelity + no-silent-drop + determinism assertions. The corpus-inventory and pii-audit runners also live at `tests/golden/adversarial/` (DEC-5); fixtures stay at `tests/adversarial/` |
 | User-facing classification doc (`doc/quality/adversarial-corpus-classification.md`) | New |
 | Feature spec `doc/spec/features/feature-safe-publish.md` | Updated (phase 7, doc-sync) — reference the corpus + classification doc alongside the 33-fixture golden set |
 
@@ -244,7 +246,7 @@ None blocking. The CEO-resolved items are captured as decisions:
 
 | ID | Criterion | Linked |
 |----|-----------|--------|
-| AC-F1-1 | **Given** the committed adversarial corpus, **when** inventoried by category, **then** it covers: nested tables; ≥3 macro/app-content categories; emoji; ≥1 long page notably larger than the 33-fixture golden set; mixed task/regular lists; and raw HTML. | F-1, G-1 |
+| AC-F1-1 | **Given** the committed adversarial corpus, **when** inventoried by category, **then** it covers: nested tables; ≥3 macro/app-content categories; emoji; ≥1 long page (≥50 KB or ≥1000 lines — an absolute scale floor, not relative to golden size); mixed task/regular lists; and raw HTML. | F-1, G-1 |
 | AC-F2-1 | **Given** a HAST tree containing multiple unsupported nodes, **when** the collect-all classifier runs, **then** it returns ALL unsupported nodes depth-first (none truncated to the first); and **when** `findUnsupported`/`classifyUnsupported` run on the same inputs, **then** their behavior is unchanged from before this change (DEC-1 parity). | F-2, G-4 |
 | AC-F3-1 | **Given** a corpus fixture containing supported constructs, **when** run through the real pipeline to `renderStorage`, **then** supported constructs convert correctly (render succeeds); and **for fixtures with a committed golden `.storage.xhtml`**, **then** the rendered body byte-matches the golden (NFR-REL-4 fidelity). | F-3, NFR-REL-4 |
 | AC-F3-2 | **Given** a corpus fixture and its committed `*.classification.json` sidecar, **when** the classifier enumerates the fixture's unsupported nodes, **then** the emitted classification equals the sidecar exactly — every unsupported node present, none missing, none extra (no silent drop; ADR-0005 / F-5). | F-2, F-3, G-2 |
@@ -252,6 +254,10 @@ None blocking. The CEO-resolved items are captured as decisions:
 | AC-F4-1 | **Given** the published classification doc at `doc/quality/adversarial-corpus-classification.md`, **when** read, **then** it contains a table mapping unsupported node type → MarkSync handling using the three categories: escaped / `UnsupportedConstruct` / requires manual macro (DEC-2), and states plainly what the one-way MS-0002 pipeline can and cannot author. | F-4, G-3 |
 | AC-F5-1 | **Given** all committed corpus artifacts (`*.md`, `*.classification.json`, any golden sidecars), **when** the automated PII self-audit grep runs for email patterns, bare IDs, and internal-ticket URLs, **then** it returns clean (0 matches). | F-5, NFR-SEC-1, G-5 |
 | AC-F6-1 | **Given** the full repository, **when** `bun run check` runs, **then** it is green (lint + typecheck + all test tiers, including the new classification runner). | F-3 |
+
+### Definition of Done
+
+The acceptance criteria AC-F1-1 through AC-F6-1 above collectively constitute the Definition of Done for this change, mirroring the story's "Definition of Done" section.
 
 ## 18. ROLLOUT & CHANGE MANAGEMENT (HIGH-LEVEL)
 
@@ -299,10 +305,10 @@ The corpus is **synthetic by construction** (DEC-4): no real design-partner page
 | Real-world category | Corpus representation | Expected handling |
 |---|---|---|
 | Nested tables | Raw-HTML block in `.md` (GFM tables are flat) | `UnsupportedConstruct: raw-html-block` |
-| Confluence macros (`{toc}`, `{info}`, `{code}`, Jira) | Raw-HTML block in `.md` + hand-constructed HAST (real `ac:structured-macro` shapes) | `UnsupportedConstruct` (block raw) / non-allow-listed tag; requires manual macro (DEC-2) |
+| Confluence macros (`{toc}`, `{info}`, `{code}`, `{expand}`, Jira) | Raw-HTML block in `.md` + hand-constructed HAST (real `ac:structured-macro` shapes) | `UnsupportedConstruct` (block raw) / non-allow-listed tag; requires manual macro (DEC-2) |
 | App / gliffy content | Hand-constructed HAST (gliffy/app tag shapes) | `UnsupportedConstruct: <tag>`; requires manual insertion |
 | Emoji | Inline in `.md` (remark passthrough) | Converted/escaped per existing render (verify + pin) |
-| Very long page | Large `.md` (notably bigger than the golden set) | Supported constructs convert correctly; render stays ≤200 ms p95 (NFR-PERF-5) |
+| Very long page | Large `.md` (≥50 KB or ≥1000 lines; absolute scale floor to exercise NFR-PERF-5, not relative to golden size) | Supported constructs convert correctly; render stays ≤200 ms p95 (NFR-PERF-5) |
 | Mixed task/regular lists | Interleaved `- [ ]` task and `-`/`1.` regular lists in `.md` | All convert correctly (fidelity) |
 | Raw HTML (block + inline) | `<div>…</div>` block; `<b>…</b>` inline in `.md` | Block → `UnsupportedConstruct: raw-html-block`; inline → escaped (DEC-4) |
 
