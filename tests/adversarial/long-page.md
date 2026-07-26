@@ -820,7 +820,7 @@ Comprehensive audit logs track all security-relevant events:
 
 ### Support Channels
 
-- **Email**: support@example.com
+- **Email**: no-reply-synthetic
 - **Phone**: +1-555-123-4567
 - **Chat**: In-app chat support
 - **Forum**: Community discussion forum
@@ -930,7 +930,7 @@ The body structure varies based on message type but always includes:
   "data": {
     "id": "user-123",
     "name": "John Doe",
-    "email": "john@example.com",
+    "email": "synthetic-user",
     "role": "user",
     "createdAt": "2026-01-01T00:00:00Z",
     "updatedAt": "2026-01-01T00:00:00Z"

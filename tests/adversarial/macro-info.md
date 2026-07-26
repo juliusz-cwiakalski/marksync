@@ -1,6 +1,6 @@
 # Macro: Info (Unsupported)
 
-This fixture demonstrates a Confluence Info macro, which is not authorable from Markdown in MS-0002. It is represented as a raw HTML block.
+This fixture demonstrates a Confluence Info macro, which is not authorable from Markdown in VERSION-TWO. It is represented as a raw HTML block.
 
 <ac:structured-macro ac:name="info">
   <ac:parameter ac:name="icon">true</ac:parameter>

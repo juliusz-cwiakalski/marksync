@@ -1,6 +1,6 @@
 # Macro: Code (Unsupported)
 
-This fixture demonstrates a Confluence Code macro with parameters, which is not authorable from Markdown in MS-0002. It is represented as a raw HTML block.
+This fixture demonstrates a Confluence Code macro with parameters, which is not authorable from Markdown in VERSION-TWO. It is represented as a raw HTML block.
 
 <ac:structured-macro ac:name="code">
   <ac:parameter ac:name="language">javascript</ac:parameter>

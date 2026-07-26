@@ -1,6 +1,6 @@
 # App Content: Gliffy Diagram (Unsupported)
 
-This fixture demonstrates a Confluence Gliffy diagram, which is not authorable from Markdown in MS-0002. It is represented as a raw HTML block.
+This fixture demonstrates a Confluence Gliffy diagram, which is not authorable from Markdown in VERSION-TWO. It is represented as a raw HTML block.
 
 <ac:structured-macro ac:name="gliffy">
   <ac:parameter ac:name="key">abc123</ac:parameter>

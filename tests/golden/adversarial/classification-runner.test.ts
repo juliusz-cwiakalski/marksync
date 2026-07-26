@@ -26,9 +26,7 @@ function loadFixtures(): Fixture[] {
 		const classificationPath = join(fixturesDir, `${name}.classification.json`);
 		const goldenPath = join(fixturesDir, `${name}.storage.xhtml`);
 		const markdown = readFileSync(join(fixturesDir, md), "utf8");
-		const classification = JSON.parse(
-			readFileSync(classificationPath, "utf8"),
-		);
+		const classification = JSON.parse(readFileSync(classificationPath, "utf8"));
 
 		let hasGolden = false;
 		try {

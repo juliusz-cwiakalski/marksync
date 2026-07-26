@@ -1,6 +1,6 @@
 # Macro: Expand (Unsupported)
 
-This fixture demonstrates a Confluence Expand macro, which is not authorable from Markdown in MS-0002. It is represented as a raw HTML block.
+This fixture demonstrates a Confluence Expand macro, which is not authorable from Markdown in VERSION-TWO. It is represented as a raw HTML block.
 
 <ac:structured-macro ac:name="expand">
   <ac:parameter ac:name="title">Click to expand</ac:parameter>
