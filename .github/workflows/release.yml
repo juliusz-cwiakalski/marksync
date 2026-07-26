@@ -53,7 +53,7 @@ jobs:
 
       - name: Verify --version matches package.json
         run: |
-          expected_version=$(node -p "require('./package.json').version")
+          expected_version=$(bun -e 'console.log(require("./package.json").version)')
           actual_version=$(./dist/marksync-linux-x64 --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
           if [[ "$actual_version" != "$expected_version" ]]; then
             echo "ERROR: Version mismatch: expected $expected_version, got $actual_version"

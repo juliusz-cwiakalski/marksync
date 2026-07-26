@@ -127,7 +127,13 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Build binaries (all targets)
-        run: bash scripts/build-binaries.sh --target all
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            bash scripts/build-binaries.sh --target windows
+          else
+            bash scripts/build-binaries.sh --target all
+          fi
+        shell: bash
 
       - name: Verify Bun version
         run: |
