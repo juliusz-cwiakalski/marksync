@@ -13,10 +13,10 @@ phases:
   dor_check: { started: "2026-07-15T21:05:00Z", completed: "2026-07-15T21:35:00Z" }
   delivery: { started: "2026-07-15T21:40:00Z", completed: "2026-07-15T22:30:00Z" }
   system_spec_update: { started: "2026-07-15T22:40:00Z", completed: "2026-07-15T22:50:00Z" }
-  review_fix: { started: "2026-07-15T22:50:00Z", completed: null }
-  quality_gates: { started: "2026-07-15T22:30:00Z", completed: "2026-07-15T22:35:00Z" }
-  dod_check: { started: null, completed: null }
-  pr_creation: { started: null, completed: null, url: null }
+  review_fix: { started: "2026-07-15T22:50:00Z", completed: "2026-07-15T23:20:00Z" }
+  quality_gates: { started: "2026-07-15T22:30:00Z", completed: "2026-07-15T23:25:00Z" }
+  dod_check: { started: "2026-07-15T23:25:00Z", completed: "2026-07-15T23:35:00Z" }
+  pr_creation: { started: "2026-07-15T23:35:00Z", completed: null, url: null }
 
 decisions:
   - text: >
@@ -55,6 +55,30 @@ notes:
       quality gates must run bun run typecheck explicitly, not just bun test.
       Delegate comprehensive fix to @fixer.
     type: retro
+    date: "2026-07-15"
+  - text: >
+      DoD check PASS. All 9 prior phases complete (clarify_scope→
+      quality_gates). No unchecked plan tasks (- [ ] = 0). All spec ACs
+      satisfied: AC-F1-1/2/3, F2-1/2, F3-1/2, F4-1, F6-1, F7-1, SEC-1,
+      JSON-1, CI-1 implemented+tested; AC-F5-1 honestly descoped per DEC-7
+      (MS-0002 informational pass; warn→MS-0003). Current-truth docs synced
+      (doc-syncer: no residual gaps). Gates green (1248 pass/0 fail,
+      typecheck 0 errors, depcruise 0 violations, format/lint clean).
+      Review iter-2 PASS. DoD met → proceeding to PR creation.
+    type: info
+    date: "2026-07-15"
+  - text: >
+      Review iter-2 PASS. All 10 iter-1 findings resolved (F-1/F-2 forbidden
+      detection + real error shapes; F-3 PageRestrictions.restricted; F-4
+      AC-F5-1 descope DEC-7; F-5 CLI_VERSION 0.7.0 + drift test; F-6/7/8/9/10
+      plan hygiene/mock Page shapes/static imports/alias/EXIT_INTERNAL).
+      No new blocking issues. 4 advisory non-blocking notes (integration
+      TC-017/018 detail assertion; stale TC-008 title; mock getRestrictions
+      shape; renderer detail wording) — documented in review-iter-2.yaml,
+      reviewer said PROCEED. Gates re-confirmed green: typecheck clean,
+      1248 pass/0 fail, depcruise 0 violations. quality_gates COMPLETE.
+      Proceeding to dod_check + pr_creation.
+    type: info
     date: "2026-07-15"
   - text: >
       Review iter-1 FAIL → remediation committed (4ed0d1e). 10 findings
