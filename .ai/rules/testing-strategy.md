@@ -5,13 +5,13 @@ ados_distribution: redistributable
 id: TESTING-STRATEGY
 status: Draft
 created: 2026-07-05
-last_updated: 2026-07-15
+last_updated: 2026-07-26
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
   related_decisions: [TDR-0004, ADR-0002, ADR-0005, ADR-0006]
-  related_changes: [GH-20, GH-81, GH-29]
+  related_changes: [GH-20, GH-81, GH-29, GH-31]
   summary: "Testing strategy — test tiers, coverage rules, AI-agent over-mocking guardrail, CI wiring, and lifecycle-invariant BDD for MarkSync."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -30,7 +30,7 @@ load and follow this file._
 | **Unit** | `bun:test` | Pure domain logic: state classifier, hierarchy planner, link resolver, asset resolver, path/UUID utilities, config/lock schema validation | Correctness of domain rules in isolation | Every push (fast) |
 | **Integration** | `bun:test` + `Bun.serve()` mock | Confluence adapter (HTTP mock), Git adapter (temp repo), lock/journal store, push executor, credential provider | Adapter boundary correctness; 409 drift detection; REST v2/v1 isolation | Every push |
 | **Golden fixture** | `bun:test` `toMatchSnapshot` / `toMatchInlineSnapshot` | Markdown → Storage renderer output (ADR-0005); Mermaid render SVG output (ADR-0002 C-1 determinism) | Byte-stable deterministic output; no silent snapshot regeneration | Every push |
-| **Golden adversarial** | `bun:test` (real pipeline) | Adversarial corpus classification, PII self-audit, category inventory (GH-31) | No-silent-drop guarantee, determinism, fidelity against real-world content (golden-tier subcategory) | Every push (via `tests/golden/` glob, DEC-5) |
+| **Golden adversarial** | `bun:test` (real pipeline) | Adversarial corpus classification, PII self-audit, category inventory (runners `tests/golden/adversarial/`, fixtures `tests/adversarial/`; GH-31) | No-silent-drop guarantee, determinism, fidelity against real-world content (golden-tier subcategory) | Every push (via `tests/golden/` glob, DEC-5) |
 | **Mermaid-DOM** | `bun:test` + `happy-dom` (via `@happy-dom/global-registrator` + Bun preload) | Mermaid rendering via official lib in headless DOM | Renderer works in-process; deterministic SVG + IDs | Every push (if spike passes) |
 | **Gherkin / BDD** | `@cucumber/cucumber` via `bun run test:bdd` (TDR-0007) | **Lifecycle invariants only** (INV-SAFE-1, INV-SAFE-2, INV-SAFE-3, INV-SEC-1) | Release-blocking safety properties | Every push |
 | **E2E (mock)** | `bun:test` + stateful `Bun.serve()` mock (`tests/e2e-mock/`) | Full publish pipeline (`computePlan` + `applyPlan`) against an in-process stateful mock Confluence server; asserts outcomes against captured requests + server-side state | End-to-end adapter correctness across the whole sync; structural regression lock for the GH-71 attachment-`{ results: [] }`-unwrap and GH-66 v1 property-API classes | Every push (secrets-free `e2e-mock` job in `ci.yml`) |
