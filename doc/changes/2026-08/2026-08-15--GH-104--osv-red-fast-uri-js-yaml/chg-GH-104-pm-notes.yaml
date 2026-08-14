@@ -1,0 +1,66 @@
+change_id: GH-104
+title: "fix: osv red — bump fast-uri to 3.1.5 and js-yaml to 4.3.1 (both CVSS 7.5)"
+kind: bug
+milestone: MS-0002
+branch: fix/GH-104/osv-red-fast-uri-js-yaml
+ticket_source: GitHub Issue #104 (no [MS2-Exx-Sxx] prefix — ticket body is authoritative scope)
+
+phases:
+  clarify_scope: { started: 2026-08-15, completed: 2026-08-15 }
+  specification: { started: 2026-08-15, completed: 2026-08-15 }
+  test_planning: { started: null, completed: null }
+  delivery_planning: { started: null, completed: null }
+  dor_check: { started: null, completed: null }
+  delivery: { started: null, completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+
+decisions:
+  - text: >
+      js-yaml mechanism = package.json overrides entry "js-yaml": "^4.3.1"
+      (NOT a direct dependency). Ticket says "bump direct dependency" but
+      js-yaml is not direct: `yaml` (^2.9.0) is the direct YAML lib; js-yaml
+      is transitive via @commitlint/load → cosmiconfig → js-yaml ^4.1.0
+      (dev chain, never imported in src/). Adding an unused direct dep would
+      be worse than the established fast-uri override pattern. The ticket AC
+      is mechanism-neutral ("bun.lock pins js-yaml >= 4.3.1"), so the
+      override satisfies it. PM-decided to unblock; recorded here and seeded
+      to spec.
+    date: 2026-08-15
+
+open_questions: []
+blockers: []
+doc_risks:
+  - text: >
+      None expected — lockfile-only change (package.json overrides +
+      bun.lock). No src/ behavior change. security-baseline.md:118 already
+      documents osv-scanner as blocking at MS-0002. Dependency versions are
+      not tracked in current-truth docs.
+    date: 2026-08-15
+
+notes:
+  - text: >
+      Intake retro (also mirrored in pm-context): 22nd recurrence of
+      pm-context stale on out-of-band merge — GH-88 (PR #89) merged
+      2026-07-26T21:24:29Z before this session; reconciled (moved to
+      recently_delivered, pruned GH-74, pruned stale GH-63/GH-66 retro
+      notes). GH-104 is a clean new delivery: fresh branch off main @
+      5a85254, clean tree, no resume-sync.
+    type: retro
+    date: 2026-08-15
+  - text: >
+      Clarify-scope evidence: osv-scanner CI job fails on ALL PRs due to two
+      bun.lock findings (scan 2026-08-14): GHSA-7p8r-x3mc-p8w7 fast-uri
+      3.1.4→3.1.5 fixed (transitive via ajv, runtime chain; existing
+      override ^3.1.4 at package.json:64 → bump to ^3.1.5) and
+      GHSA-5p4m-2wfm-xmqj js-yaml 4.3.0→4.3.1 fixed (transitive via
+      cosmiconfig, dev chain; add overrides entry ^4.3.1). Both CVSS 7.5.
+      Ticket fix-direction verified against repo state: package.json
+      overrides confirmed; bun.lock pins fast-uri@3.1.4 (line 254) and
+      js-yaml@4.3.0 (line 316) confirmed. AC complete and testable. No
+      blocking questions.
+    type: info
+    date: 2026-08-15
