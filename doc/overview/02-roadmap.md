@@ -11,19 +11,18 @@ owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
-  related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005]
+  related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005, PDR-0002]
   related_changes: ["GH-69", "GH-81", "GH-32"]
-summary: "Engineering roadmap — MS-0002 MVP (safe one-way publisher / trust wedge), MS-0003 MLP (exceptional DX), then staged reverse-sync gates."
+summary: "Engineering roadmap — MS-0002 MVP (safe one-way publisher) shipped 2026-07-26; MS-0003 re-scoped to Company Adoption MVP (PDR-0002): conflict resolution in Git, `import`, no-external-services Mermaid, DX tail."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
 
 # Engineering Roadmap
 
 _The engineering roadmap for delivery. Each milestone has a stable, monotonic
-ID (`MS-0001`, `MS-0002`, ...). The **Current Milestone** (`MS-0002`) is
-first-class and detailed. The **Next Milestone** (`MS-0003`) is also detailed
-because the project already has useful current knowledge that should not be
-lost, but it is explicitly subject to change based on `MS-0002` evidence. Later
+ID (`MS-0001`, `MS-0002`, ...). The **Current Milestone** (`MS-0003`,
+re-scoped 2026-07-26 per [PDR-0002](../decisions/PDR-0002-ms0003-rescope-company-adoption-mvp.md)
+after the post-`MS-0002` beta revalidation) is first-class and detailed. Later
 future milestones remain high-level and include "read before planning"
 references. Sequencing follows the failure-premortem's central conclusion:
 **prove the narrow trust wedge before the end-state category vision**
@@ -45,86 +44,156 @@ references. Sequencing follows the failure-premortem's central conclusion:
 | ID | Milestone | Shipped | Outcome achieved | Links |
 |---|---|---|---|---|
 | `MS-0001` | Confluence API validation spike | 2026-07-03 | Proved the Confluence Cloud contract: Storage round-trip (27/27 GFM constructs), content properties, drift 409 detection, attachments, labels, search, restrictions. De-risked `MS-0002` feasibility. | TDR-0001, ADR-0005; `doc/inception/integration-scenarios/` |
-
-_(Only the spike has shipped; no product milestone has shipped yet.)_
+| `MS-0002` | MVP — Safe one-way publisher (trust wedge) | 2026-07-26 | Safe one-way publisher delivered in full: all 31 milestone issues closed, 0 open bugs, 34 merges, 1309 tests / 0 fail, all quality gates green. Wedge proven live — plan/sync/doctor/repair correct, diverged-remote safety `Block` fires, zero silent overwrites. Binary release pipeline live (`GH-32`). Beta validation happened via the maintainer's company as the first design partner (PDR-0002 revalidation input) rather than 3–5 external partners. | PDR-0002; ADR-0005, ADR-0006, ADR-0011; `GH-32`, `GH-69`, `GH-81` |
 
 ## Current Milestone
 
-### MS-0002 — MVP — "Safe one-way publisher" (the trust wedge)
+### MS-0003 — Company Adoption MVP  _(re-scoped 2026-07-26 per [PDR-0002](../decisions/PDR-0002-ms0003-rescope-company-adoption-mvp.md))_
 
-_The premortem's beachhead (`§14 v0.x beachhead`, `§15 Gate 1`). A best-in-class
-safe one-way Git→Confluence publisher with drift detection. **Not** naive one-way
-push — the differentiator is that it refuses to silently overwrite remote work._
+_The first real design partner is the maintainer's company. On 2026-07-26 the
+owner defined five adoption-blocking MVP goals: (1) Mermaid rendering without
+public/external services, ideally in-process in the single executable;
+(2) Git→Confluence sync — **already delivered in `MS-0002`**; (3) detect
+Confluence-side edits and prevent overwriting — **already delivered in
+`MS-0002`**; (4) conflict resolution synced back from Confluence into Git and
+resolved there; (5) easy setup for 5–15 devs, LOCAL manual sync only (CI
+deferred; every publication updates the lock file, which the dev commits).
+This re-scope **is** the post-`MS-0002` beta revalidation the roadmap
+required — the partner's goals are the revalidation input, and the retention
+partition (migration-absence, not safety/value failure) escalates A-VAL-3
+rather than questioning the wedge. Per the Milestone-ID rule the ID
+`MS-0003` is kept; the former "MLP — Exceptional DX & easy setup" scope is
+reduced to a milestone tail (deeper DX polish → `MS-0004+`)._
 
-**Deliverables:**
+**Outcome hypothesis:** the company team (5–15 devs) runs MarkSync as their
+docs workflow with conflicts resolved in Git — without maintainer
+intervention.
 
-_Beachhead-critical items first (the wedge); validation apparatus is best-effort and may slip without blocking the wedge (premortem `§2.1`, `§8.2`)._
+**Deliverables (epic structure):**
 
-- Portable **TypeScript** CLI compiled to one self-contained binary per OS/arch (Linux/macOS/Windows, amd64/arm64) via Bun `build --compile` (ADR-0001).
-- Repository-owned YAML config: file selection, hierarchy mirroring, document-level overrides, JSON Schema validation.
-- Deterministic Markdown → Confluence Storage Format conversion for a documented canonical GFM subset (ADR-0005).
-- **Document identity & shared base:** immutable MarkSync document **UUID stored in source front-matter** (survives clones/branches/CI); Confluence page ID = remote identity; title/path are mutable attributes; **duplicate-UUID detection is fatal before any write** (premortem `§5.2`, `§17 #4`); a **committed (versioned) lock file** records the shared base; the `.marksync/` cache is disposable (premortem `§5.1` separation).
-- Page create / update / no-op / move with the identity above.
-- **Drift detection** via a three-way classifier with two kept-apart hash domains: local drift compares **canonical** hashes (canonical body hash + title + parent-page-id + attachment-set facets); remote drift compares **raw** hashes (`remoteBodyHash` — the raw Storage XHTML body Confluence stored, refreshed via a post-write fetch-back so Confluence normalization never false-triggers remote drift; premortem `§5.4`); classify `NO_CHANGE` / `LOCAL_AHEAD` / `REMOTE_AHEAD` / `DIVERGED` / `REMOTE_MISSING` / `LOCAL_MISSING`; block unsafe overwrites by default. **Invariant:** a remotely-deleted managed page is never silently re-created.
-- **Concurrency control** for CI-first operation: decentralized optimistic concurrency — Confluence 409 on stale version.number + operation-ID deduplication + stale-plan expiry + CI concurrency-group templates (premortem `§5.8`, ADR-0006 C-6) — so two overlapping CI plans can never let the older overwrite the newer.
-- **Minimal repair surface** (in `MS-0002` / MVP, not deferred): `repair-state` for stale locks and interrupted-apply journal replay (premortem `§14` includes `repair` in the beachhead) — so a single stale lock or partial apply never blocks a whole subtree with no recovery.
-- Visible provenance (panel/footer: source path + Git revision + last-sync) plus machine content-property metadata.
-- Local images/attachments (path-safe, content-hashed, reused when unchanged).
-- Mermaid diagrams rendered as SVG image attachments. `MS-0002` ships the `code` policy as the default (GH-25) and the opt-in `render` policy via the public Kroki API (ADR-0002 rung 6, GH-69) — content-hashed (`marksync-mermaid-<fullhash>.svg`) and reused when unchanged. The ADR-0002 headless-render spike (GH-11) PARTIAL-FAILED (happy-dom/jsdom have no SVG layout engine), so the deterministic **in-process** renderer via the official library moves to `MS-0003+` (CEO-DEC-1) — a failed spike does **not** block `MS-0002` release.
-- Auth: local API-token (email + token, OS keyring) and non-interactive CI credentials from environment.
-- Dry-run / plan / diff before any write; stable exit codes; JSON/NDJSON output; `doctor` health-check (capability + permission discovery, premortem `§4.2`, `§7.4`).
-- **`MS-0002` performance budget (NFR guardrails):** binary ≤ 90 MB; cold-start ≤ 2 s on reference hardware; targets repos ≤ ~500 managed pages (large-repo incremental optimization is deferred — correctness first, premortem `§5.9`, `§13.11`).
-- **Quality gates (lightweight):** unit + integration (mocked Confluence) + golden fixtures + mock e2e (full-pipeline against an in-process Confluence mock, secrets-free) are mandatory; a live-sandbox E2E tier runs on a **single dedicated test space** (not per-suite creation, premortem `§8.5`); Gherkin/BDD specs cover **lifecycle invariants only** (premortem `§8.2`), not exhaustive steps.
+- **E1 — Reverse converter foundation** (subset of `MS-0005` pulled forward):
+  Storage Format → Markdown for the canonical GFM subset (ADR-0005); stable
+  unsupported-construct diagnostics (codes + locations); golden-fixture
+  round-trip verification.
+- **E2 — `resolve` patch flow** (subset of `MS-0006` pulled forward):
+  the remote-side diff is the patch between (a) the Confluence version that
+  originated from the last marksync publish (base version, recorded in the
+  committed lock file, ADR-0006) and (b) the current Confluence version — both
+  reverse-converted to Markdown, then diffed as Markdown. The human
+  applies/merges the patch in Git, commits, and re-syncs; the follow-up sync
+  publishes the merged result and records the new base. **Git is the final
+  arbiter; nothing is auto-committed.** Preceded by a small spike: fetch page
+  body at historical version N.
+- **E3 — `marksync import` command** (A-VAL-3 activation): explicitly adopts a
+  Confluence-originated page into Git — reverse-convert to Markdown, assign
+  UUID v7 frontmatter, add a lock entry with current remote hashes so the
+  first sync is a NoOp. From that moment Git is the source of truth for that
+  page.
+- **E4 — No-external-services Mermaid** (ADR-0002 territory reopened): expose
+  renderer engine configuration including a self-hosted Kroki endpoint
+  (today `src/infra/mermaid/kroki.ts` hardcodes `https://kroki.io` with an
+  internal-only override); run a new time-boxed in-process spike (DOM
+  emulation + deterministic synthetic text metrics) after the GH-11 partial
+  failure, with the pre-committed ladder: in-process → self-hosted endpoint →
+  `code` policy. Rendering must not call public services by default; the
+  opt-in public-Kroki `render` policy (GH-69) is unchanged.
+- **E5 — Adoption/DX tail** (reduced, sequenced after conflict resolution):
+  guided `init` polish, common-layout examples, and a first user guide focused
+  on the company team's local-manual-sync flow; the ≤10-min first-publish
+  headline metric is demoted; deeper DX polish moves to `MS-0004+`;
+  CI-driven sync is deferred.
 
-**In scope (`MS-0002` / MVP):**
+**Ownership model (normative, owner direction 2026-07-26):**
 
-- Confluence **Cloud** only; one configured page subtree per target; safe publish + drift block; the canonical GFM subset; Mermaid; assets; provenance; CI + local operation; agent-friendly output.
+- Git-originated, marksync-managed documents: **Git is the ultimate source of
+  truth**; Confluence-side manual edits are synced back into Git via the
+  `resolve` flow.
+- Confluence-originated, unmanaged documents: stay in Confluence —
+  **Confluence remains their source of truth; marksync must never touch
+  them**. `marksync import` is the only transition mechanism.
+- Unsupported Confluence constructs (macros, complex layouts): on `import`
+  and on conflict resolution the user must be clearly informed (stable
+  diagnostic codes + locations); manual Confluence edits adding
+  Markdown-unrepresentable macros must be explicitly resolvable (edit the page
+  to remove, or an adopt-verbatim escape hatch) — never silently dropped.
 
-**Out of scope (for this milestone):**
+**In scope (`MS-0003` / Company Adoption MVP):** E1–E5 above; the company
+team's real corpus as the validation vehicle; ownership-model enforcement
+(managed/unmanaged boundary).
 
-- Reverse sync / Confluence→Git reconciliation (`MS-0005+`, Gate 3+).
-- Adopting an **existing** Confluence corpus into the managed set (depends on reverse sync; tracked assumption A-VAL-3).
-- Automatic deletion; watch mode; webhooks; OAuth 2.0 (3LO); Data Center; comments/restrictions/whiteboards/databases; MCP server; GUI/editor plugins; hosted SaaS.
-- "Exceptional DX" polish (guided init, migration helpers, sub-10-min first-publish) → that is `MS-0003` / **MLP**, the next milestone.
+**Out of scope (for this milestone):** full reverse sync (`MS-0005` remainder:
+full change capture); conflict bundles / structural merge / review workflow
+(`MS-0006` remainder); CI-driven sync; Data Center; OAuth 2.0 (3LO); MCP
+server; GUI/editor plugins; hosted SaaS; broad public-user DX activation
+(`MS-0004+`).
 
 ### Success metrics (outcomes, not outputs)
 
-_Outcome metrics that prove the milestone delivered user value. **Type:** Target (drive toward) vs Guardrail (block release if violated)._
-
 | Metric | Type | Definition | Target |
 |---|---|---|---|
-| Publish success rate (proximate NSM) | Target | `published` ÷ **all** plan entries (CONFLICT/ERROR kept in the denominator) across beta repos | ≥ 95% |
-| Drift-detection effectiveness | Guardrail | Drift correctly detected & blocked in supported remote-edit scenarios | 100% (any miss blocks release) |
-| Conflict false-positive rate | Guardrail | Conflicts raised where no semantic drift exists | < 5% |
-| Zero silent overwrites | Guardrail | Incidents where a remote edit was overwritten without an explicit conflict | **0** (any incident blocks release) |
-| Conversion fidelity | Guardrail | Canonical GFM fixtures surviving Markdown→Storage round-trip | 100% (re-run on every subset expansion) |
-| Idempotency | Target | Writes performed on a second **semantically** unchanged push | 0 |
-| Traceability | Target | Managed pages with valid source + revision provenance | 100% |
-| Secret redaction | Guardrail | Secrets appearing in any log/plan/state/diagnostics output | **0** (premortem `§17 #10`) |
-| Beachhead validation | Target | Real teams running MarkSync in recurring CI | 3–5 retained design partners (fewer on safety/value failure → narrow, do not expand) |
+| Pilot team operation | Target | Company team runs MarkSync as their docs workflow | ≥ 2 weeks continuous operation at milestone close |
+| Conflict resolvability | Target | Known conflict classes resolvable via the documented `resolve` flow | 100% |
+| Reverse round-trip fidelity | Guardrail | Canonical GFM fixtures surviving Storage→Markdown round-trip | 100% (re-run on every subset expansion) |
+| Zero silent overwrites | Guardrail | Incidents where a remote edit is overwritten without an explicit conflict (incl. `resolve`/`import` flows) | **0** (permanent guardrail, R-VAL-4) |
+| Default rendering egress | Guardrail | External service calls under default rendering configuration | **0** (self-hosted endpoint is explicit config; public Kroki stays opt-in) |
+| Unsupported-construct diagnostics | Target | Known unsupported-construct classes emitting stable diagnostic codes + locations on `import`/`resolve` | 100% |
 
 ### Dependencies
 
-- **ADR-0002 Mermaid headless-render spike** must pass before `MS-0002` tooling locks — it is load-bearing for the TypeScript choice and the single-binary promise. If it requires Chromium, the language decision is revisited. A failed spike is a **language-level reconsideration and a multi-month `MS-0002` slip**, not merely a mitigation tweak; the `MS-0002` `code`-fallback above keeps the wedge shippable while full render moves to `MS-0003`.
-- Bun single-binary cross-compile + signing/notarization story (clean-OS smoke) — **delivered in `MS-0002` (`GH-32`)**: linux-x64/arm64 + win-x64 binaries, `SHA256SUMS`, and a `syft` CycloneDX SBOM on a `v*` tag via `release.yml`; clean-OS smoke in CI on `debian:stable-slim` + `windows-latest`. macOS and real Windows signing are deferred to `MS-0003`; binary size ~97–105 MB exceeds the 90 MB desired budget (flagged, not blocking).
-- 3–5 design partners willing to install, test, and retain MarkSync in CI — **recruit ≥3 before `MS-0002` feature-lock; if 0 at feature-lock, slip the lock** (premortem `§18.1`).
+- **Spike: Confluence historical-version API** — fetch page body at version N
+  (assumption behind the base-version diff). If disproved, base-version
+  capture is redesigned (e.g., snapshot base body in lock/cache).
+- **Spike: in-process Mermaid, second attempt** — DOM emulation + deterministic
+  synthetic text metrics per ADR-0002's follow-up note (GH-11 found no SVG
+  layout engine in happy-dom/jsdom). Fallbacks pre-committed: self-hosted
+  Kroki endpoint (exposed in config), then `code` policy. No-Chromium boundary
+  stands (ADR-0001, CEO-DEC-1).
+- **E1 before E2/E3** — the reverse converter feeds both the `resolve` diff
+  and `import`; golden fixtures gate both.
+- **Real partner corpus access** — the company's existing Confluence pages
+  (sanitized into the adversarial corpus pattern, GH-31) for reverse-round-trip
+  evidence.
+- **`MS-0002` state model** — committed lock file, base hashes, `repair-state`
+  (all delivered) are the substrate for base-version records.
 
 ### Validation approach
 
-- **Method:** design-partner beta (heterogeneous repos/sites) + an **adversarial public round-trip corpus seeded by sanitized design-partner pages** (real macros/nested tables/app content the canonical subset excludes, premortem `§17.2`) + live-sandbox E2E on a dedicated test space. Track publish-success-rate, drift-effectiveness, and the zero-overwrite guardrail.
-- **Partition the retention signal:** for each design partner, record *why* they did/did not retain — **safety failure vs migration-absence vs DX-friction vs capability-gap**. The retention guardrail triggers "narrow" **only on safety/value failures**; migration-absence escalates A-VAL-3 priority rather than questioning the wedge.
-- **Instrument `MS-0003` signal during `MS-0002`:** capture time-to-first-publish and a setup-failure taxonomy (informational only; not `MS-0002` targets) to de-risk A-USA-1/A-USA-2 before `MS-0003` is built.
-- **Decision it drives:** proceed to `MS-0003` if the wedge is retained by real teams; **narrow (do not expand) scope** only on safety/value failures. Do not advance to reverse sync on a weak wedge.
+- **Method:** moderated onboarding with the actual company team (not synthetic
+  test users): install, `import` of their real corpus, then day-to-day
+  publish/conflict/resolve operation. Maintain a conflict-class taxonomy
+  during the pilot; every unresolved class becomes a backlog item.
+- **Safety instrumentation:** the zero-overwrite guardrail and the
+  never-auto-commit invariant are verified continuously via BDD lifecycle
+  invariants extended to the new flows.
+- **Decision it drives:** proceed to `MS-0004` when the pilot team operates
+  ≥ 2 weeks without maintainer intervention; if conflict classes remain
+  unresolved or reverse round-trip fidelity fails on the real corpus, iterate
+  within `MS-0003` before expanding.
 
 ### OST / discovery linkage
 
 | Milestone outcome | Opportunity (OST) | Solution (OST) | Experiment |
 |---|---|---|---|
-| Safe publish with plan/diff | O1 | S1.1 | E1.1 (validated) |
-| Drift detection blocks overwrites | O1 | S1.2 | E1.2 (validated) |
-| Single-binary cross-OS distribution | O2 | S2.2 | E2.2 (validated — `GH-32`) |
-| In-process Mermaid fidelity | O3 | S3.1 | E3.1 (testing — load-bearing) |
-| Agent/CI-operable JSON contracts | O4 | S4.1 | E4.1 (unvalidated) |
+| Conflicts resolved in Git (patch flow) | O5 | S5.1 | E5.1 (advanced into `MS-0003`, PDR-0002) |
+| Existing-corpus adoption (`import`) | O5 / A-VAL-3 | S5.1 precursor | `MS-0002` beta retention taxonomy → PDR-0002 activation |
+| No-external-services Mermaid | O3 | S3.1 | E3.1 (second spike attempt, PDR-0002) |
+| Company team self-operation | O2 | S2.1 | E2.1 (re-scoped: team activation, not ≤10-min headline) |
+
+### Read before detailed MS-0003 planning
+
+- [PDR-0002](../decisions/PDR-0002-ms0003-rescope-company-adoption-mvp.md) —
+  the re-scope decision, constraints (C-1…C-8), and ownership model.
+- `doc/inception/marksync-failure-premortem-and-anti-failure-playbook-2026-07-02.md`
+  — especially `§4.1`, `§4.2`, `§4.3`, `§5.5`, `§5.6`, `§18.2`, `§19.1`.
+- `doc/inception/integration-scenarios/15-reverse-sync.md` and
+  `13-version-conflict-drift.md`.
+- `doc/inception/analysis/assumptions.md` — A-VAL-3, A-USA-1, A-USA-2,
+  A-USA-3, A-FEA-1, A-FEA-10.
+- `doc/inception/analysis/risks.md` — R-VAL-4, R-USA-2, R-FEA-1, R-FEA-9,
+  R-USA-3.
+- `doc/overview/personas-jtbd.md` — Personas 1, 2, 3, and 5.
+- `doc/inception/analysis/backlog-reconciliation.md` — cross-cutting coverage
+  and backlog triggers.
 
 ### Backlog planning readiness controls
 
@@ -145,99 +214,6 @@ does not yet enforce these gates, so this project records them explicitly._
   [`success-pre-parade.md`](../inception/analysis/success-pre-parade.md) feeds
   outcome metrics, decision filters, and roadmap prioritization.
 
-## Next Milestone
-
-### MS-0003 — MLP — "Exceptional DX & easy setup"  _(subject to change)_
-
-_This section is intentionally detailed even though the milestone is next, not
-current. It captures what we know now so Phase 2 knowledge does not evaporate.
-Scope must be revalidated after `MS-0002` beta using the retention-reason taxonomy,
-time-to-first-publish measurements, and support-issue data._
-
-**Outcome hypothesis:** a technically capable new user can reach a safe first
-publish in **≤ 10 min** (excluding Atlassian credential creation), understand why
-the tool did or did not write, and recover from common setup/state problems
-without maintainer intervention.
-
-**Deliverables:**
-
-- Guided `marksync init` with progressive disclosure: minimal happy path first;
-  advanced mappings only when needed.
-- `marksync doctor` for tenant, auth, scopes, parent-page permissions,
-  attachment/property capability, proxy/CA hints, renderer availability, Git
-  state, and visibility completeness.
-- Setup-failure taxonomy and human-readable remediation messages paired with
-  stable machine-readable diagnostic codes.
-- Common-layout examples: single folder → one Confluence parent, multiple folders
-  → multiple spaces, architecture docs with Mermaid/assets, CI publish.
-- Migration/adoption helpers if `MS-0002` beta validates A-VAL-3:
-  - import/adopt planning for pre-existing Confluence pages;
-  - `mark` / `md2conf` / manual-copy migration notes;
-  - clear generated-page / managed-page banners.
-- Minimal repair UX expansion beyond `MS-0002` `repair-state`: explain stale locks,
-  moved pages, missing pages, permission asymmetry, and partial-apply recovery.
-- First public user guide and troubleshooting guide focused on activation, not
-  architecture.
-
-**In scope (`MS-0003` / MLP):**
-
-- Activation/DX improvements; setup diagnostics; common examples; migration
-  discovery and the first low-friction adoption workflows; clearer failure
-  messages; repair UX.
-
-**Out of scope (for this milestone):**
-
-- Full reverse sync / Confluence→Git reconciliation; structural merge; Data
-  Center; OAuth 2.0 (3LO) unless `MS-0002` beta shows API-token auth blocks adoption;
-  MCP server; GUI/editor plugins.
-
-### Success metrics (outcomes, not outputs)
-
-| Metric | Type | Definition | Target |
-|---|---|---|---|
-| Time to first publish | Target | New user reaches first safe publish excluding Atlassian credential creation | ≤ 10 min median in moderated tests |
-| Setup completion | Target | Users completing init + doctor + first plan without maintainer help | ≥ 80% in design-partner onboarding |
-| Actionable diagnostics | Guardrail | Setup failures with stable code + likely cause + remediation | 100% of known setup failure classes |
-| Migration signal clarity | Target | `MS-0002` beta non-retention reasons are classified (migration vs DX vs safety vs capability) | 100% of beta non-retentions classified |
-| Support burden | Guardrail | Repeated unclear setup issues after docs/doctor updates | No repeated P1/P2 setup issue without a backlog item |
-
-### Dependencies
-
-- `MS-0002` beta telemetry-by-report: time-to-first-publish, setup-failure taxonomy,
-  retention-reason partition.
-- A-VAL-3 outcome: whether existing-corpus adoption is a blocker.
-- A-USA-1 / A-USA-2 validation results.
-- `MS-0002` state model and repair primitives must exist before `MS-0003` can make them easy.
-
-### Validation approach
-
-- Run moderated first-publish sessions with at least 3 target-user types:
-  software architect/lead, platform/DevX engineer, documentation owner.
-- Record setup time, blockers, docs consulted, commands used, and whether the
-  user can explain the plan before publish.
-- Decide whether to proceed to `MS-0004`, or spend another `MS-0003` iteration on
-  setup/migration if activation is still poor.
-
-### OST / discovery linkage
-
-| Milestone outcome | Opportunity (OST) | Solution (OST) | Experiment |
-|---|---|---|---|
-| ≤ 10 min first publish | O2 | S2.1 | E2.1 |
-| Single-binary trust / clean install | O2 | S2.2 | E2.2 |
-| Agent/CI-operable setup diagnostics | O4 | S4.1 | E4.1 |
-| Migration/adoption clarity | O5 / A-VAL-3 | S5.1 precursor | `MS-0002` beta retention taxonomy |
-
-### Read before detailed MS-0003 planning
-
-- `doc/inception/marksync-failure-premortem-and-anti-failure-playbook-2026-07-02.md`
-  — especially `§3.3`, `§4.2`, `§4.3`, `§18.2`, `§19.1`.
-- `doc/overview/personas-jtbd.md` — Personas 1, 2, 3, and 5.
-- `doc/inception/analysis/assumptions.md` — A-USA-1, A-USA-2, A-USA-3,
-  A-VAL-3, A-FEA-10.
-- `doc/inception/analysis/risks.md` — R-USA-1, R-USA-2, R-USA-3, R-VIA-1.
-- `doc/inception/analysis/backlog-reconciliation.md` — cross-cutting coverage
-  and backlog triggers.
-
 ## Future Milestones
 
 _Rough, outcome-oriented placeholders. Names mirror the premortem's phase gates
@@ -247,8 +223,8 @@ knowledge is preserved._
 | ID | Milestone | Outcome hypothesis | Rough timing |
 |---|---|---|---|
 | `MS-0004` | **Drift lifecycle completeness** (Gate 2) | Drift is not just detected but repairable per-document; stale locks, moved pages, and partial-apply are recoverable without expert supervision. | After `MS-0003` |
-| `MS-0005` | **Reverse change capture** (Gate 3) | Confluence-side edits are captured and reverse-converted to a reviewable Markdown patch; never auto-committed. | After `MS-0004` |
-| `MS-0006` | **Reviewable reconciliation** (Gate 4) | Divergence produces base/local/remote conflict bundles and a controlled review/PR workflow; structural merge only for proven node classes. | After `MS-0005` |
+| `MS-0005` | **Reverse change capture** (Gate 3) | Confluence-side edits are captured and reverse-converted to a reviewable Markdown patch; never auto-committed. _(Canonical-subset reverse conversion pulled forward into `MS-0003` by PDR-0002; the remainder stays here.)_ | After `MS-0004` |
+| `MS-0006` | **Reviewable reconciliation** (Gate 4) | Divergence produces base/local/remote conflict bundles and a controlled review/PR workflow; structural merge only for proven node classes. _(Patch-based Git-arbitrated resolution pulled forward into `MS-0003` by PDR-0002; bundles/structural merge stay here.)_ | After `MS-0005` |
 | `MS-0007` | **Continuous / policy-controlled sync** (Gate 5–6) | Policy-controlled continuous bidirectional behaviour for supported constructs; per-page ownership modes. | After `MS-0006` |
 | `MS-0008` | **Public launch & sustainability readiness** | The project is safe to promote publicly: trademark notice, support matrix, funding/sponsorship posture, continuity model, contributor seams. | Before broad launch |
 | `MS-0009` | **Platform breadth** | Data Center adapter; OAuth 2.0 (3LO); package-manager distribution; optional MCP server. Only after Confluence Cloud is mature and the matrix is sustainable. | Later |
@@ -258,6 +234,9 @@ knowledge is preserved._
 **Likely scope to refine later:** repair commands beyond `MS-0002`, stale-lock
 diagnostics, moved-page repair, missing-page / `REMOTE_MISSING` handling,
 permission-asymmetry handling, partial-apply replay, per-document isolation.
+Per PDR-0002, deeper DX polish deferred from the re-scoped `MS-0003` tail
+(broad public-user activation, ≤10-min headline metric) also lands here or in
+a dedicated successor.
 
 **Read before planning:**
 
@@ -268,6 +247,12 @@ permission-asymmetry handling, partial-apply replay, per-document isolation.
 - `doc/inception/analysis/backlog-reconciliation.md` — repair/state triggers.
 
 ### MS-0005 — Reverse change capture (Gate 3) — detail notes
+
+> **Pull-forward (PDR-0002, 2026-07-26):** the canonical-GFM-subset
+> Storage→Markdown reverse conversion and its golden-fixture/diagnostics
+> foundation were pulled forward into `MS-0003` (E1). This milestone retains
+> the remainder: full change capture across the broader corpus and construct
+> set.
 
 **Likely scope to refine later:** read managed Confluence page, classify supported
 vs unsupported constructs, reverse-convert canonical subset, produce reviewable
@@ -282,6 +267,12 @@ Markdown patch, never auto-commit, preserve unsupported content safely.
 - `doc/inception/analysis/risks.md` — R-USA-2, R-FEA-9, R-FEA-5.
 
 ### MS-0006 — Reviewable reconciliation (Gate 4) — detail notes
+
+> **Pull-forward (PDR-0002, 2026-07-26):** reviewable patch-based,
+> Git-arbitrated conflict resolution for the canonical subset was pulled
+> forward into `MS-0003` (E2, `resolve` flow + `import`). This milestone
+> retains the remainder: base/local/remote conflict bundles, the controlled
+> review/PR workflow, and structural merge for proven node classes.
 
 **Likely scope to refine later:** base/local/remote bundle, conflict workspace,
 human/AI review workflow, PR-oriented apply, semantic validation before new base,
@@ -342,7 +333,7 @@ table whenever a new durable ID is introduced._
 
 | Item(s) | Source | Handled in milestone / gate | Notes |
 |---|---|---|---|
-| A-FEA-1; ADR-0002; BT-FEA-1 | Assumptions / ADR / backlog reconciliation | `MS-0002` prerequisite / `MS-0002` | Mermaid spike before `MS-0002` tooling locks; `code` fallback if late failure. |
+| A-FEA-1; ADR-0002; BT-FEA-1 | Assumptions / ADR / backlog reconciliation | `MS-0002` prerequisite / `MS-0002` → reopened in `MS-0003` | Mermaid spike before `MS-0002` tooling locks; `code` fallback if late failure. In-process spike reopened in `MS-0003` under the no-external-services constraint (PDR-0002), with the ladder in-process → self-hosted Kroki endpoint → `code`. |
 | A-FEA-2; R-FEA-2; ADR-0001 | Assumptions / risks / ADR | `MS-0002` | Bun single-binary, clean-OS smoke, signing, size/startup budget. |
 | A-FEA-3, A-FEA-4, A-FEA-5; ADR-0005 | Assumptions / ADR | `MS-0002` | Storage rendering, content properties, drift 409. |
 | A-FEA-7; R-FEA-7 | Assumptions / risks | `MS-0002` | CI concurrency control; stale-base overwrite prevention. |
@@ -350,8 +341,8 @@ table whenever a new durable ID is introduced._
 | A-FEA-10; R-FEA-2; R-VIA-1 | Assumptions / risks | `MS-0002` | ≤500 page budget, ≤90 MB binary, ≤2s cold start. |
 | A-VAL-1; R-VAL-1, R-VAL-2, R-VAL-3 | Assumptions / risks | `MS-0002` beta gate | Validate wedge before expanding. |
 | A-VAL-2; R-FEA-9 | Assumptions / risks | `MS-0002` | Adversarial corpus seeded by real/sanitized pages. |
-| A-VAL-3; R-USA-2 | Assumptions / risks | `MS-0003` if validated | Existing-corpus migration. |
-| A-USA-1, A-USA-2, A-USA-3; R-USA-1 | Assumptions / risks | `MS-0003` | ≤10-min first publish, setup friction, visible provenance trust. |
+| A-VAL-3; R-USA-2 | Assumptions / risks | `MS-0003` (activated — PDR-0002) | Existing-corpus migration, activated via `marksync import` (E3); A-VAL-3 confirmed by the first design partner (maintainer's company). |
+| A-USA-1, A-USA-2, A-USA-3; R-USA-1 | Assumptions / risks | `MS-0003` | ≤10-min first publish, setup friction, visible provenance trust. Conflict-resolution-first sequencing per owner direction (PDR-0002): DX items reduced to the milestone tail; headline metric demoted; deeper polish → `MS-0004+`. |
 | R-USA-3; R-FEA-4 | Risks | `MS-0002` minimal repair; expanded in `MS-0004` | `repair-state` in `MS-0002`; fuller lifecycle repair later. |
 | R-FEA-8 | Risk | `MS-0002` | Semantic hashing / false no-op prevention. |
 | R-FEA-10 | Risk | `MS-0002` / `MS-0004` | Permission asymmetry; `doctor` visibility checks in `MS-0002`, repair later. |
@@ -360,6 +351,9 @@ table whenever a new durable ID is introduced._
 | R-VAL-4 | Risk | `MS-0002` and all later milestones | Zero silent overwrite is a permanent guardrail. |
 | A-VIA-1, A-VIA-2, A-VIA-4; R-VIA-1, R-VIA-2, R-VIA-3 | Assumptions / risks | `MS-0008` | Support matrix, continuity/funding, trademark, no demo-ware. |
 | PDR-0001 | Decision | `MS-0008` / `MS-0009` | Brand, Confluence as adapter, package naming. |
+| PDR-0002 | Decision | `MS-0003` | Company Adoption MVP re-scope: MS-0005/MS-0006 subsets pulled forward, A-VAL-3 activated, no-external-services Mermaid, ownership model; guardrails unchanged. |
+| `MS-0005` subset (E1) | PDR-0002 pull-forward | `MS-0003` | Canonical-subset Storage→Markdown reverse conversion + golden fixtures + unsupported-construct diagnostics; remainder stays in `MS-0005`. |
+| `MS-0006` subset (E2) | PDR-0002 pull-forward | `MS-0003` | Reviewable patch-based, Git-arbitrated conflict resolution (`resolve` flow); conflict bundles / structural merge / review workflow remain in `MS-0006`. |
 | TDR-0001 | Decision/spike | `MS-0001` / evidence base | Keep evidence links available for implementation. |
 | `backlog-reconciliation.md` rows | Planning control | Phase 7 / first delivery planning | Replace placeholders with ticket refs or closure reasons. |
 | `failure-premortem.md` / `success-pre-parade.md` | Prospective analysis | Phase 6 readiness + all milestone planning | Verify routed outputs remain reflected. |
@@ -367,5 +361,5 @@ table whenever a new durable ID is introduced._
 ## Links
 
 - Changes: _(none yet — delivery starts after inception Phase 7)_
-- Decision records: ADR-0001 (TS), ADR-0002 (Mermaid), PDR-0001 (MarkSync brand), TDR-0001 (spike), ADR-0005 (Storage). To be migrated to `doc/decisions/` during inception.
+- Decision records: ADR-0001 (TS), ADR-0002 (Mermaid), PDR-0001 (MarkSync brand), TDR-0001 (spike), ADR-0005 (Storage), PDR-0002 (MS-0003 re-scope — Company Adoption MVP).
 - North star: [`01-north-star.md`](./01-north-star.md) · OST: [`opportunity-solution-tree.md`](./opportunity-solution-tree.md) · Assumptions: [`../inception/analysis/assumptions.md`](../inception/analysis/assumptions.md) · Risks: [`../inception/analysis/risks.md`](../inception/analysis/risks.md) · Backlog reconciliation: [`../inception/analysis/backlog-reconciliation.md`](../inception/analysis/backlog-reconciliation.md) · Failure premortem: [`../inception/analysis/failure-premortem.md`](../inception/analysis/failure-premortem.md) · Success pre-parade: [`../inception/analysis/success-pre-parade.md`](../inception/analysis/success-pre-parade.md)
