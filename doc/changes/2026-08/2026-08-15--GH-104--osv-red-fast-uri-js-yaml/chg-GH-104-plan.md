@@ -113,31 +113,31 @@ The coder runs `/run-plan GH-104 execute all remaining phases no review` — the
 
 **Tasks**:
 
-- [ ] **1.1** Edit `package.json` `overrides` block (lines 63-65, tab indentation): change `"fast-uri": "^3.1.4"` → `"fast-uri": "^3.1.5",` and add the line `"js-yaml": "^4.3.1"` beneath it. The block becomes:
+ - [x] **1.1** Edit `package.json` `overrides` block (lines 63-65, tab indentation): change `"fast-uri": "^3.1.4"` → `"fast-uri": "^3.1.5",` and add the line `"js-yaml": "^4.3.1"` beneath it. The block becomes:
 
-  ```json
-  "overrides": {
-  	"fast-uri": "^3.1.5",
-  	"js-yaml": "^4.3.1"
-  }
-  ```
+   ```json
+   "overrides": {
+   	"fast-uri": "^3.1.5",
+   	"js-yaml": "^4.3.1"
+   }
+   ```
 
-  No other manifest change in this phase — the version bump is Phase 2 (keeps each commit single-purpose). (F-1, F-2, DM-1, DEC-1)
-- [ ] **1.2** Regenerate the lockfile: `bun install`. Expected: exit 0; resolves fast-uri 3.1.5 (or higher within `^3.1.5`) and js-yaml 4.3.1. Failure to resolve → **abort A-1**.
-- [ ] **1.3** Pin verification (TC-DEPS-001, TC-DEPS-002): run `grep -n "fast-uri\|js-yaml" bun.lock`. Assert: the resolved pin entries (previously lines 254/316) read `fast-uri@3.1.5` and `js-yaml@4.3.1`; the overrides echo (previously lines 34-36) shows both entries; the consumer requirement edges (previously lines 176/216, `^3.0.1` / `^4.1.0`) are **unchanged** — expected, they are consumer ranges, not resolutions. Then assert `package.json` has **no** fast-uri or js-yaml entry in `dependencies`/`devDependencies` (transitive-only, AC-F1-1/AC-F2-1) and `yaml` remains `^2.9.0` untouched.
-- [ ] **1.4** Surgical diff audit (TC-DEPS-004 steps 1-2; RSK-3, R-TST-2): run `git diff -- package.json bun.lock`. Allowed diff surface — `package.json`: exactly the override lines from Task 1.1. `bun.lock`: the overrides echo (fast-uri line modified + js-yaml line added) plus the two package entries (version string + integrity hash; entry-internal dependency descriptors may differ if the patch release changed them — still confined to those two entries). **Anything else** (other pins, `lockfileVersion`/`configVersion`, reformatting) → **abort A-2**.
-- [ ] **1.5** Manifest/lockfile consistency (TC-DEPS-004 step 3; NFR-4, R-TST-1): run `bun install --frozen-lockfile`. Assert exit 0. Failure → **abort A-3**.
-- [ ] **1.6** Full quality gate (TC-DEPS-003; AC-NFR2-1, RSK-1): run `bun run check` (lint + format:check + typecheck + `bun test` + check:boundaries). Assert exit 0, 0 test failures (~1310 tests). This proves the new resolutions changed no behavior at this commit boundary. Failure → **abort A-4**.
-- [ ] **1.7** Zero runtime diff at boundary (NFR-3): run `git diff main --stat -- src/ tests/`. Assert empty.
-- [ ] **1.8** Commit exactly `package.json` + `bun.lock` (Conventional Commits, TDR-0008). The commit-message hook itself exercises the js-yaml-patched commitlint chain (RSK-2).
+   No other manifest change in this phase — the version bump is Phase 2 (keeps each commit single-purpose). (F-1, F-2, DM-1, DEC-1)
+ - [x] **1.2** Regenerate the lockfile: `bun install`. Expected: exit 0; resolves fast-uri 3.1.5 (or higher within `^3.1.5`) and js-yaml 4.3.1. Failure to resolve → **abort A-1**. (COMPLETED: bun install resolved fast-uri@3.1.5 and js-yaml@4.3.1, exit 0)
+ - [x] **1.3** Pin verification (TC-DEPS-001, TC-DEPS-002): run `grep -n "fast-uri\|js-yaml" bun.lock`. Assert: the resolved pin entries (previously lines 254/316) read `fast-uri@3.1.5` and `js-yaml@4.3.1`; the overrides echo (previously lines 34-36) shows both entries; the consumer requirement edges (previously lines 176/216, `^3.0.1` / `^4.1.0`) are **unchanged** — expected, they are consumer ranges, not resolutions. Then assert `package.json` has **no** fast-uri or js-yaml entry in `dependencies`/`devDependencies` (transitive-only, AC-F1-1/AC-F2-1) and `yaml` remains `^2.9.0` untouched. (COMPLETED: fast-uri@3.1.5 at line 255, js-yaml@4.3.1 at line 317; overrides echo lines 35-36 correct; consumer edges unchanged at lines 177/216; no direct deps, yaml ^2.9.0 untouched)
+ - [x] **1.4** Surgical diff audit (TC-DEPS-004 steps 1-2; RSK-3, R-TST-2): run `git diff -- package.json bun.lock`. Allowed diff surface — `package.json`: exactly the override lines from Task 1.1. `bun.lock`: the overrides echo (fast-uri line modified + js-yaml line added) plus the two package entries (version string + integrity hash; entry-internal dependency descriptors may differ if the patch release changed them — still confined to those two entries). **Anything else** (other pins, `lockfileVersion`/`configVersion`, reformatting) → **abort A-2**. (COMPLETED: diff surgical — only overrides echo and two package entries; no other pins, no version/config changes)
+ - [x] **1.5** Manifest/lockfile consistency (TC-DEPS-004 step 3; NFR-4, R-TST-1): run `bun install --frozen-lockfile`. Assert exit 0. Failure → **abort A-3**. (COMPLETED: exit 0, "Checked 286 installs across 291 packages (no changes)")
+ - [x] **1.6** Full quality gate (TC-DEPS-003; AC-NFR2-1, RSK-1): run `bun run check` (lint + format:check + typecheck + `bun test` + check:boundaries). Assert exit 0, 0 test failures (~1310 tests). This proves the new resolutions changed no behavior at this commit boundary. Failure → **abort A-4**. (COMPLETED: lint/format/typecheck pass, 1310 pass 0 fail, depcruise clean)
+ - [x] **1.7** Zero runtime diff at boundary (NFR-3): run `git diff main --stat -- src/ tests/`. Assert empty. (COMPLETED: empty output — zero src/ or tests/ diffs)
+ - [x] **1.8** Commit exactly `package.json` + `bun.lock` (Conventional Commits, TDR-0008). The commit-message hook itself exercises the js-yaml-patched commitlint chain (RSK-2). (COMMITTED: 9963954 — "fix(GH-104): pin fast-uri 3.1.5 and js-yaml 4.3.1 via overrides")
 
 **Acceptance Criteria**:
 
-- Must: `bun.lock` pins fast-uri ≥ 3.1.5 and js-yaml ≥ 4.3.1; both remain transitive-only (AC-F1-1, AC-F2-1, TC-DEPS-001/002).
-- Must: the diff is surgical — overrides echo + two package entries + the two manifest override lines, nothing else (TC-DEPS-004, RSK-3).
-- Must: `bun install --frozen-lockfile` exit 0 (NFR-4).
-- Must: `bun run check` green, 0 failures (AC-NFR2-1, TC-DEPS-003).
-- Must: zero `src/`/`tests/` diffs (NFR-3).
+- Must: `bun.lock` pins fast-uri ≥ 3.1.5 and js-yaml ≥ 4.3.1; both remain transitive-only (AC-F1-1, AC-F2-1, TC-DEPS-001/002). — **PASSED** (fast-uri@3.1.5 at line 255, js-yaml@4.3.1 at line 317; both transitive-only)
+- Must: the diff is surgical — overrides echo + two package entries + the two manifest override lines, nothing else (TC-DEPS-004, RSK-3). — **PASSED** (git diff shows only allowed changes)
+- Must: `bun install --frozen-lockfile` exit 0 (NFR-4). — **PASSED** (exit 0, no changes)
+- Must: `bun run check` green, 0 failures (AC-NFR2-1, TC-DEPS-003). — **PASSED** (1310 pass, 0 fail, all stages green)
+- Must: zero `src/`/`tests/` diffs (NFR-3). — **PASSED** (git diff main --stat -- src/ tests/ empty)
 
 **Files and modules**:
 
@@ -158,22 +158,22 @@ The coder runs `/run-plan GH-104 execute all remaining phases no review` — the
 
 **Tasks**:
 
-- [ ] **2.1** Bump `package.json` `"version"`: `"0.8.1"` → `"0.8.2"` (line 3; DM-3, DEC-2). **No `src/` edit** — `CLI_VERSION` in `src/cli/commands/router.ts:38` reads `pkg.version` dynamically (verified). **No lockfile regeneration needed** — `bun.lock` does not embed the version field (GH-88 precedent: version-only bump, frozen-lockfile CI green). After editing, `git status` must show only `package.json` modified; if `bun.lock` unexpectedly appears changed → investigate per **abort A-2**.
-- [ ] **2.2** Version-reference check (TC-DEPS-006; AC-DEC2-1): assert the version field reads `0.8.2`. Confirm no doc updates are required: the README `--version` mention is illustrative and TDR-0010's 0.8.x mention is frozen history — **neither is edited** (spec §7.1 verified this at specification time; re-confirm by inspection, no grep-and-sweep edits).
-- [ ] **2.3** Consistency re-check (NFR-4): run `bun install --frozen-lockfile`. Assert exit 0 — proves the version-field-only edit did not desync manifest and lockfile.
-- [ ] **2.4** Final full gate (TC-DEPS-003; AC-NFR2-1): run `bun run check` on the final tree. Assert exit 0, 0 failures.
-- [ ] **2.5** Final change-set audit (TC-DEPS-004): run `git diff main --stat`. Assert the changed-file set is exactly: `package.json`, `bun.lock`, plus this change's doc artifacts (`doc/changes/2026-08/2026-08-15--GH-104--osv-red-fast-uri-js-yaml/**`). Assert `git diff main --stat -- src/ tests/` is empty (NFR-3 final).
-- [ ] **2.6** Commit `package.json` only.
-- [ ] **2.7** Spec reconciliation sign-off: re-read spec §17 AC-by-AC against the delivered state — AC-F1-1 (Task 1.3), AC-F2-1 (Task 1.3), AC-NFR2-1 (Tasks 1.6/2.4), AC-DEC2-1 (Task 2.2), AC-F3-1 (**deferred to the PR**: observe the `Vulnerability scan (osv-scanner)` check green with 0 findings at PR creation, lifecycle phase 11 / TC-DEPS-005 — CI is the authoritative gate; assert green before merge as part of DoD). Record results in this plan's Execution Log and the test plan's Test Execution Log (§10).
-- [ ] **2.8** Release handoff notes (no action beyond recording): release-note line per spec §18 — "fix(deps): clear CVSS 7.5 osv findings — fast-uri 3.1.5, js-yaml 4.3.1 (lockfile-only)". The next tag-triggered release (GH-32 pipeline) ships 0.8.2 binaries embedding the patched fast-uri with a matching SBOM. After merge, other open PRs rebase/re-run to pick up the clean lockfile.
+ - [x] **2.1** Bump `package.json` `"version"`: `"0.8.1"` → `"0.8.2"` (line 3; DM-3, DEC-2). **No `src/` edit** — `CLI_VERSION` in `src/cli/commands/router.ts:38` reads `pkg.version` dynamically (verified). **No lockfile regeneration needed** — `bun.lock` does not embed the version field (GH-88 precedent: version-only bump, frozen-lockfile CI green). After editing, `git status` must show only `package.json` modified; if `bun.lock` unexpectedly appears changed → investigate per **abort A-2**. (COMPLETED: version field now reads 0.8.2; git status shows only package.json modified; bun.lock unchanged as expected)
+ - [x] **2.2** Version-reference check (TC-DEPS-006; AC-DEC2-1): assert the version field reads `0.8.2`. Confirm no doc updates are required: the README `--version` mention is illustrative and TDR-0010's 0.8.x mention is frozen history — **neither is edited** (spec §7.1 verified this at specification time; re-confirm by inspection, no grep-and-sweep edits). (COMPLETED: version field reads 0.8.2; README line 93 is illustrative "e.g. marksync 0.8.0", TDR-0010 frozen history — no edits required)
+ - [x] **2.3** Consistency re-check (NFR-4): run `bun install --frozen-lockfile`. Assert exit 0 — proves the version-field-only edit did not desync manifest and lockfile. (COMPLETED: exit 0, "Checked 286 installs across 291 packages (no changes)")
+ - [x] **2.4** Final full gate (TC-DEPS-003; AC-NFR2-1): run `bun run check` on the final tree. Assert exit 0, 0 failures. (COMPLETED: lint/format/typecheck pass, 1310 pass 0 fail, depcruise clean)
+ - [x] **2.5** Final change-set audit (TC-DEPS-004): run `git diff main --stat`. Assert the changed-file set is exactly: `package.json`, `bun.lock`, plus this change's doc artifacts (`doc/changes/2026-08/2026-08-15--GH-104--osv-red-fast-uri-js-yaml/**`). Assert `git diff main --stat -- src/ tests/` is empty (NFR-3 final). (COMPLETED: changed files = package.json, bun.lock, doc artifacts; src/tests diffs empty)
+ - [x] **2.6** Commit `package.json` only. (COMMITTED: 3de425a — "chore(release): bump version to 0.8.2 (patch) for GH-104")
+ - [x] **2.7** Spec reconciliation sign-off: re-read spec §17 AC-by-AC against the delivered state — AC-F1-1 (Task 1.3), AC-F2-1 (Task 1.3), AC-NFR2-1 (Tasks 1.6/2.4), AC-DEC2-1 (Task 2.2), AC-F3-1 (**deferred to the PR**: observe the `Vulnerability scan (osv-scanner)` check green with 0 findings at PR creation, lifecycle phase 11 / TC-DEPS-005 — CI is the authoritative gate; assert green before merge as part of DoD). Record results in this plan's Execution Log and the test plan's Test Execution Log (§10). (COMPLETED: AC-F1-1 PASSED, AC-F2-1 PASSED, AC-NFR2-1 PASSED, AC-DEC2-1 PASSED, AC-F3-1 DEFERRED to PR — observe osv-scan green with 0 findings)
+ - [x] **2.8** Release handoff notes (no action beyond recording): release-note line per spec §18 — "fix(deps): clear CVSS 7.5 osv findings — fast-uri 3.1.5, js-yaml 4.3.1 (lockfile-only)". The next tag-triggered release (GH-32 pipeline) ships 0.8.2 binaries embedding the patched fast-uri with a matching SBOM. After merge, other open PRs rebase/re-run to pick up the clean lockfile. (RECORDED: release-note line captured; next release ships 0.8.2 binaries with patched dependencies; other PRs rebase after merge)
 
 **Acceptance Criteria**:
 
-- Must: version reads `0.8.2`; no `src/` change was needed or made (AC-DEC2-1, NFR-3).
-- Must: `bun install --frozen-lockfile` and `bun run check` green on the final tree (NFR-4, AC-NFR2-1, TC-DEPS-003).
-- Must: final diff = `package.json` + `bun.lock` + change docs, zero `src/`/`tests/` diffs (NFR-3, TC-DEPS-004).
-- Must: all spec ACs signed off, with AC-F3-1 explicitly tracked to the PR's osv-scan observation before merge (AC-F3-1, TC-DEPS-005).
-- Should: Execution Log and test-plan Test Execution Log populated for handoff to phases 7-11.
+- Must: version reads `0.8.2`; no `src/` change was needed or made (AC-DEC2-1, NFR-3). — **PASSED** (package.json line 3 reads "version": "0.8.2"; git diff main --stat -- src/ tests/ empty)
+- Must: `bun install --frozen-lockfile` and `bun run check` green on the final tree (NFR-4, AC-NFR2-1, TC-DEPS-003). — **PASSED** (frozen install exit 0, bun run check: 1310 pass 0 fail)
+- Must: final diff = `package.json` + `bun.lock` + change docs, zero `src/`/`tests/` diffs (NFR-3, TC-DEPS-004). — **PASSED** (changed files: package.json, bun.lock, doc artifacts only)
+- Must: all spec ACs signed off, with AC-F3-1 explicitly tracked to the PR's osv-scan observation before merge (AC-F3-1, TC-DEPS-005). — **PASSED** (AC-F1-1, AC-F2-1, AC-NFR2-1, AC-DEC2-1 verified; AC-F3-1 deferred to PR observation)
+- Should: Execution Log and test-plan Test Execution Log populated for handoff to phases 7-11. — **PASSED** (Execution Log updated)
 
 **Files and modules**:
 
@@ -227,4 +227,5 @@ The coder runs `/run-plan GH-104 execute all remaining phases no review` — the
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| - | Pending | - | - | - | Populated during delivery (lifecycle phase 6) |
+| 1 | Complete | 2026-08-15 | 2026-08-15 | 9963954 | All 8 tasks completed. bun.lock pins: fast-uri@3.1.5 (line 255), js-yaml@4.3.1 (line 317). Surgical diff verified (only overrides echo + two package entries). Frozen-lockfile install passes. bun run check: 1310 pass, 0 fail, all stages green. Zero src/tests diffs. Compliant Conventional Commit. |
+| 2 | Complete | 2026-08-15 | 2026-08-15 | 3de425a | All 8 tasks completed. Version bumped to 0.8.2. Version-reference check confirmed no doc edits needed (README illustrative, TDR-0010 frozen). Frozen-lockfile install passes. Final bun run check: 1310 pass 0 fail. Final change-set audit: package.json + bun.lock + doc artifacts only, zero src/tests diffs. Spec reconciliation: AC-F1-1 PASSED, AC-F2-1 PASSED, AC-NFR2-1 PASSED, AC-DEC2-1 PASSED, AC-F3-1 DEFERRED to PR osv-scan observation. Release-note line recorded. |
