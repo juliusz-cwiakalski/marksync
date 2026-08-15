@@ -122,6 +122,9 @@ describe("TC-RT-001: corpus-A round-trip byte equality", () => {
 				expect(reversed.ok).toBe(true);
 				if (!reversed.ok) return;
 
+				// False-positive guard: corpus-A fixtures emit zero diagnostics (AC-F7-1)
+				expect(reversed.value.diagnostics).toEqual([]);
+
 				// Expected: normalize(md)
 				const expected = normalizeMarkdown(md);
 
@@ -185,6 +188,10 @@ describe("TC-RT-002: corpus-B explicit reverse expectations", () => {
 
 				expect(reversed.ok).toBe(true);
 				if (!reversed.ok) return;
+
+				// False-positive guard: corpus-B fixtures emit zero diagnostics
+				// (committed expectations unchanged, all zero-diagnostic today)
+				expect(reversed.value.diagnostics).toEqual([]);
 
 				// Compare against the sidecar
 				const expectedPath = join(reverseDir, `${name}.md`);

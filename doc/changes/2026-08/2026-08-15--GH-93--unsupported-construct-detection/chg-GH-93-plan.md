@@ -230,10 +230,10 @@ GH-92 shipped the reverse converter (Storage Format → Markdown, v0.9.0) with a
 
 **Tasks**:
 
-- [ ] **4.1** `tests/golden/markdown/reverse-round-trip.test.ts` (additive): on every corpus-A iteration (26), assert the diagnostics array is **empty** in addition to the existing byte-equality + snapshot assertions; corpus-B committed expectations unchanged (all zero-diagnostic today). Zero `--update-snapshots` runs — any snapshot diff here is a regression, not a re-baseline.
-- [ ] **4.2** `tests/golden/markdown/reverse-readback.test.ts` (additive): K1 variants (`code-block-python-k1`, `mermaid-code-policy-k1`, `readback-realistic`) → zero diagnostics and output byte-identical to the attribute-free variants (AC-F2-2 golden arm — the confined carve-out re-asserted); the `mermaid-render-policy` fixture still emits exactly its pinned 1 informational diagnostic (no new diagnostics around the informational arm).
-- [ ] **4.3** Forward tripwire (structural, TC-CLI-001 prelim): `git diff main --stat` shows (a) 0 modified files under `tests/golden/fixtures/markdown/` and `tests/adversarial/` (additions only), (b) `tests/golden/markdown/storage-renderer.test.ts` unmodified, (c) `tests/adversarial-storage/` modifications = exactly the 7 reviewed re-pins, everything else additions.
-- [ ] **4.4** Green boundary: `bun test tests/golden/markdown/` + full fast loop + `bun run check`.
+- [x] **4.1** `tests/golden/markdown/reverse-round-trip.test.ts` (additive): on every corpus-A iteration (26), assert the diagnostics array is **empty** in addition to the existing byte-equality + snapshot assertions; corpus-B committed expectations unchanged (all zero-diagnostic today). Zero `--update-snapshots` runs — any snapshot diff here is a regression, not a re-baseline.
+- [x] **4.2** `tests/golden/markdown/reverse-readback.test.ts` (additive): K1 variants (`code-block-python-k1`, `mermaid-code-policy-k1`, `readback-realistic`) → zero diagnostics and output byte-identical to the attribute-free variants (AC-F2-2 golden arm — the confined carve-out re-asserted); the `mermaid-render-policy` fixture still emits exactly its pinned 1 informational diagnostic (no new diagnostics around the informational arm).
+- [x] **4.3** Forward tripwire (structural, TC-CLI-001 prelim): `git diff main --stat` shows (a) 0 modified files under `tests/golden/fixtures/markdown/` and `tests/adversarial/` (additions only), (b) `tests/golden/markdown/storage-renderer.test.ts` unmodified, (c) `tests/adversarial-storage/` modifications = exactly the 7 reviewed re-pins, everything else additions.
+- [x] **4.4** Green boundary: `bun test tests/golden/markdown/` + full fast loop + `bun run check`.
 
 **Acceptance Criteria**:
 

@@ -24,7 +24,7 @@ describe("TC-RT-006: provenance-panel strip", () => {
 		expect(result.value.diagnostics).toEqual([]);
 	});
 
-	it("readback-realistic → byte-equals normalizeMarkdown(kitchensink.md), 0 marker traces", () => {
+	it("readback-realistic → byte-equals normalizeMarkdown(kitchensink.md), 0 marker traces, 0 diagnostics", () => {
 		const storage = readFileSync(
 			join(fixturesDir, "readback-realistic.storage.xhtml"),
 			"utf-8",
@@ -39,6 +39,9 @@ describe("TC-RT-006: provenance-panel strip", () => {
 
 		const expected = normalizeMarkdown(kitchensinkMd);
 		expect(result.value.markdown).toBe(expected);
+
+		// False-positive guard: canonical readback emits zero diagnostics
+		expect(result.value.diagnostics).toEqual([]);
 
 		// No traces of the marker or panel elements
 		expect(result.value.markdown).not.toMatch(/marksync:provenance-panel/);
@@ -59,7 +62,7 @@ describe("TC-RT-007: mermaid code-macro unwrap", () => {
 
 	for (const name of mermaidFixtures) {
 		describe(name, () => {
-			it("fence bytes ≡ CDATA content, 0 wrapper artifacts", () => {
+			it("fence bytes ≡ CDATA content, 0 wrapper artifacts, 0 diagnostics", () => {
 				const md = readFileSync(join(fixturesDir, `${name}.md`), "utf-8");
 				const storage = readFileSync(
 					join(fixturesDir, `${name}.storage.xhtml`),
@@ -68,6 +71,9 @@ describe("TC-RT-007: mermaid code-macro unwrap", () => {
 
 				const result = reverseStorage(storage);
 				expect(result.ok).toBe(true);
+
+				// False-positive guard: canonical mermaid fixtures emit zero diagnostics
+				expect(result.value.diagnostics).toEqual([]);
 
 				// Extract CDATA content from Storage
 				const cdataMatch = storage.match(
@@ -120,11 +126,13 @@ describe("TC-RT-008: K1 attribute tolerance", () => {
 
 				expect(resultK1.value.markdown).toBe(resultK1Free.value.markdown);
 				expect(resultK1.value.diagnostics).toEqual([]);
+				expect(resultK1Free.value.diagnostics).toEqual([]);
 			});
 
-			it("ac:schema-version and ac:macro-id never in output", () => {
+			it("ac:schema-version and ac:macro-id never in output, 0 diagnostics", () => {
 				const result = reverseStorage(storage);
 				expect(result.ok).toBe(true);
+				expect(result.value.diagnostics).toEqual([]);
 
 				expect(result.value.markdown).not.toMatch(/ac:schema-version/);
 				expect(result.value.markdown).not.toMatch(/ac:macro-id/);
@@ -161,7 +169,7 @@ describe("TC-RT-009: render-policy synthetic image", () => {
 		expect(result.value.markdown).toMatch(/^# Mermaid Render Policy\s*$/);
 	});
 
-	it("no image elements or mermaid traces in output", () => {
+	it("no image elements or mermaid traces in output, 0 new diagnostics", () => {
 		const storage = readFileSync(
 			join(fixturesDir, "mermaid-render-policy.storage.xhtml"),
 			"utf-8",
@@ -169,6 +177,12 @@ describe("TC-RT-009: render-policy synthetic image", () => {
 
 		const result = reverseStorage(storage);
 		expect(result.ok).toBe(true);
+
+		// No new diagnostics beyond the synthetic-artifact (exactly 1)
+		expect(result.value.diagnostics).toHaveLength(1);
+		expect(result.value.diagnostics[0].code).toBe(
+			"marksync/synthetic-artifact",
+		);
 
 		// No image elements in output
 		expect(result.value.markdown).not.toMatch(/!\[/);
