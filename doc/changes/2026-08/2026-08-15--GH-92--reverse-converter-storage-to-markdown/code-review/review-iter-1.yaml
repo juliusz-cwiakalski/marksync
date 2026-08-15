@@ -108,7 +108,7 @@ findings:
     confidence: high
     category: plan-compliance
     location: tests/bdd/support/world.ts:99
-    message: Existing BDD test file modified (style-only function-to-arrow), contradicting plan 6.4(b) "every other existing test file unmodified" and test-plan §7.4 "touched existing tests: 0".
+    message: 'Existing BDD test file modified (style-only function-to-arrow), contradicting plan 6.4(b) "every other existing test file unmodified" and test-plan §7.4 "touched existing tests: 0".'
     suggestion: Revert if a biome regression, or record the deviation and reason in the plan execution log.
     suppressed: false
     published_url: null
