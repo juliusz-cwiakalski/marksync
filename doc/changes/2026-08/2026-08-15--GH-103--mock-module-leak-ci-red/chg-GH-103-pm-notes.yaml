@@ -7,7 +7,7 @@ phases:
   clarify_scope: { started: 2026-08-15T04:10:00Z, completed: 2026-08-15T04:10:00Z }
   specification: { started: 2026-08-15T04:21:00Z, completed: 2026-08-15T04:22:00Z }
   test_planning: { started: 2026-08-15T04:22:00Z, completed: 2026-08-15T04:35:00Z }
-  delivery_planning: { started: null, completed: null }
+  delivery_planning: { started: 2026-08-15T04:35:00Z, completed: 2026-08-15T04:50:00Z }
   dor_check: { started: null, completed: null }
   delivery: { started: null, completed: null }
   system_spec_update: { started: null, completed: null }
@@ -35,6 +35,18 @@ open_questions: []
 blockers: []
 
 notes:
+  - text: >
+      Phase 4 complete: chg-GH-103-plan.md (330 lines, 5 phases, one
+      commit each): 1) src DI seams, 2) unit test rewrites (PR #105→#102
+      comment fix in task 2.3), 3) guard tests/unit/meta/
+      no-mock-module.test.ts (concatenated needle), 4) testing-strategy.md
+      ban, 5) verification evidence + AC reconciliation (no version bump
+      per DEC-2). Patch hunks verified to match main @ 1ebc664 at planning
+      time. Guard scope pinned to .ts files (deliberate). AC-F1-3
+      (CI green) pending PR — local order-explicit run is substitute
+      evidence. Coder prompt drafted by plan-writer.
+    type: info
+    date: 2026-08-15
   - text: >
       Phase 3 complete: chg-GH-103-test-plan.md (594 lines, 11 scenarios).
       Guard pinned (D-TST-1): scanning unit test
