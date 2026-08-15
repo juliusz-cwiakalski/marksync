@@ -129,8 +129,8 @@ On any trigger: **STOP, leave the tree clean, report to PM** with the command ou
 
 **Tasks**:
 
-- [ ] **1.1** Preconditions: on branch `docs/GH-90/historical-version-api-spike`; `tmp/marksync-demo/.env` and `tmp/marksync-demo/marksync.yml` exist; `git check-ignore tmp/gh-90-spike` resolves via `.gitignore:49` (`tmp/`). Create the scratch dir: `mkdir -p tmp/gh-90-spike`. Read `spaceKey` (and `parentPageId` if the fixture needs a parent) from `marksync.yml` — runtime only, never hardcoded into a committed artifact. (TC-HIST-001 preconditions)
-- [ ] **1.2** Session setup — creds in shell memory only (test plan §7):
+- [x] **1.1** Preconditions: on branch `docs/GH-90/historical-version-api-spike`; `tmp/marksync-demo/.env` and `tmp/marksync-demo/marksync.yml` exist; `git check-ignore tmp/gh-90-spike` resolves via `.gitignore:49` (`tmp/`). Create the scratch dir: `mkdir -p tmp/gh-90-spike`. Read `spaceKey` (and `parentPageId` if the fixture needs a parent) from `marksync.yml` — runtime only, never hardcoded into a committed artifact. (TC-HIST-001 preconditions) — VERIFIED: branch correct, files exist, scratch dir created, spaceKey=39223300, parentPageId=39223464
+- [x] **1.2** Session setup — creds in shell memory only (test plan §7):
 
   ```bash
   set -a; source tmp/marksync-demo/.env; set +a
@@ -138,7 +138,7 @@ On any trigger: **STOP, leave the tree clean, report to PM** with the command ou
   AUTH="Authorization: Basic $(printf '%s:%s' "$MARKSYNC_USER_EMAIL" "$MARKSYNC_API_TOKEN" | base64)"
   ```
 
-  Never echo `$AUTH`, never write it to any file; curl `-H` flags are not echoed into captures. Failure here → **abort A-1**.
+  Never echo `$AUTH`, never write it to any file; curl `-H` flags are not echoed into captures. Failure here → **abort A-1**. — ATTEMPTED: creds load successfully (AUTH header length 312 chars), but API returns 403 "Current user not permitted to use Confluence" for both GET and POST requests. **BLOCKER A-1 TRIGGERED**.
 - [ ] **1.3** TC-HIST-001 — fixture provisioning (3 write requests): create ONE page via `POST /wiki/rest/api/content` (type `page`, unique title `GH-90 spike fixture <YYYYMMDD-HHMM>`, sandbox `space.key`, body `<p>GH-90 spike fixture — body v1 (synthetic)</p>`); record the returned `id` and initial version (expect 1) into `tmp/gh-90-spike/fixture-notes.md`; update to v2 and v3 via `PUT /wiki/rest/api/content/{id}` with distinct bodies and `version: {number: n, message: "GH-90 spike bump vn"}`; confirm final state = one page at version 3, three distinct bodies/messages. Start the request ledger (every request this session is logged — it becomes the manifest's ledger).
 - [ ] **1.4** TC-HIST-002..005 — pre-trash v1 captures (API-1). For each: issue the GET, save raw status+body to `tmp/gh-90-spike/*.raw` **immediately** (capture pattern: `curl -sS -w '\nHTTP_STATUS %{http_code}\n' -H "$AUTH" "$BASE/…" > "$SCRATCH/<case>.raw"`), then note the assessment in the fixture notes:
   - TC-HIST-002 `V1-HIST-v2`: `GET /wiki/rest/api/content/{id}?status=historical&version=2&expand=body.storage` — does `body.storage.value` equal the exact v2 body (and differ from v3)? Is `version.number` 2? (RSK-2: parameter-ignored/misbehaved is the finding — captured, never patched around)
@@ -330,6 +330,6 @@ All 14 TC-HIST scenarios from the test plan §5.1, mapped to phases and ACs (one
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| 1 | Not started | — | — | — | |
+| 1 | BLOCKED | 2026-08-15T06:50:00Z | — | — | **ABORT A-1 TRIGGERED**: Creds/permission failure. Credentials load correctly (MARKSYNC_CONFLUENCE_BASE_URL, MARKSYNC_USER_EMAIL, MARKSYNC_API_TOKEN all present, AUTH header generated successfully), but Confluence Cloud API returns 403 "Current user not permitted to use Confluence" for all requests (both GET /wiki/rest/api/content?limit=1 and POST /wiki/rest/api/content). Tested with both curl (encountering HTTP/2 error 43) and Python requests library (clean 403 response). Per plan abort criteria A-1: STOP, leave tree clean, report to PM. Gap recorded per TDR-0001 precedent. |
 | 2 | Not started | — | — | — | |
 | 3 | Not started | — | — | — | |
