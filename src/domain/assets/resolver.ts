@@ -177,7 +177,7 @@ export class AssetResolver {
 
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
 	// F-5: Pass the Uint8Array view (not bytes.buffer) so byteOffset/byteLength are honored
-	const d = await crypto.subtle.digest("SHA-256", bytes.buffer);
+	const d = await crypto.subtle.digest("SHA-256", bytes as any);
 	return [...new Uint8Array(d)]
 		.map((b) => b.toString(16).padStart(2, "0"))
 		.join("");

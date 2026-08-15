@@ -6,6 +6,7 @@ import { parseStorage } from "#infra/confluence/parse/reverse-parser";
 import {
 	reverseStorage,
 	reverseStorageCollectAll,
+	type ReverseOptions,
 } from "#infra/confluence/parse/reverse";
 import { REVERSE_CODES } from "#domain/markdown/reverse-diagnostics";
 
@@ -25,11 +26,10 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 			throw new Error(`Parse failed: ${JSON.stringify(parsed.error)}`);
 		}
 
-		// Handle both direct page object and options with sourcePath/page
-		let reverseOptions;
+		let reverseOptions: ReverseOptions | undefined;
 		if (options?.page) {
-			reverseOptions = { page: options.page };
-		} else if (options?.pageId || options?.title || options?.sourcePath) {
+			reverseOptions = options;
+		} else if (options?.pageId || options?.title) {
 			reverseOptions = {
 				page: {
 					...(options.pageId && { pageId: options.pageId }),
