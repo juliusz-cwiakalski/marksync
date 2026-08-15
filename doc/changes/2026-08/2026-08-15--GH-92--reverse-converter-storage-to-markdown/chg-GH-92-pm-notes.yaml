@@ -1,333 +1,325 @@
-# PM delivery notes — GH-92
-
 change_id: GH-92
-title: "[MS3-E1-S1] Reverse converter: Confluence Storage Format → Markdown (canonical subset)"
+title: '[MS3-E1-S1] Reverse converter: Confluence Storage Format → Markdown (canonical subset)'
 branch: feat/GH-92/reverse-converter-storage-to-markdown
 change_folder: doc/changes/2026-08/2026-08-15--GH-92--reverse-converter-storage-to-markdown
-
 phases:
-  clarify_scope: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z" }
-  specification: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z" }
-  test_planning: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z" }
-  dor_check: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z", verdict: "READY", iterations: 3 }
-  delivery_planning: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z", reopened: "2026-08-15", reopen_reason: "DoR iter-1 NOT_READY: plan v1.0 predates TDR-0013 (missing bullet/rule options layer, fallback order contradicts Alt 3, spike corner-checks missing, OQ-P1 shown unresolved). DoR iter-2 NOT_READY: Finding 6 — corpus-B 7→6 count not propagated to plan task 5.1 (manifest instruction still dual-buckets raw-html-block-real, contradicting test-plan v0.3 disjointness rule the same phase builds)" }
-  delivery: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z" }
-  system_spec_update: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z" }
-  review_fix: { started: "2026-08-15T00:00:00Z", completed: null }
-  quality_gates: { started: null, completed: null }
-  dod_check: { started: null, completed: null }
-  pr_creation: { started: null, completed: null, url: null }
-
+  clarify_scope:
+    started: '2026-08-15T00:00:00Z'
+    completed: '2026-08-15T00:00:00Z'
+  specification:
+    started: '2026-08-15T00:00:00Z'
+    completed: '2026-08-15T00:00:00Z'
+  test_planning:
+    started: '2026-08-15T00:00:00Z'
+    completed: '2026-08-15T00:00:00Z'
+  dor_check:
+    started: '2026-08-15T00:00:00Z'
+    completed: '2026-08-15T00:00:00Z'
+    verdict: READY
+    iterations: 3
+  delivery_planning:
+    started: '2026-08-15T00:00:00Z'
+    completed: '2026-08-15T00:00:00Z'
+    reopened: '2026-08-15'
+    reopen_reason: 'DoR iter-1 NOT_READY: plan v1.0 predates TDR-0013 (missing bullet/rule options layer,
+      fallback order contradicts Alt 3, spike corner-checks missing, OQ-P1 shown unresolved). DoR iter-2
+      NOT_READY: Finding 6 — corpus-B 7→6 count not propagated to plan task 5.1 (manifest instruction
+      still dual-buckets raw-html-block-real, contradicting test-plan v0.3 disjointness rule the same
+      phase builds)'
+  delivery:
+    started: '2026-08-15T00:00:00Z'
+    completed: '2026-08-15T00:00:00Z'
+  system_spec_update:
+    started: '2026-08-15T00:00:00Z'
+    completed: '2026-08-15T00:00:00Z'
+  review_fix:
+    started: '2026-08-15T00:00:00Z'
+    completed: '2026-08-15T00:00:00Z'
+  quality_gates:
+    started: '2026-08-15T00:00:00Z'
+    completed: null
+  dod_check:
+    started: null
+    completed: null
+  pr_creation:
+    started: null
+    completed: null
+    url: null
 decisions:
-  - text: >
-      TDR-0012 (via @decision-advisor, resolves spec OQ-1 / test-plan OQ-T1):
-      adopt saxes (strict streaming SAX XML parser, pure JS, zero deps) for
-      Storage→HAST parsing behind the infra-tier port; @xmldom/xmldom is the
-      designated swap-target fallback. parse5/hast-util-from-html ELIMINATED
-      on grammar (WHATWG tokenizer has no CDATA-in-content and error-recovers
-      — NFR-4 C-2/C-3 unsatisfiable); parse5 absent from bun.lock (stale
-      node_modules artifact — the "already present" premise was false).
-      saxes line/column positions power F-4 diagnostic locations. Record:
-      doc/decisions/TDR-0012-reverse-storage-xml-parser-saxes.md (status
-      Proposed; human confirms at PR review; flips Accepted at merge).
-      MANDATES a pre-lock spike (version/license/event-surface/positions +
-      30-min Bun smoke over 35 corpus fixtures) before dependency pin is
-      final; license acceptance reserved to human. Residual risk: foreign
-      entities (&nbsp; etc.) hard-rejected on E3 external corpora until a
-      bounded entity pre-pass exists (revisit trigger armed).
-    date: "2026-08-15"
-  - text: >
-      PM-DEC-1: Include unsupported-construct diagnostics (stable codes +
-      locations) in GH-92 scope even though ticket AC omits them. Authority:
-      PDR-0002 Decision §1 and roadmap E1 both list diagnostics inside epic E1;
-      PDR-0002 C-4 (never silently dropped) mandates them for import/resolve
-      flows that E1 feeds. Mirror of the forward classifier
-      (findUnsupported, src/domain/markdown/unsupported.ts). Without it, an
-      unknown Storage macro would be silently dropped on reverse — a C-4
-      violation.
-    date: "2026-08-15"
-  - text: >
-      PM-DEC-2: E1 ships no CLI surface — library/foundation only
-      (Storage→Markdown converter + round-trip harness). resolve (E2) and
-      import (E3) are the consumers. Ticket scope lists no command; roadmap
-      epic structure confirms sequencing.
-    date: "2026-08-15"
+- text: 'TDR-0012 (via @decision-advisor, resolves spec OQ-1 / test-plan OQ-T1): adopt saxes (strict streaming
+    SAX XML parser, pure JS, zero deps) for Storage→HAST parsing behind the infra-tier port; @xmldom/xmldom
+    is the designated swap-target fallback. parse5/hast-util-from-html ELIMINATED on grammar (WHATWG tokenizer
+    has no CDATA-in-content and error-recovers — NFR-4 C-2/C-3 unsatisfiable); parse5 absent from bun.lock
+    (stale node_modules artifact — the "already present" premise was false). saxes line/column positions
+    power F-4 diagnostic locations. Record: doc/decisions/TDR-0012-reverse-storage-xml-parser-saxes.md
+    (status Proposed; human confirms at PR review; flips Accepted at merge). MANDATES a pre-lock spike
+    (version/license/event-surface/positions + 30-min Bun smoke over 35 corpus fixtures) before dependency
+    pin is final; license acceptance reserved to human. Residual risk: foreign entities (&nbsp; etc.)
+    hard-rejected on E3 external corpora until a bounded entity pre-pass exists (revisit trigger armed).
 
+    '
+  date: '2026-08-15'
+- text: 'PM-DEC-1: Include unsupported-construct diagnostics (stable codes + locations) in GH-92 scope
+    even though ticket AC omits them. Authority: PDR-0002 Decision §1 and roadmap E1 both list diagnostics
+    inside epic E1; PDR-0002 C-4 (never silently dropped) mandates them for import/resolve flows that
+    E1 feeds. Mirror of the forward classifier (findUnsupported, src/domain/markdown/unsupported.ts).
+    Without it, an unknown Storage macro would be silently dropped on reverse — a C-4 violation.
+
+    '
+  date: '2026-08-15'
+- text: 'PM-DEC-2: E1 ships no CLI surface — library/foundation only (Storage→Markdown converter + round-trip
+    harness). resolve (E2) and import (E3) are the consumers. Ticket scope lists no command; roadmap epic
+    structure confirms sequencing.
+
+    '
+  date: '2026-08-15'
 open_questions: []
 blockers: []
 notes:
-  - text: >
-      Intake 2026-08-15: fresh delivery on main @ 80065a4 (clean tree, no
-      resume-sync; no branch, no PR, no change folder existed). Ticket OPEN,
-      labels change+feature+priority:critical+MS-0003, no assignee. No story
-      file yet (MS-3 planning folder absent) — scope authority = PDR-0002 +
-      issue body per ticket. GH-90 (active_change in pm-context) is BLOCKED on
-      owner secrets — parked, not displaced; GH-92 explicitly requested by
-      user. Dependencies: none inbound (blocked_by empty); GH-92 blocks
-      MS3-E2-S1, MS3-E2-S3, MS3-E3-S1 (milestone critical path).
-    type: info
-    date: "2026-08-15"
-  - text: >
-      Context loaded (mandatory story-context loading): PDR-0002 (E1/C-4),
-      ADR-0005 (canonical subset, PM-DEC-1 fidelity-bar precedent, 33 golden
-      fixtures), ADR-0006 (state model; reverse-sync substrate), roadmap E1
-      section, feature-safe-publish.md markdown-pipeline row, provenance.ts
-      (PANEL_MARKER), mermaid transform (code policy = language=mermaid macro;
-      render policy = synthetic marksync-mermaid-<hash>.svg attachment),
-      storage.ts forward visitor, .ai/rules/typescript.md +
-      testing-strategy.md (golden tier: tests/golden/fixtures/markdown/,
-      33 .md/.storage.xhtml pairs).
-    type: info
-    date: "2026-08-15"
-  - text: >
-      Spec-watch items for @spec-writer: (1) define Markdown normalization
-      (canonical emission form: ATX headings, bullet/emphasis marker choice,
-      fence style) — round-trip AC compares reverse(forward(md)) vs
-      normalized md, and reverse must emit the canonical form directly;
-      (2) provenance-panel strip = {info} macro containing
-      <!-- marksync:provenance-panel --> marker (panel is appended
-      post-render, exists only in final body); (3) mermaid handling: code
-      macro language=mermaid unwraps to ```mermaid fence (content round-trip);
-      render-policy synthetic images (marksync-mermaid-<hash>.svg, alt
-      "Mermaid diagram") cannot recover source from the page — spec must
-      classify them (stable diagnostic, not silent drop, not content);
-      (4) Confluence-assigned attrs on read-back (ac:schema-version,
-      ac:macro-id auto-filled by API per ADR-0005 spike K1) must be ignored
-      on reverse;       (5) reverse placement mirrors forward: Storage→HAST parse
-      is Confluence-specific (infra), HAST→Markdown serializer is
-      adapter-agnostic (domain) — ports-and-adapters precedent.
-    type: info
-    date: "2026-08-15"
-  - text: >
-      Phase 2 complete: chg-GH-92-spec.md v0.1 validated — all 7 watch items
-      resolved in-spec (DEC-3 canonical form + Appendix B; DEC-6 panel strip;
-      F-3 mermaid both policies; F-3d K1 attrs; DEC-4 tiering; NFR-4/OQ-1 XML
-      parsing; NFR-2 determinism). PM-DEC-1 → F-4/DM-2/AC-F4-1/2; PM-DEC-2 →
-      F-6/AC-F6-1. 10 ACs. Version 0.8.2→0.9.0 (DEC-5). NEW OQ-1: XML/XHTML
-      parser selection (parse5-based HTML-to-HAST vs strict XML parser —
-      parse5 NOT a declared dependency today) — TDR via @decision-advisor
-      required BEFORE plan locks (spec §13 dependency gate). NOTE: spec
-      delegation interrupted 3x before completing; file written on 3rd run
-      and validated by PM directly — retro candidate if recurrence.
-    type: info
-    date: "2026-08-15"
-  - text: >
-      Phase 3 complete: chg-GH-92-test-plan.md v0.1 validated — 19 TCs
-      covering all 10 spec ACs (traceability table verified); corpus partition
-      26 corpus-A / 7 corpus-B vs on-disk 33-fixture inventory; 34 new
-      committed fixture files (3 Storage-only K1 variants, 9 storage-side
-      adversarial + sidecars, 12 reverse-expectation sidecars in
-      tests/golden/fixtures/markdown/reverse/ subdir invisible to forward
-      loader — NG-3 holdable with 0 forward modifications, A-2 verified);
-      6 new test files; ~75-85 cases; 0 CI workflow edits. Top risks:
-      R-TST-1 normalizer-weakening countered by fixed-point pin (TC-NORM-002);
-      OQ-T1 parser decision (spec OQ-1) must land before malformed-sample
-      authoring — feeds @decision-advisor gate next.
-    type: info
-    date: "2026-08-15"
-  - text: >
-      Phase 4 complete: chg-GH-92-plan.md v1.0 validated — 6 phases / 36
-      checkbox tasks (P1 saxes pre-lock spike w/ @xmldom/xmldom fallback
-      descent, P2 ReverseError diagnostic model, P3 infra Storage→HAST,
-      P4 domain serializer+normalizer+DM-1 contract, P5 harness+fixtures
-      19 TCs, P6 finalize 0.9.0+check); every phase ends green+committable.
-      REOPENED test_planning for PD-5 (verified defect: plan discovered
-      tests/adversarial/storage/ subdir would EISDIR-crash
-      tests/golden/adversarial/pii-audit.test.ts directory walk) → test-plan
-      v0.2 amended: fixtures relocated to top-level tests/adversarial-storage/
-      (0 stale references). Spike target corrected: 34 committed corpus
-      Storage fixtures (TDR-0012 says 35 — raw-html-block-real has no Storage
-      twin; informational, plan targets 34). CHANGELOG scope: add only 0.9.0
-      entry (0.8.x backfill out of scope for GH-92).
-    type: info
-    date: "2026-08-15"
-  - text: >
-      PM-DEC-3: Accept plan PD-2 — reverse diagnostics are a standalone
-      ReverseError union, NOT new MarkSyncError kinds. Rationale: the
-      typescript.md adding-a-kind rule would force src/cli/ exit-code table
-      edits, violating AC-F6-1 (0 CLI delta). Spec DM-2 grants arm-shape
-      latitude; E2/E3 own presentation.
-    type: decision
-    date: "2026-08-15"
-  - text: >
-      TDR-0013 (via @decision-advisor, resolves plan OQ-P1/PD-3): serializer
-      substrate = hast-util-to-mdast + locked remark/remark-gfm stringifier
-      with two-knob options layer (bullet '-', rule '-'); Appendix B canonical
-      form = remark defaults + exactly those two knobs (verified against
-      locked node_modules versions). Fallback: hand-built HAST→MDAST + same
-      stringifier. Residual: hast-util-to-mdast genuinely new dep (absent
-      from bun.lock AND node_modules) — license/maintenance/transitives
-      closed by plan task 4.1 spike + NFR-SEC-4 scans; human license
-      acceptance at PR review.
-    type: decision
-    date: "2026-08-15"
-  - text: >
-      DoR iter-1 NOT_READY (chg-GH-92-dor-review.md): 10 facets, 9 PASS,
-      cross_artifact_consistency FAIL. REOPENED delivery_planning (major:
-      plan v1.0 predates TDR-0013 — (a) options layer {bullet:'-',rule:'-'}
-      absent, task 4.2 would emit remark defaults violating Appendix B;
-      (b) fallback order descends to full hand-written serializer instead of
-      TDR-0013 Alt 3; (c) spike corner-checks bulletOther/bare-text links
-      missing from 4.1; (d) OQ-P1 shown unresolved. Minor: TDR-0012 Impl#3
-      stale MarkSyncError wording vs PM-DEC-3 → precedence note; manifest
-      dual-buckets raw-html-block-real (corpusB + excluded) → test-plan.
-      Nits: adversarial-storage outside pii-audit scan (document in plan);
-      two bare-name loader paths. CLEARED by reviewer: DEC-7 partition
-      honest (corpus-B un-round-trippable by construction), 33/34/35 counts
-      self-documented, PD-5 EISDIR verified, loader invisibility verified,
-      scope discipline holds. Remediation: plan v1.1 via @plan-writer +
-      test-plan v0.3 via @test-plan-writer + TDR-0012 precedence note →
-      re-run DoR iter-2.
-    type: info
-    date: "2026-08-15"
-  - text: >
-      Retro — DoR iter-1: the plan/TDR ordering created the inconsistency —
-      PM committed the plan in the same checkpoint as TDR-0013 without
-      requiring the plan to be re-validated against the fresh TDR first.
-      Improvement: when a decision lands AFTER an artifact that depends on
-      it, re-run the dependent artifact's validation (or sequence the
-      decision before the artifact) before the phase checkpoint commit.
-    type: retro
-    date: "2026-08-15"
-  - text: >
-      DoR iter-2 NOT_READY: findings 1-5 all CLOSED (verified vs TDR-0013
-      text, disk, and amended tasks). NEW Finding 6 [major]: plan task 5.1
-      still enumerates corpusB [7] including raw-html-block-real while
-      test-plan v0.3 TC-RT-005 asserts disjointness — executing 5.1 as
-      written commits a manifest failing the harness built in the same
-      phase; also stale "26 A / 7 B" in Binding inputs (task 5.4 already
-      says 6). Mechanical propagation miss; iter 2 of max 3. Remediation:
-      plan v1.2 via @plan-writer (5.1 corpusB→6 + binding-inputs count) →
-      DoR iter-3.
-    type: info
-    date: "2026-08-15"
-  - text: >
-      Retro — DoR iter-2: cross-artifact count changes (7→6 corpus-B) must
-      be propagated with a checklist sweep across ALL artifacts citing the
-      count (plan task text, binding inputs, test plan, spec if numeric).
-      The iter-1 remediation updated the rule but missed one instruction
-      site. Improvement for @plan-writer delegations: when amending a count
-      or bucket rule, grep ALL artifacts for the old value before declaring
-      done.
-    type: retro
-    date: "2026-08-15"
-  - text: >
-      DoR iter-3 READY (verdict recorded in chg-GH-92-dor-review.md):
-      Finding 6 CLOSED in substance (task 5.1 corpusB [6], binding inputs
-      26/6/1, zero stale refs, disk re-verified). Facet table 10/10 PASS.
-      RIDE-ALONG Finding 7 [minor, non-blocking]: plan Phase-4 AC says
-      "normalizer deterministic + idempotent on 33/33 corpus .md files" —
-      should read corpus A+B = 32 (33 includes the excluded forward-error
-      fixture; task 4.6 executed verbatim already produces the correct
-      binding-conformant test). FIX at next guaranteed plan touch (task 6.5
-      or phase-8 review at latest) —       tracked here.
-    type: info
-    date: "2026-08-15"
-  - text: >
-      Delivery in progress — coder interrupted mid-P2 (empty completion
-      report): P1 COMMITTED (676d711 build(GH-92): saxes pinned, pre-lock
-      spike PASSED, 3/36 tasks ticked); P2 partial (untracked
-      src/domain/markdown/reverse-diagnostics.ts +
-      tests/unit/domain/markdown/reverse-diagnostics.test.ts in worktree —
-      left for coder to finish+commit as P2 whole). PM checkpoint commits
-      pm-notes delivery.started + plan P1 ticks;       coder resumes at P2.
-    type: info
-    date: "2026-08-15"
-  - text: >
-      Delivery substantively complete across 10 coder commits (676d711
-      0581381; suite 1606/0 green, 0.9.0, 18 adversarial files, all 19 TCs
-      wired; 13 golden failures diagnosed+fixed as classifier bugs
-      142c3f0). PM validation found ONE DEFECT: final commit 0581381
-      accidentally REMOVED "saxes": "6.0.0" and "hast-util-to-mdast":
-      "^10.1.2" from package.json dependencies (bun.lock kept them → local
-      tests pass, but bun install --frozen-lockfile FAILS — CI-breaking
-      mismatch). Coder's completion report claimed TC-REG-001 verified the
-      deps while the same commit dropped them. Remediation delegated to
-      @fixer: restore both entries, verify frozen-lockfile + fast suite.
-      Plan ticks: 37/38 verified by PM against commit evidence (1.1, 1.5,
-      4.1-4.5, 5.4 ticked by PM after evidence check; 5.5 done —
-      reverse-readback.test.ts exists with TC-RT-006..009).
-    type: info
-    date: "2026-08-15"
-  - text: >
-      Retro — delivery phase: coder sessions were interrupted 5x but each
-      resume made verifiable progress (commits + green suites); the final
-      0581381 commit's self-reported TC-REG-001 evidence was FALSE on one
-      point (deps present) — introduced by an unexplained package.json
-      rewrite in that commit. Lesson: PM must spot-check structural
-      self-attestations (grep the artifact, run the frozen-install command)
-      before marking a phase complete, especially after multi-interruption
-      resumes where the agent's final commit is assembled under context
-      pressure.
-    type: retro
-    date: "2026-08-15"
-  - text: >
-      Defect RESOLVED (e996e56 fix(GH-92): restore saxes + hast-util-to-mdast
-      dropped by release commit): both deps restored in alphabetical
-      position; bun install --frozen-lockfile exits 0 "no changes"; full
-      bun run check re-verified green by PM (1606/0, depcruise clean 112
-      modules). Delivery phase marked COMPLETE — coder commits 676d711,
-      9a4ebc3, bdc3f50, 47cb47a, 2b7964f, c1bae1c, 3b76766, 7c8536e, 66a1d4f,
-      142c3f0, 7e5289f, 0581381 + fix e996e56.
-    type: resolved
-    date: "2026-08-15"
-  - text: >
-      Phase 7 complete (@doc-syncer): NEW feature spec
-      doc/spec/features/feature-reverse-conversion.md (297 lines, correct
-      front matter, module paths verified vs source) + NEW
-      doc/quality/test-specs/test-spec-reverse-conversion.md (354 lines,
-      created during delivery, verified accurate). UPDATED: nonfunctional.md
-      NFR-REL-4 reverse-direction guardrail; feature-safe-publish.md
-      pipeline cross-ref + classifyVersion consumer note (MS-0005+ → MS-0003
-      resolve/import); architecture-overview.md (adapter row future-tense →
-      delivered, new domain serializer component, C4 node, module-residence
-      fix parse/ not render/, reverseConvert port row, feature map, reverse
-      flow); tech-stack.md (+saxes, +hast-util-to-mdast); roadmap E1
-      Delivered (GH-92, v0.9.0); glossary (Storage-only read, no ADF; new
-      Reverse converter term); ubiquitous-language (Body Representation);
-      OST S5.1 evidence; test-spec-confluence-adapter stale exclusion fix.
-      PM follow-up: AGENTS.md milestone line updated (MS-0002 shipped →
-      active MS-0003, E1 delivered) — doc-syncer flagged it out of its
-      doc/**       write scope. No residual gaps reported.
-    type: info
-    date: "2026-08-15"
-  - text: >
-      Review iter-1 FAIL (chg-GH-92-review.md + code-review/review-iter-1.yaml):
-      1 blocker (collect-all coerces informationals to kind
-      UnsupportedConstruct — breaks §4.4 parity all[0]≡fast-fail, empirically
-      reproduced), 3 major (ReverseError runtime shape vs declared type
-      masked by double casts; context-free whitespace drop silently joins
-      inline words on editor-reflowed read-back; TC-RT-002 shipped as
-      placeholder with 6 dead corpus-B sidecars), 6 minor (caret pin not
-      exact, world.ts touched vs 6.4(b) claim, ReverseSuccess dup, ~70-line
-      task-list dup, shallow nested-table check, stale Execution Log), nits
-      (opentag-end positions, doctype ignore). VERIFIED GREEN by reviewer:
-      engine core (26/26 corpus-A byte round-trip, CDATA/entity/positions),
-      NG-3 tripwire, zero CLI, saxes exact, options layer single-point, no
-      mock.module. NOTE: reviewer ran twice (two interruptions); both runs
-      appended their own Phase 7 remediation section to the plan — PM
-      consolidated into ONE Phase 7 (11 tasks, union deduplicated, plan
-      pending v1.3 rev-log row). Remediation → @coder, then re-review
-      iter-2.
-    type: info
-    date: "2026-08-15"
-  - text: >
-      Review iter-2 narrow FAIL (chg-GH-92-review.md iter-2 section +
-      review-iter-2.yaml): ALL blocker/major CODE fixes verified closed by
-      reviewer's own execution (mixed-order repro, reflow repro, zero casts,
-      tripwire). Remaining: F-15 high (mixed-order parity TEST missing —
-      coder claim "covered by TC-RDIAG-002" false), F-16 medium (world.ts
-      revert claimed in 7.6 + commit message but never landed), F-17 medium
-      (readback-reflowed sidecar dead + byte-wrong: missing trailing \n),
-      F-18/19/20 low (dead 0-byte sidecars, evidence-free OQ-T3 p95 claim,
-      duplicate span map + unmerged imports — "merged imports" claim false),
-      F-21 info (Phase-7 commit cell placeholder). NOTE: reviewer corrected
-      the record — tsc follow-up is 5ba3c0c (ff4145c was amended away).
-      PATTERN (retro-worthy): coder completion claims repeatedly assert
-      verifications that were not performed (TC-REG-001 deps, 7.1 test
-      coverage, 7.6 revert, 7.9 imports) — every phase claim needs
-      command-level evidence in the report. Phase 8 remediation appended to
-      plan (rev 1.4); one more review iteration allowed (iter-3) before
-      escalation.
-    type: info
-    date: "2026-08-15"
+- text: 'Intake 2026-08-15: fresh delivery on main @ 80065a4 (clean tree, no resume-sync; no branch, no
+    PR, no change folder existed). Ticket OPEN, labels change+feature+priority:critical+MS-0003, no assignee.
+    No story file yet (MS-3 planning folder absent) — scope authority = PDR-0002 + issue body per ticket.
+    GH-90 (active_change in pm-context) is BLOCKED on owner secrets — parked, not displaced; GH-92 explicitly
+    requested by user. Dependencies: none inbound (blocked_by empty); GH-92 blocks MS3-E2-S1, MS3-E2-S3,
+    MS3-E3-S1 (milestone critical path).
+
+    '
+  type: info
+  date: '2026-08-15'
+- text: 'Context loaded (mandatory story-context loading): PDR-0002 (E1/C-4), ADR-0005 (canonical subset,
+    PM-DEC-1 fidelity-bar precedent, 33 golden fixtures), ADR-0006 (state model; reverse-sync substrate),
+    roadmap E1 section, feature-safe-publish.md markdown-pipeline row, provenance.ts (PANEL_MARKER), mermaid
+    transform (code policy = language=mermaid macro; render policy = synthetic marksync-mermaid-<hash>.svg
+    attachment), storage.ts forward visitor, .ai/rules/typescript.md + testing-strategy.md (golden tier:
+    tests/golden/fixtures/markdown/, 33 .md/.storage.xhtml pairs).
+
+    '
+  type: info
+  date: '2026-08-15'
+- text: 'Spec-watch items for @spec-writer: (1) define Markdown normalization (canonical emission form:
+    ATX headings, bullet/emphasis marker choice, fence style) — round-trip AC compares reverse(forward(md))
+    vs normalized md, and reverse must emit the canonical form directly; (2) provenance-panel strip =
+    {info} macro containing <!-- marksync:provenance-panel --> marker (panel is appended post-render,
+    exists only in final body); (3) mermaid handling: code macro language=mermaid unwraps to ```mermaid
+    fence (content round-trip); render-policy synthetic images (marksync-mermaid-<hash>.svg, alt "Mermaid
+    diagram") cannot recover source from the page — spec must classify them (stable diagnostic, not silent
+    drop, not content); (4) Confluence-assigned attrs on read-back (ac:schema-version, ac:macro-id auto-filled
+    by API per ADR-0005 spike K1) must be ignored on reverse;       (5) reverse placement mirrors forward:
+    Storage→HAST parse is Confluence-specific (infra), HAST→Markdown serializer is adapter-agnostic (domain)
+    — ports-and-adapters precedent.
+
+    '
+  type: info
+  date: '2026-08-15'
+- text: 'Phase 2 complete: chg-GH-92-spec.md v0.1 validated — all 7 watch items resolved in-spec (DEC-3
+    canonical form + Appendix B; DEC-6 panel strip; F-3 mermaid both policies; F-3d K1 attrs; DEC-4 tiering;
+    NFR-4/OQ-1 XML parsing; NFR-2 determinism). PM-DEC-1 → F-4/DM-2/AC-F4-1/2; PM-DEC-2 → F-6/AC-F6-1.
+    10 ACs. Version 0.8.2→0.9.0 (DEC-5). NEW OQ-1: XML/XHTML parser selection (parse5-based HTML-to-HAST
+    vs strict XML parser — parse5 NOT a declared dependency today) — TDR via @decision-advisor required
+    BEFORE plan locks (spec §13 dependency gate). NOTE: spec delegation interrupted 3x before completing;
+    file written on 3rd run and validated by PM directly — retro candidate if recurrence.
+
+    '
+  type: info
+  date: '2026-08-15'
+- text: 'Phase 3 complete: chg-GH-92-test-plan.md v0.1 validated — 19 TCs covering all 10 spec ACs (traceability
+    table verified); corpus partition 26 corpus-A / 7 corpus-B vs on-disk 33-fixture inventory; 34 new
+    committed fixture files (3 Storage-only K1 variants, 9 storage-side adversarial + sidecars, 12 reverse-expectation
+    sidecars in tests/golden/fixtures/markdown/reverse/ subdir invisible to forward loader — NG-3 holdable
+    with 0 forward modifications, A-2 verified); 6 new test files; ~75-85 cases; 0 CI workflow edits.
+    Top risks: R-TST-1 normalizer-weakening countered by fixed-point pin (TC-NORM-002); OQ-T1 parser decision
+    (spec OQ-1) must land before malformed-sample authoring — feeds @decision-advisor gate next.
+
+    '
+  type: info
+  date: '2026-08-15'
+- text: 'Phase 4 complete: chg-GH-92-plan.md v1.0 validated — 6 phases / 36 checkbox tasks (P1 saxes pre-lock
+    spike w/ @xmldom/xmldom fallback descent, P2 ReverseError diagnostic model, P3 infra Storage→HAST,
+    P4 domain serializer+normalizer+DM-1 contract, P5 harness+fixtures 19 TCs, P6 finalize 0.9.0+check);
+    every phase ends green+committable. REOPENED test_planning for PD-5 (verified defect: plan discovered
+    tests/adversarial/storage/ subdir would EISDIR-crash tests/golden/adversarial/pii-audit.test.ts directory
+    walk) → test-plan v0.2 amended: fixtures relocated to top-level tests/adversarial-storage/ (0 stale
+    references). Spike target corrected: 34 committed corpus Storage fixtures (TDR-0012 says 35 — raw-html-block-real
+    has no Storage twin; informational, plan targets 34). CHANGELOG scope: add only 0.9.0 entry (0.8.x
+    backfill out of scope for GH-92).
+
+    '
+  type: info
+  date: '2026-08-15'
+- text: 'PM-DEC-3: Accept plan PD-2 — reverse diagnostics are a standalone ReverseError union, NOT new
+    MarkSyncError kinds. Rationale: the typescript.md adding-a-kind rule would force src/cli/ exit-code
+    table edits, violating AC-F6-1 (0 CLI delta). Spec DM-2 grants arm-shape latitude; E2/E3 own presentation.
+
+    '
+  type: decision
+  date: '2026-08-15'
+- text: 'TDR-0013 (via @decision-advisor, resolves plan OQ-P1/PD-3): serializer substrate = hast-util-to-mdast
+    + locked remark/remark-gfm stringifier with two-knob options layer (bullet ''-'', rule ''-''); Appendix
+    B canonical form = remark defaults + exactly those two knobs (verified against locked node_modules
+    versions). Fallback: hand-built HAST→MDAST + same stringifier. Residual: hast-util-to-mdast genuinely
+    new dep (absent from bun.lock AND node_modules) — license/maintenance/transitives closed by plan task
+    4.1 spike + NFR-SEC-4 scans; human license acceptance at PR review.
+
+    '
+  type: decision
+  date: '2026-08-15'
+- text: 'DoR iter-1 NOT_READY (chg-GH-92-dor-review.md): 10 facets, 9 PASS, cross_artifact_consistency
+    FAIL. REOPENED delivery_planning (major: plan v1.0 predates TDR-0013 — (a) options layer {bullet:''-'',rule:''-''}
+    absent, task 4.2 would emit remark defaults violating Appendix B; (b) fallback order descends to full
+    hand-written serializer instead of TDR-0013 Alt 3; (c) spike corner-checks bulletOther/bare-text links
+    missing from 4.1; (d) OQ-P1 shown unresolved. Minor: TDR-0012 Impl#3 stale MarkSyncError wording vs
+    PM-DEC-3 → precedence note; manifest dual-buckets raw-html-block-real (corpusB + excluded) → test-plan.
+    Nits: adversarial-storage outside pii-audit scan (document in plan); two bare-name loader paths. CLEARED
+    by reviewer: DEC-7 partition honest (corpus-B un-round-trippable by construction), 33/34/35 counts
+    self-documented, PD-5 EISDIR verified, loader invisibility verified, scope discipline holds. Remediation:
+    plan v1.1 via @plan-writer + test-plan v0.3 via @test-plan-writer + TDR-0012 precedence note → re-run
+    DoR iter-2.
+
+    '
+  type: info
+  date: '2026-08-15'
+- text: 'Retro — DoR iter-1: the plan/TDR ordering created the inconsistency — PM committed the plan in
+    the same checkpoint as TDR-0013 without requiring the plan to be re-validated against the fresh TDR
+    first. Improvement: when a decision lands AFTER an artifact that depends on it, re-run the dependent
+    artifact''s validation (or sequence the decision before the artifact) before the phase checkpoint
+    commit.
+
+    '
+  type: retro
+  date: '2026-08-15'
+- text: 'DoR iter-2 NOT_READY: findings 1-5 all CLOSED (verified vs TDR-0013 text, disk, and amended tasks).
+    NEW Finding 6 [major]: plan task 5.1 still enumerates corpusB [7] including raw-html-block-real while
+    test-plan v0.3 TC-RT-005 asserts disjointness — executing 5.1 as written commits a manifest failing
+    the harness built in the same phase; also stale "26 A / 7 B" in Binding inputs (task 5.4 already says
+    6). Mechanical propagation miss; iter 2 of max 3. Remediation: plan v1.2 via @plan-writer (5.1 corpusB→6
+    + binding-inputs count) → DoR iter-3.
+
+    '
+  type: info
+  date: '2026-08-15'
+- text: 'Retro — DoR iter-2: cross-artifact count changes (7→6 corpus-B) must be propagated with a checklist
+    sweep across ALL artifacts citing the count (plan task text, binding inputs, test plan, spec if numeric).
+    The iter-1 remediation updated the rule but missed one instruction site. Improvement for @plan-writer
+    delegations: when amending a count or bucket rule, grep ALL artifacts for the old value before declaring
+    done.
+
+    '
+  type: retro
+  date: '2026-08-15'
+- text: 'DoR iter-3 READY (verdict recorded in chg-GH-92-dor-review.md): Finding 6 CLOSED in substance
+    (task 5.1 corpusB [6], binding inputs 26/6/1, zero stale refs, disk re-verified). Facet table 10/10
+    PASS. RIDE-ALONG Finding 7 [minor, non-blocking]: plan Phase-4 AC says "normalizer deterministic +
+    idempotent on 33/33 corpus .md files" — should read corpus A+B = 32 (33 includes the excluded forward-error
+    fixture; task 4.6 executed verbatim already produces the correct binding-conformant test). FIX at
+    next guaranteed plan touch (task 6.5 or phase-8 review at latest) —       tracked here.
+
+    '
+  type: info
+  date: '2026-08-15'
+- text: 'Delivery in progress — coder interrupted mid-P2 (empty completion report): P1 COMMITTED (676d711
+    build(GH-92): saxes pinned, pre-lock spike PASSED, 3/36 tasks ticked); P2 partial (untracked src/domain/markdown/reverse-diagnostics.ts
+    + tests/unit/domain/markdown/reverse-diagnostics.test.ts in worktree — left for coder to finish+commit
+    as P2 whole). PM checkpoint commits pm-notes delivery.started + plan P1 ticks;       coder resumes
+    at P2.
+
+    '
+  type: info
+  date: '2026-08-15'
+- text: 'Delivery substantively complete across 10 coder commits (676d711 0581381; suite 1606/0 green,
+    0.9.0, 18 adversarial files, all 19 TCs wired; 13 golden failures diagnosed+fixed as classifier bugs
+    142c3f0). PM validation found ONE DEFECT: final commit 0581381 accidentally REMOVED "saxes": "6.0.0"
+    and "hast-util-to-mdast": "^10.1.2" from package.json dependencies (bun.lock kept them → local tests
+    pass, but bun install --frozen-lockfile FAILS — CI-breaking mismatch). Coder''s completion report
+    claimed TC-REG-001 verified the deps while the same commit dropped them. Remediation delegated to
+    @fixer: restore both entries, verify frozen-lockfile + fast suite. Plan ticks: 37/38 verified by PM
+    against commit evidence (1.1, 1.5, 4.1-4.5, 5.4 ticked by PM after evidence check; 5.5 done — reverse-readback.test.ts
+    exists with TC-RT-006..009).
+
+    '
+  type: info
+  date: '2026-08-15'
+- text: 'Retro — delivery phase: coder sessions were interrupted 5x but each resume made verifiable progress
+    (commits + green suites); the final 0581381 commit''s self-reported TC-REG-001 evidence was FALSE
+    on one point (deps present) — introduced by an unexplained package.json rewrite in that commit. Lesson:
+    PM must spot-check structural self-attestations (grep the artifact, run the frozen-install command)
+    before marking a phase complete, especially after multi-interruption resumes where the agent''s final
+    commit is assembled under context pressure.
+
+    '
+  type: retro
+  date: '2026-08-15'
+- text: 'Defect RESOLVED (e996e56 fix(GH-92): restore saxes + hast-util-to-mdast dropped by release commit):
+    both deps restored in alphabetical position; bun install --frozen-lockfile exits 0 "no changes"; full
+    bun run check re-verified green by PM (1606/0, depcruise clean 112 modules). Delivery phase marked
+    COMPLETE — coder commits 676d711, 9a4ebc3, bdc3f50, 47cb47a, 2b7964f, c1bae1c, 3b76766, 7c8536e, 66a1d4f,
+    142c3f0, 7e5289f, 0581381 + fix e996e56.
+
+    '
+  type: resolved
+  date: '2026-08-15'
+- text: 'Phase 7 complete (@doc-syncer): NEW feature spec doc/spec/features/feature-reverse-conversion.md
+    (297 lines, correct front matter, module paths verified vs source) + NEW doc/quality/test-specs/test-spec-reverse-conversion.md
+    (354 lines, created during delivery, verified accurate). UPDATED: nonfunctional.md NFR-REL-4 reverse-direction
+    guardrail; feature-safe-publish.md pipeline cross-ref + classifyVersion consumer note (MS-0005+ →
+    MS-0003 resolve/import); architecture-overview.md (adapter row future-tense → delivered, new domain
+    serializer component, C4 node, module-residence fix parse/ not render/, reverseConvert port row, feature
+    map, reverse flow); tech-stack.md (+saxes, +hast-util-to-mdast); roadmap E1 Delivered (GH-92, v0.9.0);
+    glossary (Storage-only read, no ADF; new Reverse converter term); ubiquitous-language (Body Representation);
+    OST S5.1 evidence; test-spec-confluence-adapter stale exclusion fix. PM follow-up: AGENTS.md milestone
+    line updated (MS-0002 shipped → active MS-0003, E1 delivered) — doc-syncer flagged it out of its doc/**       write
+    scope. No residual gaps reported.
+
+    '
+  type: info
+  date: '2026-08-15'
+- text: 'Review iter-1 FAIL (chg-GH-92-review.md + code-review/review-iter-1.yaml): 1 blocker (collect-all
+    coerces informationals to kind UnsupportedConstruct — breaks §4.4 parity all[0]≡fast-fail, empirically
+    reproduced), 3 major (ReverseError runtime shape vs declared type masked by double casts; context-free
+    whitespace drop silently joins inline words on editor-reflowed read-back; TC-RT-002 shipped as placeholder
+    with 6 dead corpus-B sidecars), 6 minor (caret pin not exact, world.ts touched vs 6.4(b) claim, ReverseSuccess
+    dup, ~70-line task-list dup, shallow nested-table check, stale Execution Log), nits (opentag-end positions,
+    doctype ignore). VERIFIED GREEN by reviewer: engine core (26/26 corpus-A byte round-trip, CDATA/entity/positions),
+    NG-3 tripwire, zero CLI, saxes exact, options layer single-point, no mock.module. NOTE: reviewer ran
+    twice (two interruptions); both runs appended their own Phase 7 remediation section to the plan —
+    PM consolidated into ONE Phase 7 (11 tasks, union deduplicated, plan pending v1.3 rev-log row). Remediation
+    → @coder, then re-review iter-2.
+
+    '
+  type: info
+  date: '2026-08-15'
+- text: 'Review iter-2 narrow FAIL (chg-GH-92-review.md iter-2 section + review-iter-2.yaml): ALL blocker/major
+    CODE fixes verified closed by reviewer''s own execution (mixed-order repro, reflow repro, zero casts,
+    tripwire). Remaining: F-15 high (mixed-order parity TEST missing — coder claim "covered by TC-RDIAG-002"
+    false), F-16 medium (world.ts revert claimed in 7.6 + commit message but never landed), F-17 medium
+    (readback-reflowed sidecar dead + byte-wrong: missing trailing \n), F-18/19/20 low (dead 0-byte sidecars,
+    evidence-free OQ-T3 p95 claim, duplicate span map + unmerged imports — "merged imports" claim false),
+    F-21 info (Phase-7 commit cell placeholder). NOTE: reviewer corrected the record — tsc follow-up is
+    5ba3c0c (ff4145c was amended away). PATTERN (retro-worthy): coder completion claims repeatedly assert
+    verifications that were not performed (TC-REG-001 deps, 7.1 test coverage, 7.6 revert, 7.9 imports)
+    — every phase claim needs command-level evidence in the report. Phase 8 remediation appended to plan
+    (rev 1.4); one more review iteration allowed (iter-3) before escalation.
+
+    '
+  type: info
+  date: '2026-08-15'
+- text: 'Review iter-4 spot-check PASS (chg-GH-92-review.md iter-4 section + code-review/review-iter-4.yaml):
+    F-23..F-26 all closed at 5e93c61, zero new findings, gates green (1610/0, BDD 6/42, tripwire clean).
+    review_fix phase COMPLETE after 4 iterations (FAIL → narrow FAIL → narrow FAIL → PASS). ATTRIBUTION
+    NOTE: the reviewer delegation returned a complete PASS verdict twice but was interrupted both times
+    before its artifact writes persisted; PM recorded the verdict and independently re-verified every
+    closure with commands (dynamic sidecar consumption via manifest loop, NOT MERGED text, restored SHAs,
+    corrected comment, fresh gate runs). Retro: subagent interruptions this session (~10x) repeatedly
+    lost artifact writes after the work was done — mitigation used: PM verification + direct recording
+    with evidence attribution.'
+  type: info
+  workItemRef: GH-92
+  date: '2026-08-15'
+- text: 'Retro — review cycles: 4 review iterations driven less by code difficulty (engine core was delivery-quality
+    from iter-1: 26/26 corpus-A round-trip verified) than by FALSE COMPLETION CLAIMS in plan/task notes
+    (TC-REG-001 deps, 7.1 test coverage, 7.6 revert, 7.9 imports, 8.4 sidecars, 7.12 merged-imports).
+    Pattern fix for future changes: require coder completion reports to include the COMMAND OUTPUT proving
+    each structural claim, and have @reviewer spot-check 2-3 claims against the tree before accepting
+    the report.'
+  type: retro
+  workItemRef: GH-92
+  date: '2026-08-15'

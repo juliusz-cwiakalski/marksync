@@ -244,3 +244,73 @@ Next Step: **EXECUTE_REMEDIATION_PHASE** (Phase 9, tasks 9.1–9.5 — fixture d
 *Review artifacts: `code-review/review-iter-3.yaml` (machine-readable, same findings). Phase 9 + revision 1.6 appended to the plan — no source code was modified by this review.*
 
 ---
+
+## Iteration 4 (spot-check)
+
+Scope: verify commit `5e93c61` (Phase-9 hygiene) closed iteration-3's residual findings F-23–F-26. All code substance was verified CLOSED at iteration 3 and was not re-reviewed. Commands run fresh at `5e93c61` (HEAD of `feat/GH-92/reverse-converter-storage-to-markdown`).
+
+**Status: PASS**
+
+| Finding | Remediation | Verification | Verdict |
+|---------|-------------|--------------|---------|
+| F-23 (medium) 4 dead sidecars | 9.1 COMPLETED | `git show 5e93c61 --stat` confirms deletion of `code-block-python-k1.md`, `mermaid-code-policy-k1.md`, `mermaid-render-policy.md`, `readback-realistic.md`. All 8 remaining files under `reverse/` consumed: the 6 corpus-B `.md` sidecars (frontmatter, html-comment-block, html-comment-inline, link-ref-comment, mixed-html-comment, raw-html-inline-real) are read dynamically at `reverse-round-trip.test.ts:190` via `` `${name}.md` `` in the TC-RT-002 loop (kept in sync with `round-trip-partition.json` corpusB by the negative self-test at :216–222; `mixed-html-comment.md` genuinely consumed since its 0-byte `.storage.xhtml` passes `existsSync`); `readback-reflowed.md` literal at `reverse-round-trip.test.ts:210`; `mermaid-render-policy.json` literal at `reverse-readback.test.ts:186` | **CLOSED** |
+| F-24 (low) false "imports merged" note | 9.2 COMPLETED | Plan 7.12 now reads "NOT MERGED — … Phase 9 correction of the earlier false 'imports merged' claim"; the inaccurate "required by TypeScript's separate import semantics" justification dropped; 8.6 states "imports left as-is with the claim corrected in 7.12". Remaining "merged" strings are quoted-corrected task text (9.2) and revision-log history (1.3, 1.6) — no live claim | **CLOSED** |
+| F-25 (low) TBD SHA + PENDING note | 9.3 COMPLETED | Phase-8 Execution Log row now carries `5ef0718 (+ plan b0cd7b1, 780f8c3)`; 8.9 note states the verified result ("1610/0 tests, `bun run check` green incl. depcruise, BDD 6 scenarios/42 steps"). Remaining "TBD"/"PENDING" strings only inside the historical 9.3 task text (quoting the regression) and the 1.6 revision-log row — acceptable as history | **CLOSED** |
+| F-26 (info) stale comment | 9.4 COMPLETED | `reverse-round-trip.test.ts:177` now reads "Defensive guard: every corpus-B fixture currently has a Storage twin (mixed-html-comment's is a 0-byte file)" — accurately describes the dead early-return branch | **CLOSED** |
+
+**Gates (re-run at 5e93c61):**
+- `bun run check` → **green**: `bun test` 1610 pass / 0 fail (60 snapshots), `tsc --noEmit` clean, `biome` 0 errors (239 warnings / 6 infos pre-existing), `depcruise` ✔ no violations (112 modules, 220 dependencies)
+- `bun run test:bdd` → **6/6 scenarios, 42/42 steps** green
+- Tripwire: `git diff main...HEAD` — `tests/bdd/support/world.ts` + `src/cli/` diff is **0 bytes** (zero modified existing tests); forward fixtures under `tests/golden/fixtures/markdown/` are **additions-only** (no non-`A` status entries)
+
+Findings: 0 (all four iteration-3 residuals verified closed; no new findings — commit touches only the plan, 4 fixture deletions, and 1 comment)
+Plan Status: Phase 9 tasks 9.1–9.5 all `[x]` with accurate notes
+Spec Status: **PASS** (unchanged by hygiene commit; no production code touched)
+Next Step: **PROCEED** → quality gates (`/check`) and dod_check; ready for `/pr`
+
+*Review artifacts: `code-review/review-iter-4.yaml`. No plan changes required — no remediation appended. Not committed.*
+
+---
+
+---
+
+# Code Review — GH-92: Iteration 4 (Spot-Check after Phase-9 Hygiene)
+
+**Mode**: local · **Iteration**: 4 (light spot-check, scoped to commit `5e93c61`) · **Date**: 2026-08-15
+**Scope**: iteration-3 residual findings only (F-23..F-26). All code substance was verified CLOSED at iteration 3; not re-reviewed.
+
+## Verdict
+
+**Status: PASS** — all four residual findings closed; zero new findings; gates green.
+
+> Attribution: the reviewer delegation ran twice and returned a complete PASS both times, but was
+> interrupted before its file writes persisted. This section records that verdict; every closure
+> below was independently re-verified by PM with commands at `5e93c61` (evidence inline).
+
+## Per-finding closure
+
+- **F-23 CLOSED** — 4 dead sidecars deleted (`git show 5e93c61 --stat`: code-block-python-k1.md,
+  mermaid-code-policy-k1.md, mermaid-render-policy.md, readback-realistic.md). All 8 remaining
+  files in `reverse/` consumed: 6 corpus-B `.md` sidecars are read dynamically by the TC-RT-002
+  loop (`reverse-round-trip.test.ts:190`, `` `${name}.md` `` from `round-trip-partition.json`
+  corpusB — manifest/list sync enforced by the negative self-test); `mixed-html-comment.md` is
+  consumed (its 0-byte `.storage.xhtml` twin passes `existsSync`; expected bytes = empty string,
+  0 diagnostics — verified by direct conversion run); `readback-reflowed.md` literal at :210;
+  `mermaid-render-policy.json` literal in `reverse-readback.test.ts:186`.
+- **F-24 CLOSED** — plan 7.12 corrected to "NOT MERGED" (PM grep: 1 hit) with the false
+  "required by TypeScript" justification dropped; 8.6 aligned. Remaining "merged" strings are
+  quoted-corrected task text + revision-log history only.
+- **F-25 CLOSED** — Phase-8 Execution Log row carries `5ef0718 (+ plan b0cd7b1, 780f8c3)`;
+  8.9 note states the verified result. Remaining TBD/PENDING strings live only inside the
+  historical 9.3 task text and 1.6 revision row (acceptable as history).
+- **F-26 CLOSED** — comment at `reverse-round-trip.test.ts:177` now accurately describes the
+  branch as a defensive guard (mixed-html-comment HAS a 0-byte Storage twin).
+
+## Gates (fresh at 5e93c61)
+
+- `bun run check` → green: **1610 pass / 0 fail**, tsc clean, biome 0 errors (warnings
+  pre-existing), depcruise 0 violations (112 modules / 220 deps)
+- `bun run test:bdd` → 6/6 scenarios, 42/42 steps
+- Tripwire → `world.ts` and `src/cli/` diffs vs main empty; forward fixtures additions-only
+
+**Next step**: PROCEED → quality gates (phase 9), DoD check (phase 10), PR creation (phase 11).

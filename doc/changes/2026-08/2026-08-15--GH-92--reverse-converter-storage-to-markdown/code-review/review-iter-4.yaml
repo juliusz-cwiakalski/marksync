@@ -1,0 +1,17 @@
+# GH-92 code review — iteration 4 (light spot-check, hygiene commit 5e93c61)
+id: GH-92-REVIEW-ITER-4
+date: "2026-08-15"
+scope: "iteration-3 residual findings only (F-23..F-26); code substance verified closed at iter 3"
+verdict: PASS
+findings: []
+per_finding_closure:
+  F-23: "4 dead sidecars deleted; 8 remaining reverse/ files all consumed (6 corpus-B dynamic via TC-RT-002 manifest loop; mixed-html-comment.md byte-correct empty expectation; reflow + render-policy.json literal)"
+  F-24: "7.12/8.6 corrected to NOT MERGED; no live 'imports merged' claim"
+  F-25: "Phase-8 exec-log SHAs restored (5ef0718 + b0cd7b1, 780f8c3); 8.9 states verified results"
+  F-26: "stale comment replaced with accurate defensive-guard description"
+gates:
+  check: "green — 1610/0, tsc clean, depcruise 0 violations"
+  bdd: "6 scenarios / 42 steps green"
+  tripwire: "world.ts + src/cli/ diffs empty; forward fixtures additions-only"
+attribution: "reviewer delegation returned PASS twice but was interrupted before artifact writes; verdict recorded with PM command-level verification of every closure"
+next_step: PROCEED
