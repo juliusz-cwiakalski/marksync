@@ -168,10 +168,8 @@ const CANONICAL_ATTRIBUTE_ALLOWLIST: Record<string, string[]> = {
 	"ri:url": ["ri:value"],
 	"ac:structured-macro": ["ac:name"],
 	"ac:parameter": ["ac:name"],
-	// K1 attributes (ac:macro-id, ac:schema-version) are silently ignored
-	// on all elements (server-assigned metadata, no user content)
+	// K1 carve-out: ac:task-list row is the recorded DEC-8-adjacent exception
 	"ac:task-list": ["ac:macro-id", "ac:schema-version"],
-	"ac:structured-macro[ac:name='code']": ["ac:macro-id", "ac:schema-version"],
 	// All other elements → no allowlist → any attribute is exotic
 };
 
@@ -934,10 +932,10 @@ function checkAttributes(
 	const tagName = el.tagName;
 	const props = el.properties || {};
 
-	// K1 carve-out: server-assigned metadata attributes are silently ignored
-	// on ac:* elements (server metadata, no user content, no GFM counterpart)
+	// K1 silence applies to ac:structured-macro per spec F-2/DEC-5 (ADR-0005 K1);
+	// ac:task-list row is the recorded DEC-8-adjacent exception
 	const K1_ATTRIBUTES = new Set(["ac:macro-id", "ac:schema-version"]);
-	const isAcElement = tagName.startsWith("ac:");
+	const isStructuredMacro = tagName === "ac:structured-macro";
 
 	// Check if this element is canonical (plain-HTML or ac:*) or has an explicit allowlist
 	const isCanonical =
@@ -955,9 +953,9 @@ function checkAttributes(
 	// Collect exotic attributes (names only, no values, per NFR-6)
 	const exoticAttrs: string[] = [];
 	for (const attrName of Object.keys(props)) {
-		// K1 attributes are only silently ignored on ac:* elements
-		if (isAcElement && K1_ATTRIBUTES.has(attrName)) {
-			continue; // Skip K1 attributes on ac:* elements
+		// K1 attributes are only silently ignored on ac:structured-macro
+		if (isStructuredMacro && K1_ATTRIBUTES.has(attrName)) {
+			continue; // Skip K1 attributes on ac:structured-macro
 		}
 		if (!allowedAttrs.includes(attrName)) {
 			exoticAttrs.push(attrName);

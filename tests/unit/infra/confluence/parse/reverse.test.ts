@@ -1057,4 +1057,34 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 			});
 		});
 	});
+
+	describe("TC-ATTR-003: K1 confinement to ac:structured-macro", () => {
+		it("ac:image with ac:macro-id produces blocking diagnostic (not ac:structured-macro)", () => {
+			const storage = `
+				<ac:image ac:alt="x" ac:macro-id="m1">
+					<ri:attachment ri:filename="test.png" />
+				</ac:image>
+			`;
+			const result = collectDiagnostics(storage);
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0]).toMatchObject({
+				code: "reverse/unsupported-attribute",
+				construct: "ac:image[ac:macro-id]",
+				severity: "blocking",
+			});
+		});
+
+		it("ac:structured-macro with K1 attributes produces zero diagnostics (silenced per spec F-2/DEC-5)", () => {
+			const storage = `
+				<ac:structured-macro ac:name="code" ac:macro-id="m123" ac:schema-version="1">
+					<ac:parameter ac:name="language">javascript</ac:parameter>
+					<ac:plain-text-body><![CDATA[console.log("hello");]]></ac:plain-text-body>
+				</ac:structured-macro>
+			`;
+			const result = collectDiagnostics(storage);
+
+			expect(result.value.diagnostics).toHaveLength(0);
+		});
+	});
 });
