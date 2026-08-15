@@ -9,9 +9,8 @@ phases:
   clarify_scope: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z" }
   specification: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z" }
   test_planning: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z" }
-  dor_check: { started: "2026-08-15T00:00:00Z", completed: null }
+  dor_check: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z", verdict: "READY", iterations: 3 }
   delivery_planning: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z", reopened: "2026-08-15", reopen_reason: "DoR iter-1 NOT_READY: plan v1.0 predates TDR-0013 (missing bullet/rule options layer, fallback order contradicts Alt 3, spike corner-checks missing, OQ-P1 shown unresolved). DoR iter-2 NOT_READY: Finding 6 — corpus-B 7→6 count not propagated to plan task 5.1 (manifest instruction still dual-buckets raw-html-block-real, contradicting test-plan v0.3 disjointness rule the same phase builds)" }
-  dor_check: { started: "2026-08-15T00:00:00Z", completed: null }
   delivery: { started: null, completed: null }
   system_spec_update: { started: null, completed: null }
   review_fix: { started: null, completed: null }
@@ -211,4 +210,16 @@ notes:
       or bucket rule, grep ALL artifacts for the old value before declaring
       done.
     type: retro
+    date: "2026-08-15"
+  - text: >
+      DoR iter-3 READY (verdict recorded in chg-GH-92-dor-review.md):
+      Finding 6 CLOSED in substance (task 5.1 corpusB [6], binding inputs
+      26/6/1, zero stale refs, disk re-verified). Facet table 10/10 PASS.
+      RIDE-ALONG Finding 7 [minor, non-blocking]: plan Phase-4 AC says
+      "normalizer deterministic + idempotent on 33/33 corpus .md files" —
+      should read corpus A+B = 32 (33 includes the excluded forward-error
+      fixture; task 4.6 executed verbatim already produces the correct
+      binding-conformant test). FIX at next guaranteed plan touch (task 6.5
+      or phase-8 review at latest) — tracked here.
+    type: info
     date: "2026-08-15"

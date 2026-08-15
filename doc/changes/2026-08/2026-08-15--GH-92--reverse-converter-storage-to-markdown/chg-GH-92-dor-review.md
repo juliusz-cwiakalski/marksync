@@ -159,3 +159,52 @@ Inputs: `chg-GH-92-spec.md` v0.1 (unchanged), `chg-GH-92-test-plan.md` v0.3, `ch
 ## Override / Gate Decision
 
 No override requested or needed — full DoR applied. **NOT_READY**: one major cross-artifact contradiction remains (Finding 6), and it sits on a phase-5 deliverable the coder authors verbatim. Reopen **delivery_planning** only — a single-task edit (5.1 + one count phrase), no spec/test-plan impact. All four other iteration-1 findings verified closed in substance, not merely claimed. Expected outcome READY at iteration 3 with no other changes. No human input required (Pause: no). Iteration cap note: this is iteration 2 of ~3; the blocking gap is a mechanical propagation miss, not a stalemate.
+
+---
+
+# Readiness Review Iteration 3 (DoR Gate — GH-92, final re-review)
+
+Verdict: READY
+Work Item: GH-92
+Date: 2026-08-15
+Pause Required: no
+
+Reviewer: `@readiness-reviewer` (adversarial DoR gate, lifecycle phase 5, iteration 3 of ~3)
+Inputs: `chg-GH-92-spec.md` v0.1 (unchanged), `chg-GH-92-test-plan.md` v0.3 (unchanged), `chg-GH-92-plan.md` v1.2 (commit 8e8e559), `chg-GH-92-pm-notes.yaml`, `doc/decisions/TDR-0012`/`TDR-0013`, iteration 1–2 records above, tree @ working dir. Independent re-verification performed (not taken from the remediation claims): corpus disk inventory, stale-count sweep, v1.0→v1.2 diff audit, full artifact cross-pass.
+
+## Finding 6 Closure (verified in substance)
+
+**CLOSED.** All remediation claims independently reproduced:
+
+- **Task 5.1 manifest instruction** (plan line 244): `corpusB` [6 — frontmatter, html-comment-block, html-comment-inline, link-ref-comment, mixed-html-comment, raw-html-inline-real]; `excluded` [{name: "raw-html-block-real", reason: "forward-error fixture — no Storage form"}] — raw-html-block-real single-bucketed, exactly the iteration-2 prescribed fix. A manifest authored per this instruction passes TC-RT-005's disjointness + 26+6+1-union assertions.
+- **Binding inputs** (line 27): "corpus partition 26 A / 6 B / 1 excluded / 5 Storage-only / 9 adversarial" — stale "26 A / 7 B" gone.
+- **Stale-"7" sweep**: independent `rg` over the full plan for remaining "7 B" / corpus-B-count-7 phrasing → zero hits. Task 5.4 ("the 6 corpus-B fixtures"), task 1.3 (34-parseable accounting), Phase-5 AC "corpus A 26/26" all agree.
+- **Test-plan v0.3 count sites re-verified unchanged-consistent**: §summary/§1 (line 30), §4.4 manifest rule (195, 367), TC-RT-002 step 1 (279), §6.2 (362, 802), A-1 (904), sidecar totals (830: 11 `.md` = 6 corpus-B + 5 Storage-only) — all say 6/excluded-only.
+- **Disk re-verified**: 33 `.md` / 34 `.storage.xhtml`; all 26 corpus-A names and all 6 corpus-B names in task 5.1 exist with Storage twins (name-by-name); `raw-html-block-real` has `.unsupported.txt` and **no** Storage twin → excluded-only is factually correct, not just internally consistent.
+- **Diff audit** (9829cde → 8e8e559): surgical — Binding-inputs phrase, task 5.1 corpusB enumeration, revision row 1.2, timestamp. No collateral edits to the TDR-0013 integration (options layer, fallback order, corner-checks re-read at lines 27/34/35/41/208–210 — intact).
+
+## Facet Summary (re-evaluated, all ten)
+
+- spec_completeness: PASS (unchanged across all iterations)
+- ac_quality: PASS
+- plan_coverage: PASS (36 tasks; AC-coverage check "All 10 ACs covered" re-verified)
+- test_traceability: PASS (19/19 TCs; counts 19/9+9/34-new re-verified)
+- cross_artifact_consistency: PASS (Finding 6 closed; one non-blocking minor residual — Finding 7 below — graded per this gate's own calibration: iter-1 precedent explicitly treats minors without artifact-breaking force as non-blocking)
+- decision_capture: PASS
+- system_spec_consistency: PASS
+- plan_doc_update_coverage: PASS
+- plan_code_area_coverage: PASS
+- dod_defined: PASS
+
+## Final Fresh Pass — Residual Notes
+
+7. [minor, NON-BLOCKING] cross_artifact_consistency — chg-GH-92-plan.md Phase 4 "Acceptance Criteria" (line 219)
+   Gap: the Must line "normalizer deterministic + idempotent on **33/33** corpus `.md` files … (AC-F5-1 unit clauses)" conflicts with every other scope site for the same property: spec AC-F5-1's given-clause (**corpus-A** fixtures), binding test-plan TC-NORM-001 step 1 (**corpus-A + corpus-B** = 32), the plan's own task 4.6 (**A + B** = 32), and the plan's own coverage table (line 94: "100% of **corpus A**"). Per the artifacts' established accounting (test-plan A-1), 33 = 26 + 6 + **1 excluded** — the line therefore sweeps in `raw-html-block-real`, a forward-error fixture no binding artifact asserts over. Not blocking, per gate calibration: unlike Finding 6 (executing the task as written produced an artifact failing a binding test in the same phase), task 4.6 executed verbatim produces the binding-conformant TC-NORM-001 test; the defect is a descriptive phase-exit phrase with no instruction force (no task directs testing 33), untickable as counted at phase-4 self-check but harmless to every deliverable. `parseMarkdown` succeeds on raw-HTML fixtures (classification is a separate HAST walk, `src/domain/markdown/unsupported.ts`), so the line is also not semantically impossible — merely wrong-counted. v1.0 text untouched by both remediations.
+   Suggested remediation target phase: delivery_planning (ride-along, not a reopen)
+   Suggested fix: one-phrase edit at the next guaranteed plan touch (task 6.5 Execution-Log population, or at latest phase-8 review): "33/33 corpus `.md` files" → "all corpus-A + corpus-B `.md` fixtures (26 + 6)".
+
+No other residuals: options layer / fallback order / corner-checks (TDR-0013) single-defined and consistent; PD-2/TDR-0012 precedence note intact; PD-5 path convention uniform (`tests/adversarial-storage/`, zero stale subdirectory references); loader paths qualified; NFR-REL-4 extension routed to phase 7; AC IDs isomorphic across spec §17 / test-plan §3.1 / plan coverage check; TC-NORM-001's A+B scope exceeding spec AC-F5-1's corpus-A clause is coverage-exceeding (normal, not a finding).
+
+## Gate Decision
+
+**READY.** Finding 6 verified closed in substance with independent disk/sweep/diff evidence; all ten facets pass; no pause flag. Finding 7 is recorded as a non-blocking ride-along (severity minor, zero artifact-breaking force, one-phrase fix at an already-scheduled plan touch) — escalating to the human over it would invert the cap's purpose (stalemate prevention, not flaw-suppression at the final iteration). Delivery may start against plan v1.2. No human input required (Pause: no).
