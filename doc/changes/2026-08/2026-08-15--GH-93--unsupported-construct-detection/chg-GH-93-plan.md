@@ -325,6 +325,34 @@ GH-92 shipped the reverse converter (Storage Format → Markdown, v0.9.0) with a
 
 ---
 
+### Phase 7: Code Review Remediation (Iteration 2)
+
+**Goal**: Resolve `@reviewer` iteration-2 findings F-13..F-21 (see `chg-GH-93-review.md` iteration 2 + `code-review/review-iter-2.yaml`). Iteration 1 verified F-8/F-9/F-10 resolved, F-2/F-3/F-6 resolved in code (probes missing), F-1/F-7 partial; FAIL is driven by the red gate at HEAD (F-13) and the F-1 residual (F-14).
+
+**Tasks**:
+
+- [ ] **7.1 (F-13, gates — blocking)** Make `bun run check` green at HEAD: fix `reverse.test.ts:14-40` helper (type `reverseOptions: ReverseOptions | undefined`; restructure so raw `{sourcePath}` reaches the entry point — see 7.5), run `bun run format` over the 6 flagged files (`reverse.test.ts`, `reverse-diagnostics.test.ts`, `reverse-parser.test.ts`, 3 sidecars — restore tab-indent + trailing newline to match corpus convention), re-run `bun run check` + `bun run test:bdd` + tripwire; replace the 6.9 COMPLETED placeholder ("Running final gates now") and the Phase-6 execution-log row's "bun run check (1742 pass)" with the actual post-fix results (`check` green; `bun test` count reported separately).
+- [ ] **7.2 (F-14, F-1 residual)** Complete the 6.1 attribute pass: add `checkAttributes` call sites on `ac:task-list` (element form), `ac:structured-macro[ac:name="task-list"]` (macro form), `ac:task`/`ac:task-status`/`ac:task-body` (in `mapTaskSequenceToGfmTaskList`), and `ac:plain-text-body` (in `classifyCodeMacro`) — all are Appendix C none-bucket rows, so any attribute is exotic. If any subset is deliberately deferred: record the erratum in Appendix C + fix the feature-spec "never a silent drop" wording to state system truth, and note the decision here. Unit probe for whichever ships. Corpus/K1/forward sweeps must stay zero-diagnostic.
+- [ ] **7.3 (F-17, missing probes)** Add the four explicitly-required probes: (a) recognized-macro exotic attribute (e.g. `class` on `ac:structured-macro[ac:name="code"]` → blocking `reverse/unsupported-attribute`); (b) task body containing an unknown element + an exotic-attribute element → both diagnosed (6.2); (c) macro form `ac:structured-macro[ac:name="task-list"]`: stray child by class + missing-status task + task-body propagation (6.4 — `ac:name="task-list"` currently appears in zero tests); (d) stray `ac:image` child of `ac:task-list` → structural fallback (6.5).
+- [ ] **7.4 (F-15, vacuous tests)** Fix `reverse.test.ts:454` — assert the computed `result` (code macro converts AND `ac:parameter[ac:custom]` diagnostic present), delete the misleading "let's test with an unknown macro instead" pivot; convert `:671` to `it.skip` with the deferral reason (or implement with a real parse-failing input) so the "59 tests" count reflects asserting tests.
+- [ ] **7.5 (F-16, absorption)** After the 7.1 helper fix, TC-PAGE-003 must pass raw `{sourcePath}` (and `{sourcePath, page}`) through `reverseStorageCollectAll`'s real options — pinning absorption and explicit-page-wins-over-absorption at the entry point (the current helper pre-wraps `sourcePath` into `{page:{sourcePath}}`, so the production absorption path is never exercised; the dead branch was flagged by biome as unreachable).
+- [ ] **7.6 (F-18 + F-19, taxonomy consistency)** Record dispositions and align: (a) missing-`ac:task-status` — either both forms diagnose (share the check in `mapTaskSequenceToGfmTaskList`) or the element form's silent unchecked-conversion is recorded in Appendix C next to DEC-8; (b) non-ignored children of `ac:task` that are individually canonical (e.g. `p`) take the structural fallback (share the code-selection with the `ac:task-list`-level logic at reverse.ts:768-772), not blanket `unknown-element`. Unit probes for both.
+- [ ] **7.7 (F-20 + F-21, bookkeeping)** Correct DEC-8's evidence sentence + the Phase-6 log row ("the two affected sidecars pin []" — only `storage-mixed-task-regular-lists` pins `[]`; `storage-task-list-stray-child` retains its 2 correct entries); apply the still-outstanding F-11 corrections (task 3.8 + Phase-3 row: 26 new files, not 30); optional cleanups: replace `includes(tagName as any)` with a `readonly string[]`-typed lookup.
+
+**Acceptance Criteria**:
+
+- Must: `bun run check` green at HEAD (lint + format + typecheck + test + boundaries) — no placeholder or false gate records in the Execution Log.
+- Must (7.2): every Appendix C row is live (exercised by a call site + probe) or explicitly re-scoped by a recorded erratum; feature spec states system truth.
+- Must (7.3/7.4/7.5): no test whose title asserts more than its body; absorption + precedence pinned through the real entry-point options.
+
+**Files and modules**: `src/infra/confluence/parse/reverse.ts` (7.2/7.6), `tests/unit/infra/confluence/parse/reverse.test.ts` (7.1/7.3/7.4/7.5/7.6), `tests/unit/domain/markdown/reverse-diagnostics.test.ts` + `tests/unit/infra/confluence/parse/reverse-parser.test.ts` (format only), `tests/adversarial-storage/*.classification.json` (format only), spec Appendix C + `doc/spec/features/feature-reverse-conversion.md` (7.2 erratum path if taken, 7.6 disposition, 7.7 — via `@doc-syncer`), this plan (7.1/7.7 log corrections).
+
+**Tests**: `bun run check && bun run test:bdd` + tripwire (forward fixtures byte-unmodified, 0 CLI delta, REVERSE_CODES additions-only).
+
+**Completion signal**: `fix(GH-93): review remediation iter-2 — green gate, attribute-pass completion, honest tests`
+
+---
+
 ## Test Scenarios
 
 All 18 test-plan TCs are wired by this plan; phases below are where each first executes green.
@@ -379,6 +407,7 @@ All 18 test-plan TCs are wired by this plan; phases below are where each first e
 |---------|------|--------|---------|
 | 1.0 | 2026-08-15 | plan-writer (GH-93) | Initial plan. 5 execution phases + 1 conditional remediation phase, each a green commit: (1) domain registry growth (+4 codes, page-context field, TC-TAXO-001 snapshot — additive-only at the boundary); (2) granular classifier + mirror-allowlist attribute pass + task-list integrity + page threading + K1 confinement (PD-4) + unit tier (10 TC unit arms) + the 7 sidecar re-pins riding the same commit under the scripted stability check (PD-3 green-boundary atomicity); (3) GH-31-aligned corpus 12/12 + ticket-class + page-context fixtures (26 new files) + runner extension (schema `page?`, success branch, companions, inventory, PII scoping); (4) false-positive guard — zero-diagnostic sweeps over corpus A/B + K1 variants + forward tripwire (assertions only, D-TST-5); (5) 0.10.0 bump + CHANGELOG + full gate + TC-CLI-001 structural checks + spec reconciliation + TDR-0014/E2-E3 hand-offs. 34 checkbox tasks (33 concrete + conditional 6.1). Plan decisions PD-1..PD-5; open questions OQ-P1 (bare `img` allowlist reading — DoR-confirmed zero-churn), OQ-P2 (task-list text children), OQ-P3/OQ-T4 inherited. |
 | 1.1 | 2026-08-15 | reviewer (GH-93, iteration 1) | Phase 6 populated with concrete remediation tasks 6.1–6.9 from review findings F-1..F-9 (see `chg-GH-93-review.md` + `code-review/review-iter-1.yaml`): F-1 critical (attribute pass skips specially-handled elements — `ac:image` user properties silently dropped and pinned silent in the corpus), F-2/F-3 high (task-body diagnostics discarded; `ac:task-id` silent drop), F-4 high (task 2.6 unit file never created — CHECKED_BUT_MISSING, with 2.1-half/2.4-half/2.7-partial), F-5..F-7 medium, F-8/F-9 low. Review re-verified the full gate (1673/0 + depcruise + BDD 6/42), tripwires (forward fixtures, CLI, re-pins code-only), and the TDR-0014 pins. Iteration-2 re-review of 6.1–6.3 + 6.6 mandatory. |
+| 1.2 | 2026-08-15 | reviewer (GH-93, iteration 2) | Iteration-2 re-review at a5c42f8 (b71868a remediation + doc re-sync): **FAIL** (2 high / 5 medium / 1 low / 1 info — F-13..F-21). Resolved: F-8, F-9, F-10; F-2/F-3/F-6 resolved in code (verified by read; probes missing); F-4 largely resolved (unit file 10 arms + TC-TAXO-002 7 rows + K1 survival; 2 of 59 tests vacuous; absorption tests ineffective); F-1/F-7 partial (task-list family + `ac:parameter`/`ri:*`/`ac:structured-macro` still uncovered). New FAIL drivers: `bun run check` red at HEAD (lint 2 errors + format 6 files, all from b71868a) while the Phase-6 log claims gates green (F-13); Appendix C none-bucket rows still dead on 6 elements (F-14). Phase 7 appended (tasks 7.1–7.7). Tripwires re-verified green (forward fixtures/CLI byte-untouched, 7 codes additions-only); `bun test` 1742/0 + BDD 6/42 re-run green. |
 
 ## Execution Log
 

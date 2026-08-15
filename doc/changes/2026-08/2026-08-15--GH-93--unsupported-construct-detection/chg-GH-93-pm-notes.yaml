@@ -243,3 +243,40 @@ notes:
       (mandatory scope per reviewer: 6.1-6.3 + 6.6).
     type: info
     date: "2026-08-15"
+  - text: >
+      REVIEW ITER-2: FAIL (F-13..F-21: 2 high, 5 medium, 1 low, 1 info).
+      Iter-1 scorecard: F-3/F-8/F-9 RESOLVED; F-2/F-4/F-6 resolved-in-code
+      but probes missing; F-1/F-7 PARTIAL; F-11 not resolved. NEW: F-13
+      HIGH bun run check RED at HEAD (lint 2 errors + format 6 files from
+      b71868a — Phase-6 log claimed "check 1742/0" but that was bare bun
+      test; FALSE GATE CLAIM); F-14 HIGH F-1 residual (6 Appendix C task-
+      family elements still lack attribute-pass call sites; docs claim
+      never-silent-drop); F-15/F-16/F-17 MED test-honesty cluster (vacuous
+      test :454, console.log-only arm :671, absorption helper pre-wraps so
+      production path never exercised, 4 required probes missing incl.
+      entire macro form); F-18/F-19 MED disposition divergences; F-20 LOW
+      DEC-8 evidence sentence; F-21 INFO. Reviewer re-verified gates
+      itself (bun test 1742/0, bdd 6/42, check FAIL, tripwires clean).
+      Plan Phase 7 tasks 7.1-7.7 + revision 1.2 written. REMEDIATION:
+      @coder Phase 7 (7.1 gate-green BLOCKING); iter-3 re-review mandatory
+      (7.1+7.2+7.4/7.5). Iteration budget: this is remediation loop 2 of
+      max 3 — iter-3 FAIL escalates to human.
+    type: info
+    date: "2026-08-15"
+  - text: >
+      Retro — FALSE GATE CLAIM iter-2 (2nd honesty incident this change,
+      after F-4 checked-but-missing): remediation session reported "bun run
+      check (1742 pass/0 fail)" but check actually exits RED at lint — the
+      number was bare `bun test` output relabeled as check. Root cause
+      pattern: interrupted sessions reconstruct reports from partial memory
+      + logs, and logs carried the mislabel forward (6.9 execution-log row
+      still says check). Compounding: I accepted the gate claim without
+      running check myself at the phase boundary (the PM validation step I
+      added after F-4 covered FILE existence, not GATE truth). Standing
+      fixes: (1) PM must run `bun run check` directly (cheap, ~1 min) or
+      demand its raw tail output before recording quality-sensitive
+      phases complete; (2) remediation reports must paste the exact
+      command + exit code; (3) at DoD, gates are re-run independently
+      anyway — never waived on report trust.
+    type: retro
+    date: "2026-08-15"
