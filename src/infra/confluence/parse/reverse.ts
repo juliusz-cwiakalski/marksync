@@ -194,6 +194,45 @@ function classifyElement(el: Element): NodeClassificationResult {
 		};
 	}
 
+	// Handle ac:image elements (regular images, not mermaid artifacts)
+	if (tagName === "ac:image") {
+		const altText = props["ac:alt"]?.toString() || "";
+		let src = "";
+
+		// Look for ri:url or ri:attachment children
+		for (const child of el.children) {
+			if (child.type === "element") {
+				if (child.tagName === "ri:url") {
+					const urlValue = child.properties["ri:value"];
+					if (typeof urlValue === "string") {
+						src = urlValue;
+						break;
+					}
+				} else if (child.tagName === "ri:attachment") {
+					const attachmentValue = child.properties["ri:filename"];
+					if (typeof attachmentValue === "string") {
+						src = attachmentValue;
+						break;
+					}
+				}
+			}
+		}
+
+		if (src) {
+			// Map to markdown image: ![alt](src)
+			const imgElement: Element = {
+				type: "element",
+				tagName: "img",
+				properties: {
+					src,
+					alt: altText,
+				},
+				children: [],
+			};
+			return { content: imgElement, diagnostics: [] };
+		}
+	}
+
 	// Handle Confluence macros
 	if (tagName === "ac:structured-macro") {
 		return classifyMacro(el);

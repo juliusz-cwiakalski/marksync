@@ -1,0 +1,51 @@
+{
+  "corpusA": [
+    "heading-h1",
+    "heading-h2",
+    "heading-h3",
+    "heading-h4",
+    "heading-h5",
+    "heading-h6",
+    "paragraph",
+    "strong",
+    "em",
+    "strong-em-nested",
+    "strikethrough-del",
+    "code-inline",
+    "code-block-python",
+    "code-block-mermaid",
+    "mermaid-code-policy",
+    "link-plain",
+    "link-query-amp",
+    "image-remote",
+    "image-attachment",
+    "unordered-list",
+    "ordered-list-nested",
+    "task-list",
+    "table",
+    "blockquote",
+    "hr",
+    "kitchensink"
+  ],
+  "corpusB": [
+    "frontmatter",
+    "html-comment-block",
+    "html-comment-inline",
+    "link-ref-comment",
+    "mixed-html-comment",
+    "raw-html-inline-real"
+  ],
+  "storageOnly": [
+    "provenance-panel",
+    "mermaid-render-policy",
+    "code-block-python-k1",
+    "mermaid-code-policy-k1",
+    "readback-realistic"
+  ],
+  "excluded": [
+    {
+      "name": "raw-html-block-real",
+      "reason": "forward-error fixture — no Storage form"
+    }
+  ]
+}
