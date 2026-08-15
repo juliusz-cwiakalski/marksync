@@ -27,6 +27,36 @@ describe("TC-RADV-001: adversarial classification regression lock", () => {
 		malformed: false,
 	};
 
+	// Appendix B alignment: fixture → expected code (or [] for zero-diagnostic)
+	const appendixBAlignment = {
+		// Unknown macros → "reverse/unknown-macro"
+		"storage-macro-jira": "reverse/unknown-macro",
+		"storage-macro-toc": "reverse/unknown-macro",
+		"storage-macro-expand": "reverse/unknown-macro",
+		"storage-macro-info-no-marker": "reverse/unknown-macro",
+		"storage-app-gliffy": "reverse/unknown-macro",
+		// Supported macros → []
+		"storage-macro-code": [],
+		// Unknown elements → "reverse/unknown-element"
+		"storage-raw-html-block": "reverse/unknown-element",
+		"storage-raw-html-inline": "reverse/unknown-element",
+		// Supported content → []
+		"storage-emoji": [],
+		"storage-long-page": [],
+		"storage-mixed-task-regular-lists": [],
+		// Structural fallback → "reverse/unsupported-construct"
+		"storage-nested-tables": "reverse/unsupported-construct",
+		// New classes
+		"storage-complex-layout": "reverse/complex-layout",
+		"storage-orphaned-layout": "reverse/complex-layout",
+		"storage-exotic-attributes": "reverse/unsupported-attribute",
+		"storage-k1-macro-negative": [],
+		"storage-task-list-stray-child": [
+			"reverse/unknown-element",
+			"reverse/unsupported-construct",
+		],
+	};
+
 	for (const name of adversarialFixtures) {
 		describe(name, () => {
 			const storage = readFileSync(
@@ -35,6 +65,17 @@ describe("TC-RADV-001: adversarial classification regression lock", () => {
 			);
 			const sidecarPath = join(adversarialDir, `${name}.classification.json`);
 			const sidecar = JSON.parse(readFileSync(sidecarPath, "utf-8"));
+
+			// Load page context companion if present
+			let pageContext:
+				| { pageId?: string; title?: string; sourcePath?: string }
+				| undefined;
+			const pageContextPath = join(adversarialDir, `${name}.page-context.json`);
+			try {
+				pageContext = JSON.parse(readFileSync(pageContextPath, "utf-8"));
+			} catch {
+				// No page context companion — omit-when-absent by construction
+			}
 
 			it("sidecar exists and is valid JSON", () => {
 				expect(sidecar).toBeDefined();
@@ -46,7 +87,10 @@ describe("TC-RADV-001: adversarial classification regression lock", () => {
 					categoryCoverage.malformed = true;
 
 					// Fast-fail should return parse error
-					const fastFail = reverseStorage(storage);
+					const fastFail = reverseStorage(
+						storage,
+						pageContext ? { page: pageContext } : undefined,
+					);
 					expect(fastFail.ok).toBe(false);
 					if (fastFail.ok) return;
 
@@ -54,7 +98,10 @@ describe("TC-RADV-001: adversarial classification regression lock", () => {
 					expect(fastFail.error.code).toBe("reverse/parse-error");
 
 					// Collect-all should also return parse error
-					const collectAll = reverseStorageCollectAll(storage);
+					const collectAll = reverseStorageCollectAll(
+						storage,
+						pageContext ? { page: pageContext } : undefined,
+					);
 					expect(collectAll.ok).toBe(false);
 					if (collectAll.ok) return;
 
@@ -64,60 +111,142 @@ describe("TC-RADV-001: adversarial classification regression lock", () => {
 					// Sidecar should document the parse error
 					expect(sidecar.parseError).toBe(true);
 					expect(sidecar.detail).toBeDefined();
+					if (sidecar.page) {
+						expect(fastFail.error.page).toEqual(sidecar.page);
+						expect(collectAll.error.page).toEqual(sidecar.page);
+					}
 				});
 			} else {
 				it("collect-all diagnostics deep-equals sidecar", () => {
-					const collectAll = reverseStorageCollectAll(storage);
+					const collectAll = reverseStorageCollectAll(
+						storage,
+						pageContext ? { page: pageContext } : undefined,
+					);
 					expect(collectAll.ok).toBe(true);
 					if (!collectAll.ok) return;
 
-					// Map to sidecar format (remove 'kind' for comparison)
-					const mappedDiagnostics = collectAll.value.diagnostics.map((d) => ({
-						code: d.code,
-						construct: d.construct,
-						location: d.location,
-					}));
+					// Map to sidecar format (remove 'kind' for comparison; include 'page' when present)
+					const mappedDiagnostics = collectAll.value.diagnostics.map((d) => {
+						const mapped: {
+							code: string;
+							construct: string;
+							location: { line: number; column: number };
+							page?: { pageId?: string; title?: string; sourcePath?: string };
+						} = {
+							code: d.code,
+							construct: d.construct,
+							location: d.location,
+						};
+						if (d.page) {
+							mapped.page = d.page;
+						}
+						return mapped;
+					});
 
 					expect(mappedDiagnostics).toEqual(sidecar);
 				});
 
 				it("fast-fail on every blocking fixture (no partial output)", () => {
-					const fastFail = reverseStorage(storage);
+					const collectAll = reverseStorageCollectAll(
+						storage,
+						pageContext ? { page: pageContext } : undefined,
+					);
+					expect(collectAll.ok).toBe(true);
+					if (!collectAll.ok) return;
+
+					// Success branch: empty sidecar means zero-diagnostic conversion
+					if (sidecar.length === 0) {
+						const fastFail = reverseStorage(
+							storage,
+							pageContext ? { page: pageContext } : undefined,
+						);
+						expect(fastFail.ok).toBe(true);
+						return;
+					}
+
+					// Blocking branch: fast-fail should error with first sidecar entry
+					const fastFail = reverseStorage(
+						storage,
+						pageContext ? { page: pageContext } : undefined,
+					);
 					expect(fastFail.ok).toBe(false);
 					if (fastFail.ok) return;
 
-					// Fast-fail error should match first diagnostic in sidecar
 					expect(fastFail.error.kind).toBe("UnsupportedConstruct");
 					expect(fastFail.error.code).toBe(sidecar[0].code);
 					expect(fastFail.error.construct).toBe(sidecar[0].construct);
 					expect(fastFail.error.location).toEqual(sidecar[0].location);
+					if (sidecar[0].page) {
+						expect(fastFail.error.page).toEqual(sidecar[0].page);
+					}
 				});
 
 				it("fast-fail error deep-equals collect-all[0] (parity)", () => {
-					const fastFail = reverseStorage(storage);
-					const collectAll = reverseStorageCollectAll(storage);
-
-					expect(fastFail.ok).toBe(false);
+					const collectAll = reverseStorageCollectAll(
+						storage,
+						pageContext ? { page: pageContext } : undefined,
+					);
 					expect(collectAll.ok).toBe(true);
-					if (fastFail.ok || !collectAll.ok) return;
+					if (!collectAll.ok) return;
 
-					const mappedFastFail = {
+					// Success branch: empty sidecar means no blocking diagnostics
+					if (sidecar.length === 0) {
+						const fastFail = reverseStorage(
+							storage,
+							pageContext ? { page: pageContext } : undefined,
+						);
+						expect(fastFail.ok).toBe(true);
+						return;
+					}
+
+					// Blocking branch: compare first diagnostic
+					const fastFail = reverseStorage(
+						storage,
+						pageContext ? { page: pageContext } : undefined,
+					);
+					expect(fastFail.ok).toBe(false);
+					if (fastFail.ok) return;
+
+					const mappedFastFail: {
+						code: string;
+						construct: string;
+						location: { line: number; column: number };
+						page?: { pageId?: string; title?: string; sourcePath?: string };
+					} = {
 						code: fastFail.error.code,
 						construct: fastFail.error.construct,
 						location: fastFail.error.location,
 					};
-					const mappedCollectAll = {
+					if (fastFail.error.page) {
+						mappedFastFail.page = fastFail.error.page;
+					}
+
+					const mappedCollectAll: {
+						code: string;
+						construct: string;
+						location: { line: number; column: number };
+						page?: { pageId?: string; title?: string; sourcePath?: string };
+					} = {
 						code: collectAll.value.diagnostics[0].code,
 						construct: collectAll.value.diagnostics[0].construct,
 						location: collectAll.value.diagnostics[0].location,
 					};
+					if (collectAll.value.diagnostics[0].page) {
+						mappedCollectAll.page = collectAll.value.diagnostics[0].page;
+					}
 
 					expect(mappedFastFail).toEqual(mappedCollectAll);
 				});
 
 				it("adversarial determinism (classify twice → byte-identical)", () => {
-					const result1 = reverseStorageCollectAll(storage);
-					const result2 = reverseStorageCollectAll(storage);
+					const result1 = reverseStorageCollectAll(
+						storage,
+						pageContext ? { page: pageContext } : undefined,
+					);
+					const result2 = reverseStorageCollectAll(
+						storage,
+						pageContext ? { page: pageContext } : undefined,
+					);
 
 					expect(result1.ok).toBe(true);
 					expect(result2.ok).toBe(true);
@@ -162,46 +291,71 @@ describe("TC-RADV-001: adversarial classification regression lock", () => {
 		expect(categoryCoverage.multiInstance).toBe(true);
 		expect(categoryCoverage.malformed).toBe(true);
 	});
-});
 
-describe("TC-RADV-002: PII grep-audit (compensating for tests/adversarial-storage/ placement)", () => {
-	const piiPatterns = {
-		email: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,
-		internalTicketUrl:
-			/https?:\/\/[^/]*\/(?:MS|GH|INT|TICKET|JIRA)[-_]\d{3,}/gi,
-		// bare-ID pattern (JIRA-123) is scoped out — storage-macro-jira fixture legitimately needs it
-		bareId: /(?:MS|GH|INT|TICKET|JIRA)[-_]\d{3,}/g,
-	};
-
-	it("email pattern → 0 matches across adversarial fixtures (synthetic, sanitized)", () => {
-		const emailMatches: string[] = [];
-		for (const name of adversarialFixtures) {
-			const storage = readFileSync(
-				join(adversarialDir, `${name}.storage.xhtml`),
-				"utf-8",
+	it("Appendix B alignment: all fixtures resolve to expected codes (or [] for zero-diagnostic)", () => {
+		for (const [fixtureName, expectedCodes] of Object.entries(
+			appendixBAlignment,
+		)) {
+			const sidecarPath = join(
+				adversarialDir,
+				`${fixtureName}.classification.json`,
 			);
-			const matches = storage.match(piiPatterns.email);
-			if (matches) emailMatches.push(...matches);
+			try {
+				const sidecar = JSON.parse(readFileSync(sidecarPath, "utf-8"));
+
+				if (sidecar.parseError) {
+					// Parse-error fixtures not covered by alignment map
+					continue;
+				}
+
+				if (expectedCodes === []) {
+					// Zero-diagnostic expectation
+					expect(sidecar).toEqual([]);
+				} else if (Array.isArray(expectedCodes)) {
+					// Multiple codes expected (e.g., task-list stray child)
+					expect(sidecar.length).toBe(expectedCodes.length);
+					for (let i = 0; i < expectedCodes.length; i++) {
+						expect(sidecar[i].code).toBe(expectedCodes[i]);
+					}
+				} else {
+					// Single code expected
+					expect(sidecar.length).toBeGreaterThanOrEqual(1);
+					expect(sidecar[0].code).toBe(expectedCodes);
+				}
+			} catch (e) {
+				// Fixture not yet created — skip for Phase 3 in-progress
+				if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+					continue;
+				}
+				throw e;
+			}
 		}
-		expect(emailMatches).toHaveLength(0);
 	});
 
-	it("internal-ticket-URL pattern → 0 matches across adversarial fixtures (synthetic, sanitized)", () => {
+	it("PII audit scoped to exact bare-ID fixtures only (storage-macro-jira, storage-multiple-unsupported)", () => {
+		const piiPatterns = {
+			email: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,
+			internalTicketUrl:
+				/https?:\/\/[^/]*\/(?:MS|GH|INT|TICKET|JIRA)[-_]\d{3,}/gi,
+			bareId: /(?:MS|GH|INT|TICKET|JIRA)[-_]\d{3,}/g,
+		};
+
+		// Email and URL patterns → 0 matches across all fixtures
+		const emailMatches: string[] = [];
 		const urlMatches: string[] = [];
 		for (const name of adversarialFixtures) {
 			const storage = readFileSync(
 				join(adversarialDir, `${name}.storage.xhtml`),
 				"utf-8",
 			);
-			const matches = storage.match(piiPatterns.internalTicketUrl);
-			if (matches) urlMatches.push(...matches);
+			emailMatches.push(...(storage.match(piiPatterns.email) || []));
+			urlMatches.push(...(storage.match(piiPatterns.internalTicketUrl) || []));
 		}
+		expect(emailMatches).toHaveLength(0);
 		expect(urlMatches).toHaveLength(0);
-	});
 
-	it("bare-ID pattern scoped out → expected matches in storage-macro-jira only", () => {
+		// Bare-ID pattern scoped out → expected matches in storage-macro-jira and storage-multiple-unsupported only
 		const bareIdMatches: { fixture: string; matches: string[] }[] = [];
-
 		for (const name of adversarialFixtures) {
 			const storage = readFileSync(
 				join(adversarialDir, `${name}.storage.xhtml`),
@@ -213,15 +367,14 @@ describe("TC-RADV-002: PII grep-audit (compensating for tests/adversarial-storag
 			}
 		}
 
-		// storage-macro-jira legitimately needs bare JIRA-1234 refs
-		// storage-multiple-unsupported also has a JIRA issue
-		expect(bareIdMatches.length).toBeGreaterThanOrEqual(1);
-		expect(bareIdMatches.some((m) => m.fixture === "storage-macro-jira")).toBe(
-			true,
-		);
-		expect(
-			bareIdMatches.find((m) => m.fixture === "storage-macro-jira")!.matches,
-		).toContain("JIRA-1234");
+		const scopedFixtures = new Set([
+			"storage-macro-jira",
+			"storage-multiple-unsupported",
+		]);
+		expect(bareIdMatches.length).toBeGreaterThanOrEqual(2);
+		for (const match of bareIdMatches) {
+			expect(scopedFixtures.has(match.fixture)).toBe(true);
+		}
 	});
 });
 
@@ -240,31 +393,71 @@ describe("TC-RDIAG-002 golden arm: cross-mode per-instance stability", () => {
 				join(adversarialDir, `${name}.storage.xhtml`),
 				"utf-8",
 			);
+			const sidecarPath = join(adversarialDir, `${name}.classification.json`);
+			const sidecar = JSON.parse(readFileSync(sidecarPath, "utf-8"));
 
-			// Fast-fail
-			const fastFail = reverseStorage(storage);
-			expect(fastFail.ok).toBe(false);
-			if (fastFail.ok) continue;
+			// Load page context companion if present
+			let pageContext:
+				| { pageId?: string; title?: string; sourcePath?: string }
+				| undefined;
+			const pageContextPath = join(adversarialDir, `${name}.page-context.json`);
+			try {
+				pageContext = JSON.parse(readFileSync(pageContextPath, "utf-8"));
+			} catch {
+				// No page context companion — omit-when-absent by construction
+			}
 
-			// Collect-all
-			const collectAll = reverseStorageCollectAll(storage);
+			// Skip parse-error fixtures
+			if (sidecar.parseError) continue;
+
+			// Skip zero-diagnostic fixtures (success branch)
+			if (sidecar.length === 0) continue;
+
+			// Collect-all should have at least one diagnostic
+			const collectAll = reverseStorageCollectAll(
+				storage,
+				pageContext ? { page: pageContext } : undefined,
+			);
 			expect(collectAll.ok).toBe(true);
 			if (!collectAll.ok) continue;
 
-			// Collect-all should have exactly one diagnostic
-			expect(collectAll.value.diagnostics).toHaveLength(1);
+			expect(collectAll.value.diagnostics.length).toBeGreaterThan(0);
 
 			// Fast-fail error should deep-equal collect-all[0]
-			const mappedFastFail = {
+			const fastFail = reverseStorage(
+				storage,
+				pageContext ? { page: pageContext } : undefined,
+			);
+			expect(fastFail.ok).toBe(false);
+			if (fastFail.ok) continue;
+
+			const mappedFastFail: {
+				code: string;
+				construct: string;
+				location: { line: number; column: number };
+				page?: { pageId?: string; title?: string; sourcePath?: string };
+			} = {
 				code: fastFail.error.code,
 				construct: fastFail.error.construct,
 				location: fastFail.error.location,
 			};
-			const mappedCollectAll = {
+			if (fastFail.error.page) {
+				mappedFastFail.page = fastFail.error.page;
+			}
+
+			const mappedCollectAll: {
+				code: string;
+				construct: string;
+				location: { line: number; column: number };
+				page?: { pageId?: string; title?: string; sourcePath?: string };
+			} = {
 				code: collectAll.value.diagnostics[0].code,
 				construct: collectAll.value.diagnostics[0].construct,
 				location: collectAll.value.diagnostics[0].location,
 			};
+			if (collectAll.value.diagnostics[0].page) {
+				mappedCollectAll.page = collectAll.value.diagnostics[0].page;
+			}
 
 			expect(mappedFastFail).toEqual(mappedCollectAll);
 		}

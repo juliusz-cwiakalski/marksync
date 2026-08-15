@@ -126,3 +126,23 @@ notes:
       specification.
     type: info
     date: "2026-08-15"
+  - text: >
+      DELIVERY INTERRUPTION: @coder session terminated with EMPTY completion
+      report after Phases 1-2 (14/34 tasks; commits 88c9bb8+34a22f8 Phase 1
+      diagnostic model, 4575dcf+f4731f9 Phase 2 classifier+re-pins; worktree
+      clean, per-phase plan-log commits present). Not a failure of the plan —
+      session-level drop. Resuming with a fresh @coder invocation for phases
+      3-5 (corpus, sweeps, finalize). No blocker; delivery remains started.
+    type: info
+    date: "2026-08-15"
+  - text: >
+      Retro — @coder empty-result interruption (2026-08-15, GH-93 phases 1-2
+      done): the Task tool returned an empty task_result with no error
+      surface, so completion state had to be reconstructed from git log +
+      plan checkboxes. Mitigation that worked: coder commits per phase +
+      plan execution-log commits made the durable state self-describing.
+      Improvement: for long deliveries, split @coder delegations per plan
+      phase (or 2-3 phases) instead of all-phases-at-once to bound the blast
+      radius of session drops and shrink resume ambiguity.
+    type: retro
+    date: "2026-08-15"

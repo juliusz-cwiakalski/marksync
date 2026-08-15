@@ -1,0 +1,26 @@
+[
+	{
+		"code": "reverse/unknown-element",
+		"construct": "ac:inline-comment-marker",
+		"location": {
+			"line": 1,
+			"column": 54
+		}
+	},
+	{
+		"code": "reverse/unknown-element",
+		"construct": "span",
+		"location": {
+			"line": 1,
+			"column": 94
+		}
+	},
+	{
+		"code": "reverse/unknown-element",
+		"construct": "span",
+		"location": {
+			"line": 1,
+			"column": 119
+		}
+	}
+]
