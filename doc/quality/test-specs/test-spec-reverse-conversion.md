@@ -102,27 +102,43 @@ The properties proven through the tests:
 
 ### Unit Tests
 
-**Purpose:** Validate the diagnostic model and the parse substrate in
-isolation: the 7-code registry shape with literal-pinned, additions-only code
-values (codes are a public-ish, additions-only surface frozen pre-E2/E3 by
-TDR-0014), the page-context field's omit-when-absent + verbatim-echo
-serialization at model level, location payload with no content echoes,
-fast-fail/collect-all parity on hand-built multi-instance inputs, malformed
-Storage → stable parse error (never a crash, deterministic across repeats),
-XML entities / CDATA (incl. reassembly) / namespaced `ac:`/`ri:` elements, and
-the normalizer's determinism + idempotence + canonical-form invariants over
-the corpus fixtures.
+**Purpose:** Validate the diagnostic model, the parse substrate, and the
+classifier in isolation: the 7-code registry shape with literal-pinned,
+additions-only code values (codes are a public-ish, additions-only surface
+frozen pre-E2/E3 by TDR-0014), the code-assignment map pinned per class via
+the real entry points, the page-context field's omit-when-absent +
+verbatim-echo serialization at model level, location payload with no content
+echoes, fast-fail/collect-all parity on hand-built multi-instance inputs
+(first-blocking selection), malformed Storage → stable parse error (never a
+crash, deterministic across repeats), XML entities / CDATA (incl. reassembly)
+/ namespaced `ac:`/`ri:` elements, K1-confinement survival (K1 names dropped
+on macros, survive the parse elsewhere), the attribute pass (aggregation,
+allowlist boundary incl. the specially-handled `ac:*`/`ri:*` elements),
+task-list integrity in both forms (incl. the `ac:task-id` canonical-silent
+exception and task-body diagnostic propagation), and the normalizer's
+determinism + idempotence + canonical-form invariants over the corpus
+fixtures.
 
 **Tools:** `bun:test`; hand-built minimal Storage strings where fixture files
 would be overkill; committed golden fixtures may be read directly (no mocks).
 
 **Locations:**
 
+- `tests/unit/infra/confluence/parse/reverse.test.ts` — the classifier
+  itself (10 TC arms): per-class classification (TC-ELEM/TC-LAY incl.
+  orphaned layout), attribute aggregation + mirror-allowlist boundary incl.
+  the specially-handled `ac:image`/`ac:structured-macro`/`ac:parameter`/
+  `ri:*` elements (TC-ATTR-001/002), task-list integrity in both forms incl.
+  the `ac:task-id` canonical-silent probe and task-body diagnostic
+  propagation (TC-TASK-001), page-context echo/precedence/byte-compat
+  (TC-PAGE-001..003), determinism + first-blocking parity (TC-DET-001).
 - `tests/unit/infra/confluence/parse/reverse-parser.test.ts` — parse substrate
-  + parse-error arm.
+  + parse-error arm + K1-confinement survival (`p[ac:macro-id]` /
+  `td[ac:schema-version]` survive the parse; macro K1 stays dropped,
+  byte-identical tree).
 - `tests/unit/domain/markdown/reverse-diagnostics.test.ts` — diagnostic model,
   parity, informational class boundaries (user attachment images never
-  misclassified).
+  misclassified), TC-TAXO-002 code-assignment pins via the real entry points.
 - `tests/unit/domain/markdown/normalize.test.ts` — normalizer properties.
 
 ### Golden Fixture Tests
@@ -298,9 +314,11 @@ bare-ID scoping is pinned to exactly the jira-referencing fixtures.
   code, construct identity, `line:column` location, `page` when supplied —
   full-array equality, so every non-canonical element and attribute instance
   appears in exactly one pinned diagnostic: zero unclassified, zero silent
-  drops); collect-all is exhaustive with per-instance verdicts identical to
-  fast-fail; determinism holds on repeat; the Appendix B alignment map and
-  the category-coverage inventory pass over the set.
+  drops); collect-all is exhaustive; the fast-fail error deep-equals the
+  **first blocking** diagnostic in collect-all's document order
+  (informational instances may precede it); determinism holds on repeat; the
+  Appendix B alignment map and the category-coverage inventory pass over the
+  set.
 
 ### Scenario 9: Malformed Storage → parse-error arm (TC-RDIAG-003, TC-PAGE-001)
 
@@ -351,11 +369,16 @@ bare-ID scoping is pinned to exactly the jira-referencing fixtures.
 ### Scenario 13: Task-list integrity (TC-TASK-001)
 
 - **Given:** an `ac:task-list` with a stray child (unknown element;
-  individually-canonical misplaced element), and a canonical mixed
-  task/regular-list body.
+  individually-canonical misplaced element incl. `ac:*` canonicals), a task
+  body containing an unsupported element, the `task-list` macro form with a
+  non-`ac:task` child / an `ac:task` missing `ac:task-status`, a task
+  carrying `ac:task-id`, and a canonical mixed task/regular-list body.
 - **When:** converted.
 - **Then:** the stray child produces a blocking diagnostic at the child
-  (class per the taxonomy — never a silent drop); the canonical mixed list
+  (class per the taxonomy — never a silent drop); task-body diagnostics
+  propagate; the macro form enforces the same child integrity (missing
+  status → structural fallback at the task); `ac:task-id` is dropped
+  silently (the canonical-silent exception); the canonical mixed list
   converts with zero diagnostics.
 
 ### Scenario 14: Page-context echo and precedence (TC-PAGE-001/002/003)

@@ -277,6 +277,7 @@ None (library-only, zero runtime surface). Observability remains the harness: th
 | DEC-5 | Attribute detection: mirror-principle allowlist (Appendix C); one aggregated blocking `reverse/unsupported-attribute` diagnostic per element with sorted, deduplicated attribute **names** (never values); element-start location; K1 carve-out confined to `ac:schema-version`/`ac:macro-id` on `ac:structured-macro`. | The mirror principle makes "canonical attribute" decidable without a new taxonomy (it is exactly what the forward converter emits); names-not-values honors payload hygiene (NFR-6 — attribute values can carry content); per-element aggregation bounds diagnostic storms; blocking severity follows "do not silently degrade" (converting minus attributes is silent loss). | 2026-08-15 |
 | DEC-6 | Task-list closure: every non-`ac:task` child of `ac:task-list` produces a blocking diagnostic (non-canonical child types → `reverse/unknown-element`; canonical-but-misplaced children → structural fallback), located at the child. | Removes the silent drop with the existing class semantics — no new code needed; child-level location matches where the user must edit. | 2026-08-15 |
 | DEC-7 | Version 0.9.0 → 0.10.0 (minor). | Additive capability + emitted-code re-assignment on a consumerless contract: more than a patch (behavior of a public-ish surface changes), less than a major (nothing removed; no consumer can break). Signals the contract freeze point before E2/E3. OQ-3 confirms at DoR. | 2026-08-15 |
+| DEC-8 | `ac:task-id` (child of `ac:task`) is canonical-silent: silently dropped on read-back, never a diagnostic — a documented mirror-principle exception in Appendix C (review remediation task 6.3, option b). | Real Confluence read-backs attach `ac:task-id` to every task; it carries no user content and has no GFM counterpart, so mirror-strict classification would block every genuine read-back task list. Silence is a recorded decision, not GH-92 inheritance — pinned by unit probe; the two affected sidecars pin `[]` as reviewed re-baselines. | 2026-08-15 |
 
 ## 16. AFFECTED COMPONENTS (HIGH-LEVEL)
 
@@ -407,6 +408,8 @@ An attribute is canonical on an element iff the forward converter emits it there
 
 Everything else on a canonical element → `reverse/unsupported-attribute`. The allowlist is pinned by the zero-diagnostic sweeps (NFR-3) and evolves only with the forward emission vocabulary (§22).
 
+**Documented mirror-principle exception (element-level; DEC-8):** the `ac:task-id` child of `ac:task` — server-assigned task metadata with no GFM counterpart and no user content — is canonical-silent: dropped without a diagnostic on read-back, pinned by unit probe. It is the sole silent element drop outside the K1 carve-out. (Recorded in review remediation task 6.3, option b.)
+
 ### Appendix D — Evidence artifacts
 
 - Ticket GH-93 (scope authority with PDR-0002); PM notes `chg-GH-93-pm-notes.yaml` (intake + clarify_scope analysis; delegated decisions: code granularity, page-location semantics, corpus mapping).
@@ -419,6 +422,7 @@ Everything else on a canonical element → `reverse/unsupported-attribute`. The 
 |---------|------|--------|---------|
 | 0.1 | 2026-08-15 | spec-writer (GH-93) | Initial draft — granular code taxonomy (DEC-1, Appendix A), page-context semantics (DEC-2), mirror attribute allowlist (DEC-5, Appendix C), GH-31 alignment map (DEC-3, Appendix B), layout single-construct rule (DEC-4), task-list closure (DEC-6), version 0.10.0 (DEC-7). OQ-1 flags the code taxonomy for @decision-advisor confirmation. Pending DoR review. |
 | 0.2 | 2026-08-15 | decision-advisor (GH-93 OQ-1) | OQ-1 resolved — TDR-0014 independently confirms DEC-1 (granular per-class taxonomy + structural fallback + two emitted-code re-assignments) as the frozen pre-E2/E3 contract, with two clarifying pins (orphaned layout-family classification; consumers bind to `code` strings). DEC-1 rationale now references TDR-0014. |
+| 0.3 | 2026-08-15 | doc-syncer (GH-93 remediation) | DEC-8 recorded post-remediation: `ac:task-id` canonical-silent exception added to Appendix C (task 6.3, option b); feature spec + test spec reconciled to delivered behavior (attribute-pass scope over specially-handled elements, task-body diagnostic propagation, macro-form child integrity, first-blocking runner parity). |
 
 ---
 

@@ -179,12 +179,20 @@ reverse-direction guardrail).
   blocking `reverse/unsupported-attribute` diagnostic — never a silent drop.
   The allowlist evolves only with the forward emission vocabulary; the
   zero-diagnostic sweeps keep the two in lockstep.
-- **Task-list integrity:** every child of `ac:task-list` that is not an
-  `ac:task` produces a blocking diagnostic located at the child —
-  non-canonical child element types as `reverse/unknown-element`,
-  individually-canonical misplaced children under the structural fallback —
-  never a silent drop. Canonical mixed task/regular lists convert with zero
-  diagnostics.
+- **Task-list integrity:** every child of `ac:task-list` — or of the
+  equivalent `ac:name="task-list"` macro form, which runs the same
+  child-integrity logic — that is not an `ac:task` produces a blocking
+  diagnostic located at the child: non-canonical child element types as
+  `reverse/unknown-element`, individually-canonical misplaced children
+  (plain-HTML or `ac:*`) under the structural fallback; in the macro form an
+  `ac:task` missing its `ac:task-status` is the structural fallback at the
+  task. Diagnostics from `ac:task-body` content propagate — an unknown
+  element or exotic-attribute element inside a task body is diagnosed,
+  never silently lost. Sole exception: the `ac:task-id` child of `ac:task`
+  (server-assigned task metadata, no GFM counterpart) is canonical-silent —
+  dropped without a diagnostic as a documented mirror-principle exception
+  (spec Appendix C, DEC-8), pinned by a unit probe. Canonical mixed
+  task/regular lists convert with zero diagnostics.
 - **Page context on every diagnostic:** the options accept an optional,
   caller-supplied page context (`page: {pageId?, title?, sourcePath?}` — all
   optional; the library never extracts identity from the body). When present,
@@ -227,6 +235,7 @@ reverse-direction guardrail).
 | `ac:image` + `ri:filename="marksync-mermaid-…"` (render policy) | dropped; informational `marksync-synthetic-artifact` |
 | info macro containing the panel marker | dropped entirely, no diagnostic |
 | `ac:schema-version` / `ac:macro-id` on `ac:structured-macro` (K1 read-back) | ignored, no diagnostic |
+| `ac:task-id` child of `ac:task` (server-assigned) | dropped silently, no diagnostic (documented mirror-principle exception) |
 | `ac:layout` / `ac:layout-section` / `ac:layout-cell` (any depth, incl. orphaned) | one blocking `reverse/complex-layout` per layout tree |
 | non-canonical attribute on a canonical element (`colspan`, `style`, …) | one blocking `reverse/unsupported-attribute` per element (sorted attribute names) |
 | unknown `ac:structured-macro` (jira, toc, expand, gliffy, non-panel info) | blocking `reverse/unknown-macro` |
@@ -381,8 +390,10 @@ Dependencies added: `saxes@6.0.0` (XML parser, TDR-0012),
       are silent on `ac:structured-macro` only and diagnose elsewhere.
       *(TC-ATTR-001/002.)*
 - [x] **Task-list integrity:** a non-`ac:task` child of `ac:task-list` yields
-      a blocking diagnostic at the child (class per taxonomy) — never a silent
-      drop; canonical mixed task/regular lists convert with zero diagnostics.
+      a blocking diagnostic at the child (class per taxonomy) — enforced in
+      both the element and macro forms, with task-body diagnostics
+      propagating; `ac:task-id` is the sole canonical-silent exception;
+      canonical mixed task/regular lists convert with zero diagnostics.
       *(TC-TASK-001.)*
 - [x] **Page context:** a caller-supplied `{pageId?, title?, sourcePath?}` is
       echoed verbatim on blocking, informational, and parse-error arms;
