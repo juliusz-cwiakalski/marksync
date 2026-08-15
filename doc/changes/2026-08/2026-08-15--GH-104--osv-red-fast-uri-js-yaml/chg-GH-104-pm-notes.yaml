@@ -14,7 +14,7 @@ phases:
   delivery: { started: 2026-08-15, completed: 2026-08-15 }
   system_spec_update: { started: 2026-08-15, completed: 2026-08-15 }
   review_fix: { started: 2026-08-15, completed: 2026-08-15 }
-  quality_gates: { started: 2026-08-15, completed: 2026-08-15 }
+  quality_gates: { started: 2026-08-15, completed: null }
   dod_check: { started: 2026-08-15, completed: 2026-08-15 }
   pr_creation: { started: 2026-08-15, completed: 2026-08-15, url: https://github.com/juliusz-cwiakalski/marksync/pull/105 }
 
@@ -155,4 +155,22 @@ notes:
       All 11 phases complete — STOP, PR left open for human/CEO review.
       Do NOT merge (merge authority: CEO Mode A / human Mode B).
     type: info
+    date: 2026-08-15
+
+  - text: >
+      RETRO + REOPEN: PR #105 CI — osv-scan GREEN (AC-F3-1 satisfied on
+      first run) but "Lint + Typecheck + Test" job FAILED: 8 doctor
+      integration tests TC-DOCTOR-013/015/016/017/018/019/020/022.1 in
+      tests/integration/cli/commands/doctor.test.ts — findCheck(report,
+      "credentials")?.status === undefined (checks missing/degraded in
+      report; TC-DOCTOR-014 json variant passes). Local suite green
+      (1310/0, Bun 1.3.14) and main's last ci.yml run GREEN (Bun 1.2.23 +
+      fast-uri 3.1.4, GH-88 merge 5a85254) → delta = Bun 1.2.23 ×
+      fast-uri 3.1.5 interaction (R-TST-1 watch item materialized in
+      behavior, not lockfile format). quality_gates REOPENED after PR
+      creation; @fixer engaged with full evidence. Process gap: local gate
+      (Bun 1.3.14 ≠ engines.bun 1.2.23) cannot catch CI-version-specific
+      regressions — candidate follow-up: align local Bun to engines or add
+      CI-matrix Bun to dev-env docs.
+    type: retro
     date: 2026-08-15
