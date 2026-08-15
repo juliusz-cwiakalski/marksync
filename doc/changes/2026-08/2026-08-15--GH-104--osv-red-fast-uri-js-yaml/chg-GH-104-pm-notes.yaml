@@ -11,7 +11,7 @@ phases:
   test_planning: { started: 2026-08-15, completed: 2026-08-15 }
   delivery_planning: { started: 2026-08-15, completed: 2026-08-15 }
   dor_check: { started: 2026-08-15, completed: 2026-08-15 }
-  delivery: { started: null, completed: null }
+  delivery: { started: 2026-08-15, completed: 2026-08-15 }
   system_spec_update: { started: null, completed: null }
   review_fix: { started: null, completed: null }
   quality_gates: { started: null, completed: null }
@@ -85,5 +85,18 @@ notes:
       TC-DEPS-005 (completable only at phase 11) — informational; (3) plan
       abort A-2 doesn't name Bun-alignment mechanism — safe because abort
       path is STOP-and-report either way.
+    type: info
+    date: 2026-08-15
+
+  - text: >
+      Delivery completed COMPLETED_ALL, no plan deviations, no abort
+      criteria triggered. Coder commits: 9963954 fix (overrides + bun.lock
+      regen, surgical diff verified), 3de425a version 0.8.2, 5ae1da2 plan
+      execution logs, 993a4f4 test execution log (TC-DEPS-001..006; 005
+      deferred to PR by design). PM independently re-verified: bun.lock pins
+      fast-uri@3.1.5 (line 255) + js-yaml@4.3.1 (line 317), overrides echo
+      updated, version 0.8.2, git diff main -- src/ tests/ empty. bun run
+      check 1310 pass / 0 fail. AC-F3-1 (CI osv-scan green) remains the only
+      open AC — observed at PR (phase 11).
     type: info
     date: 2026-08-15
