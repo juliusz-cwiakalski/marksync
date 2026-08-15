@@ -16,7 +16,7 @@ phases:
   review_fix: { started: 2026-08-15, completed: 2026-08-15 }
   quality_gates: { started: 2026-08-15, completed: 2026-08-15 }
   dod_check: { started: 2026-08-15, completed: 2026-08-15 }
-  pr_creation: { started: 2026-08-15, completed: null, url: null }
+  pr_creation: { started: 2026-08-15, completed: 2026-08-15, url: https://github.com/juliusz-cwiakalski/marksync/pull/105 }
 
 decisions:
   - text: >
@@ -143,5 +143,16 @@ notes:
       PR — carried as the pre-merge assertion (reviewer F-1: do NOT merge
       without green osv-scan on the PR). PR body must note version bump
       0.8.2 is beyond-ticket scope w/ GH-88 precedent (DoR nit 1).
+    type: info
+    date: 2026-08-15
+
+  - text: >
+      PR #105 created (fix(GH-104): pin fast-uri 3.1.5 and js-yaml 4.3.1
+      via overrides (CVSS 7.5 osv)), base main, branch pushed incl. pr
+      manager's phase-start commit 4000d4d. Body carries AC table
+      (AC-F3-1 PENDING = pre-merge osv-scan assertion), test tiers, ADRs
+      (none), version-bump transparency note, merge note, Closes #104.
+      All 11 phases complete — STOP, PR left open for human/CEO review.
+      Do NOT merge (merge authority: CEO Mode A / human Mode B).
     type: info
     date: 2026-08-15
