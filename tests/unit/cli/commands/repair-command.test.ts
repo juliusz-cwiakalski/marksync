@@ -2,14 +2,18 @@
 //
 // `repairStateCommand` branch coverage (GH-28). Early-return paths use the
 // `runCli` harness (mirrors sync-command.test.ts); the runRepair tails are
-// driven by a mocked `#app/repair` (the real runRepair needs a live target).
+// driven by an injected runRepair stub via the DEC-4 deps seam (never
+// `mock.module` — it is process-global under bun:test workers and leaks into
+// unrelated test files sharing the worker).
 
 import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { runCli } from "#cli/index";
 import { repairStateCommand } from "#cli/commands/repair-state";
+import type { RepairReport } from "#app/repair";
+import { runRepair } from "#app/repair";
 
 /**
  * Env vars read transitively by `repairStateCommand` (credentials + the git
@@ -25,23 +29,19 @@ const ENV_KEYS = [
 
 const FIXTURE = join(import.meta.dir, "../../app/fixtures/valid-minimal.yml");
 
-/** Fake report the mocked runRepair resolves with on the success path. */
-const FAKE_REPORT = {
+/** Fake report the stubbed runRepair resolves with on the success path. */
+const FAKE_REPORT: RepairReport = {
 	runId: "repair-fake-run-id",
 	dryRun: true,
 	items: [],
 	interruptedRunDetected: false,
 	writes: 0,
-} as const;
+};
 
 /**
- * The Result the mocked runRepair returns, swapped per test. Bun hoists
- * `mock.module` above imports; the factory's closure reads this lazily at call
- * time (never during hoisting), so there is no temporal-dead-zone hazard.
+ * The Result the stubbed runRepair returns, swapped per test.
  */
-let nextRepairResult:
-	| { ok: true; value: typeof FAKE_REPORT }
-	| { ok: false; error: { kind: "RemoteUnreachable"; cause: string } } = {
+let nextRepairResult: Awaited<ReturnType<typeof runRepair>> = {
 	ok: true,
 	value: FAKE_REPORT,
 };
@@ -49,18 +49,16 @@ let nextRepairResult:
 /** Captures the last opts block handed to runRepair so tests can assert wiring. */
 let lastRepairOpts: { dryRun?: boolean; targetId?: string } | undefined;
 
-mock.module("#app/repair", () => ({
-	runRepair: async (
-		_lock: unknown,
-		_git: unknown,
-		_target: unknown,
-		_config: unknown,
-		opts: { dryRun?: boolean; targetId?: string },
-	) => {
-		lastRepairOpts = opts;
-		return nextRepairResult;
-	},
-}));
+const stubRunRepair: typeof runRepair = async (
+	_lock,
+	_git,
+	_target,
+	_config,
+	opts,
+) => {
+	lastRepairOpts = opts;
+	return nextRepairResult;
+};
 
 class CaptureStream {
 	readonly chunks: string[] = [];
@@ -192,7 +190,10 @@ targets:
 			ok: false,
 			error: { kind: "RemoteUnreachable", cause: "mocked transport failure" },
 		};
-		const result = await repairStateCommand({ dryRun: true });
+		const result = await repairStateCommand(
+			{ dryRun: true },
+			{ runRepair: stubRunRepair },
+		);
 		expect(result.exitCode).toBe(99);
 		expect(result.error?.code).toBe("REMOTE_UNREACHABLE");
 		expect(result.error?.retryable).toBe(true);
@@ -202,7 +203,10 @@ targets:
 	test("6. runRepair success → ok, report flows through (exit 0)", async () => {
 		copyFileSync(FIXTURE, join(dir, "marksync.yml"));
 		setValidCreds();
-		const result = await repairStateCommand({ dryRun: true });
+		const result = await repairStateCommand(
+			{ dryRun: true },
+			{ runRepair: stubRunRepair },
+		);
 		expect(result.exitCode).toBe(0);
 		expect(result.error).toBeUndefined();
 		expect(result.data).toEqual(FAKE_REPORT);

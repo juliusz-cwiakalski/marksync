@@ -1,0 +1,110 @@
+version: 1
+iteration: 1
+mode: local
+work_item_ref: GH-103
+branch: fix/GH-103/mock-module-leak-ci-red
+status: PASS
+summary: >-
+  Delivered code matches spec §17 and plan phases 1-5 precisely. DI seams are
+  additive-only with single ?? fallback and zero production-caller changes;
+  both unit test rewrites are like-for-like (same IDs/fixtures/assertions,
+  mock.module fully deleted); the scanning guard is self-match-safe by
+  construction with sound matcher self-tests and file:line diagnostics; the
+  rules ban lands in both touchpoints without contradicting the sanctioned
+  Bun.serve/fault-injection mocks. All scope assertions hold (additive-only
+  src, untouched tiers/workflows/doc-spec, version 0.8.2, Conventional Commits,
+  no tmp/ leakage, no secrets). Three low polish findings (DEC-4 mis-citation
+  on seam comments, duplicate #app/repair imports in a test, ephemeral
+  change-local IDs in the guard header) — non-blocking, no remediation phase.
+severity_breakdown:
+  critical: 0
+  high: 0
+  medium: 0
+  low: 3
+  info: 2
+spec_compliance: PASS
+plan_compliance: PASS
+findings:
+  - id: F-1
+    severity: low
+    confidence: high
+    category: documentation
+    location: src/cli/commands/doctor.ts:15
+    message: >-
+      Seam doc comments cite "(DEC-4)" but DEC-4 (GH-30) is the CommandResult
+      construction contract, not the DI-seam authority. Same mis-citation at
+      src/cli/commands/repair-state.ts:14, tests/unit/cli/commands/doctor.test.ts:4,
+      and tests/unit/cli/commands/repair-command.test.ts:6. Terminology
+      originated in the plan; coder followed it faithfully.
+    suggestion: >-
+      Replace (DEC-4) with (GH-103) or a pointer to the mock.module ban in
+      .ai/rules/testing-strategy.md at those four spots.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-2
+    severity: low
+    confidence: high
+    category: style
+    location: tests/unit/cli/commands/repair-command.test.ts:15
+    message: >-
+      Two import statements from "#app/repair" (separate `import type
+      { RepairReport }` and `import { runRepair }`) violate the repo's
+      one-statement-per-module import-hygiene rule.
+    suggestion: >-
+      Combine into `import { runRepair, type RepairReport } from
+      "#app/repair";` as repair-state.ts:12 already demonstrates.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-3
+    severity: low
+    confidence: high
+    category: documentation
+    location: tests/unit/meta/no-mock-module.test.ts:2
+    message: >-
+      Permanent guard file header cites ephemeral change-local test-plan IDs
+      "(R-TST-1/D-TST-1)" that carry no meaning outside the historical change
+      folder; the surrounding prose already explains the why (alphabet-soup
+      tag per AGENTS.md comment discipline).
+    suggestion: Drop the parenthesized tag, keep the explanatory sentence.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-4
+    severity: info
+    confidence: high
+    category: correctness
+    location: tests/unit/meta/no-mock-module.test.ts:8
+    message: >-
+      Spaced form `mock.module (` evades the line-based needle. Accepted by
+      design: Biome normalizes the spaced form and format:check gates every
+      commit (plan constraint).
+    suggestion: No action — documented trade-off.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+  - id: F-5
+    severity: info
+    confidence: high
+    category: process
+    location: doc/changes/2026-08/2026-08-15--GH-103--mock-module-leak-ci-red/chg-GH-103-pm-notes.yaml:14
+    message: >-
+      Uncommitted working-tree change to pm-notes.yaml (review_fix phase
+      timestamp — PM marking review start). Benign.
+    suggestion: Ensure it lands with the /commit step.
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+reviewed_at: 2026-08-15T06:20:00Z
+next_step: PROCEED

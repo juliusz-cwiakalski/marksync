@@ -1,0 +1,183 @@
+change_id: GH-103
+title: "fix: ci red — bun mock.module leak in unit cli doctor/repair tests pollutes integration tests"
+branch: fix/GH-103/mock-module-leak-ci-red
+change_folder: doc/changes/2026-08/2026-08-15--GH-103--mock-module-leak-ci-red
+
+phases:
+  clarify_scope: { started: 2026-08-15T04:10:00Z, completed: 2026-08-15T04:10:00Z }
+  specification: { started: 2026-08-15T04:21:00Z, completed: 2026-08-15T04:22:00Z }
+  test_planning: { started: 2026-08-15T04:22:00Z, completed: 2026-08-15T04:35:00Z }
+  delivery_planning: { started: 2026-08-15T04:35:00Z, completed: 2026-08-15T04:50:00Z }
+  dor_check: { started: 2026-08-15T04:50:00Z, completed: 2026-08-15T05:05:00Z }
+  delivery: { started: 2026-08-15T05:06:00Z, completed: 2026-08-15T05:55:00Z }
+  system_spec_update: { started: 2026-08-15T05:56:00Z, completed: 2026-08-15T06:10:00Z }
+  review_fix: { started: 2026-08-15T06:11:00Z, completed: 2026-08-15T06:30:00Z }
+  quality_gates: { started: 2026-08-15T06:31:00Z, completed: 2026-08-15T06:45:00Z }
+  dod_check: { started: 2026-08-15T06:46:00Z, completed: 2026-08-15T06:50:00Z }
+  pr_creation: { started: 2026-08-15T06:51:00Z, completed: 2026-08-15T07:00:00Z, url: https://github.com/juliusz-cwiakalski/marksync/pull/106 }
+
+decisions:
+  - text: >
+      Verified fix work from GH-104 session (descoped per human directive) is
+      preserved at tmp/gh-103-handoff/gh-103-mock-module-seams-fix.patch —
+      DI seams (DoctorCommandDeps/RepairStateCommandDeps) + rewritten unit
+      tests. Reuse as implementation input; coder must re-validate against
+      latest main (1ebc664) rather than apply blindly.
+    date: 2026-08-15
+  - text: >
+      Ticket body is authoritative (no [MS2-Exx-Sxx] prefix, no story file).
+      Root cause pre-confirmed with instrumented CI runs in the ticket — no
+      re-investigation needed; change is fix-direction execution.
+    date: 2026-08-15
+
+open_questions: []
+
+blockers: []
+
+notes:
+  - text: >
+      Phase 11 complete: PR #106 created open (not merged, no
+      auto-merge) — https://github.com/juliusz-cwiakalski/marksync/pull/106.
+      AC-F1-3 SATISFIED: CI run 31862960209 on the PR branch completed
+      SUCCESS with ALL 7 jobs green, including "Lint + Typecheck + Test
+      (ubuntu-latest, 1.2.23)" — the exact job deterministically red on
+      every PR since 2026-08-14 (first seen PR #102). 7/7 ACs now
+      evidence-backed. All 11 lifecycle phases complete. Awaiting
+      human/CEO review + merge; PM does NOT merge.
+    type: info
+    date: 2026-08-15
+  - text: >
+      Phase 10 complete: DoD verified. Phases 1-9 all completed with
+      timestamps. Plan: 0 unchecked tasks, 5/5 phases ✅ in execution
+      log. ACs: AC-F1-1 ✅ (ordered 267/0), AC-F1-2 ✅ (fast loop
+      1299/0 + full 1314/0), AC-F2-1/AC-F3-1 ✅ (unmodified integration
+      suites green), AC-F4-1 ✅ (guard 4/0 + grep clean), AC-F4-2 ✅
+      (b3047af, doc-sync verified). AC-F1-3 (CI green on PR) pending by
+      design — observable only after PR creation; will be confirmed on
+      PR CI run before STOP. Docs: doc-syncer zero gaps. Review PASS,
+      gates GREEN 4/4. Version 0.8.2 unchanged.
+    type: info
+    date: 2026-08-15
+  - text: >
+      Phase 9 complete: quality gates GREEN 4/4 (@runner, logs at
+      tmp/run-logs-runner/2026-08-15/): bun run check exit 0 (lint,
+      format, tsc, 1314/0 across 127 files, depcruise 0 violations);
+      ordered-run CI-repro 267/0; guard 4/0; rg "mock\.module\(" tests/
+      clean (loose scan's 6 matches verified benign comments/fixtures).
+      Noted, out of scope: 231 pre-existing biome warnings (exit 0,
+      warnings-only) — hygiene follow-up candidate, not GH-103.
+    type: info
+    date: 2026-08-15
+  - text: >
+      Phase 8 complete: review PASS iter-1 (0 critical/high/medium; 3
+      low + 2 info, all optional polish, NO remediation appended).
+      Review at chg-GH-103-review.md + code-review/review-iter-1.yaml.
+      PM disposition — accept low findings as-is: (1) DEC-4 mis-citation
+      in seam comments (terminology from plan; cosmetic, cite-worthy for
+      follow-up), (2) two imports from #app/repair could combine (lint
+      passes; style-only), (3) ephemeral R-TST-1/D-TST-1 tags in guard
+      file header (prose sufficient). Rationale: non-blocking style
+      nits; reviewer marked optional; remediation cycle cost outweighs
+      value for a priority:critical CI-unblock change. Spec §17 all pass
+      except AC-F1-3 pending PR (correct). Plan audit: zero open/unchecked
+      drift. No tmp/ leakage, no secrets, 12 clean commits.
+    type: decision
+    date: 2026-08-15
+  - text: >
+      Phase 7 complete: @doc-syncer SUCCESS, zero unresolved gaps. PM
+      intake expectation held (rules-file-only impact). One surgical
+      edit: .ai/rules/testing-strategy.md blockquote nesting fix
+      (phase-4 commit accidentally deepened 18 lines to "> >" splitting
+      the emphasis span; content byte-identical). No doc/** teaches
+      mock.module; no new ADR/TDR needed (ban is change-scoped
+      convention, DI-seam mirrors established DEC-4/DoctorDeps).
+    type: info
+    date: 2026-08-15
+  - text: >
+      Phase 6 complete: @coder executed all 5 plan phases, 6 commits
+      (c7d58af DI seams, 14fe403 test rewrites + PR#102 fix, 3d26ffe
+      guard, b3047af rules ban, 1e99417 evidence, 88a6536 test-plan
+      log). PM validation: mock.module grep clean, guard file with
+      concatenated needle, version 0.8.2 unchanged, worktree dirty only
+      with plan phase-5 check-offs (folded into this checkpoint).
+      Results: full suite 1314/0, ordered run 267/0, fast loop 1299/0,
+      guard 4/0, bun run check green. NOTE: pre-fix ordered-run baseline
+      PASSED locally (local fs order ≠ GitHub ubuntu-latest order) —
+      anticipated in delegation; CI on PR is authoritative AC-F1-3 proof.
+      All spec §17 ACs reconciled except AC-F1-3 pending PR.
+    type: info
+    date: 2026-08-15
+  - text: >
+      Phase 5 complete: DoR READY iter-1 (10/10 facets PASS; 0 critical, 0
+      major; 1 minor + 3 nits, all advisory). Review at
+      chg-GH-103-dor-review.md. PM disposition of advisory findings:
+      (1) minor TC-ORDER-001 negative control → PM-decided: coder runs
+      ordered invocation on pre-fix tree (before plan phase 1) to capture
+      the expected-red baseline — cheap, validates AC-F1-1 order pinning;
+      folded into phase 2 evidence. (2-4) nits (plan .ts-filter wording,
+      test-plan phase-numbering cross-ref, spec AC-F4-1 call-syntax
+      wording) → recorded, addressed opportunistically in finalize phase,
+      non-blocking. All grounding spot-checks passed against tree.
+    type: decision
+    date: 2026-08-15
+  - text: >
+      Phase 4 complete: chg-GH-103-plan.md (330 lines, 5 phases, one
+      commit each): 1) src DI seams, 2) unit test rewrites (PR #105→#102
+      comment fix in task 2.3), 3) guard tests/unit/meta/
+      no-mock-module.test.ts (concatenated needle), 4) testing-strategy.md
+      ban, 5) verification evidence + AC reconciliation (no version bump
+      per DEC-2). Patch hunks verified to match main @ 1ebc664 at planning
+      time. Guard scope pinned to .ts files (deliberate). AC-F1-3
+      (CI green) pending PR — local order-explicit run is substitute
+      evidence. Coder prompt drafted by plan-writer.
+    type: info
+    date: 2026-08-15
+  - text: >
+      Phase 3 complete: chg-GH-103-test-plan.md (594 lines, 11 scenarios).
+      Guard pinned (D-TST-1): scanning unit test
+      tests/unit/meta/no-mock-module.test.ts matching call syntax
+      "mock.module(" (concatenation-built needle — handoff patch retains
+      paren-free prose mentions in warning comments, so bare-name scan would
+      false-positive). AC-F1-1 invocation pinned: bun test unit-files-first
+      + tests/integration/. AC-F3-1 split explicit (repair 1-4 unchanged
+      runCli, 5-6 seam-injected). D-TST-2: rejected default-deps
+      doctorCommand unit test (would hit real fs/git). Ticket shorthand
+      "TC-DOCTOR-013..022" = 9 real tests (no 021). R-TST-5: handoff
+      patch's "PR #105" comment drift to correct at re-validation.
+    type: info
+    date: 2026-08-15
+  - text: >
+      Phase 2 complete: chg-GH-103-spec.md (343 lines). 7 ACs: AC-F1-1
+      (order-reproducible fast-loop green), AC-F1-2 (full fast-loop green),
+      AC-F1-3 (CI green on PR), AC-F2-1/F3-1 (default-deps behavior
+      identical, DEC-4 contract preserved), AC-F4-1 (guard: 0 mock.module +
+      demonstrable failure on reintroduction), AC-F4-2 (testing-strategy.md
+      ban documented). Spec DEC-1: guard mechanism-neutral (scanning unit
+      test preferred, plan pins it). Spec DEC-3: handoff patch is
+      re-validation input, not blind apply. No version bump (0.8.2
+      unchanged). Assumption for test-plan: pin guard match pattern; make
+      AC-F3-1 "tests 1-4 unchanged semantics + integration/e2e untouched"
+      split explicit.
+    type: info
+    date: 2026-08-15
+  - text: >
+      Intake (2026-08-15, main @ 1ebc664): GH-103 OPEN, priority:critical,
+      bug + change labels, no comments. No open/closed PR for GH-103 → full
+      11-phase lifecycle. Cross-check on latest main: mock.module present in
+      exactly 2 files (tests/unit/cli/commands/doctor.test.ts:28,
+      repair-command.test.ts:52) — matches ticket audit claim.
+      .ai/rules/testing-strategy.md has no mock.module ban yet (AC-4 gap
+      confirmed). Ticket complete: impact, root cause, fix direction (DI
+      seams mirroring DoctorDeps style), 4 testable ACs. Requirements
+      complete → no blocking questions → proceed to artifacts.
+    type: info
+    date: 2026-08-15
+  - text: >
+      Doc-impact scan: current-truth docs touched = .ai/rules/testing-strategy.md
+      (ban rule, in-scope AC-4). No expected impact to doc/spec/**
+      (no behavior change — src change is additive optional-deps DI seam,
+      production callers unchanged). CI config untouched if regression guard
+      is a scanning unit test (preferred over CI grep gate — keeps change
+      test-only); plan-writer to confirm mechanism.
+    type: info
+    date: 2026-08-15

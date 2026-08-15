@@ -5,13 +5,13 @@ ados_distribution: redistributable
 id: TESTING-STRATEGY
 status: Draft
 created: 2026-07-05
-last_updated: 2026-07-26
+last_updated: 2026-08-15
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
   related_decisions: [TDR-0004, ADR-0002, ADR-0005, ADR-0006]
-  related_changes: [GH-20, GH-81, GH-29, GH-31]
+  related_changes: [GH-20, GH-81, GH-29, GH-31, GH-103]
   summary: "Testing strategy — test tiers, coverage rules, AI-agent over-mocking guardrail, CI wiring, and lifecycle-invariant BDD for MarkSync."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -116,6 +116,11 @@ tests), this is a hard guardrail against over-mocking:
 >   mocks alone.
 > - **Domain logic** — the state classifier, hierarchy planner, etc. must be
 >   tested with real inputs and real outputs, not mocked dependencies.
+> - **`mock.module` in any test** — Bun's `mock.module` API is process-wide,
+>   unscoped under `bun:test` workers, order-dependent, and has no restore API
+>   in the pinned Bun 1.2.23. Use DI seams for unit-level isolation (see
+>   `DoctorCommandDeps`/`RepairStateCommandDeps` pattern) or `Bun.spawn`
+>   CLI-level tests where process isolation is the point. See GH-103.
 
 Source: arXiv 2602.00409 (AI-agent commits more likely to over-mock); arXiv
 2602.19098 (JavaScript environmental test flakiness).
@@ -290,6 +295,12 @@ is intentionally minimal and may be deferred to `MS-0003` or later._
   as production code.
 - ❌ **Testing implementation details** (private methods, internal state) —
   test behaviour through public APIs.
+- ❌ **`mock.module` in any test** — process-wide, unscoped under `bun:test`
+  workers, order-dependent, no restore API in Bun 1.2.23. Use DI seams (e.g.,
+  `DoctorCommandDeps` pattern) for unit-level isolation, or `Bun.spawn` for
+  CLI-level tests where process isolation is the point. The scanning guard
+  `tests/unit/meta/no-mock-module.test.ts` fails the suite on reintroduction.
+  See GH-103.
 
 ## See also
 

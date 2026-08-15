@@ -11,14 +11,23 @@ import { createRepository, createTarget } from "#app/ports";
 import { mapMarkSyncErrorToCommandError } from "#cli/error-map";
 import { runRepair, type RepairReport } from "#app/repair";
 
+/** Injectable seam for tests (DEC-4); production callers omit `deps`.
+ *  Exists so unit tests never need `mock.module`, which is process-global
+ *  under bun:test workers and leaks into unrelated test files. */
+export interface RepairStateCommandDeps {
+	runRepair?: typeof runRepair;
+}
+
 /**
  * Run `marksync repair-state`. Flags: dryRun (default true), apply.
  * Calls runRepair and returns CommandResult<RepairReport>.
  */
 export async function repairStateCommand(
 	flags: { dryRun?: boolean; apply?: boolean } = {},
+	deps: RepairStateCommandDeps = {},
 ): Promise<CommandResult<RepairReport>> {
 	const currentCwd = cwd();
+	const repair = deps.runRepair ?? runRepair;
 
 	// Resolve mode: --apply wins; default is dry-run
 	const apply = flags.apply === true;
@@ -67,7 +76,7 @@ export async function repairStateCommand(
 	const target = createTarget(creds, targetConfig.spaceKey);
 
 	// 7. Call runRepair (diagnose + apply orchestration)
-	const repairResult = await runRepair(lock, git, target, config, {
+	const repairResult = await repair(lock, git, target, config, {
 		cwd: currentCwd,
 		cacheDir,
 		targetId: "default",
