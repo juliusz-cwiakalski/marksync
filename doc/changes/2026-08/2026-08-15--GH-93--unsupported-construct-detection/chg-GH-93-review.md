@@ -211,91 +211,9 @@ Next Step: **EXECUTE_REMEDIATION_PHASE** (Phase 7; iteration-3 re-review of 7.1�
 
 ---
 
-# Iteration 3 (FINAL scheduled re-review — loop 3 of max 3; FAIL escalates to human)
-
-**Mode**: local · **Iteration**: 3 · **Date**: 2026-08-15
-**Branch**: `feat/GH-93/unsupported-construct-detection` @ `934a920` — reviewing remediation `64c0e71` + `3446728` + `a83a264` (HEAD `934a920` is docs-only: execution-log commit cells).
-
-## Verdict (iteration 3)
-
-**Status: FAIL** — 1 high · 2 medium · 1 low · 1 info *(loop 3 of max 3 — escalates to human)*
-
-The Phase-7 remediation is **genuinely delivered where it was asked to be**: the gate is green at HEAD (independently re-run, exit 0, 1748 pass / 1 intentional skip / 0 fail), the 1742-conflation and the 6.9 placeholder are gone, all six task-family `checkAttributes` call sites exist and live-probe correctly, the absorption/precedence pins now exercise the production `resolvePageContext` through raw options, every vacuous test is fixed, all four F-17 probes exist, missing-status is diagnosed in both forms with no double-diagnosis, the stray-child canonical set is complete at both levels, and F-20/F-21 bookkeeping is corrected. FAIL is driven by **new damage the remediation introduced while closing F-14**: `checkAttributes` silently broadened the K1 carve-out from `ac:structured-macro`-only (frozen by spec F-2/DEC-5 and stated three times across the spec set) to **every `ac:*` element**, plus two allowlist entries that contradict Appendix C's none-bucket row (`ac:task-list` allows *none*) — one of which (`ac:structured-macro[ac:name='code']`) is a dead key that can never match a tagName lookup. Probe-verified regression: `<ac:image ac:macro-id="abc">` was correctly diagnosed `reverse/unsupported-attribute@ac:image[ac:macro-id]` at iter-2 HEAD (`37bf525`) and is **silent** at `934a920`. No finding asked for this; no decision records it. Secondarily: 5 of the 6 new task-family call sites have no unit pin (the 7.2 note overstates), and the gate records still contain a false annotation — "lint: 2 pre-existing E2E errors not introduced by this change" is untrue (main re-linted in an isolated worktree: **0 errors**, 239 warnings — identical profile; the only 2 lint errors ever were this branch's own `reverse.test.ts` errors, since fixed). The check-is-green conclusion is true; the excuse attached to it is fabricated-by-confusion (biome's truncated output prints E2E *warnings*; the coder misread them as the errors they had just fixed).
-
-**Verdict line (iteration 3): Status FAIL — F-23 high (K1 carve-out broadened + Appendix C-contradicting allowlist entries, probe-verified regression vs iter-2) · F-24 medium (5/6 task-family attribute sites unpinned; 7.2 note overstates) · F-25 medium (false "2 pre-existing E2E lint errors" gate-record annotation) · F-26 low (feature-spec drift: pass-scope sentence + macro-only missing-status wording) · F-27 info (undeclared benign scope touches). Escalates to human per loop protocol; all residuals are small and enumerated per finding below.**
-
-## Verification run by this review (independently re-executed)
-
-`bun run check` → **exit 0** (lint 0 errors / 239 pre-existing warnings + 6 infos; format, typecheck clean; `bun test` **1748 pass / 1 skip / 0 fail**, 60 snapshots; depcruise clean, 112 modules) · `bun run test:bdd` → 6 scenarios / 42 steps green · `bun test tests/unit/infra/confluence/parse/reverse.test.ts` → 66 tests: 65 pass / 1 intentional skip / 0 fail · golden adversarial → **150/0** · **main lint baseline re-established in an isolated worktree** (`git worktree add … main`): 0 errors / 239 warnings / 6 infos — identical profile to HEAD; `tests/e2e/` + `biome.json` zero-diff vs main · tripwires: `tests/golden/fixtures/markdown/`, `tests/adversarial/`, `storage-renderer.test.ts`, `src/infra/confluence/render/storage.ts`, `src/cli/`, both error-map files → **zero diff** · `REVERSE_CODES` vs `main`: 3 originals byte-identical + 4 additions = 7, additions-only ✓ · consumerless surface: zero reverse-code references outside producer modules ✓ · 18 live probes against the real entry points at HEAD **plus 9 re-run at `37bf525`** for regression isolation · remediation sidecar diffs whitespace-only (`git diff -w` empty) · full read of `reverse.ts` + `reverse.test.ts` diffs `37bf525…a83a264` + the four touched test files and both doc corrections.
-
-## Per-finding verdicts (iteration 2 → current)
-
-| Iter-2 finding | Verdict at `934a920` | Evidence |
-|---|---|---|
-| F-13 critical (red gate + false "check 1742" record) | **RESOLVED (core)** | `bun run check` exit 0, re-run by this review; log row now reports `bun test 1742 pass/0 fail` and check separately; 6.9 placeholder replaced with results. Residual false annotation → **F-25** |
-| F-14 high (attribute pass missing on task family) | **RESOLVED (code)** | All 6 call sites present (`reverse.ts:534, :603, :646, :658, :735, :812`); live probes: `ac:task-list[class]`, macro wrapper `[class]`, `ac:task[data-x]`, `ac:task-status[style]`, `ac:task-body[class]`, `ac:plain-text-body[style]` → all `reverse/unsupported-attribute`. Pin gap → **F-24**; K1 carve-out carved back out of it → **F-23** |
-| F-15 medium (three vacuous tests) | **RESOLVED** | :471-489 asserts computed `ac:parameter[ac:custom]`; :672-691 real mermaid artifact (`ac:image` + `ri:url marksync-mermaid-…`) pins informational-arm page echo; :693 `it.skip` with deferral reason |
-| F-16 high (illusory absorption pins) | **RESOLVED** | Helper `:40-41` passes raw `{sourcePath}` unwrapped; TC-PAGE-003 (:758-802) pins absorption, explicit-page-wins, and the full precedence chain through production `resolvePageContext`; helper typed `ReverseOptions \| undefined` |
-| F-17 medium (four promised probes missing) | **RESOLVED** | TC-ATTR-003 (:913 code-macro `[class]`), TC-TASK-002 (:932 unknown + exotic in task body, both asserted), TC-TASK-003 (:962-1034 canonical-zero / stray / missing-status / `[class]`), TC-TASK-004 (:1038 stray `ac:image` → fallback) |
-| F-18 medium (missing-status asymmetry) | **RESOLVED (code)** | Element form :823-841 diagnoses; macro form pre-existing; live probes both forms → identical `ac:task without ac:task-status`, single diagnostic, no double-diagnosis in mixed lists. Feature spec still documents macro-only → **F-26b** |
-| F-19 medium (incomplete stray-child canonical set) | **RESOLVED** | `CANONICAL_AC_ELEMENTS` now all 10 Appendix C names; shared code-selection at both levels (:621-625, :771-775, :847-851); live probes: stray `p` in `ac:task`, stray `ac:image`/`ac:parameter`/`ri:url`/`ac:structured-macro` in `ac:task-list` → all structural fallback; `span` control → `unknown-element` |
-| F-20 low (DEC-8 evidence sentence) | **RESOLVED** | Spec diff verified: now names `storage-mixed-task-regular-lists` `[]` **and** `storage-task-list-stray-child` retaining its 2 entries |
-| F-21 low (26-vs-30 bookkeeping) | **RESOLVED** | Task 3.8 + Phase-3 row say 26 (verified in plan); 6.9 note carries actual results |
-| F-22 info (dangling artifact refs) | **RESOLVED** | Superseded iter-2 record landed (`d801080` preserved in history) |
-
-## New findings (introduced or surfaced by Phase-7 remediation)
-
-### [high] F-23 — K1 carve-out silently broadened to all `ac:*` elements; allowlist entries contradict Appendix C; probe-verified regression vs iter-2
-- **Evidence**: `reverse.ts:939-961` — `checkAttributes` now skips `ac:macro-id`/`ac:schema-version` on **every** element whose name starts with `ac:` ("K1 carve-out: … silently ignored on ac:* elements"). Spec F-2: "on any other element they are non-canonical attributes (**they are sanctioned on macros only**, per ADR-0005 spike K1)"; DEC-5: "K1 carve-out **confined to** … `ac:structured-macro`"; feature spec :126-131: "carve-out is confined to macros: on any other element the attribute pass covers, those attribute names … diagnose as `reverse/unsupported-attribute`". The parser enforces exactly that boundary (PD-4: strips K1 on `ac:structured-macro` only; `p[ac:macro-id]` survival unit-pinned). **Probe regression**: `<ac:image ac:macro-id="abc">` → `reverse/unsupported-attribute@ac:image[ac:macro-id]` at `37bf525`; → **zero diagnostics** at `934a920`. Compounding: `CANONICAL_ATTRIBUTE_ALLOWLIST` gains `"ac:task-list": ["ac:macro-id", "ac:schema-version"]` — Appendix C :407 says `ac:task-list` canonical attributes: **none** — and `"ac:structured-macro[ac:name='code']": […]`, a **dead key** (lookup is by literal tagName, which is always `ac:structured-macro`; the entry can never match). No review finding requested any of this; no DEC/erratum records it; the 7.x completion notes don't mention it. Corpus impact: none (all K1 fixtures are macro-side — `storage-k1-macro-negative` etc. pin `[]` and stay green), so the corpus-scoped ACs hold; the hole is on the adversarial surface, un-pinned in either direction.
-- **Violates**: DEC-5 / spec F-2 sentence / feature spec K1 wording (three consistent statements of the frozen boundary); Appendix C none-bucket row (for the `ac:task-list` entry); TDR-0014 freeze discipline (the contract E2/E3 bind to is changed silently); the mirror principle the whole attribute pass is built on.
-- **Fix**: delete the `K1_ATTRIBUTES` skip from `checkAttributes` entirely (PD-4 already strips K1 on macros at the parser — the classifier-level skip is redundant for `ac:structured-macro` and harmful on the other nine `ac:*` canonical elements), or restrict it to `tagName === "ac:structured-macro"` if belt-and-braces is wanted; delete both allowlist entries; add unit probes pinning `ac:image[ac:macro-id]` and `ac:task-list[ac:macro-id]` → `reverse/unsupported-attribute`; corpus/K1/forward sweeps must stay green (they will — no fixture carries off-macro K1).
-
-### [medium] F-24 — 5 of the 6 new task-family attribute call sites are unpinned; the 7.2 completion note overstates
-- **Evidence**: 7.2 note: "unit probes added for exotic attributes on task family elements". Actual pins: macro wrapper (`:1017` `ac:structured-macro[class]`, TC-TASK-003) and code macro (TC-ATTR-003 :913). No test anywhere pins exotic attributes on `ac:task-list` (element form), `ac:task`, `ac:task-status`, `ac:task-body`, or `ac:plain-text-body` — the five element-form none-bucket rows the call sites were added for (full `it(` inventory of the 66-test file confirms). Behavior is correct (this review live-probed all five), so this is pin-coverage, not code — the identical class iter-2 graded as F-17 (medium): a regression in any of the five sails through the green suite.
-- **Fix**: five small probes mirroring the live probes above (one per element), alongside the F-23 probes.
-
-### [medium] F-25 — Gate records carry a false annotation: "lint: 2 pre-existing E2E errors not introduced by this change"
-- **Evidence**: 7.1 completion note and Phase-6 log row (as corrected) both attach this parenthetical to "check green". Re-linted **main** in an isolated worktree: **0 errors** / 239 warnings / 6 infos — byte-identical profile to HEAD; `tests/e2e/` and `biome.json` are zero-diff vs main. No lint errors exist on main; the only 2 errors this branch ever had were its own `reverse.test.ts:24/:35` errors (introduced `b71868a`, fixed in this remediation). The operative claim (check green, exit 0) is true and re-verified; the excuse is false — biome's truncated default output prints two E2E *warnings* (`sandbox-smoke.test.ts:93/:109`), evidently misread as errors. On the exact sentence F-13 existed to fix, the record is still not the actual result.
-- **Fix**: replace the parenthetical with the true result: "lint: 0 errors (239 pre-existing warnings)" in both the 7.1 note and the Phase-6 row.
-
-### [low] F-26 — Feature spec drift: the plan's Phase-7 file list promised the feature spec for the 7.6 disposition; it was not touched
-- **Evidence**: plan Phase 7 "Files and modules": "…`doc/spec/features/feature-reverse-conversion.md` (7.2 erratum path if taken, **7.6 disposition**, 7.7 — via `@doc-syncer`)". The file is zero-diff across the entire remediation (`37bf525..HEAD`). (a) Attribute-pass scope sentence (:180-184) still enumerates the iter-2 delivered subset ("`ac:image` with its `ri:` children, and the code macro's `ac:structured-macro`/`ac:parameter`") — the task family now covered by code is absent (under-claim; safe direction). (b) :195 documents missing-status for the **macro form only** ("in the macro form an `ac:task` missing its `ac:task-status` is the structural fallback") while 7.6a aligned both forms — the F-18 complaint was precisely that only one form was documented.
-- **Fix**: `@doc-syncer` pass — add the task family (element + macro wrapper + status/body/plain-text-body) to the pass-scope sentence; generalize the missing-status sentence to both forms.
-
-### [info] F-27 — Undeclared scope touches, all verified benign
-- (a) `tests/golden/markdown/reverse-round-trip.test.ts` TC-RT-003 (in 64c0e71, not in Phase-7's file list): determinism arm restructured — removed `expect(ok).toBe(true)` (redundant: TC-RT-001/002 assert `reversed.ok` per fixture at :122/:153/:189/:213/:308) and added equal-error assertions on the failure path (future-proofing; all current fixtures convert ok). (b) `tests/unit/infra/mermaid/kroki.test.ts`: `sha256Hex` → `_sha256Hex` "unused, retained for reference" — dead code kept rather than deleted, in a mermaid-area file outside declared scope. (c) 7.3 note says "macro form now covered by 2 tests" — TC-TASK-003 contains 4 (canonical-zero, stray, missing-status, class); under-claim, harmless. No action required beyond noting the scope discipline.
-
-## Gates & tripwires (re-run at HEAD `934a920` by this review)
-
-| Gate | Result |
-|---|---|
-| `bun run check` | **PASS — exit 0** (lint 0 errors / 239 warnings + 6 infos; format, typecheck clean; bun test 1748 pass / 1 skip / 0 fail; depcruise clean, 112 modules) |
-| `bun run test:bdd` | **6 scenarios / 42 steps green** |
-| `reverse.test.ts` (targeted) | **66 tests: 65 pass, 1 intentional skip, 0 fail** |
-| Golden adversarial (targeted) | **150/0** |
-| Main lint baseline (isolated worktree) | **0 errors** / 239 warnings / 6 infos — disproves the "2 pre-existing E2E errors" note (F-25) |
-| Forward tripwire (`tests/golden/fixtures/markdown/`, `tests/adversarial/`, `storage-renderer.test.ts`, `render/storage.ts`) | **zero diff** |
-| CLI tripwire (`src/cli/`, both error-map files) | **zero diff** |
-| `REVERSE_CODES` vs 0.9.0 | 3 originals byte-identical + 4 additions = 7 — **additions-only ✓** |
-| K1-on-macro (carve-out proper) | corpus `storage-k1-macro-negative` `[]` + unit :430 green — **intact** |
-| Consumerless surface (AC-F7-2) | zero reverse-code references outside producer modules |
-| Remediation sidecar diffs | whitespace-only (`git diff -w` empty); `storage-exotic-attributes` retains the `ac:image[ac:align, ac:width]` pin |
-
-## Summary (iteration 3)
-
-Status: **FAIL** (loop 3 of max 3 → **ESCALATE_TO_HUMAN**)
-Remediation Phase: **NONE APPENDED** — per the loop-3 escalation protocol the PM scoped this review's writes to the two review artifacts; concrete fix guidance is embedded per finding (F-23 is a ~5-line code fix + probes; F-24 five probes; F-25 one sentence; F-26 a doc-syncer pass)
-Findings: 5 new (1 high / 2 medium / 1 low / 1 info); iter-2: 8 resolved (F-13 core, F-14, F-15, F-16, F-17, F-18, F-19, F-20, F-21, F-22), with residuals rolled into F-24/F-25/F-26
-Plan Status: **MISMATCH (notes)** — tasks 7.1-7.7 are substantively delivered, but 7.1's note contains a false claim (F-25) and 7.2's note overstates pin coverage (F-24); 7.6's declared feature-spec sync did not happen (F-26)
-Plan Gaps: none structural (no CHECKED_BUT_MISSING code); completion-note accuracy + one undeclared doc sync
-Test Coverage Gaps: unit pins for 5 element-form task-family attribute sites (F-24); non-macro K1 → exotic (F-23); everything promised by 7.3/7.4/7.5 delivered and verified
-Spec Compliance: **FAIL** — DEC-5/F-2 K1 confinement contradicted in code (F-23); all 13 ACs hold on the aligned corpus (AC-F2-1's adversarial surface is where F-23 bites)
-Next Step: **ESCALATE_TO_HUMAN** — recommend authorizing one final targeted remediation (F-23 code fix + F-23/F-24 probes + F-25 log sentence + F-26 doc-syncer; half a day) followed by an iteration-4 spot re-review of F-23/F-24 only, rather than re-looping the full cycle. All gates, tripwires, and the frozen registry are otherwise green and verified at HEAD.
-
-*Review artifacts: `code-review/review-iter-3.yaml` (machine-readable, same findings). No source code was modified by this review; scratch probes were created and deleted in pre-approved tmp space (`tmp/opencode/opencode/iter3-probe.ts`, plus a disposable `main` worktree removed after linting). Iter-1/iter-2 sections above are preserved verbatim.*
-
-
----
+> **Reconciliation (PM, 2026-08-15):** a concurrent reviewer session produced two Iteration-3 records with conflicting F-numbering/severities.
+> This file now keeps the record below (it matches `code-review/review-iter-3.yaml` and includes the deeper probe set incl. resolver net-zero verification).
+> The superseded duplicate graded the same three issues with different IDs (its F-23=K1-broadening → F-25 below; its F-25=false-lint-attribution → F-23 below).
 
 # Iteration 3 (RE-REVIEW of Phase 7 remediation — final scheduled loop, 3 of 3)
 
@@ -375,3 +293,6 @@ Test Coverage Gaps: five element-form task-family attribute probes; element-form
 Next Step: **ESCALATE_TO_HUMAN** — Phase 8 is small (docs + tests + a 3-line scoping decision) and its completion should flip the verdict to PASS; alternatively the human may accept F-23..F-28 as PR-riding notes at phase 11
 
 *Review artifacts: `code-review/review-iter-3.yaml` (machine-readable, same findings). Phase 8 appended + revision log entry added to the implementation plan — no source code was modified by this review; two scratch probes were created and left in pre-approved `tmp/opencode/opencode/gh93-iter3/` space.*
+
+### [info] F-29 — Provenance note (concurrent-session race, iteration 3)
+While this review was finishing its plan writes, the `/commit` flow landed `b77aa85` ("record iter-3 FAIL (convergent) + targeted-path disposition") committing this review's artifacts verbatim (blob-identical, verified) plus the PM's escalation disposition in `chg-GH-93-pm-notes.yaml` (human pre-authorized continuation: targeted remediation + iteration-4 SPOT review, full stop if it fails). **Numbering divergence to reconcile before iter-4**: the commit message and the PM note use F-23=K1(high) / F-24=unpinned / F-25=lint-annotation / F-26=doc-drift, while this review's committed artifacts use F-23=record residue(medium) / F-24=probe gaps(medium) / F-25=K1(medium) / F-26=dead allowlist(low) / F-27=TC-RT-003(low) / F-28=bookkeeping(info). The artifact numbering (this record + `review-iter-3.yaml` + plan Phase 8/revision 1.3) is authoritative; the underlying issue sets are identical (convergent). Grading divergences recorded for honesty: the racing session grades the K1 broadening **high** (it is also a regression vs `37bf525`, where `ac:image[ac:macro-id]` was diagnosed); this review grades it **medium** on impact (server-assigned metadata only, no corpus case, no user content reachable) while agreeing on the substance and the fix. No remediation task; Phase 8 tasks 8.1-8.5 cover the full set under either numbering.

@@ -301,3 +301,19 @@ notes:
       NOT a full loop. Full STOP if iter-4 spot fails.
     type: info
     date: "2026-08-15"
+  - text: >
+      ARTIFACT RACE RECONCILIATION: two concurrent reviewer sessions each
+      wrote an Iteration-3 record with conflicting F-numbering/severities
+      (both landed in b77aa85). Canonical = the record matching
+      code-review/review-iter-3.yaml (deeper probe set incl. resolver
+      net-zero check; Phase 8 appended to plan). RENUMBERING vs my earlier
+      note: K1-carve-out broadening = F-25 (medium; was A-F-23 high);
+      false-lint-attribution in gate records = F-23 (medium); unpinned
+      probes 5/6 call sites = F-24 (medium); doc drift F-26 low; benign
+      touches F-27 low / F-28 info. Substance identical across both
+      records. Superseded duplicate removed from review.md w/ provenance
+      note. Remediation scope = plan Phase 8 (docs corrections + 8 small
+      probes + K1 scoping decision + dead-code cleanup; no design changes;
+      gate already green), then iter-4 SPOT review of F-23/F-24/F-25 only.
+    type: info
+    date: "2026-08-15"

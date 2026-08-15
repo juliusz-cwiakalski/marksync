@@ -41,7 +41,7 @@ severity_breakdown:
   high: 0
   medium: 3
   low: 2
-  info: 1
+  info: 2
 spec_compliance: FAIL
 plan_compliance: FAIL
 findings:
@@ -200,6 +200,36 @@ findings:
     suggestion: >-
       Phase 8.5 (bundle): "12 pairs" correction in 3.8; 6.3 note aligned with
       the corrected DEC-8 wording; drop the dead kroki helper.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-29
+    severity: info
+    confidence: high
+    category: info
+    location: doc/changes/2026-08/2026-08-15--GH-93--unsupported-construct-detection/chg-GH-93-review.md:377
+    message: >-
+      Concurrent-session race (F-22 class, resolved): while this review was
+      finishing its plan writes, commit b77aa85 ("record iter-3 FAIL
+      (convergent) + targeted-path disposition") committed this review's
+      artifacts verbatim (blob-identical, verified) plus the PM's escalation
+      disposition (human pre-authorized continuation: targeted remediation +
+      iteration-4 spot review, full stop if it fails). Numbering divergence to
+      reconcile before iter-4: the commit message and PM note use F-23=K1(high)/
+      F-24=unpinned/F-25=lint-annotation/F-26=doc-drift, while this review's
+      committed artifacts use F-23=record-residue(medium)/F-24=probe-gaps
+      (medium)/F-25=K1(medium)/F-26=dead-allowlist(low)/F-27=TC-RT-003(low)/
+      F-28=bookkeeping(info). Underlying issue sets identical (convergent);
+      artifact numbering is authoritative. Grading divergence recorded: racing
+      session grades the K1 broadening high (also a regression vs 37bf525 where
+      ac:image[ac:macro-id] was diagnosed); this review grades it medium on
+      impact while agreeing on substance and fix. Phase 8 tasks 8.1-8.5 cover
+      the full set under either numbering.
+    suggestion: >-
+      None required (resolved by this record). Reconcile numbering references
+      before the iteration-4 spot review; process note (repeat of iter-2 F-22):
+      commit messages and pm-notes should cite finding IDs only after the
+      review artifacts they reference are final.
     suppressed: false
     published_url: null
     published_at: null
