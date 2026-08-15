@@ -314,6 +314,25 @@ function classifyMacro(el: Element): NodeClassificationResult {
 		return classifyTaskListMacro(el);
 	}
 
+	if (macroName === "info") {
+		// Info macros are NOT classified here — panel strip already handled by parser
+		// An info macro without marker will hit the default "unknown macro" case
+		// and block with a diagnostic (AC-F3-1 edge case)
+		const location = getLocation(el);
+		return {
+			content: null,
+			diagnostics: [
+				{
+					severity: "blocking",
+					class: "unsupported-construct",
+					code: REVERSE_CODES.UNSUPPORTED_CONSTRUCT,
+					construct: `ac:structured-macro[ac:name="${macroName}"]`,
+					location,
+				},
+			],
+		};
+	}
+
 	// Unknown macro → blocking diagnostic
 	const location = getLocation(el);
 	return {

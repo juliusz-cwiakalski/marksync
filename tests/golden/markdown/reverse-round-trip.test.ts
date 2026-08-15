@@ -7,7 +7,10 @@ import { dirname, join } from "node:path";
 import { renderStorage } from "#infra/confluence/render/storage";
 import { parseMarkdown } from "#domain/markdown/parse";
 import { toHast } from "mdast-util-to-hast";
-import { reverseStorage, reverseStorageCollectAll } from "#infra/confluence/parse/reverse";
+import {
+	reverseStorage,
+	reverseStorageCollectAll,
+} from "#infra/confluence/parse/reverse";
 import { normalizeMarkdown } from "#domain/markdown/normalize";
 
 const here = dirname(new URL(import.meta.url).pathname);
