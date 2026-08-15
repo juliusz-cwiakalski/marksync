@@ -15,7 +15,7 @@ phases:
   system_spec_update: { started: 2026-08-15, completed: 2026-08-15 }
   review_fix: { started: 2026-08-15, completed: 2026-08-15 }
   quality_gates: { started: 2026-08-15, completed: 2026-08-15 }
-  dod_check: { started: null, completed: null }
+  dod_check: { started: 2026-08-15, completed: 2026-08-15 }
   pr_creation: { started: null, completed: null, url: null }
 
 decisions:
@@ -132,5 +132,16 @@ notes:
       self-skipped as designed outside live-sandbox CI), depcruise PASS
       (103 modules / 204 dependencies, no violations). Log:
       tmp/run-logs-runner/2026-08-15/024525-gh-104-bun-run-check.log
+    type: info
+    date: 2026-08-15
+
+  - text: >
+      DoD check PASS: phases 1-9 complete with timestamps; plan 16/16 tasks
+      checked (0 unchecked); AC-F1-1/AC-F2-1/AC-NFR2-1/AC-DEC2-1 satisfied
+      (coder + PM + reviewer triple-verified); doc-syncer no gaps; worktree
+      clean. AC-F3-1 (CI osv-scan green) is by design observable only on the
+      PR — carried as the pre-merge assertion (reviewer F-1: do NOT merge
+      without green osv-scan on the PR). PR body must note version bump
+      0.8.2 is beyond-ticket scope w/ GH-88 precedent (DoR nit 1).
     type: info
     date: 2026-08-15
