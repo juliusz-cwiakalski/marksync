@@ -12,7 +12,7 @@ phases:
   review_fix: { started: "2026-08-15T18:00:00Z", completed: "2026-08-15T20:45:00Z" }
   quality_gates: { started: "2026-08-15T20:50:00Z", completed: "2026-08-15T20:55:00Z" }
   dod_check: { started: "2026-08-15T21:00:00Z", completed: "2026-08-15T21:15:00Z" }
-  pr_creation: { started: null, completed: null, url: null }
+  pr_creation: { started: "2026-08-15T21:20:00Z", completed: "2026-08-15T21:30:00Z", url: "https://github.com/juliusz-cwiakalski/marksync/pull/110" }
 decisions:
   - text: >
       DEC (spec): granular per-class diagnostic codes confirmed via TDR-0014
@@ -423,5 +423,18 @@ notes:
       standing session directive) are documented in review artifacts +
       pm-notes; PM-executed iter-5 + the F-30/F-31 record fixes are the
       disclosed deviations.
+    type: info
+    date: "2026-08-15"
+  - text: >
+      PR #110 CREATED (squash-merge; PM NOT authorized to merge — CEO Mode
+      A / human Mode B). Branch pushed; issue #93 label in-progress →
+      review, assigned juliusz-cwiakalski. ALL 11 PHASES COMPLETE. At
+      merge: close #93, move to recently_delivered, clear active_change,
+      flip TDR-0014 to Accepted (plan task 5.6 + TDR-0012/0013 precedent).
+      Disclosed for human review: iter-5 record re-check was PM-executed
+      under documented exception (evidence inline); escalation-guardrail
+      supersessions (iter-3 loop exhaustion + iter-4 spot FAIL) executed
+      under the session's standing directive; concurrent-session artifact
+      races reconciled at iters 3/4 (yaml-authoritative pattern).
     type: info
     date: "2026-08-15"
