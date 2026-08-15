@@ -1,0 +1,50 @@
+version: 1
+iteration: 1
+mode: local
+work_item_ref: GH-104
+branch: fix/GH-104/osv-red-fast-uri-js-yaml
+status: PASS
+summary: >-
+  Lockfile-only security fix delivered exactly as specified. The diff is surgical:
+  package.json carries precisely the two override edits (fast-uri ^3.1.4 → ^3.1.5,
+  js-yaml ^4.3.1 added) plus the 0.8.2 version bump (DEC-2), and bun.lock changes
+  only the overrides echo and the two package entries. Registry integrity hashes for
+  fast-uri@3.1.5 and js-yaml@4.3.1 verified byte-identical against the npm registry;
+  consumer requirement edges (ajv → fast-uri ^3.0.1, cosmiconfig → js-yaml ^4.1.0),
+  lockfileVersion/configVersion, and all other pins are unchanged — no resolution
+  drift. Both packages remain transitive-only; yaml ^2.9.0 untouched; zero
+  src/tests/CI-workflow/current-truth-doc diffs. Frozen-lockfile install and the full
+  quality gate (lint, format, typecheck, 1310/0 tests, depcruise) independently
+  re-verified green by this review. All plan tasks checked with commit evidence
+  (9963954, 3de425a) matching completion signals. AC-F3-1 (CI osv-scan green) is
+  deferred to PR observation by design and pinned as a pre-merge DoD assertion.
+severity_breakdown:
+  critical: 0
+  high: 0
+  medium: 0
+  low: 0
+  info: 1
+spec_compliance: PASS
+plan_compliance: PASS
+findings:
+  - id: F-1
+    severity: info
+    confidence: high
+    category: spec-compliance
+    location: .github/workflows/ci.yml
+    message: >-
+      AC-F3-1 (CI osv-scan green, 0 findings) is not observable in this local review;
+      it is tracked as a pre-merge DoD assertion at PR creation (lifecycle phase 11,
+      TC-DEPS-005). The lockfile pins fast-uri@3.1.5 and js-yaml@4.3.1 — both above
+      the advisory fixed-in versions — so the gate is expected green. Do not merge
+      without observing the osv-scan check green on the PR.
+    suggestion: >-
+      At /pr creation, assert the "Vulnerability scan (osv-scanner)" check is green
+      with 0 findings before merge (already recorded in plan Task 2.7 as DoD).
+    suppressed: false
+    published_url: null
+    published_at: null
+    published_comment_id: null
+    published_thread_id: null
+reviewed_at: 2026-08-15T00:00:00Z
+next_step: PROCEED

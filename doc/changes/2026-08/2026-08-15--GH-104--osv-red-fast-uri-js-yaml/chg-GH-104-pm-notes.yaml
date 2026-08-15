@@ -1,0 +1,231 @@
+change_id: GH-104
+title: "fix: osv red — bump fast-uri to 3.1.5 and js-yaml to 4.3.1 (both CVSS 7.5)"
+kind: bug
+milestone: MS-0002
+branch: fix/GH-104/osv-red-fast-uri-js-yaml
+ticket_source: GitHub Issue #104 (no [MS2-Exx-Sxx] prefix — ticket body is authoritative scope)
+
+phases:
+  clarify_scope: { started: 2026-08-15, completed: 2026-08-15 }
+  specification: { started: 2026-08-15, completed: 2026-08-15 }
+  test_planning: { started: 2026-08-15, completed: 2026-08-15 }
+  delivery_planning: { started: 2026-08-15, completed: 2026-08-15 }
+  dor_check: { started: 2026-08-15, completed: 2026-08-15 }
+  delivery: { started: 2026-08-15, completed: 2026-08-15 }
+  system_spec_update: { started: 2026-08-15, completed: 2026-08-15 }
+  review_fix: { started: 2026-08-15, completed: 2026-08-15 }
+  quality_gates: { started: 2026-08-15, completed: 2026-08-15 }
+  dod_check: { started: 2026-08-15, completed: 2026-08-15 }
+  pr_creation: { started: 2026-08-15, completed: 2026-08-15, url: https://github.com/juliusz-cwiakalski/marksync/pull/105 }
+
+decisions:
+  - text: >
+      js-yaml mechanism = package.json overrides entry "js-yaml": "^4.3.1"
+      (NOT a direct dependency). Ticket says "bump direct dependency" but
+      js-yaml is not direct: `yaml` (^2.9.0) is the direct YAML lib; js-yaml
+      is transitive via @commitlint/load → cosmiconfig → js-yaml ^4.1.0
+      (dev chain, never imported in src/). Adding an unused direct dep would
+      be worse than the established fast-uri override pattern. The ticket AC
+      is mechanism-neutral ("bun.lock pins js-yaml >= 4.3.1"), so the
+      override satisfies it. PM-decided to unblock; recorded here and seeded
+      to spec.
+    date: 2026-08-15
+
+open_questions: []
+blockers: []
+doc_risks:
+  - text: >
+      None expected — lockfile-only change (package.json overrides +
+      bun.lock). No src/ behavior change. security-baseline.md:118 already
+      documents osv-scanner as blocking at MS-0002. Dependency versions are
+      not tracked in current-truth docs.
+    date: 2026-08-15
+
+notes:
+  - text: >
+      Intake retro (also mirrored in pm-context): 22nd recurrence of
+      pm-context stale on out-of-band merge — GH-88 (PR #89) merged
+      2026-07-26T21:24:29Z before this session; reconciled (moved to
+      recently_delivered, pruned GH-74, pruned stale GH-63/GH-66 retro
+      notes). GH-104 is a clean new delivery: fresh branch off main @
+      5a85254, clean tree, no resume-sync.
+    type: retro
+    date: 2026-08-15
+  - text: >
+      Clarify-scope evidence: osv-scanner CI job fails on ALL PRs due to two
+      bun.lock findings (scan 2026-08-14): GHSA-7p8r-x3mc-p8w7 fast-uri
+      3.1.4→3.1.5 fixed (transitive via ajv, runtime chain; existing
+      override ^3.1.4 at package.json:64 → bump to ^3.1.5) and
+      GHSA-5p4m-2wfm-xmqj js-yaml 4.3.0→4.3.1 fixed (transitive via
+      cosmiconfig, dev chain; add overrides entry ^4.3.1). Both CVSS 7.5.
+      Ticket fix-direction verified against repo state: package.json
+      overrides confirmed; bun.lock pins fast-uri@3.1.4 (line 254) and
+      js-yaml@4.3.0 (line 316) confirmed. AC complete and testable. No
+      blocking questions.
+    date: 2026-08-15
+
+  - text: >
+      Test-plan decision D-TST-1: NO permanent lockfile-assertion test —
+      one-shot manual verification only. Rationale: redundant with two
+      existing blocking gates (bun install --frozen-lockfile + osv-scan CI
+      job), overrides are transient scaffolding (removal trigger documented
+      in spec §7.3) so a permanent test would rot, and hardcoding advisory
+      knowledge contradicts test-real-behavior strategy. osv-scanner not
+      installed locally → AC-F3-1 is CI-only (accepted, matches ticket
+      "or in CI").
+    type: decision
+    date: 2026-08-15
+
+  - text: >
+      DoR verdict READY iter-1 (readiness-review/readiness-iter-1.md), all
+      10 facets PASS; DEC-1/D-TST-1/DEC-2/AC-F3-1-CI-only all challenged and
+      upheld. 3 non-blocking nits accepted without reopen: (1) PR body must
+      note version-bump 0.8.2 is beyond-ticket scope w/ GH-88 precedent —
+      carry to phase 11 pr_creation; (2) test-plan §10 phase-window for
+      TC-DEPS-005 (completable only at phase 11) — informational; (3) plan
+      abort A-2 doesn't name Bun-alignment mechanism — safe because abort
+      path is STOP-and-report either way.
+    type: info
+    date: 2026-08-15
+
+  - text: >
+      Delivery completed COMPLETED_ALL, no plan deviations, no abort
+      criteria triggered. Coder commits: 9963954 fix (overrides + bun.lock
+      regen, surgical diff verified), 3de425a version 0.8.2, 5ae1da2 plan
+      execution logs, 993a4f4 test execution log (TC-DEPS-001..006; 005
+      deferred to PR by design). PM independently re-verified: bun.lock pins
+      fast-uri@3.1.5 (line 255) + js-yaml@4.3.1 (line 317), overrides echo
+      updated, version 0.8.2, git diff main -- src/ tests/ empty. bun run
+      check 1310 pass / 0 fail. AC-F3-1 (CI osv-scan green) remains the only
+      open AC — observed at PR (phase 11).
+    type: info
+    date: 2026-08-15
+
+  - text: >
+      Doc-sync verdict: no gaps (verified no-op). Swept spec/quality/
+      guides/overview/index/decisions + README version refs. Dependency pin
+      versions are not current-truth content (GH-88 precedent);
+      security-baseline NFR-SEC-4 documents controls not individual override
+      entries (fast-uri was never documented there → js-yaml not added);
+      README:93 version is illustrative (was stale before this change);
+      TDR-0010 0.8.1 ref is frozen history. No files changed.
+    type: info
+    date: 2026-08-15
+
+  - text: >
+      Review verdict PASS iter-1 (code-review/review-iter-1.yaml): 0 critical/
+      high/medium/low, 1 info (F-1 = AC-F3-1 pre-merge DoD assertion: do not
+      merge without green osv-scan on the PR — already tracked). Reviewer
+      independently verified: all ACs (F3-1 deferred by design), surgical
+      lockfile diff (overrides echo + 2 pins + integrity only, no skew,
+      consumer edges unchanged), registry integrity hashes byte-identical to
+      npm dist.integrity (anti-typosquat), frozen-lockfile exit 0, zero
+      src/tests diff, bun run check 1310 pass / 0 fail re-run.
+    type: info
+    date: 2026-08-15
+
+  - text: >
+      Quality gates GREEN via @runner: bun run check exit 0 (~34s) — biome
+      lint PASS (231 pre-existing non-blocking warnings, matches baseline),
+      format:check PASS (244 files), typecheck PASS, bun test 1310 pass /
+      0 fail (34 snapshots, 6143 expects, 126 files; e2e sandbox-smoke
+      self-skipped as designed outside live-sandbox CI), depcruise PASS
+      (103 modules / 204 dependencies, no violations). Log:
+      tmp/run-logs-runner/2026-08-15/024525-gh-104-bun-run-check.log
+    type: info
+    date: 2026-08-15
+
+  - text: >
+      DoD check PASS: phases 1-9 complete with timestamps; plan 16/16 tasks
+      checked (0 unchecked); AC-F1-1/AC-F2-1/AC-NFR2-1/AC-DEC2-1 satisfied
+      (coder + PM + reviewer triple-verified); doc-syncer no gaps; worktree
+      clean. AC-F3-1 (CI osv-scan green) is by design observable only on the
+      PR — carried as the pre-merge assertion (reviewer F-1: do NOT merge
+      without green osv-scan on the PR). PR body must note version bump
+      0.8.2 is beyond-ticket scope w/ GH-88 precedent (DoR nit 1).
+    type: info
+    date: 2026-08-15
+
+  - text: >
+      PR #105 created (fix(GH-104): pin fast-uri 3.1.5 and js-yaml 4.3.1
+      via overrides (CVSS 7.5 osv)), base main, branch pushed incl. pr
+      manager's phase-start commit 4000d4d. Body carries AC table
+      (AC-F3-1 PENDING = pre-merge osv-scan assertion), test tiers, ADRs
+      (none), version-bump transparency note, merge note, Closes #104.
+      All 11 phases complete — STOP, PR left open for human/CEO review.
+      Do NOT merge (merge authority: CEO Mode A / human Mode B).
+    type: info
+    date: 2026-08-15
+
+  - text: >
+      RETRO + REOPEN: PR #105 CI — osv-scan GREEN (AC-F3-1 satisfied on
+      first run) but "Lint + Typecheck + Test" job FAILED: 8 doctor
+      integration tests TC-DOCTOR-013/015/016/017/018/019/020/022.1 in
+      tests/integration/cli/commands/doctor.test.ts — findCheck(report,
+      "credentials")?.status === undefined (checks missing/degraded in
+      report; TC-DOCTOR-014 json variant passes). Local suite green
+      (1310/0, Bun 1.3.14) and main's last ci.yml run GREEN (Bun 1.2.23 +
+      fast-uri 3.1.4, GH-88 merge 5a85254) → delta = Bun 1.2.23 ×
+      fast-uri 3.1.5 interaction (R-TST-1 watch item materialized in
+      behavior, not lockfile format). quality_gates REOPENED after PR
+      creation; @fixer engaged with full evidence. Process gap: local gate
+      (Bun 1.3.14 ≠ engines.bun 1.2.23) cannot catch CI-version-specific
+       regressions — candidate follow-up: align local Bun to engines or add
+       CI-matrix Bun to dev-env docs.
+    type: retro
+    date: 2026-08-15
+
+  - text: >
+      HYPOTHESIS CORRECTION (kept for the record; superseded by the GH-103
+      resolution note below): @fixer root-caused the PR #105 "Lint +
+      Typecheck + Test" failures — NOT fast-uri 3.1.5. Actual cause:
+      pre-existing test-isolation flake, latent since PR #85 —
+      process-global mock.module("#app/doctor") in
+      tests/unit/cli/commands/doctor.test.ts leaks into
+      tests/integration/cli/commands/doctor.test.ts when bun:test assigns
+      both files to one worker (scheduling race; CI 4-vCPU packs ~29
+      files/worker). Evidence: failure signature (missing checks,
+      worstStatus=pass, 13-16ms runtime) is byte-identical to the unit
+      mocker's last nextDoctorResult; same commit 4000d4d produced red run
+      31855081477 AND green run 31855085529. PM lesson: the "CI-only
+      failure + version delta present" pattern led to a confident-but-
+      wrong Bun-version-skew hypothesis; the same-commit-red-and-green
+      proof was the discriminating evidence.
+    type: retro
+    date: 2026-08-15
+
+  - text: >
+      RESOLUTION — GH-103 EXTERNAL, DESCOPED (human directive, 2026-08-15):
+      the "Lint + Typecheck + Test" failure on PR #105 is the known,
+      separately tracked GH-103 defect (bun mock.module test pollution of
+      doctor integration tests) — NOT caused by this change; GH-104's
+      dependency pins are exonerated (osv-scan GREEN on PR #105; full
+      suite green under Bun 1.2.23 + fast-uri 3.1.5 in non-colliding
+      runs; local gate 1310/0). Per directive, GH-104 does NOT expand
+      scope to fix GH-103. A remediation rider (seams fix + spec v1.1
+      draft) was briefly drafted and then REVERTED from this branch; the
+      verified fix work is preserved for the GH-103 delivery as a patch:
+      tmp/gh-103-handoff/gh-103-mock-module-seams-fix.patch (+ spec rider
+      draft .diff alongside). specification/test_planning/
+      delivery_planning/delivery/quality_gates restored to completed —
+      phase records reflect the ACTUAL delivered GH-104 scope (lockfile
+      fix + version 0.8.2, committed spec/plan/test-plan unchanged).
+    type: decision
+    date: 2026-08-15
+
+  - text: >
+      QUALITY GATES FINAL RECORD: local gate GREEN (bun run check exit 0,
+      1310 pass / 0 fail, runner log tmp/run-logs-runner/2026-08-15/
+      024525-gh-104-bun-run-check.log). PR #105 CI: osv-scan GREEN —
+      AC-F3-1 SATISFIED (the ticket's core requirement: the fix works).
+      KNOWN EXTERNAL FAILURE: "Lint + Typecheck + Test" job red due to
+      GH-103 (bun mock.module leak polluting doctor integration tests
+      TC-DOCTOR-013/015..020/022.1) — pre-existing defect latent since
+      PR #85, proven NOT caused by GH-104 (same-commit red+green runs
+      31855081477/31855085529 on 4000d4d; unrelated deps delta). Tracked
+      in GH-103 (priority:critical, OPEN); excluded from this change's
+      gates per human directive. Merge reviewers: red test job on this PR
+      is expected until GH-103 lands; osv-scan is the AC-relevant check.
+    type: info
+    date: 2026-08-15
+
