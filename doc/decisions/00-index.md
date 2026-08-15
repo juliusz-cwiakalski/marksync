@@ -43,12 +43,28 @@ All decision records for this repository, ordered by number.
 > default remains `code` (no remote egress). The in-process official-library
 > renderer (Part B, rungs 1–5) remains deferred to MS-0003+. ADR-0002 governance
 > status remains `Accepted`; the revision history records the GH-69 update.
+>
+> **Update 2026-07-26 (PDR-0002).** MS-0002 shipped in full (31/31 issues, 0
+> open bugs, 1309 tests green; wedge proven live — diverged-remote safety
+> `Block` fires, zero silent overwrites). PDR-0002 re-scopes MS-0003 from the
+> DX-first MLP to **"Company Adoption MVP"** per the owner's five design-partner
+> goals (the maintainer's company is the first design partner and the
+> post-MS-0002 beta revalidation input): canonical-subset reverse conversion and
+> patch-based Git-arbitrated conflict resolution are pulled forward from
+> MS-0005/MS-0006, A-VAL-3 is activated via a new `marksync import` command,
+> and ADR-0002 territory is reopened for a second in-process Mermaid spike
+> under a no-external-services constraint (configurable self-hosted Kroki
+> endpoint as fallback rung; `code` default unchanged). ADR-0002 governance
+> status remains `Accepted` — the rung ladder is unchanged; PDR-0002 records
+> the reopening. Safety guardrails (zero silent overwrites, never auto-commit,
+> managed/unmanaged boundary, secrets redaction) are preserved unchanged.
 
 | ID | Type | Title | Status | Date | Owners |
 |----|------|-------|--------|------|--------|
 | [ADR-0001](./ADR-0001-implementation-language-and-runtime.md) | ADR | Implementation language and runtime — TypeScript (single-binary) over Go | Accepted | 2026-07-03 | Juliusz Ćwiąkalski |
 | [ADR-0002](./ADR-0002-mermaid-rendering-strategy.md) | ADR | Mermaid rendering strategy | Accepted | 2026-07-03 | Juliusz Ćwiąkalski |
 | [PDR-0001](./PDR-0001-product-naming-confluence-adapter.md) | PDR | Product naming and architecture — "MarkSync" core with Confluence as the first adapter | Accepted | 2026-07-03 | Juliusz Ćwiąkalski |
+| [PDR-0002](./PDR-0002-ms0003-rescope-company-adoption-mvp.md) | PDR | MS-0003 re-scope — "Company Adoption MVP" (Git-arbitrated conflict resolution, `import`, no-external-services Mermaid) | Accepted | 2026-07-26 | Juliusz Ćwiąkalski |
 | [TDR-0001](./TDR-0001-confluence-api-validation-spike.md) | TDR | Run a scoped Atlassian Confluence Cloud API validation spike before implementation | Accepted | 2026-07-03 | Juliusz Ćwiąkalski |
 | [ADR-0005](./ADR-0005-page-body-representation-storage-not-adf.md) | ADR | Page body representation — write Storage Format, not ADF | Accepted | 2026-07-03 | Juliusz Ćwiąkalski |
 | [ADR-0006](./ADR-0006-document-identity-and-shared-base-state-model.md) | ADR | Document identity and shared-base state model — source-side UUID v7 + committed lock + disposable cache | Accepted | 2026-07-04 | Juliusz Ćwiąkalski |
