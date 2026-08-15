@@ -5,7 +5,7 @@ phases:
   clarify_scope: { started: "2026-08-15T13:20:00Z", completed: "2026-08-15T13:55:00Z" }
   specification: { started: "2026-08-15T14:05:00Z", completed: "2026-08-15T14:50:00Z" }
   test_planning: { started: "2026-08-15T14:55:00Z", completed: "2026-08-15T15:35:00Z" }
-  delivery_planning: { started: null, completed: null }
+  delivery_planning: { started: "2026-08-15T15:40:00Z", completed: "2026-08-15T16:20:00Z" }
   dor_check: { started: null, completed: null }
   delivery: { started: null, completed: null }
   system_spec_update: { started: null, completed: null }
@@ -96,5 +96,21 @@ notes:
       absorption; OQ-T4 layout cells emit zero additional diagnostics
       [macro-children precedent]; A-5 12-row Appendix B granularity vs GH-31
       6-way grouping — consistent in-spec).
+    type: info
+    date: "2026-08-15"
+  - text: >
+      PLAN INTAKE: 5 execution phases + 1 conditional (review remediation),
+      34 checkbox tasks. Phase 1 domain (registry + page payload, additive
+      commit boundary), Phase 2 infra (granular classifier + attribute pass +
+      task-list integrity + page threading + 7 re-pins riding same commit
+      under scripted construct/location-stability check vs main), Phase 3
+      golden corpus 12/12 + runner extension, Phase 4 false-positive sweeps,
+      Phase 5 finalize (0.10.0 + CHANGELOG + full gates + AC reconciliation).
+      3 non-material flags: (1) forward converter lives at
+      src/infra/confluence/render/storage.ts (PM delegation cited wrong path —
+      plan correct); (2) OQ-P1 spec Appendix C omits bare img — plan pins
+      zero-churn reading (img in none-allowlist bucket; forward never emits
+      bare img) for DoR nod; (3) runner strengthening tasks 3.2/3.4 anticipated
+      by test-plan risks R-TST-6/7.
     type: info
     date: "2026-08-15"
