@@ -199,23 +199,40 @@ function classifyElement(el: Element): NodeClassificationResult {
 		const altText = props["ac:alt"]?.toString() || "";
 		let src = "";
 
-		// Look for ri:url or ri:attachment children
+		// Look for ri:attachment children (with ri:filename property) or ri:url children
 		for (const child of el.children) {
 			if (child.type === "element") {
-				if (child.tagName === "ri:url") {
-					const urlValue = child.properties["ri:value"];
-					if (typeof urlValue === "string") {
-						src = urlValue;
+				if (child.tagName === "ri:attachment") {
+					const filename = child.properties["ri:filename"]?.toString();
+					if (filename) {
+						src = filename;
 						break;
 					}
-				} else if (child.tagName === "ri:attachment") {
-					const attachmentValue = child.properties["ri:filename"];
-					if (typeof attachmentValue === "string") {
-						src = attachmentValue;
+				} else if (child.tagName === "ri:url") {
+					const urlValue = child.properties["ri:value"]?.toString();
+					if (urlValue) {
+						src = urlValue;
 						break;
 					}
 				}
 			}
+		}
+
+		// Check for mermaid render policy artifact (DEC-1, AC-F4-2)
+		if (src.startsWith("marksync-mermaid-")) {
+			const location = getLocation(el);
+			return {
+				content: null,
+				diagnostics: [
+					{
+						severity: "informational",
+						class: "marksync-synthetic-artifact",
+						code: REVERSE_CODES.SYNTHETIC_ARTIFACT,
+						construct: "ac:image (mermaid render policy)",
+						location,
+					},
+				],
+			};
 		}
 
 		if (src) {
@@ -236,6 +253,11 @@ function classifyElement(el: Element): NodeClassificationResult {
 	// Handle Confluence macros
 	if (tagName === "ac:structured-macro") {
 		return classifyMacro(el);
+	}
+
+	// Handle ac:task-list (Confluence-specific element)
+	if (tagName === "ac:task-list") {
+		return classifyTaskListElement(el);
 	}
 
 	// Handle recognized canonical elements (pass through)
@@ -314,26 +336,9 @@ function classifyMacro(el: Element): NodeClassificationResult {
 		return classifyTaskListMacro(el);
 	}
 
-	if (macroName === "info") {
-		// Info macros are NOT classified here — panel strip already handled by parser
-		// An info macro without marker will hit the default "unknown macro" case
-		// and block with a diagnostic (AC-F3-1 edge case)
-		const location = getLocation(el);
-		return {
-			content: null,
-			diagnostics: [
-				{
-					severity: "blocking",
-					class: "unsupported-construct",
-					code: REVERSE_CODES.UNSUPPORTED_CONSTRUCT,
-					construct: `ac:structured-macro[ac:name="${macroName}"]`,
-					location,
-				},
-			],
-		};
-	}
-
-	// Unknown macro → blocking diagnostic
+	// Info macros are NOT classified here — panel strip already handled by parser
+	// However, if the parser didn't strip it (no marker), we treat it as unknown
+	// to preserve the blocking diagnostic behavior
 	const location = getLocation(el);
 	return {
 		content: null,
@@ -351,12 +356,16 @@ function classifyMacro(el: Element): NodeClassificationResult {
 
 /** Classify a code macro → fenced code block. */
 function classifyCodeMacro(el: Element): NodeClassificationResult {
+	// Extract language from ac:parameter ac:name="language" element
+	const languageParam = el.children.find(
+		(child) =>
+			child.type === "element" &&
+			child.tagName === "ac:parameter" &&
+			child.properties["ac:name"] === "language",
+	) as Element | undefined;
+
 	const language =
-		el.properties["ac:parameter"]
-			?.toString()
-			.split("=")[1]
-			?.toString()
-			?.trim() || "";
+		languageParam?.children.find((child) => child.type === "text")?.value?.toString().trim() || "";
 
 	// Extract CDATA content
 	const cdataBody = el.children.find(
@@ -427,8 +436,82 @@ function classifyTaskListMacro(el: Element): NodeClassificationResult {
 			(child) => child.type === "element" && child.tagName === "ac:task-body",
 		) as Element | undefined;
 
-		const isChecked =
-			statusEl?.properties?.["ac:status"]?.toString() === "complete";
+		// Status is in the text child of ac:task-status
+		const statusText = statusEl?.children.find((child) => child.type === "text");
+		const isChecked = statusText?.type === "text" && statusText.value === "complete";
+
+		const taskContent = bodyEl?.children || [];
+
+		// Map to remark-gfm task-list HAST shape:
+		// ul.contains-task-list → li.task-list-item → input[checked]
+		const inputEl: Element = {
+			type: "element",
+			tagName: "input",
+			properties: {
+				type: "checkbox",
+				checked: isChecked ? true : undefined,
+			},
+			children: [],
+		};
+
+		// Classify task body content
+		const classifiedBody: ElementContent[] = [];
+		for (const child of taskContent) {
+			const result = classifyNode(child);
+			if (result.content) {
+				classifiedBody.push(result.content as ElementContent);
+			}
+		}
+
+		const li: Element = {
+			type: "element",
+			tagName: "li",
+			properties: {
+				className: ["task-list-item"],
+			},
+			children: [inputEl, ...classifiedBody],
+		};
+
+		listItems.push(li);
+	}
+
+	// Map to ul.contains-task-list
+	const ul: Element = {
+		type: "element",
+		tagName: "ul",
+		properties: {
+			className: ["contains-task-list"],
+		},
+		children: listItems,
+	};
+
+	return { content: ul, diagnostics: [] };
+}
+
+/** Classify an ac:task-list element → GFM task list (RSK-P2). */
+function classifyTaskListElement(el: Element): NodeClassificationResult {
+	// ac:task-list is a direct element (not ac:structured-macro)
+	// It contains ac:task elements directly as children
+	const tasks = el.children.filter(
+		(child) =>
+			child.type === "element" &&
+			child.tagName === "ac:task",
+	) as Element[];
+
+	const listItems: Element[] = [];
+
+	for (const task of tasks) {
+		const statusEl = task.children.find(
+			(child) => child.type === "element" && child.tagName === "ac:task-status",
+		) as Element | undefined;
+
+		const bodyEl = task.children.find(
+			(child) => child.type === "element" && child.tagName === "ac:task-body",
+		) as Element | undefined;
+
+		// Status is in the text child of ac:task-status
+		const statusText = statusEl?.children.find((child) => child.type === "text");
+		const isChecked = statusText?.type === "text" && statusText.value === "complete";
 
 		const taskContent = bodyEl?.children || [];
 
