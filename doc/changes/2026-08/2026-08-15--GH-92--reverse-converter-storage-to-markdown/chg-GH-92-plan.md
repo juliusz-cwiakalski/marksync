@@ -371,9 +371,9 @@ All 19 test-plan TCs are wired by this plan; phases below are where each first e
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| Phase 1 | ☐ Pending | — | — | — | Spike evidence (saxes version, event surface, smoke 34/34, gate verdict) recorded here + TDR-0012 UQ-1 |
-| Phase 2 | ☐ Pending | — | — | — | |
-| Phase 3 | ☐ Pending | — | — | — | |
-| Phase 4 | ☐ Pending | — | — | — | Substrate verdict (4.1: Alt 1 pin / Alt 3 / Alt 2 descent, corner-check outcomes, resolved version + license + bun.lock delta per TDR-0013) recorded here |
+| Phase 1 | ✅ Completed | — | 2026-08-15 | 676d711 | Spike evidence (saxes@6.0.0, MIT license, zero runtime deps, event surface verified, 34/34 corpus fixtures parsed, CDATA byte-identical, gate verdict: NO SWAP) recorded in TDR-0012 UQ-1 |
+| Phase 2 | ✅ Completed | — | 2026-08-15 | 9a4ebc3 | REVERSE_CODES with UNSUPPORTED_CONSTRUCT/SYNTHETIC_ARTIFACT/STORAGE_PARSE_ERROR, BlockingDiagnostic/InformationalDiagnostic unions, 11/11 tests green |
+| Phase 3 | ✅ Completed | — | 2026-08-15 | bdc3f50 | HastBuilder with SAX event handling, position tracking (line/column now captured), panel strip, K1 tolerance, 21/21 tests green |
+| Phase 4 | ☐ In Progress | — | — | — | Substrate verdict (task 4.1: hast-util-to-mdast@10.1.2 PASSED — MIT license, Bun compatible, all HAST shapes work, options layer {bullet: '-', rule: '-'} confirmed, transitive deps all MIT/ISC, corner-checks passed — no fallback needed) |
 | Phase 5 | ☐ Pending | — | — | — | Sidecar review confirmation recorded here |
 | Phase 6 | ☐ Pending | — | — | — | TDR-0012 → Accepted at merge (with license confirmation) |
