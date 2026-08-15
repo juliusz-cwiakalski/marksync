@@ -477,20 +477,15 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 			`;
 			const result = collectDiagnostics(storage);
 
-			// The code macro converts successfully, but we want to ensure exotic attributes would be diagnosed
-			// Since the macro children are processed, let's test with an unknown macro instead
-			const unknownStorage = `
-				<ac:structured-macro ac:name="unknown">
-					<ac:parameter ac:name="language" ac:custom="prop">value</ac:parameter>
-				</ac:structured-macro>
-			`;
-			const unknownResult = collectDiagnostics(unknownStorage);
+			// Code macro should convert successfully
+			expect(result.ok).toBe(true);
 
-			// Should have unknown-macro diagnostic
-			expect(unknownResult.value.diagnostics.length).toBeGreaterThan(0);
-			expect(unknownResult.value.diagnostics[0].code).toBe(
-				"reverse/unknown-macro",
+			// Exotic attribute on ac:parameter should be diagnosed
+			const paramAttrDiagnostic = result.value.diagnostics.find(
+				(d) => d.code === "reverse/unsupported-attribute",
 			);
+			expect(paramAttrDiagnostic).toBeDefined();
+			expect(paramAttrDiagnostic?.construct).toBe("ac:parameter[ac:custom]");
 		});
 
 		it("canonical attributes on ac:structured-macro[ac:name] are silent", () => {
@@ -675,27 +670,28 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 		});
 
 		it("echoes page context on informational diagnostics", () => {
+			// Use mermaid artifact macro which produces informational diagnostic
 			const storage = `
-				<ac:structured-macro ac:name="mermaid">
-					<ac:parameter ac:name="renderPolicy">DECORATIVE</ac:parameter>
-					<ac:plain-text-body><![CDATA[graph TD; A-->B;]]></ac:plain-text-body>
-				</ac:structured-macro>
+				<ac:image ac:alt="Mermaid diagram">
+					<ri:url ri:value="marksync-mermaid-generated-abc123.svg" />
+				</ac:image>
 			`;
 			const page = { pageId: "page-456", title: "Mermaid Page" };
 			const result = collectDiagnostics(storage, page);
 
-			expect(result.value.diagnostics[0]).toMatchObject({
-				page: { pageId: "page-456", title: "Mermaid Page" },
+			// Find the informational diagnostic
+			const infoDiag = result.value.diagnostics.find(
+				(d) => d.severity === "informational",
+			);
+			expect(infoDiag).toBeDefined();
+			expect(infoDiag?.page).toEqual({
+				pageId: "page-456",
+				title: "Mermaid Page",
 			});
 		});
 
-		it("echoes page context on parse-error diagnostics", () => {
-			// Note: saxes parser is tolerant, so we use a different approach
-			// The parse error test is handled in the integration layer
-			// Here we skip it for the unit test layer
-			console.log(
-				"Parse-error page context tested in integration layer, skipping unit test",
-			);
+		it.skip("echoes page context on parse-error diagnostics", () => {
+			// Skipped: saxes parser is tolerant; parse error test handled in integration layer
 		});
 
 		it("partial page context is echoed verbatim (no synthesis)", () => {
@@ -910,6 +906,155 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 					collectAll.value.diagnostics[0].page,
 				);
 			}
+		});
+	});
+
+	describe("TC-ATTR-003: exotic attribute on recognized macro", () => {
+		it("class on ac:structured-macro[ac:name='code'] produces unsupported-attribute", () => {
+			const storage = `
+				<ac:structured-macro ac:name="code" class="highlight">
+					<ac:parameter ac:name="language">javascript</ac:parameter>
+					<ac:plain-text-body><![CDATA[console.log("hello");]]></ac:plain-text-body>
+				</ac:structured-macro>
+			`;
+			const result = collectDiagnostics(storage);
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0]).toMatchObject({
+				code: "reverse/unsupported-attribute",
+				construct: "ac:structured-macro[class]",
+				severity: "blocking",
+			});
+		});
+	});
+
+	describe("TC-TASK-002: task-body propagation diagnostics", () => {
+		it("task-body with unknown element and exotic-attribute element produces both diagnostics", () => {
+			const storage = `
+				<ac:task-list>
+					<ac:task>
+						<ac:task-status>complete</ac:task-status>
+						<ac:task-body>
+							<div>Unknown div</div>
+							<p style="color: red">Styled paragraph</p>
+						</ac:task-body>
+					</ac:task>
+				</ac:task-list>
+			`;
+			const result = collectDiagnostics(storage);
+
+			// Should have both diagnostics: unknown-element for div, unsupported-attribute for p[style]
+			expect(result.value.diagnostics).toHaveLength(2);
+			expect(result.value.diagnostics[0]).toMatchObject({
+				code: "reverse/unknown-element",
+				construct: "div",
+				severity: "blocking",
+			});
+			expect(result.value.diagnostics[1]).toMatchObject({
+				code: "reverse/unsupported-attribute",
+				construct: "p[style]",
+				severity: "blocking",
+			});
+		});
+	});
+
+	describe("TC-TASK-003: macro form task-list integrity", () => {
+		it("canonical macro task-list converts cleanly with zero diagnostics", () => {
+			const storage = `
+				<ac:structured-macro ac:name="task-list">
+					<ac:task>
+						<ac:task-status>complete</ac:task-status>
+						<ac:task-body><p>Task 1</p></ac:task-body>
+					</ac:task>
+					<ac:task>
+						<ac:task-status>incomplete</ac:task-status>
+						<ac:task-body><p>Task 2</p></ac:task-body>
+					</ac:task>
+				</ac:structured-macro>
+			`;
+			const result = collectDiagnostics(storage);
+
+			expect(result.value.diagnostics).toHaveLength(0);
+		});
+
+		it("stray child (span) of macro task-list diagnosed at child", () => {
+			const storage = `
+				<ac:structured-macro ac:name="task-list">
+					<ac:task>
+						<ac:task-status>complete</ac:task-status>
+						<ac:task-body><p>Canonical task</p></ac:task-body>
+					</ac:task>
+					<span>Stray span</span>
+				</ac:structured-macro>
+			`;
+			const result = collectDiagnostics(storage);
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0]).toMatchObject({
+				code: "reverse/unknown-element",
+				construct: "span",
+				severity: "blocking",
+			});
+		});
+
+		it("missing-status task in macro form produces unsupported-construct", () => {
+			const storage = `
+				<ac:structured-macro ac:name="task-list">
+					<ac:task>
+						<ac:task-body><p>Task without status</p></ac:task-body>
+					</ac:task>
+				</ac:structured-macro>
+			`;
+			const result = collectDiagnostics(storage);
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0]).toMatchObject({
+				code: "reverse/unsupported-construct",
+				severity: "blocking",
+			});
+		});
+
+		it("class on macro task-list produces unsupported-attribute", () => {
+			const storage = `
+				<ac:structured-macro ac:name="task-list" class="custom-class">
+					<ac:task>
+						<ac:task-status>complete</ac:task-status>
+						<ac:task-body><p>Task</p></ac:task-body>
+					</ac:task>
+				</ac:structured-macro>
+			`;
+			const result = collectDiagnostics(storage);
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0]).toMatchObject({
+				code: "reverse/unsupported-attribute",
+				construct: "ac:structured-macro[class]",
+				severity: "blocking",
+			});
+		});
+	});
+
+	describe("TC-TASK-004: canonical-but-misplaced task-list children", () => {
+		it("stray canonical ac:image child of task-list produces structural fallback", () => {
+			const storage = `
+				<ac:task-list>
+					<ac:task>
+						<ac:task-status>complete</ac:task-status>
+						<ac:task-body><p>Task 1</p></ac:task-body>
+					</ac:task>
+					<ac:image ac:alt="Stray image">
+						<ri:url ri:value="https://example.com/image.png" />
+					</ac:image>
+				</ac:task-list>
+			`;
+			const result = collectDiagnostics(storage);
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0]).toMatchObject({
+				code: "reverse/unsupported-construct",
+				construct: "ac:image",
+				severity: "blocking",
+			});
 		});
 	});
 });

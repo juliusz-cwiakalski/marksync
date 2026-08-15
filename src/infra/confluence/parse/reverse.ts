@@ -220,6 +220,10 @@ const CANONICAL_AC_ELEMENTS = [
 	"ac:task-status",
 	"ac:task-body",
 	"ac:plain-text-body",
+	"ac:parameter",
+	"ri:attachment",
+	"ri:url",
+	"ac:structured-macro",
 ] as const;
 
 /**
