@@ -16,7 +16,7 @@ phases:
   review_fix: { started: 2026-08-15, completed: 2026-08-15 }
   quality_gates: { started: 2026-08-15, completed: 2026-08-15 }
   dod_check: { started: 2026-08-15, completed: 2026-08-15 }
-  pr_creation: { started: null, completed: null, url: null }
+  pr_creation: { started: 2026-08-15, completed: null, url: null }
 
 decisions:
   - text: >
