@@ -1,0 +1,238 @@
+version: 1
+iteration: 1
+mode: local
+work_item_ref: GH-93
+branch: feat/GH-93/unsupported-construct-detection
+status: FAIL
+summary: >-
+  Core delivery is solid and guardrails hold under independent re-execution (full
+  gate 1673/0 + BDD re-run by this review; TDR-0014 taxonomy exact and pinned;
+  layout/orphan/task-list/page-context mechanics correct; tripwires clean).
+  FAIL is driven by the attribute pass silently skipping the specially-handled
+  Confluence element set — ac:image user-set properties (AC-F2-1's own example)
+  remain silently dropped and the aligned corpus pins that silent state, while
+  the doc-synced feature spec claims the opposite — plus two further reachable
+  silent-drop paths in the task-list mapper, and a promised unit-test file
+  (plan task 2.6) that was never created while checked [x].
+severity_breakdown:
+  critical: 1
+  high: 3
+  medium: 3
+  low: 2
+  info: 3
+spec_compliance: FAIL
+plan_compliance: FAIL
+findings:
+  - id: F-1
+    severity: critical
+    confidence: high
+    category: spec-compliance
+    location: src/infra/confluence/parse/reverse.ts:723
+    message: >-
+      Attribute pass never runs on specially-handled Confluence elements
+      (ac:image, recognized ac:structured-macro, ac:task-list + task children,
+      ac:plain-text-body, ac:parameter, ri:*) — checkAttributes early-returns
+      via the plain-HTML-only isCanonicalElement and the ac:image branch returns
+      before any attribute check. The committed storage-exotic-attributes
+      fixture carries ac:image ac:width="200" ac:align="center" that produces
+      zero diagnostics, and its sidecar pins that silent state; Appendix C rows
+      for these elements are dead. Violates AC-F2-1 (ac:image clause), AC-F6-1,
+      G-1, NFR-1, Appendix A/C, plan task 2.2 + PD-5; doc-synced
+      feature-reverse-conversion.md:177-179 over-claims the opposite.
+    suggestion: >-
+      Extend the attribute pass to the PD-5 element set using the Appendix C
+      rows; re-pin storage-exotic-attributes to include ac:image[ac:align,
+      ac:width] and add a recognized-macro exotic-attribute case; keep the
+      canonical sweeps zero-diagnostic. Alternatively record a spec erratum
+      re-scoping AC-F2-1/AC-F6-1 and correct the doc-synced spec — fix-forward
+      is the spec-compliant path.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-2
+    severity: high
+    confidence: high
+    category: correctness
+    location: src/infra/confluence/parse/reverse.ts:545
+    message: >-
+      mapTaskSequenceToGfmTaskList discards result.diagnostics from task-body
+      classification — blocking constructs inside ac:task-body (unknown
+      element, exotic attribute, nested table) produce diagnostics that are
+      silently swallowed and content silently lost. No fixture places
+      unsupported content inside a task body, so the corpus cannot catch it.
+    suggestion: >-
+      Collect and propagate body-classification diagnostics into the task-list
+      result; add a unit probe with an unknown element and an exotic-attribute
+      element inside ac:task-body.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-3
+    severity: high
+    confidence: high
+    category: spec-compliance
+    location: src/infra/confluence/parse/reverse.ts:508
+    message: >-
+      ac:task-id (standard in real Confluence read-backs; present in two
+      committed fixtures) is silently dropped — mapTaskSequenceToGfmTaskList
+      reads only ac:task-status/ac:task-body and never visits other ac:task
+      children. ac:task-id is not in Appendix C's canonical set, so these are
+      non-canonical instances converted with zero diagnostics; the mixed
+      fixture pins []. AC-F6-1 "zero unclassified instances" is false as
+      pinned.
+    suggestion: >-
+      Record the disposition: classify unknown children of ac:task as
+      reverse/unknown-element at the child (mirror-strict), or declare
+      ac:task-id canonical-silent in Appendix C as a documented mirror-principle
+      exception. Pin whichever ships; if classifying, re-pin the two affected
+      sidecars as a reviewed re-baseline.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-4
+    severity: high
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-08/2026-08-15--GH-93--unsupported-construct-detection/chg-GH-93-plan.md:159
+    message: >-
+      Plan task 2.6 checked [x] but tests/unit/infra/confluence/parse/reverse.test.ts
+      (NEW file, ten TC unit arms) was never created — no trace in git history;
+      Phase-2 commit 4575dcf contains no such file. Task 2.7 (TC-TAXO-002
+      assignment-map pin) only covers the unknown-macro row — no
+      layout/attribute/element/fallback probes or severity pins. Task 2.1's
+      parser-test extension (K1 names survive on non-macro elements) not
+      delivered — reverse-parser.test.ts untouched. Execution-log "unit tier"
+      claim inaccurate. CHECKED_BUT_MISSING.
+    suggestion: >-
+      Create the unit file per task 2.6 (hand-built Storage, #-aliases, literal
+      code strings), add TC-TAXO-002 per-Appendix-A-row probes with severity
+      pins, add the parser K1-survival assertions.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-5
+    severity: medium
+    confidence: high
+    category: plan-compliance
+    location: tests/golden/adversarial/reverse-classification-runner.test.ts:73
+    message: >-
+      Residual untested contracts: sourcePath absorption (TC-PAGE-003),
+      explicit-page-wins precedence, no-opts vs explicit-undefined byte-compat
+      through real entry points (TC-PAGE-002 — only model-level probes exist),
+      page echo on the informational arm (implemented at reverse.ts:272,
+      unpinned), sibling layout trees -> one diagnostic each (TC-LAY-001
+      step), and the OQ-P2 text-child fallback claimed "unit-pinned".
+    suggestion: Fold these probes into the F-4 unit file.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-6
+    severity: medium
+    confidence: high
+    category: correctness
+    location: src/infra/confluence/parse/reverse.ts:580
+    message: >-
+      classifyTaskListMacro still silently filters children (non-ac:task
+      children and ac:task-without-status dropped without diagnostics) although
+      plan task 2.4 explicitly names BOTH classifiers as stopping the silent
+      filtering. The macro form is synthetic but is exactly the silent-drop
+      class this change removes, on a path the plan claims closed.
+    suggestion: >-
+      Route the macro form through the same child-integrity logic shared with
+      the element form (or remove the branch if unreachable-by-design) so plan
+      text and code agree.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-7
+    severity: medium
+    confidence: medium
+    category: correctness
+    location: src/infra/confluence/parse/reverse.ts:621
+    message: >-
+      Task-list stray-child class selection uses the plain-HTML-only
+      isCanonicalElement: a stray canonical-but-misplaced Confluence child
+      (ac:image, nested ac:task-list, ac:parameter) inside ac:task-list emits
+      reverse/unknown-element, but F-3/Appendix A assign individually-canonical
+      misplaced children to the structural fallback. Wrong-code edge on the
+      TDR-0014-frozen taxonomy; untested.
+    suggestion: >-
+      Classify stray children against the full canonical set (plain-HTML +
+      Appendix C ac:* canonical elements); pin with a unit probe.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-8
+    severity: low
+    confidence: high
+    category: correctness
+    location: tests/golden/adversarial/reverse-classification-runner.test.ts:224
+    message: >-
+      Runner parity assertions compare the fast-fail error to
+      collectAll.diagnostics[0] rather than the first blocking entry (plan
+      RSK-P6 defines parity-first-blocking semantics). Passes today because no
+      fixture mixes informational-before-blocking; latent false-failure.
+    suggestion: Select the first severity==="blocking" entry in the runner mapping.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-9
+    severity: low
+    confidence: high
+    category: quality
+    location: src/infra/confluence/parse/reverse.ts:306
+    message: >-
+      25-entry canonical-element literal duplicated between canonicalElements
+      (:306-332) and isCanonicalElement (:685-713) — drift risk between
+      attribute-pass scope and classification. Second same-module import
+      (:5-14 + :18) repeats the GH-92 F-14/F-20 nit; as const on the
+      Record-typed allowlist is inert.
+    suggestion: >-
+      Extract one shared constant with a scope-distinguishing comment; merge
+      the import; drop the inert as const.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-10
+    severity: info
+    confidence: high
+    category: info
+    location: src/infra/confluence/parse/reverse-parser.ts:71
+    message: >-
+      Pinned locations are post-'>' saxes opentag positions, not element-start
+      '<' columns (e.g. ac:layout -> 1:12 for an 11-char tag). Pre-existing
+      GH-92 semantics, byte-stable across re-pins, deterministic; spec's
+      "element-start" wording should be read accordingly. No action.
+    suggestion: None required (accepted discretionary per GH-92 review F-12).
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-11
+    severity: info
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-08/2026-08-15--GH-93--unsupported-construct-detection/chg-GH-93-plan.md:201
+    message: >-
+      Bookkeeping: plan task 3.8 + execution log say "14 pairs + 2 companions =
+      30 new files"; actual is 12 pairs + 2 companions = 26 (plan's own Files
+      section says 26). Fixture count 21 is correct. Also the
+      malformed-page-context sidecar detail "malformed" is a placeholder, not
+      the real saxes message (runner only asserts defined).
+    suggestion: Correct the counts in the plan execution log at next plan touch.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-12
+    severity: info
+    confidence: high
+    category: info
+    location: doc/changes/2026-08/2026-08-15--GH-93--unsupported-construct-detection/chg-GH-93-pm-notes.yaml:12
+    message: >-
+      Uncommitted working-tree modification (review_fix.started timestamp
+      advanced by PM). Benign; must land via the PM's next docs commit.
+    suggestion: None required by coder; PM to include in next docs commit.
+    suppressed: false
+    published_url: null
+    published_at: null
+reviewed_at: 2026-08-15T18:30:00Z
+next_step: EXECUTE_REMEDIATION_PHASE

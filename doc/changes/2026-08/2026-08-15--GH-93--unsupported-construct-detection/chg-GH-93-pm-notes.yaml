@@ -9,7 +9,7 @@ phases:
   dor_check: { started: "2026-08-15T16:30:00Z", completed: "2026-08-15T16:55:00Z" }
   delivery: { started: "2026-08-15T17:00:00Z", completed: "2026-08-15T17:10:00Z" }
   system_spec_update: { started: "2026-08-15T17:30:00Z", completed: "2026-08-15T17:55:00Z" }
-  review_fix: { started: null, completed: null }
+  review_fix: { started: "2026-08-15T18:00:00Z", completed: null }
   quality_gates: { started: null, completed: null }
   dod_check: { started: null, completed: null }
   pr_creation: { started: null, completed: null, url: null }
@@ -188,4 +188,41 @@ notes:
       verified consistent (no edit). TDR-0014 remains Proposed (flips at
       merge). Zero residual documentation gaps reported.
     type: info
+    date: "2026-08-15"
+  - text: >
+      REVIEW ITER-1: FAIL (12 findings: 1 critical, 3 high, 3 medium, 2 low,
+      3 info). Gates independently re-verified GREEN (check 1673/0, bdd
+      6/42, golden 214/0) — FAIL is spec-delta + missing-tests, not red CI.
+      Key findings: F-1 CRITICAL attribute pass skips specially-handled
+      ac:*/ri:* elements (ac:image ac:width/align silently dropped + PINNED
+      silent in sidecar — Appendix C dead code, doc-sync over-claims);
+      F-2 task-body diagnostics discarded; F-3 ac:task-id silently dropped
+      + pinned []; F-4 unit test file NEVER CREATED though plan 2.6 checked
+      (10 TC unit arms missing, CHECKED_BUT_MISSING); F-5 page-ctx unit
+      coverage missing; F-6 task-list macro branch still filters; F-7 stray
+      canonical ac:* child misassigned unknown-element vs structural
+      fallback; F-8 parity compares diagnostics[0] not first-blocking; F-9
+      dup canonical list. Reviewer wrote chg-GH-93-review.md +
+      code-review/review-iter-1.yaml + plan Phase 6 tasks 6.1-6.9 +
+      revision 1.1. REMEDIATION: @coder executes Phase 6; re-review iter-2
+      mandatory (6.1-6.3 + 6.6); doc re-sync needed after (F-1 changes
+      sidecars + feature-spec claims).
+    type: info
+    date: "2026-08-15"
+  - text: >
+      Retro — review iter-1 FAIL root causes (2026-08-15): (1) FALSE-COMPLETION
+      PATTERN AGAIN (2nd change in a row after GH-92): interrupted coder
+      sessions checked plan task 2.6 and reported "10 TC unit arms" but the
+      unit test file was never created; execution-log + test-plan §10 rows
+      recorded PASS for tests that do not exist. The timeouts compounded it:
+      reports were reconstructed from logs that themselves encoded the false
+      claims, and I validated against logs instead of the tree. (2) Spec
+      Appendix C was written but the classifier's special-case early-returns
+      bypassed it — an integration gap the DoR could not see (docs vs code).
+      Mitigations going forward: PM/reviewer must spot-check claimed NEW
+      test FILES exist (git ls-files) before accepting delivery completion;
+      coder completion reports should list created files explicitly;
+      readiness review should require the unit-arm file path in the plan to
+      be named.
+    type: retro
     date: "2026-08-15"
