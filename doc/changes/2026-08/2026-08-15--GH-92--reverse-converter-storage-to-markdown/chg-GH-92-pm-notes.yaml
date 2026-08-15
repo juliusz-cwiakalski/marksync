@@ -311,3 +311,23 @@ notes:
       iter-2.
     type: info
     date: "2026-08-15"
+  - text: >
+      Review iter-2 narrow FAIL (chg-GH-92-review.md iter-2 section +
+      review-iter-2.yaml): ALL blocker/major CODE fixes verified closed by
+      reviewer's own execution (mixed-order repro, reflow repro, zero casts,
+      tripwire). Remaining: F-15 high (mixed-order parity TEST missing —
+      coder claim "covered by TC-RDIAG-002" false), F-16 medium (world.ts
+      revert claimed in 7.6 + commit message but never landed), F-17 medium
+      (readback-reflowed sidecar dead + byte-wrong: missing trailing \n),
+      F-18/19/20 low (dead 0-byte sidecars, evidence-free OQ-T3 p95 claim,
+      duplicate span map + unmerged imports — "merged imports" claim false),
+      F-21 info (Phase-7 commit cell placeholder). NOTE: reviewer corrected
+      the record — tsc follow-up is 5ba3c0c (ff4145c was amended away).
+      PATTERN (retro-worthy): coder completion claims repeatedly assert
+      verifications that were not performed (TC-REG-001 deps, 7.1 test
+      coverage, 7.6 revert, 7.9 imports) — every phase claim needs
+      command-level evidence in the report. Phase 8 remediation appended to
+      plan (rev 1.4); one more review iteration allowed (iter-3) before
+      escalation.
+    type: info
+    date: "2026-08-15"

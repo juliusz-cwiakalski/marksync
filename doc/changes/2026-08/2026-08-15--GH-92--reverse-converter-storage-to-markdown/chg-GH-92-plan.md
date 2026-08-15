@@ -351,6 +351,43 @@ MarkSync converts only Markdown→Storage today. This change adds the reverse di
 
 ---
 
+### Phase 8: Code Review Remediation (Iteration 2)
+
+**Goal**: Close the 7 iteration-2 findings (`chg-GH-92-review.md` iter-2 / `code-review/review-iter-2.yaml`). The F-1/F-2/F-3/F-4 code substance is verified fixed — remaining work is test wiring (the blocker's regression guard), one byte-fix + wiring of the reflow sidecar, one honest revert, and accuracy edits to remediation notes. No architecture work.
+**Effort**: ~0.25 day · **Risk**: L
+
+**Tasks**:
+
+- [ ] **8.1** (F-15, high) Add the mixed-order parity unit test to `tests/unit/domain/markdown/reverse-diagnostics.test.ts` (TC-RDIAG-002): Storage = heading + mermaid render-policy image (`ri:filename="marksync-mermaid-…"`) on line 2 + `ac:structured-macro ac:name="gliffy"` on line 3 → assert fast-fail error is the gliffy `UnsupportedConstruct`; `collectAll.diagnostics[0]` is the `informational` synthetic-artifact entry; the FIRST blocking entry matches the fast-fail error on `code`/`construct`/`location`. Also record the §4.4:178 amendment (parity = first blocking entry, field-level) as a one-line note in `chg-GH-92-test-plan.md` §4.4.
+- [ ] **8.2** (F-17, medium) Fix `tests/golden/fixtures/markdown/reverse/readback-reflowed.md` (add the trailing newline so it byte-matches actual output `foo **a** *b* baz\n`) and wire a byte-equality assertion for `readback-reflowed.storage.xhtml` (extend TC-RT-002 with a storageOnly expectations arm, or TC-RT-006).
+- [ ] **8.3** (F-16, medium) Revert the `tests/bdd/support/world.ts:99` hunk to `After(function ()` so `git diff main...HEAD` shows zero existing-test modifications; correct plan task 7.6's note to reflect the actual iter-2 state (revert landed in Phase 8, not 039c275).
+- [ ] **8.4** (F-18, low) Consume or delete the dead 0-byte sidecars `reverse/mixed-html-comment.md` and `reverse/provenance-panel.md` (e.g., have the TC-RT-002 early-return branch and TC-RT-006 read them instead of hardcoding). Optionally strengthen the negative self-test to invoke the completeness helper with an injected unlisted name.
+- [ ] **8.5** (F-19, low) Either add record-only `performance.now()` per-fixture timings to the round-trip runner (no CI gate) or reword task 7.10 to record the p95 drop honestly; keep OQ-T3's disposition stated as a decision without an evidence-free "holds" claim.
+- [ ] **8.6** (F-20, low) Dedupe `"span"` in `PHRASING_ELEMENTS` (reverse-parser.ts:281/285); merge the same-module imports (reverse-parser.ts:16-17, reverse.ts:17) or correct 7.12's "Merged imports" note.
+- [ ] **8.7** (F-21, info) Execution Log: replace the Phase-7 `[REMEDIATION COMMIT]` placeholder with `039c275` + `5ba3c0c`; note that the orchestrator-referenced `ff4145c` does not exist (tsc-strict follow-up landed as `5ba3c0c`).
+- [ ] **8.8** Green boundary: `bun test` (expect >1608 pass / 0 fail), `bun run check` + `bun run test:bdd`; forward tripwire re-verified (`git diff main...HEAD` zero modified forward fixtures, zero `src/cli/`, and after 8.3 zero existing-test modifications). Re-review of 8.1–8.3 outcomes (iteration 3).
+
+**Acceptance Criteria**:
+
+- Must: mixed-order parity test present and green (informational before blocking; first blocking ≡ fast-fail on code/construct/location).
+- Must: reflow fixture byte-asserted against a byte-correct sidecar; no dead fixture files under `tests/golden/fixtures/markdown/reverse/`.
+- Must: `world.ts` byte-identical to main; every remediation note in this plan accurate against the actual diffs.
+
+**Files and modules**:
+
+- Test areas: `tests/unit/domain/markdown/reverse-diagnostics.test.ts`, `tests/golden/markdown/reverse-round-trip.test.ts` (or `reverse-readback.test.ts`), `tests/golden/fixtures/markdown/reverse/`.
+- Code areas (cosmetic only): `src/infra/confluence/parse/reverse-parser.ts` (8.6).
+- Docs: this plan (7.6/7.10/7.12 corrections, Execution Log), `chg-GH-92-test-plan.md` §4.4 note.
+
+**Tests**:
+
+- `bun test tests/unit/domain/markdown/ tests/golden/markdown/`
+- `bun run check && bun run test:bdd`
+
+**Completion signal**: `fix(GH-92): review iter-2 remediation — mixed-order parity test, reflow byte pin, world.ts revert, note accuracy`
+
+---
+
 ## Test Scenarios
 
 All 19 test-plan TCs are wired by this plan; phases below are where each first executes green.
@@ -408,6 +445,7 @@ All 19 test-plan TCs are wired by this plan; phases below are where each first e
 | 1.1 | 2026-08-15 | plan-writer (GH-92) | DoR iter-1 remediation — integrate TDR-0013 (options layer, Alt 3 fallback, corner-checks, OQ-P1 resolved), TDR-0012 precedence note, pii-audit scope note, qualified loader paths |
 | 1.2 | 2026-08-15 | plan-writer (GH-92) | DoR iter-2 Finding 6 — corpus-B 7→6 propagated to task 5.1 manifest instruction + Binding inputs (raw-html-block-real excluded-only, disjoint per test-plan TC-RT-005) |
 | 1.3 | 2026-08-15 | reviewer (GH-92) | Review iteration 1 FAIL — appended Phase 7 remediation (14 findings: 1 blocker collect-all parity/informational mislabel, 3 major ReverseError shape drift + inline whitespace loss + TC-RT-002 placeholder with dead corpus-B sidecars, 7 minor, 3 nits) per `chg-GH-92-review.md`; merged the two partial Phase-7 drafts left by colliding review passes into one authoritative section |
+| 1.4 | 2026-08-15 | reviewer (GH-92) | Review iteration 2 FAIL (narrow) — code substance of F-1/F-2/F-3/F-4 verified fixed and empirically re-verified (1608/0 green, zero double casts, mixed-order + reflow repros pass at HEAD); unmet Phase-7 Must ACs: mixed-order parity test absent (7.1 claim false), reflow sidecar dead + byte-mismatched, world.ts revert never landed (7.6 claim false), dead sidecars remain; appended Phase 8 remediation (7 findings: 1 high / 2 medium / 3 low / 1 info) per `code-review/review-iter-2.yaml` |
 
 ## Execution Log
 

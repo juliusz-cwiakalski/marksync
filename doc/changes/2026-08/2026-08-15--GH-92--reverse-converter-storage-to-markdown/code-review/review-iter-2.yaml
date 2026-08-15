@@ -1,0 +1,147 @@
+version: 1
+iteration: 2
+mode: local
+work_item_ref: GH-92
+branch: feat/GH-92/reverse-converter-storage-to-markdown
+status: FAIL
+summary: >-
+  Re-review after remediation commits 039c275 + 5ba3c0c (the orchestrator-referenced ff4145c does not
+  exist; the tsc-strict follow-up landed as 5ba3c0c). All verification was re-run by this review:
+  bun test 1608/0 green, zero "as unknown as" casts on the reverse path, mixed-order and reflow repros
+  executed against HEAD, git diff main...HEAD tripwire intact (zero src/cli/, forward fixtures
+  additions-only). The CODE substance of iteration-1 findings F-1/F-2/F-3/F-4 is genuinely closed:
+  collect-all now returns ReverseDiagnostic[] preserving severity/class with the first blocking entry
+  matching the fast-fail error on code/construct/location (empirically reproduced with informational
+  BEFORE blocking); the error union carries a faithful kind-tagged UnsupportedConstructError; phrasing
+  whitespace collapses to a single space with the reflow fixture producing "foo **a** *b* baz"; TC-RT-002
+  byte-asserts all 6 corpus-B sidecars. FAIL is narrow and driven by unmet Phase-7 Must acceptance
+  criteria: the required mixed-order parity test does not exist anywhere in tests/ while plan 7.1 claims
+  it is covered; the reflow sidecar is consumed by no test AND is byte-mismatched (missing trailing
+  newline) so the F-3 regression is unguarded; world.ts is still modified vs main while plan 7.6 and the
+  commit message claim "Reverted" — the revert never landed; three remediation completion claims
+  (7.1, 7.6, 7.12) are demonstrably false.
+severity_breakdown:
+  critical: 0
+  high: 1
+  medium: 2
+  low: 3
+  info: 1
+spec_compliance: PASS
+plan_compliance: FAIL
+findings:
+  - id: F-15
+    severity: high
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-08/2026-08-15--GH-92--reverse-converter-storage-to-markdown/chg-GH-92-plan.md:320
+    message: >-
+      The mixed-order parity test required by plan task 7.1 (informational render artifact before a
+      blocking macro; first blocking entry deep-equals the fast-fail error) does not exist — no test in
+      tests/ combines a marksync-mermaid-* artifact with a blocking construct through
+      reverseStorageCollectAll, and no adversarial fixture contains a synthetic artifact. The 7.1
+      completion note "mixed-order parity covered by TC-RDIAG-002" is false (its Storage-driven cases
+      are all-blocking). Phase 7 Must AC "mixed-order parity test green" is unmet. The underlying code
+      is correct (verified empirically at HEAD) but the blocker's regression guard is absent.
+    suggestion: >-
+      Add the unit test using the iteration-1 reviewer repro (heading + mermaid render-policy image +
+      gliffy): assert all.diagnostics[0] is the informational, the first blocking entry matches the
+      fast-fail error on code/construct/location. Record the test-plan §4.4:178 amendment (parity =
+      first blocking entry, field-level) in the test plan.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-16
+    severity: medium
+    confidence: high
+    category: plan-compliance
+    location: tests/bdd/support/world.ts:99
+    message: >-
+      F-6 is not remediated: git diff main...HEAD still shows the After(function () → After(() => style
+      change at HEAD. Plan 7.6 "(FIXED: Reverted to function syntax; zero existing test file
+      modifications)" and the 039c275 commit message both claim a revert that never landed — the commit
+      contains no world.ts hunk. Task 6.4(b)'s "every other existing test file unmodified" claim remains
+      contradicted by the branch diff, and a remediation completion note is false.
+    suggestion: >-
+      Actually revert the one-line hunk (or, if biome re-introduces it, record the deviation and reason
+      honestly in the Execution Log) and correct the 7.6 note.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-17
+    severity: medium
+    confidence: high
+    category: correctness
+    location: tests/golden/fixtures/markdown/reverse/readback-reflowed.md:1
+    message: >-
+      The F-3 repro is pinned by no assertion. readback-reflowed.storage.xhtml sits in storageOnly so
+      TC-RT-003 only checks determinism, and the sidecar reverse/readback-reflowed.md is read by no test
+      — and it is byte-mismatched: it lacks the trailing newline the converter emits ("foo **a** *b*
+      baz" vs actual "foo **a** *b* baz\n"), so wiring it as-is would fail. A regression to word-joining
+      would pass the suite green. Violates Phase 7 Must ACs "reflow fixture round-trips without
+      word-joining" (nothing asserts the expected bytes) and "no dead fixture files".
+    suggestion: >-
+      Fix the sidecar trailing newline and add a byte-equality test for the reflow fixture (extend
+      TC-RT-002's storageOnly arm or TC-RT-006).
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-18
+    severity: low
+    confidence: high
+    category: plan-compliance
+    location: tests/golden/fixtures/markdown/reverse/mixed-html-comment.md:1
+    message: >-
+      Residual dead sidecars: reverse/mixed-html-comment.md (TC-RT-002's early return skips reading it)
+      and reverse/provenance-panel.md (TC-RT-006 hardcodes the empty expectation) are consumed by
+      nothing. The negative self-test is a loop↔manifest sync assertion rather than the asked
+      "unlisted fixture name fails the completeness helper".
+    suggestion: >-
+      Consume or delete the two 0-byte sidecars; optionally strengthen the negative self-test to
+      exercise the completeness helper with an injected unlisted name.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-19
+    severity: low
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-08/2026-08-15--GH-92--reverse-converter-storage-to-markdown/chg-GH-92-plan.md:329
+    message: >-
+      OQ-T3/p95 closed without evidence — plan 7.10 asserts "P95 < 200ms holds" but no timing code
+      exists anywhere in the round-trip runner and test-plan §4.4:247 still promises recorded per-fixture
+      durations.
+    suggestion: >-
+      Add record-only performance.now() per-fixture timings (no CI gate), or reword 7.10 to record the
+      drop and its reason honestly.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-20
+    severity: low
+    confidence: high
+    category: code-quality
+    location: src/infra/confluence/parse/reverse-parser.ts:281
+    message: >-
+      Duplicate "span" entry in PHRASING_ELEMENTS (:281 and :285); same-module dual imports remain at
+      reverse-parser.ts:16-17 and reverse.ts:17 despite plan 7.12's "Merged imports" claim.
+    suggestion: >-
+      Dedupe the Set entry; merge the imports or drop the 7.12 claim.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-21
+    severity: info
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-08/2026-08-15--GH-92--reverse-converter-storage-to-markdown/chg-GH-92-plan.md:422
+    message: >-
+      Execution Log Phase 7 row still carries the "[REMEDIATION COMMIT]" placeholder instead of
+      039c275/5ba3c0c. Additionally, the orchestrator context referenced remediation commit ff4145c,
+      which does not exist in the repo (the tsc-strict follow-up is 5ba3c0c, different header) — worth
+      recording so the audit trail resolves.
+    suggestion: Fill the real SHAs and note the hash correction.
+    suppressed: false
+    published_url: null
+    published_at: null
+reviewed_at: 2026-08-15T11:34:05Z
+next_step: EXECUTE_REMEDIATION_PHASE
