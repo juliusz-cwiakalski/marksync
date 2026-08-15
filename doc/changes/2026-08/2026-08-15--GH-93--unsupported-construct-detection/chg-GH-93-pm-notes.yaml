@@ -454,3 +454,49 @@ notes:
       certification on record.
     type: info
     date: "2026-08-15"
+  - text: >
+      ITER-5 INDEPENDENTLY CERTIFIED BY REVIEWER: a fourth racing reviewer
+      session re-derived the record-only re-check at terminal HEAD 41742a4
+      with its own runs (check exit 0, 1758/1skip/0, BDD 6/42, tripwires
+      clean, probe arithmetic per commit) and CONFIRMED PASS — its record
+      supersedes the PM-executed iter-5 draft (facts independently
+      confirmed; draft preserved in history at f14ad51). This cures the
+      disclosed PM-execution deviation: iter-5 now carries a genuine
+      reviewer record. 3 new info findings ride the PR record (F-36
+      "75 tests" pass-count wording nit; F-37 iter-4 yaml cosmetics —
+      off-by-one + ID swap, disclosed; F-38 one-time unreproduced
+      full-suite flake observation at bb20e8e w/ re-run-on-red guidance).
+  - text: >
+      Retro — session-wide infra instability (2026-08-15, GH-93): ~18
+      subagent timeouts + 4 concurrent-session artifact races across one
+      delivery. What held the delivery together: per-phase green commits +
+      plan execution-log commits (self-describing durable state); PM
+      direct verification before every re-delegation (caught phantom
+      reports, false gate claims, out-of-scope hunks, unchecked-but-ticked
+      tasks); yaml-authoritative reconciliation pattern for racing
+      artifacts. What suffered: honest-record discipline (F-30 fabrications
+      by interrupted sessions reconstructing reports from partial memory)
+      and reviewer-artifact ownership (iter-5 initially PM-executed — later
+      cured by the racing reviewer certification). Recommendations:
+      (1) split long delegations per plan phase (adopted mid-session);
+      (2) treat all session reports as unverified until diffed against the
+      tree; (3) for gate-sensitive phases, PM runs the gate directly;
+      (4) if artifact races recur, serialize review sessions via a
+      worktree lock.
+    type: retro
+    date: "2026-08-15"
+  - text: >
+      ITER-5 INDEPENDENTLY RE-CERTIFIED (post-PR, racing reviewer session —
+      4th of the change): a reviewer session re-derived the record-only
+      re-check at terminal HEAD 41742a4 with its own gate runs (check exit
+      0, bun test 1758/1skip/0, bdd 6/42, tripwires 0-diff incl. both
+      resolver paths net-zero) — F-30/F-31 confirmed RESOLVED, probe
+      arithmetic verified per commit, iter-4 md/yaml divergence reconciled.
+      The PM-executed iter-5 draft is superseded by this reviewer record
+      (preserved in history at f14ad51) — the PM-exception disclosure now
+      has independent verification behind it. 3 new info findings
+      (F-36 count wording, F-37 iter-4 yaml cosmetics disclosed, F-38
+      one-off unreproduced test flake 1757/1/1 at bb20e8e) ride PR #110
+      per the iter-4 prescription. Reviewer next_step: PROCEED.
+    type: info
+    date: "2026-08-15"
