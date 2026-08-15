@@ -230,6 +230,34 @@ notes:
       src/domain/markdown/reverse-diagnostics.ts +
       tests/unit/domain/markdown/reverse-diagnostics.test.ts in worktree —
       left for coder to finish+commit as P2 whole). PM checkpoint commits
-      pm-notes delivery.started + plan P1 ticks; coder resumes at P2.
+      pm-notes delivery.started + plan P1 ticks;       coder resumes at P2.
     type: info
+    date: "2026-08-15"
+  - text: >
+      Delivery substantively complete across 10 coder commits (676d711
+      0581381; suite 1606/0 green, 0.9.0, 18 adversarial files, all 19 TCs
+      wired; 13 golden failures diagnosed+fixed as classifier bugs
+      142c3f0). PM validation found ONE DEFECT: final commit 0581381
+      accidentally REMOVED "saxes": "6.0.0" and "hast-util-to-mdast":
+      "^10.1.2" from package.json dependencies (bun.lock kept them → local
+      tests pass, but bun install --frozen-lockfile FAILS — CI-breaking
+      mismatch). Coder's completion report claimed TC-REG-001 verified the
+      deps while the same commit dropped them. Remediation delegated to
+      @fixer: restore both entries, verify frozen-lockfile + fast suite.
+      Plan ticks: 37/38 verified by PM against commit evidence (1.1, 1.5,
+      4.1-4.5, 5.4 ticked by PM after evidence check; 5.5 done —
+      reverse-readback.test.ts exists with TC-RT-006..009).
+    type: info
+    date: "2026-08-15"
+  - text: >
+      Retro — delivery phase: coder sessions were interrupted 5x but each
+      resume made verifiable progress (commits + green suites); the final
+      0581381 commit's self-reported TC-REG-001 evidence was FALSE on one
+      point (deps present) — introduced by an unexplained package.json
+      rewrite in that commit. Lesson: PM must spot-check structural
+      self-attestations (grep the artifact, run the frozen-install command)
+      before marking a phase complete, especially after multi-interruption
+      resumes where the agent's final commit is assembled under context
+      pressure.
+    type: retro
     date: "2026-08-15"
