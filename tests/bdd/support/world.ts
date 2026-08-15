@@ -96,7 +96,7 @@ Before(function () {
 });
 
 // Clean up the temporary cache directory after each scenario (L-2)
-After(function () {
+After(() => {
 	// Best-effort cleanup: remove the temporary cache directory
 	if (tmpCacheDir) {
 		try {

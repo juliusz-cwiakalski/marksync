@@ -290,6 +290,28 @@ function classifyElement(el: Element): NodeClassificationResult {
 	];
 
 	if (canonicalElements.includes(tagName)) {
+		// Check for nested tables (table inside td/th)
+		if (tagName === "td" || tagName === "th") {
+			const hasNestedTable = el.children.some(
+				(child) => child.type === "element" && child.tagName === "table",
+			);
+			if (hasNestedTable) {
+				const location = getLocation(el);
+				return {
+					content: null,
+					diagnostics: [
+						{
+							severity: "blocking",
+							class: "unsupported-construct",
+							code: REVERSE_CODES.UNSUPPORTED_CONSTRUCT,
+							construct: `${tagName} containing nested table`,
+							location,
+						},
+					],
+				};
+			}
+		}
+
 		// Recursively classify children
 		const classifiedChildren: ElementContent[] = [];
 		const diagnostics: Array<BlockingDiagnostic | InformationalDiagnostic> = [];
@@ -365,7 +387,10 @@ function classifyCodeMacro(el: Element): NodeClassificationResult {
 	) as Element | undefined;
 
 	const language =
-		languageParam?.children.find((child) => child.type === "text")?.value?.toString().trim() || "";
+		languageParam?.children
+			.find((child) => child.type === "text")
+			?.value?.toString()
+			.trim() || "";
 
 	// Extract CDATA content
 	const cdataBody = el.children.find(
@@ -437,8 +462,11 @@ function classifyTaskListMacro(el: Element): NodeClassificationResult {
 		) as Element | undefined;
 
 		// Status is in the text child of ac:task-status
-		const statusText = statusEl?.children.find((child) => child.type === "text");
-		const isChecked = statusText?.type === "text" && statusText.value === "complete";
+		const statusText = statusEl?.children.find(
+			(child) => child.type === "text",
+		);
+		const isChecked =
+			statusText?.type === "text" && statusText.value === "complete";
 
 		const taskContent = bodyEl?.children || [];
 
@@ -493,9 +521,7 @@ function classifyTaskListElement(el: Element): NodeClassificationResult {
 	// ac:task-list is a direct element (not ac:structured-macro)
 	// It contains ac:task elements directly as children
 	const tasks = el.children.filter(
-		(child) =>
-			child.type === "element" &&
-			child.tagName === "ac:task",
+		(child) => child.type === "element" && child.tagName === "ac:task",
 	) as Element[];
 
 	const listItems: Element[] = [];
@@ -510,8 +536,11 @@ function classifyTaskListElement(el: Element): NodeClassificationResult {
 		) as Element | undefined;
 
 		// Status is in the text child of ac:task-status
-		const statusText = statusEl?.children.find((child) => child.type === "text");
-		const isChecked = statusText?.type === "text" && statusText.value === "complete";
+		const statusText = statusEl?.children.find(
+			(child) => child.type === "text",
+		);
+		const isChecked =
+			statusText?.type === "text" && statusText.value === "complete";
 
 		const taskContent = bodyEl?.children || [];
 

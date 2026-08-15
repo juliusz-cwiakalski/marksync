@@ -77,7 +77,9 @@ describe("TC-RT-007: mermaid code-macro unwrap", () => {
 				const cdataContent = cdataMatch![1];
 
 				// Extract fence content from Markdown
-				const fenceMatch = result.value.markdown.match(/```(?:mermaid)?\n([\s\S]*?)\n```/);
+				const fenceMatch = result.value.markdown.match(
+					/```(?:mermaid)?\n([\s\S]*?)\n```/,
+				);
 				expect(fenceMatch).toBeTruthy();
 				const fenceContent = fenceMatch![1];
 
@@ -144,8 +146,12 @@ describe("TC-RT-009: render-policy synthetic image", () => {
 		// Exactly one informational diagnostic
 		expect(result.value.diagnostics).toHaveLength(1);
 		expect(result.value.diagnostics[0].severity).toBe("informational");
-		expect(result.value.diagnostics[0].class).toBe("marksync-synthetic-artifact");
-		expect(result.value.diagnostics[0].code).toBe("marksync/synthetic-artifact");
+		expect(result.value.diagnostics[0].class).toBe(
+			"marksync-synthetic-artifact",
+		);
+		expect(result.value.diagnostics[0].code).toBe(
+			"marksync/synthetic-artifact",
+		);
 		expect(result.value.diagnostics[0].construct).toBe(
 			"ac:image (mermaid render policy)",
 		);

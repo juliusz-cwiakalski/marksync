@@ -1,0 +1,10 @@
+[
+	{
+		"code": "reverse/unsupported-construct",
+		"construct": "ac:structured-macro[ac:name=\"toc\"]",
+		"location": {
+			"line": 1,
+			"column": 36
+		}
+	}
+]

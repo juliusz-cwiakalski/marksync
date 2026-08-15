@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { runCli } from "#cli/index";
 import { repairStateCommand } from "#cli/commands/repair-state";
 import type { RepairReport } from "#app/repair";
-import { runRepair } from "#app/repair";
+import type { runRepair } from "#app/repair";
 
 /**
  * Env vars read transitively by `repairStateCommand` (credentials + the git

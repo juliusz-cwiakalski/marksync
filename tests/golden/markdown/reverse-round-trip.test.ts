@@ -162,22 +162,22 @@ describe("TC-RT-002: corpus-B explicit reverse expectations", () => {
 			const md = readFileSync(join(fixturesDir, `${name}.md`), "utf-8");
 			const reverseDir = join(fixturesDir, "reverse");
 
-		it(`reverse matches explicit expectation sidecar`, () => {
-			// Note: For now, this is a placeholder test since we haven't generated sidecars yet
-			// The actual sidecar generation is task 5.4, which we'll implement later
-			// For now, we just verify the reverse completes without error
+			it(`reverse matches explicit expectation sidecar`, () => {
+				// Note: For now, this is a placeholder test since we haven't generated sidecars yet
+				// The actual sidecar generation is task 5.4, which we'll implement later
+				// For now, we just verify the reverse completes without error
 
-			// Use the existing Storage file, don't regenerate (corpus-B may contain unsupported content)
-			const storagePath = join(fixturesDir, `${name}.storage.xhtml`);
-			if (!existsSync(storagePath)) {
-				// Skip if no Storage file exists (e.g. empty file)
-				return;
-			}
-			const forward = readFileSync(storagePath, "utf-8");
+				// Use the existing Storage file, don't regenerate (corpus-B may contain unsupported content)
+				const storagePath = join(fixturesDir, `${name}.storage.xhtml`);
+				if (!existsSync(storagePath)) {
+					// Skip if no Storage file exists (e.g. empty file)
+					return;
+				}
+				const forward = readFileSync(storagePath, "utf-8");
 
-			const reversed = reverseStorage(forward);
+				const reversed = reverseStorage(forward);
 
-			expect(reversed.ok).toBe(true);
+				expect(reversed.ok).toBe(true);
 			});
 		});
 	}
