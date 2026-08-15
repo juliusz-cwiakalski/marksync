@@ -40,9 +40,9 @@ phases:
     completed: '2026-08-15T00:00:00Z'
   dod_check:
     started: '2026-08-15T00:00:00Z'
-    completed: null
+    completed: '2026-08-15T00:00:00Z'
   pr_creation:
-    started: null
+    started: '2026-08-15T00:00:00Z'
     completed: null
     url: null
 decisions:
@@ -331,6 +331,18 @@ notes:
     + .github/workflows/ files, world.ts diff empty, forward fixtures additions-only; (6) version 0.9.0,
     saxes exact 6.0.0, hast-util-to-mdast exact 10.1.2 both declared; (7) origin/main has 0 new commits
     (branch current).'
+  type: info
+  workItemRef: GH-92
+  date: '2026-08-15'
+- text: 'Phase 10 DoD PASS: (1) phases — 9/11 completed at check time (clarify_scope..quality_gates all
+    started+completed; pr_creation next); (2) plan — 65/0 tasks ticked across phases 1-9 incl. remediations;
+    (3) spec — reviewer iter-2 line 241: ''Spec Status: PASS — all 17 ACs hold (corpus-B arm proven via
+    real TC-RT-002 byte assertions; AC-F4-1 parity clause guarded by the mixed-order test)''; iter-1 FAILs
+    (F-1 parity, F-4 TC-RT-002) remediated phases 8-9, iter-4 spot-check PASS; (4) docs — feature-reverse-conversion.md
+    + test-spec exist, doc-syncer SUCCESS no residual gaps, AGENTS.md milestone current; (5) gates — 1610/0
+    + BDD 6/42 + frozen-lockfile 0 + tripwire clean + 0.9.0; (6) ticket ACs: round-trip 100% (26/26 corpus
+    A + 6 corpus-B explicit), deterministic (in-run + across-run), panel/mermaid strip verified by fixtures.
+    Ticket AC map: AC1→AC-F1-1, AC2→AC-F1-2, AC3→AC-F3-1/2.'
   type: info
   workItemRef: GH-92
   date: '2026-08-15'
