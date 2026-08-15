@@ -9,7 +9,7 @@ phases:
   clarify_scope: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z" }
   specification: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z" }
   test_planning: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z" }
-  delivery_planning: { started: null, completed: null }
+  delivery_planning: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z" }
   dor_check: { started: null, completed: null }
   delivery: { started: null, completed: null }
   system_spec_update: { started: null, completed: null }
@@ -124,4 +124,40 @@ notes:
       OQ-T1 parser decision (spec OQ-1) must land before malformed-sample
       authoring — feeds @decision-advisor gate next.
     type: info
+    date: "2026-08-15"
+  - text: >
+      Phase 4 complete: chg-GH-92-plan.md v1.0 validated — 6 phases / 36
+      checkbox tasks (P1 saxes pre-lock spike w/ @xmldom/xmldom fallback
+      descent, P2 ReverseError diagnostic model, P3 infra Storage→HAST,
+      P4 domain serializer+normalizer+DM-1 contract, P5 harness+fixtures
+      19 TCs, P6 finalize 0.9.0+check); every phase ends green+committable.
+      REOPENED test_planning for PD-5 (verified defect: plan discovered
+      tests/adversarial/storage/ subdir would EISDIR-crash
+      tests/golden/adversarial/pii-audit.test.ts directory walk) → test-plan
+      v0.2 amended: fixtures relocated to top-level tests/adversarial-storage/
+      (0 stale references). Spike target corrected: 34 committed corpus
+      Storage fixtures (TDR-0012 says 35 — raw-html-block-real has no Storage
+      twin; informational, plan targets 34). CHANGELOG scope: add only 0.9.0
+      entry (0.8.x backfill out of scope for GH-92).
+    type: info
+    date: "2026-08-15"
+  - text: >
+      PM-DEC-3: Accept plan PD-2 — reverse diagnostics are a standalone
+      ReverseError union, NOT new MarkSyncError kinds. Rationale: the
+      typescript.md adding-a-kind rule would force src/cli/ exit-code table
+      edits, violating AC-F6-1 (0 CLI delta). Spec DM-2 grants arm-shape
+      latitude; E2/E3 own presentation.
+    type: decision
+    date: "2026-08-15"
+  - text: >
+      TDR-0013 (via @decision-advisor, resolves plan OQ-P1/PD-3): serializer
+      substrate = hast-util-to-mdast + locked remark/remark-gfm stringifier
+      with two-knob options layer (bullet '-', rule '-'); Appendix B canonical
+      form = remark defaults + exactly those two knobs (verified against
+      locked node_modules versions). Fallback: hand-built HAST→MDAST + same
+      stringifier. Residual: hast-util-to-mdast genuinely new dep (absent
+      from bun.lock AND node_modules) — license/maintenance/transitives
+      closed by plan task 4.1 spike + NFR-SEC-4 scans; human license
+      acceptance at PR review.
+    type: decision
     date: "2026-08-15"

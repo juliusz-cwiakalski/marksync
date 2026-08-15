@@ -30,7 +30,7 @@ The central design risk this plan guards against is **self-reference**: the roun
 - Golden-tier **round-trip harness** over the existing 33-pair corpus, partitioned per spec DEC-7/DM-4: corpus A (26 canonical fixtures — byte-equality), corpus B (7 annotation/defensive fixtures — explicit expectations), plus a committed partition manifest whose completeness is asserted (AC-F2-1's mechanical guardrail)
 - **Storage-only reverse fixtures**: existing `provenance-panel.storage.xhtml` (panel strip) and `mermaid-render-policy.storage.xhtml` (synthetic artifact); NEW K1 attribute variants of macro-bearing canonical fixtures and one realistic combined read-back fixture (AC-F3-1, AC-F3-3)
 - **Mermaid code-macro unwrap** fidelity — fence bytes identical to CDATA content (AC-F3-2)
-- **Storage-side adversarial set** (new fixtures under `tests/adversarial/storage/`, runner under `tests/golden/adversarial/`) mirroring the GH-31 category taxonomy, regression-locking reverse diagnostics incl. fast-fail/collect-all parity (AC-F4-1)
+- **Storage-side adversarial set** (new fixtures under `tests/adversarial-storage/`, runner under `tests/golden/adversarial/`) mirroring the GH-31 category taxonomy, regression-locking reverse diagnostics incl. fast-fail/collect-all parity (AC-F4-1)
 - **Diagnostic model** unit tests: two-class taxonomy (DEC-1), stable codes, location payload shape, no content echoes (DM-2, NFR-5), malformed-Storage parse-error arm (NFR-4)
 - **Normalizer** property tests: deterministic, idempotent, canonical output is a fixed point (AC-F5-1, DM-3)
 - **Determinism**: convert-twice in-process + committed-snapshot across-run lock (AC-F1-2, NFR-2)
@@ -145,7 +145,7 @@ Tier assignments follow the spec AC tier column and `.ai/rules/testing-strategy.
 
 - **Framework**: `bun:test`, real pipeline (mirror of `tests/golden/adversarial/classification-runner.test.ts`, GH-31)
 - **Runner**: `tests/golden/adversarial/reverse-classification-runner.test.ts` — TC-RADV-001/002, golden-side execution of TC-RDIAG-002's multi-instance parity
-- **Fixtures**: NEW `tests/adversarial/storage/*.storage.xhtml` + `*.classification.json` sidecars (runners under `tests/golden/`, fixtures under `tests/adversarial/` — the GH-31 DEC-5 split)
+- **Fixtures**: NEW `tests/adversarial-storage/*.storage.xhtml` + `*.classification.json` sidecars (runners under `tests/golden/`, fixtures at top level beside `tests/adversarial/` — the GH-31 DEC-5 runner/fixture split, relocated per plan PD-5: a subdirectory of `tests/adversarial/` would crash the pii-audit directory walk with EISDIR)
 - **Sidecar schema**: an array of expected blocking diagnostics (`{ code, construct, location }` per instance) — OR the object `{ "parseError": true }` for the malformed-Storage fixture, asserting the distinct parse-error arm
 
 ### 4.4 Harness Mechanics (normative for the implementation)
@@ -605,7 +605,7 @@ A fixture dropped into the directory without a manifest entry fails CI with an i
 **Related IDs**: F-4 (parse-error clause), NFR-4, DM-1
 **Test Type(s)**: Unit
 **Automation Level**: Automated
-**Target Layer / Location**: `tests/unit/infra/confluence/parse/reverse-parser.test.ts`; adversarial companion fixture `tests/adversarial/storage/storage-malformed.storage.xhtml` (+ `{ "parseError": true }` sidecar) run in TC-RADV-001
+**Target Layer / Location**: `tests/unit/infra/confluence/parse/reverse-parser.test.ts`; adversarial companion fixture `tests/adversarial-storage/storage-malformed.storage.xhtml` (+ `{ "parseError": true }` sidecar) run in TC-RADV-001
 **Tags**: @backend, @unit, @negative
 
 **Preconditions**:
@@ -693,7 +693,7 @@ A fixture dropped into the directory without a manifest entry fails CI with an i
 **Related IDs**: F-4, AC-F4-1, DM-2, DEC-1, GH-31 taxonomy
 **Test Type(s)**: Golden adversarial
 **Automation Level**: Automated
-**Target Layer / Location**: `tests/golden/adversarial/reverse-classification-runner.test.ts`; fixtures `tests/adversarial/storage/*`
+**Target Layer / Location**: `tests/golden/adversarial/reverse-classification-runner.test.ts`; fixtures `tests/adversarial-storage/*`
 **Tags**: @backend, @golden, @adversarial, @no-silent-drop
 
 **Preconditions**:
@@ -805,7 +805,7 @@ A fixture dropped into the directory without a manifest entry fails CI with an i
 | `mermaid-code-policy-k1.storage.xhtml` | **NEW** | K1 attrs on the mermaid macro (AC-F3-3 + AC-F3-2) |
 | `readback-realistic.storage.xhtml` | **NEW** | Flow-2 shape: canonical (kitchensink) body + K1 attrs + appended panel — the composite read-back a real `resolve`/`import` will fetch (F-3a+F-3d together; RSK-2 evidence) |
 
-**NEW Storage-side adversarial set (`tests/adversarial/storage/`, extends the GH-31 taxonomy):**
+**NEW Storage-side adversarial set (`tests/adversarial-storage/`, top level per PD-5, extends the GH-31 taxonomy):**
 
 | Fixture | GH-31 category mirrored | Sidecar expectation |
 |---|---|---|
@@ -916,6 +916,7 @@ Unit-test file paths mirror the final `src/` module layout; if the plan (phase 4
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 0.1 | 2026-08-15 | test-plan-writer (GH-92) | Initial test plan — 19 scenarios across golden-fixture / golden-adversarial / unit tiers; corpus partition pinned (26 A / 7 B / 5 Storage-only / 9 adversarial-new, DEC-7/DM-4); harness mechanics normative (byte-equality, in-process + snapshot determinism, fast-fail/collect-all parity, manifest guardrail); test-design decisions D-TST-1..3; no integration/e2e/BDD/Mermaid-DOM scenarios (spec §8.1/NG-5) with rationale; over-mocking guardrail compliance note (zero mocks, `mock.module` ban per GH-103). |
+| 0.2 | 2026-08-15 | test-plan amendment (PM reopen) | PD-5: relocate Storage-side adversarial fixtures from a storage/ subdirectory under tests/adversarial/ (would crash the adversarial pii-audit directory walk with EISDIR) to top-level tests/adversarial-storage/ — aligns with plan v1.0 |
 
 ## 10. Test Execution Log
 
