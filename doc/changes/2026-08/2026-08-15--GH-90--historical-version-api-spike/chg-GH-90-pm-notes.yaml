@@ -9,7 +9,7 @@ phases:
   test_planning: { started: 2026-08-15, completed: 2026-08-15 }
   delivery_planning: { started: 2026-08-15, completed: 2026-08-15 }
   dor_check: { started: 2026-08-15, completed: 2026-08-15, verdict: READY, iterations: 1 }
-  delivery: { started: null, completed: null }
+  delivery: { started: 2026-08-15, completed: null, blocked_at: "plan task 1.3, A-1 abort" }
   system_spec_update: { started: null, completed: null }
   review_fix: { started: null, completed: null, verdict: null, iterations: 0 }
   quality_gates: { started: null, completed: null }
@@ -45,7 +45,23 @@ decisions:
 
 open_questions: []
 
-blockers: []
+blockers:
+  - text: >
+      A-1 ABORT (delivery phase, plan tasks 1.1-1.2, commit db9a2ac): sandbox
+      creds at tmp/marksync-demo/.env authenticate but Confluence product
+      access is denied — HTTP 403 "Request rejected because caller cannot
+      access Confluence" on all probes (PM re-verified: v1 user/current 403,
+      v1 space 403; v2 user/by-me 404 = known TDR-0010 breakage, not the
+      blocker; auth well-formed email=22/token=192 chars, reaches
+      authorization layer → not 401). Likely site deactivation/license or
+      product-access revocation since last live regression 2026-07-26.
+      Human input requested via chg-GH-90-questions.md OPEN-Q1 (restore
+      access / fresh token / different tenant). Issue labeled
+      human-input-needed + blocked, assigned owner. NOT a scope/spec problem:
+      all artifacts (DoR READY) stand; resume at plan task 1.3 once access
+      is restored.
+    date: "2026-08-15"
+    resolved_date: null
 
 doc_risks:
   - doc/decisions/00-index.md — must add TDR-0011 row (@decision flow inside delivery).
@@ -95,6 +111,19 @@ notes:
       doc/decisions/ + 00-index row. All redaction per C-7/NFR: no token,
       email, or Basic-auth header in any captured artifact.
     type: info
+    date: "2026-08-15"
+  - text: >
+      Retro — A-1 blocker discovered mid-delivery (2026-08-15): live-sandbox
+      access silently degraded (Confluence 403) since the last live
+      regression 2026-07-26; nothing in the repo surfaced it earlier. Cost:
+      ~1 coder session + PM diagnostics. Improvement candidates: (a) a
+      cheap pre-delivery creds probe (doctor-style 1-request check) before
+      any live-tier work starts — could live as a PM intake step for
+      live-sandbox-gated changes; (b) mark live-sandbox creds with a
+      last-verified date in pm-context. The spike artifacts themselves (spec,
+      test plan, plan, DoR) were unaffected — abort criteria A-1 worked as
+      designed, costing one commit instead of a corrupted evidence pack.
+    type: retro
     date: "2026-08-15"
   - text: >
       PM coordination edit: fixed stale line in chg-GH-90-test-plan.md §2
