@@ -111,18 +111,18 @@ the real entry points, the page-context field's omit-when-absent +
 verbatim-echo serialization at model level, location payload with no content
 echoes, fast-fail/collect-all parity on hand-built multi-instance inputs
 (first-blocking selection), malformed Storage → stable parse error (never a
-  crash, deterministic across repeats), XML entities / CDATA (incl. reassembly)
-  / namespaced `ac:`/`ri:` elements, K1-confinement survival (K1 names dropped
-  on macros, survive the parse elsewhere), the attribute pass (aggregation,
-  allowlist boundary incl. the specially-handled `ac:*`/`ri:*` and task-family
-  elements — `ac:task-list`, `ac:task`, `ac:task-status`, `ac:task-body`,
-  `ac:plain-text-body`; K1 names silent on `ac:structured-macro` plus the
-  recorded `ac:task-list` allowlist-row exception, diagnosing on every other
-  swept element), task-list integrity in both forms (incl. the `ac:task-id`
-  canonical-silent exception, task-body diagnostic propagation, and an
-  `ac:task` missing `ac:task-status` → structural fallback in both forms),
-  and the normalizer's determinism + idempotence + canonical-form invariants
-  over the corpus fixtures.
+crash, deterministic across repeats), XML entities / CDATA (incl. reassembly)
+/ namespaced `ac:`/`ri:` elements, K1-confinement survival (K1 names dropped
+on macros, survive the parse elsewhere), the attribute pass (aggregation,
+allowlist boundary incl. the specially-handled `ac:*`/`ri:*` and task-family
+elements — `ac:task-list`, `ac:task`, `ac:task-status`, `ac:task-body`,
+`ac:plain-text-body`; K1 names silent on `ac:structured-macro` plus the
+recorded `ac:task-list` allowlist-row exception, diagnosing on every other
+swept element), task-list integrity in both forms (incl. the `ac:task-id`
+canonical-silent exception, task-body diagnostic propagation, and an
+`ac:task` missing `ac:task-status` → structural fallback in both forms),
+and the normalizer's determinism + idempotence + canonical-form invariants
+over the corpus fixtures.
 
 **Tools:** `bun:test`; hand-built minimal Storage strings where fixture files
 would be overkill; committed golden fixtures may be read directly (no mocks).
