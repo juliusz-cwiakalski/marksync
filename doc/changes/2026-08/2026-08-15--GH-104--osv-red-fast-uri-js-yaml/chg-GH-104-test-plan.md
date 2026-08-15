@@ -370,4 +370,9 @@ Populated during delivery phases 6–10 by `@coder`, `@runner`, and `@pm` (dod_c
 
 | TC ID | Run Date | Result | Notes |
 |-------|----------|--------|-------|
-| - | - | - | Pending |
+| TC-DEPS-001 | 2026-08-15 | PASSED | fast-uri resolved pin ≥ 3.1.5 (line 255: fast-uri@3.1.5). Transitive-only confirmed (no fast-uri in dependencies/devDependencies). |
+| TC-DEPS-002 | 2026-08-15 | PASSED | js-yaml resolved pin ≥ 4.3.1 (line 317: js-yaml@4.3.1). Transitive-only confirmed via override (DEC-1). yaml ^2.9.0 untouched. |
+| TC-DEPS-003 | 2026-08-15 | PASSED | Full local gate green: lint (231 warnings, no blocking), format:check pass, typecheck pass, 1310 tests pass 0 fail, depcruise clean (103 modules, 204 dependencies). |
+| TC-DEPS-004 | 2026-08-15 | PASSED | Surgical diff: only overrides echo + two package entries in bun.lock. git diff main --stat shows package.json, bun.lock, doc artifacts only. Zero src/tests diffs. bun install --frozen-lockfile exit 0. No new direct dependencies. |
+| TC-DEPS-005 | Pending (PR phase) | — | Deferred to PR creation (lifecycle phase 11). CI osv-scan job is the authoritative gate — assert green with 0 findings before merge (DoD). |
+| TC-DEPS-006 | 2026-08-15 | PASSED | Package version reads 0.8.2. Version-reference check confirmed no doc edits needed (README line 93 illustrative "e.g. marksync 0.8.0", TDR-0010 frozen history). |
