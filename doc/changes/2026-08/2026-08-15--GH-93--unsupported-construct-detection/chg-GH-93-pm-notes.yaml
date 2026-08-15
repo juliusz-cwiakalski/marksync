@@ -317,3 +317,22 @@ notes:
       gate already green), then iter-4 SPOT review of F-23/F-24/F-25 only.
     type: info
     date: "2026-08-15"
+  - text: >
+      PHASE-8 COMPLETE (40ad117 K1 scoping + probes; b7a18f6 records/probes/
+      dedupe/cleanups; both across interrupted sessions, PM live-verified):
+      F-23 gate records now truthful (lint 0 errors/exit 0 attribution to
+      b71868a-introduced/a83a264-fixed); F-24 8 probes added (84 total);
+      F-25 K1 silence scoped back to ac:structured-macro + recorded
+      ac:task-list exception (PM-probed: ac:image[ac:macro-id] → diagnosed;
+      macro K1 silent; Appendix C exception note landed); F-26 dead key
+      deleted + comments reconciled; F-27/F-28 TC-RT-003 handled, 12-pairs
+      fix, kroki helper dropped. GATES PM-VERIFIED post-Phase-8: bun run
+      check exit 0 (1766 pass/0 fail), tripwire 0 modified forward/CLI
+      files. POST-REMEDIATION DOC RE-SYNC: 2 doc-syncer attempts
+      interrupted pre-work; PM applied the specified surgical edits
+      DIRECTLY as documented exception (feature spec: K1 ac:task-list
+      exception + task-family pass scope + both-forms missing-status +
+      84-test armory row; test spec: K1 exception + 84 count; overview docs
+      verified true). Next: iter-4 SPOT review (F-23/F-24/F-25 only).
+    type: info
+    date: "2026-08-15"

@@ -124,11 +124,13 @@ reverse-direction guardrail).
     `ac:schema-version` and `ac:macro-id` attributes on
     `ac:structured-macro` are dropped silently (no diagnostic, never in
     output); output is byte-identical to the attribute-free variant. The
-    carve-out is confined to macros: on any other element the attribute pass
-    covers, those attribute names are non-canonical attributes and diagnose
-    as `reverse/unsupported-attribute` (unit-pinned on `p`/`td` — the parser
-    keeps K1 names alive off-macro). Structural (pretty-print) whitespace is
-    dropped.
+    carve-out is confined to macros, with one recorded exception:
+    `ac:task-list` carries the same two names canonical-silent via its
+    allowlist row (change-spec Appendix C, task 8.3). On every other element
+    the attribute pass covers, those attribute names are non-canonical
+    attributes and diagnose as `reverse/unsupported-attribute` (unit-pinned
+    on `p`/`td` and `ac:image[ac:macro-id]` — the parser keeps K1 names
+    alive off-macro). Structural (pretty-print) whitespace is dropped.
 - **Granular diagnostics taxonomy (TDR-0014):** the `REVERSE_CODES` registry
   (`src/domain/markdown/reverse-diagnostics.ts`) is additions-only and stable
   across releases — 7 codes: `reverse/unsupported-construct`,
@@ -176,11 +178,14 @@ reverse-direction guardrail).
   on an element **iff the forward converter emits it for that element** —
   `a[href]`, `ac:image[ac:alt]`, `ri:attachment[ri:filename]`,
   `ri:url[ri:value]`, `ac:structured-macro[ac:name]` (+ K1 carve-out),
-  `ac:parameter[ac:name]`; every other canonical element allows none.
-  The pass covers every plain-HTML canonical element and the
-  specially-handled `ac:`/`ri:` elements — `ac:image` with its
-  `ri:attachment`/`ri:url` children, and the code macro's
-  `ac:structured-macro`/`ac:parameter`; anything beyond the allowlist
+  `ac:parameter[ac:name]`, `ac:task-list` (the two K1 names only — recorded
+  exception); every other canonical element allows none.
+  The pass covers every plain-HTML canonical element, the specially-handled
+  `ac:`/`ri:` elements (`ac:image` with its `ri:attachment`/`ri:url`
+  children, the code macro's `ac:structured-macro`/`ac:parameter`), and the
+  task-family elements (`ac:task-list`, `ac:task`, `ac:task-status`,
+  `ac:task-body`, `ac:plain-text-body` — all none-bucket rows); anything
+  beyond the allowlist
   (e.g. `colspan`, `rowspan`, `style`, `class`, `data-table-width` on table
   cells; user-set `ac:image` properties such as `ac:align`, `ac:width`) is a
   blocking `reverse/unsupported-attribute` diagnostic — never a silent drop.
@@ -191,7 +196,7 @@ reverse-direction guardrail).
   child-integrity logic — that is not an `ac:task` produces a blocking
   diagnostic located at the child: non-canonical child element types as
   `reverse/unknown-element`, individually-canonical misplaced children
-  (plain-HTML or `ac:*`) under the structural fallback; in the macro form an
+  (plain-HTML or `ac:*`) under the structural fallback; in BOTH forms an
   `ac:task` missing its `ac:task-status` is the structural fallback at the
   task. Diagnostics from `ac:task-body` content propagate — an unknown
   element or exotic-attribute element inside a task body is diagnosed,
@@ -326,7 +331,7 @@ with the canonical-form options layer defined once at the serializer.
 | Reverse diagnostics (`src/domain/markdown/reverse-diagnostics.ts`) | Granular taxonomy, stable additions-only `REVERSE_CODES` (7 codes: 5 blocking-path + informational + parse-error), optional `page` context on every diagnostic arm, `StorageParseError` + `ReverseError` standalone union (not a `MarkSyncError` kind) — frozen pre-E2/E3 by TDR-0014 | Implemented (GH-92, extended GH-93) |
 | Round-trip harness (`tests/golden/markdown/reverse-round-trip.test.ts`, `reverse-readback.test.ts`) | Golden-tier verification: corpus-A byte equality, determinism, partition-manifest guardrail, read-back fixtures, zero-diagnostic sweeps over canonical corpora (false-positive guard) | Implemented (GH-92, extended GH-93) |
 | Storage-side adversarial set (`tests/adversarial-storage/` + `tests/golden/adversarial/reverse-classification-runner.test.ts`) | GH-31-aligned regression lock (21 fixtures, 12/12 categories + new classes): sidecar deep-equality incl. `page?`, zero-diagnostic success branch, category inventory, fast-fail/collect-all parity and determinism, parse-error arm, PII scoping | Implemented (GH-92, extended GH-93) |
-| Classifier unit armory (`tests/unit/infra/confluence/parse/reverse.test.ts`) | Classifier pinned on hand-built inputs — 10 TC arms (element/layout incl. orphaned, attribute aggregation + allowlist boundary incl. specially-handled `ac:*`/`ri:*` elements, task-list integrity incl. the `ac:task-id` canonical-silent probe and body-diagnostic propagation, page-context, determinism + first-blocking parity), with TC-TAXO-002 entry-point probes (`tests/unit/domain/markdown/reverse-diagnostics.test.ts`) and parser K1-survival probes (`tests/unit/infra/confluence/parse/reverse-parser.test.ts`) | Implemented (GH-93) |
+| Classifier unit armory (`tests/unit/infra/confluence/parse/reverse.test.ts`) | Classifier pinned on hand-built inputs — 10 TC arms, 84 tests (element/layout incl. orphaned, attribute aggregation + allowlist boundary incl. specially-handled `ac:*`/`ri:*` and task-family elements + K1 scoping, task-list integrity incl. the `ac:task-id` canonical-silent probe and body-diagnostic propagation, page-context, determinism + first-blocking parity), with TC-TAXO-002 entry-point probes (`tests/unit/domain/markdown/reverse-diagnostics.test.ts`) and parser K1-survival probes (`tests/unit/infra/confluence/parse/reverse-parser.test.ts`) | Implemented (GH-93) |
 | `resolve` / `import` flows (E2/E3) | Consumers of the library contract — diffing, patch generation, adoption UX; route on `code` strings (TDR-0014) | Future (MS-0003 E2/E3) |
 
 Dependencies added: `saxes@6.0.0` (XML parser, TDR-0012),

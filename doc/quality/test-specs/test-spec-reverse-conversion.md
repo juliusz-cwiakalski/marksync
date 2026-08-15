@@ -36,7 +36,8 @@ The properties proven through the tests:
   machines.
 - **Marksync-structure handling** — provenance panel stripped (0 traces),
   mermaid code macro unwrapped with fence bytes identical to CDATA content,
-  K1 attributes (`ac:schema-version`/`ac:macro-id` on macros) produce output
+  K1 attributes (`ac:schema-version`/`ac:macro-id` on macros, plus the
+  recorded `ac:task-list` exception) produce output
   identical to the attribute-free variant.
 - **C-4 diagnostics (PDR-0002)** — every non-canonical Storage construct —
   foreign macro, complex layout, unknown element, non-canonical attribute,
@@ -493,7 +494,7 @@ NFR-PERF-5) is not a CI gate.
   pinned storage-side counterparts.
 - Zero new diagnostics over corpus A + the 33 forward golden pairs + K1
   variants (false-positive guard); forward fixtures byte-unmodified.
-- Classifier unit armory: 59 tests across 10 TC arms
+- Classifier unit armory: 84 tests across 10 TC arms
   (`tests/unit/infra/confluence/parse/reverse.test.ts`) plus the TC-TAXO-002
   entry-point assignment pins (`reverse-diagnostics.test.ts`) and the parser
   K1-survival probes (`reverse-parser.test.ts`).
