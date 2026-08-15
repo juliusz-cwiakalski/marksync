@@ -1,0 +1,72 @@
+change_id: GH-103
+title: "fix: ci red — bun mock.module leak in unit cli doctor/repair tests pollutes integration tests"
+branch: fix/GH-103/mock-module-leak-ci-red
+change_folder: doc/changes/2026-08/2026-08-15--GH-103--mock-module-leak-ci-red
+
+phases:
+  clarify_scope: { started: 2026-08-15T04:10:00Z, completed: 2026-08-15T04:10:00Z }
+  specification: { started: 2026-08-15T04:21:00Z, completed: 2026-08-15T04:22:00Z }
+  test_planning: { started: null, completed: null }
+  delivery_planning: { started: null, completed: null }
+  dor_check: { started: null, completed: null }
+  delivery: { started: null, completed: null }
+  system_spec_update: { started: null, completed: null }
+  review_fix: { started: null, completed: null }
+  quality_gates: { started: null, completed: null }
+  dod_check: { started: null, completed: null }
+  pr_creation: { started: null, completed: null, url: null }
+
+decisions:
+  - text: >
+      Verified fix work from GH-104 session (descoped per human directive) is
+      preserved at tmp/gh-103-handoff/gh-103-mock-module-seams-fix.patch —
+      DI seams (DoctorCommandDeps/RepairStateCommandDeps) + rewritten unit
+      tests. Reuse as implementation input; coder must re-validate against
+      latest main (1ebc664) rather than apply blindly.
+    date: 2026-08-15
+  - text: >
+      Ticket body is authoritative (no [MS2-Exx-Sxx] prefix, no story file).
+      Root cause pre-confirmed with instrumented CI runs in the ticket — no
+      re-investigation needed; change is fix-direction execution.
+    date: 2026-08-15
+
+open_questions: []
+
+blockers: []
+
+notes:
+  - text: >
+      Phase 2 complete: chg-GH-103-spec.md (343 lines). 7 ACs: AC-F1-1
+      (order-reproducible fast-loop green), AC-F1-2 (full fast-loop green),
+      AC-F1-3 (CI green on PR), AC-F2-1/F3-1 (default-deps behavior
+      identical, DEC-4 contract preserved), AC-F4-1 (guard: 0 mock.module +
+      demonstrable failure on reintroduction), AC-F4-2 (testing-strategy.md
+      ban documented). Spec DEC-1: guard mechanism-neutral (scanning unit
+      test preferred, plan pins it). Spec DEC-3: handoff patch is
+      re-validation input, not blind apply. No version bump (0.8.2
+      unchanged). Assumption for test-plan: pin guard match pattern; make
+      AC-F3-1 "tests 1-4 unchanged semantics + integration/e2e untouched"
+      split explicit.
+    type: info
+    date: 2026-08-15
+  - text: >
+      Intake (2026-08-15, main @ 1ebc664): GH-103 OPEN, priority:critical,
+      bug + change labels, no comments. No open/closed PR for GH-103 → full
+      11-phase lifecycle. Cross-check on latest main: mock.module present in
+      exactly 2 files (tests/unit/cli/commands/doctor.test.ts:28,
+      repair-command.test.ts:52) — matches ticket audit claim.
+      .ai/rules/testing-strategy.md has no mock.module ban yet (AC-4 gap
+      confirmed). Ticket complete: impact, root cause, fix direction (DI
+      seams mirroring DoctorDeps style), 4 testable ACs. Requirements
+      complete → no blocking questions → proceed to artifacts.
+    type: info
+    date: 2026-08-15
+  - text: >
+      Doc-impact scan: current-truth docs touched = .ai/rules/testing-strategy.md
+      (ban rule, in-scope AC-4). No expected impact to doc/spec/**
+      (no behavior change — src change is additive optional-deps DI seam,
+      production callers unchanged). CI config untouched if regression guard
+      is a scanning unit test (preferred over CI grep gate — keeps change
+      test-only); plan-writer to confirm mechanism.
+    type: info
+    date: 2026-08-15
