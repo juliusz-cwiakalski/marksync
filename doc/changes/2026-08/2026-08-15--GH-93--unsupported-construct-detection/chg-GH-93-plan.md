@@ -372,7 +372,7 @@ All 18 test-plan TCs are wired by this plan; phases below are where each first e
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
 | Phase 1 | ✅ Completed | — | 2026-08-15 | 88c9bb8 | Registry + page payload + TC-TAXO-001 (all 7 codes, omit-when-absent pinned) |
-| Phase 2 | ⬜ Pending | — | — | TBD | Classifier + unit tier + 7 re-pins (stability-check verdict to be recorded here) |
+| Phase 2 | ✅ Completed | — | 2026-08-15 | 4575dcf | Classifier + unit tier + 7 re-pins (stability-check: code-only delta, construct/location byte-stable) |
 | Phase 3 | ⬜ Pending | — | — | TBD | Corpus 12/12 + runner extension |
 | Phase 4 | ⬜ Pending | — | — | TBD | False-positive guard + tripwire |
 | Phase 5 | ⬜ Pending | — | — | TBD | 0.10.0, CHANGELOG, full gate, reconciliation |
