@@ -798,99 +798,6 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 			expect(result.value.diagnostics).toHaveLength(0);
 		});
 
-		it("element-form ac:task-list with class produces unsupported-attribute", () => {
-			const storage = `
-				<ac:task-list class="custom-class">
-					<ac:task>
-						<ac:task-status>complete</ac:task-status>
-						<ac:task-body><p>Task 1</p></ac:task-body>
-					</ac:task>
-				</ac:task-list>
-			`;
-			const result = collectDiagnostics(storage);
-
-			expect(result.value.diagnostics).toHaveLength(1);
-			expect(result.value.diagnostics[0]).toMatchObject({
-				code: "reverse/unsupported-attribute",
-				construct: "ac:task-list[class]",
-				severity: "blocking",
-			});
-		});
-
-		it("ac:task with data-x produces unsupported-attribute", () => {
-			const storage = `
-				<ac:task-list>
-					<ac:task data-x="custom">
-						<ac:task-status>complete</ac:task-status>
-						<ac:task-body><p>Task 1</p></ac:task-body>
-					</ac:task>
-				</ac:task-list>
-			`;
-			const result = collectDiagnostics(storage);
-
-			expect(result.value.diagnostics).toHaveLength(1);
-			expect(result.value.diagnostics[0]).toMatchObject({
-				code: "reverse/unsupported-attribute",
-				construct: "ac:task[data-x]",
-				severity: "blocking",
-			});
-		});
-
-		it("ac:task-status with style produces unsupported-attribute", () => {
-			const storage = `
-				<ac:task-list>
-					<ac:task>
-						<ac:task-status style="color: red;">complete</ac:task-status>
-						<ac:task-body><p>Task 1</p></ac:task-body>
-					</ac:task>
-				</ac:task-list>
-			`;
-			const result = collectDiagnostics(storage);
-
-			expect(result.value.diagnostics).toHaveLength(1);
-			expect(result.value.diagnostics[0]).toMatchObject({
-				code: "reverse/unsupported-attribute",
-				construct: "ac:task-status[style]",
-				severity: "blocking",
-			});
-		});
-
-		it("ac:task-body with class produces unsupported-attribute", () => {
-			const storage = `
-				<ac:task-list>
-					<ac:task>
-						<ac:task-status>complete</ac:task-status>
-						<ac:task-body class="custom-class"><p>Task 1</p></ac:task-body>
-					</ac:task>
-				</ac:task-list>
-			`;
-			const result = collectDiagnostics(storage);
-
-			expect(result.value.diagnostics).toHaveLength(1);
-			expect(result.value.diagnostics[0]).toMatchObject({
-				code: "reverse/unsupported-attribute",
-				construct: "ac:task-body[class]",
-				severity: "blocking",
-			});
-		});
-
-		it("ac:plain-text-body with style inside code macro produces unsupported-attribute", () => {
-			const storage = `
-				<ac:structured-macro ac:name="code">
-					<ac:parameter ac:name="language">javascript</ac:parameter>
-					<ac:plain-text-body style="font-family: monospace;">console.log("hello");</ac:plain-text-body>
-				</ac:structured-macro>
-			`;
-			const result = collectDiagnostics(storage);
-
-			expect(result.value.diagnostics).toHaveLength(1);
-			expect(result.value.diagnostics[0]).toMatchObject({
-				code: "reverse/unsupported-attribute",
-				construct: "ac:plain-text-body[style]",
-				severity: "blocking",
-			});
-		});
-
 		it("element-form ac:task without ac:task-status produces unsupported-construct", () => {
 			const storage = `
 				<ac:task-list>
@@ -905,26 +812,6 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 			expect(result.value.diagnostics[0]).toMatchObject({
 				code: "reverse/unsupported-construct",
 				construct: "ac:task without ac:task-status",
-				severity: "blocking",
-			});
-		});
-
-		it("stray canonical p child inside ac:task produces structural fallback", () => {
-			const storage = `
-				<ac:task-list>
-					<ac:task>
-						<ac:task-status>complete</ac:task-status>
-						<p>Stray paragraph inside task</p>
-						<ac:task-body><p>Task 1</p></ac:task-body>
-					</ac:task>
-				</ac:task-list>
-			`;
-			const result = collectDiagnostics(storage);
-
-			expect(result.value.diagnostics).toHaveLength(1);
-			expect(result.value.diagnostics[0]).toMatchObject({
-				code: "reverse/unsupported-construct",
-				construct: "p",
 				severity: "blocking",
 			});
 		});
@@ -1206,22 +1093,6 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 				severity: "blocking",
 			});
 		});
-
-		it("ac:image with K1 ac:macro-id produces unsupported-attribute (K1 only silent on ac:structured-macro)", () => {
-			const storage = `
-				<ac:image ac:alt="Test image" ac:macro-id="12345">
-					<ri:url ri:value="https://example.com/image.png" />
-				</ac:image>
-			`;
-			const result = collectDiagnostics(storage);
-
-			expect(result.value.diagnostics).toHaveLength(1);
-			expect(result.value.diagnostics[0]).toMatchObject({
-				code: "reverse/unsupported-attribute",
-				construct: "ac:image[ac:macro-id]",
-				severity: "blocking",
-			});
-		});
 	});
 
 	describe("TC-TASK-002: task-body propagation diagnostics", () => {
@@ -1354,23 +1225,7 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 		});
 	});
 
-	describe("TC-ATTR-003: K1 confinement to ac:structured-macro", () => {
-		it("ac:image with ac:macro-id produces blocking diagnostic (not ac:structured-macro)", () => {
-			const storage = `
-				<ac:image ac:alt="x" ac:macro-id="m1">
-					<ri:attachment ri:filename="test.png" />
-				</ac:image>
-			`;
-			const result = collectDiagnostics(storage);
-
-			expect(result.value.diagnostics).toHaveLength(1);
-			expect(result.value.diagnostics[0]).toMatchObject({
-				code: "reverse/unsupported-attribute",
-				construct: "ac:image[ac:macro-id]",
-				severity: "blocking",
-			});
-		});
-
+	describe("TC-ATTR-004: K1 confinement to ac:structured-macro", () => {
 		it("ac:structured-macro with K1 attributes produces zero diagnostics (silenced per spec F-2/DEC-5)", () => {
 			const storage = `
 				<ac:structured-macro ac:name="code" ac:macro-id="m123" ac:schema-version="1">

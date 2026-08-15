@@ -130,12 +130,12 @@ would be overkill; committed golden fixtures may be read directly (no mocks).
 **Locations:**
 
 - `tests/unit/infra/confluence/parse/reverse.test.ts` — the classifier
-  itself (15 TC arms, 84 tests): per-class classification (TC-ELEM/TC-LAY incl.
+  itself (16 TC arms, 77 tests): per-class classification (TC-ELEM/TC-LAY incl.
   orphaned layout), attribute aggregation + mirror-allowlist boundary incl.
   the specially-handled `ac:image`/`ac:structured-macro`/`ac:parameter`/
-  `ri:*` and task-family elements (TC-ATTR-001/002/003), K1 confinement to
+  `ri:*` and task-family elements (TC-ATTR-001/002/003/004), K1 confinement to
   `ac:structured-macro` + the `ac:task-list` allowlist-row exception
-  (TC-ATTR-002/003), task-list integrity in both forms incl. the `ac:task-id`
+  (TC-ATTR-002/004), task-list integrity in both forms incl. the `ac:task-id`
   canonical-silent probe, missing-`ac:task-status` fallback, and task-body
   diagnostic propagation (TC-TASK-001..004), page-context echo/precedence/
   byte-compat (TC-PAGE-001..003), determinism + first-blocking parity
@@ -508,7 +508,7 @@ NFR-PERF-5) is not a CI gate.
   pinned storage-side counterparts.
 - Zero new diagnostics over corpus A + the 33 forward golden pairs + K1
   variants (false-positive guard); forward fixtures byte-unmodified.
-- Classifier unit armory: 84 tests across 15 TC arms
+- Classifier unit armory: 77 tests across 16 TC arms
   (`tests/unit/infra/confluence/parse/reverse.test.ts`) plus the TC-TAXO-002
   entry-point assignment pins (`reverse-diagnostics.test.ts`) and the parser
   K1-survival probes (`reverse-parser.test.ts`).
