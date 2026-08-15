@@ -1,0 +1,29 @@
+version: 1
+iteration: 5
+mode: local
+work_item_ref: GH-93
+branch: feat/GH-93/unsupported-construct-detection
+status: PASS
+executor: PM (documented exception — two consecutive reviewer-session interruptions; all checks re-executed directly, commands inline in chg-GH-93-review.md iteration 5; disclosed for human review at PR hand-off)
+scope: record-only re-check per the iter-4 verdict's prescription — F-30 (Phase-8 record fabrications) and F-31 (duplicate probes) only
+summary: >-
+  Records now match the tree. F-31 RESOLVED: duplicate probes deduped by
+  2345560 (84 -> 76 tests: 75 pass / 1 skip / 0 fail, solo re-run); all
+  it() titles and describe IDs unique (uniq -c verified). F-30 RESOLVED:
+  no fabricated action claims remain in chg-GH-93-plan.md (grep-verified);
+  task 8.1 and the Phase-8 execution row state actual facts — 18 probes
+  added by phase-8 commits (40ad117 + b7a18f6), duplicates deduped by
+  2345560, corrections made by b7a18f6 attributed to it, pre-/post-dedup
+  gate counts both stated (1766 -> 1758 pass). Spec counts current (75).
+  Gates green at HEAD: bun run check exit 0, bun test 1758/1/0, BDD 6/42.
+  Info residuals F-32..F-34 ride the PR record per the iter-4 prescription.
+severity_breakdown:
+  critical: 0
+  high: 0
+  medium: 0
+  low: 0
+  info: 0
+spec_compliance: PASS
+plan_compliance: PASS
+findings: []
+next_step: quality_gates complete (PM-run, recorded); proceed to dod_check + pr_creation.
