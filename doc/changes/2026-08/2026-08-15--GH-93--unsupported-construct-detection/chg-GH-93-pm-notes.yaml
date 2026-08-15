@@ -7,7 +7,7 @@ phases:
   test_planning: { started: "2026-08-15T14:55:00Z", completed: "2026-08-15T15:35:00Z" }
   delivery_planning: { started: "2026-08-15T15:40:00Z", completed: "2026-08-15T16:20:00Z" }
   dor_check: { started: "2026-08-15T16:30:00Z", completed: "2026-08-15T16:55:00Z" }
-  delivery: { started: "2026-08-15T17:00:00Z", completed: null }
+  delivery: { started: "2026-08-15T17:00:00Z", completed: "2026-08-15T17:10:00Z" }
   system_spec_update: { started: null, completed: null }
   review_fix: { started: null, completed: null }
   quality_gates: { started: null, completed: null }
@@ -144,5 +144,35 @@ notes:
       Improvement: for long deliveries, split @coder delegations per plan
       phase (or 2-3 phases) instead of all-phases-at-once to bound the blast
       radius of session drops and shrink resume ambiguity.
+    type: retro
+    date: "2026-08-15"
+  - text: >
+      DELIVERY COMPLETE (reconstructed after 3 session timeouts): all 5
+      phases green — 88c9bb8 (P1 model) + 34a22f8 log, 4575dcf (P2
+      classifier+re-pins) + f4731f9 log, 299000a (P3 corpus 12/12, 30 new
+      files incl. 3 deviation fixtures: ac:image attr case moved to
+      dedicated fixture, ri:page not a synthetic marker — fixture reflects
+      actual classifier, 14 pairs vs planned 12), c155e84 (interrupted
+      session log ticks) + 1db91ff (P4 sweeps code, 1673/0, tripwires a/b/c
+      hold), c6eb59d (P5: 0.10.0, CHANGELOG, full gate, TC-CLI-001, spec
+      reconciliation 13/13 ACs). Plan Execution Log corrected: Phase 4 dual
+      commits annotated, Phase 5 TBD→c6eb59d. Final @coder report lost to
+      timeout; evidence reconstructed from commits + plan log (quality_gates
+      phase 9 will independently re-run the full suite).
+    type: info
+    date: "2026-08-15"
+  - text: >
+      Retro — triple @coder timeout handling (2026-08-15): three consecutive
+      coder sessions dropped (empty result x1, user-visible timeout x2), one
+      flushed commits AFTER the user's state snapshot (stale "HEAD 299000a"
+      guidance raced reality), and the final report was lost. What saved the
+      delivery: per-phase commits + per-phase plan-log commits made state
+      self-describing; direct git/log verification before each re-delegation
+      prevented duplicate work (Phase 4 re-delegation landed on top of the
+      flushed c155e84 log-ticks cleanly). Residual gaps: plan Execution Log
+      had TBD/misattributed commit cells; final gate claims not yet
+      independently verified (delegated to phase 9). Standing improvement:
+      per-phase delegation (adopted mid-delivery) + always treat user/agent
+      state snapshots as stale until verified against git.
     type: retro
     date: "2026-08-15"

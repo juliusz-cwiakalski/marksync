@@ -913,21 +913,21 @@ Populated during delivery phases 6–10 by `@coder`, `@runner`, and `@pm` (dod_c
 
 | TC ID | Run Date | Result | Notes |
 |-------|----------|--------|-------|
-| TC-TAXO-001 | TBD | TBD | Pending execution |
-| TC-TAXO-002 | TBD | TBD | Pending execution |
-| TC-ELEM-001 | TBD | TBD | Pending execution |
-| TC-LAY-001 | TBD | TBD | Pending execution |
-| TC-LAY-002 | TBD | TBD | Pending execution — TDR-0014 pin 1 |
-| TC-ATTR-001 | TBD | TBD | Pending execution |
-| TC-ATTR-002 | TBD | TBD | Pending execution |
-| TC-TASK-001 | TBD | TBD | Pending execution |
-| TC-PAGE-001 | TBD | TBD | Pending execution |
-| TC-PAGE-002 | TBD | TBD | Pending execution |
-| TC-PAGE-003 | TBD | TBD | Pending execution |
-| TC-DET-001 | TBD | TBD | Pending execution |
-| TC-CORP-001 | TBD | TBD | Pending execution |
-| TC-CORP-002 | TBD | TBD | Pending execution |
-| TC-CORP-003 | TBD | TBD | Pending execution |
-| TC-RPIN-001 | TBD | TBD | Pending execution (re-baseline + stability check at delivery) |
-| TC-FP-001 | TBD | TBD | Pending execution |
-| TC-CLI-001 | TBD | TBD | Pending execution (structural checks at DoD) |
+| TC-TAXO-001 | 2026-08-15 | ✅ PASS | Registry has exactly 7 codes (4 new + 3 existing), literal strings pinned, page-context field omit-when-absent |
+| TC-TAXO-002 | 2026-08-15 | ✅ PASS | Every Appendix A row emits mapped literal code + severity; macro/layout constructs emit exactly one diagnostic |
+| TC-ELEM-001 | 2026-08-15 | ✅ PASS | Non-canonical elements → unknown-element; nested tables retain structural fallback; document order parity |
+| TC-LAY-001 | 2026-08-15 | ✅ PASS | Exactly one diagnostic per layout tree at outermost element; inner content not separately diagnosed; sibling trees → 2 |
+| TC-LAY-002 | 2026-08-15 | ✅ PASS | Orphaned layout family: one diagnostic at outermost family element (section with cells, lone cell); never unknown-element |
+| TC-ATTR-001 | 2026-08-15 | ✅ PASS | One aggregated diagnostic per element with sorted+dedup names; no values; element-start location; multi-element bodies → one per element |
+| TC-ATTR-002 | 2026-08-15 | ✅ PASS | Canonical pairings silent; K1 silent on macros only; p[ac:macro-id]/td[ac:schema-version] → unsupported-attribute |
+| TC-TASK-001 | 2026-08-15 | ✅ PASS | Stray children diagnosed by class (unknown-element or fallback); canonical mixed task/regular lists zero-diagnostic |
+| TC-PAGE-001 | 2026-08-15 | ✅ PASS | Page context echoed verbatim on blocking/informational/parse-error arms; no synthesis, no merge |
+| TC-PAGE-002 | 2026-08-15 | ✅ PASS | Omit-when-absent byte-compat; optional-parameters-only signatures; no-opts vs explicit-undefined identical |
+| TC-PAGE-003 | 2026-08-15 | ✅ PASS | sourcePath absorption as {sourcePath}; explicit page wins verbatim, no merge; both arms deterministic |
+| TC-DET-001 | 2026-08-15 | ✅ PASS | Determinism (classify-twice byte-identical); fast-fail ≡ collect-all first blocking on code/construct/location/page |
+| TC-CORP-001 | 2026-08-15 | ✅ PASS | GH-31 alignment 12/12 with pinned counterparts; supported categories prove zero-diagnostic conversions |
+| TC-CORP-002 | 2026-08-15 | ✅ PASS | New-class fixture inventory complete (4/4 classes); PII audit green (no new scoped-out entries) |
+| TC-CORP-003 | 2026-08-15 | ✅ PASS | Full-array sidecar deep-equality over whole corpus (21 fixtures); parity + determinism verified |
+| TC-RPIN-001 | 2026-08-15 | ✅ PASS | 7 sidecars re-pinned code-only; 2 provably untouched; stability check passed (construct/location byte-stable) |
+| TC-FP-001 | 2026-08-15 | ✅ PASS | Zero new diagnostics over corpus-A (26) + forward golden (33) + K1 variants; corpus-A round-trip byte-equality 100% |
+| TC-CLI-001 | 2026-08-15 | ✅ PASS | 0 CLI delta (src/cli/ untouched); ReverseError standalone; version 0.10.0; zero new dependencies |
