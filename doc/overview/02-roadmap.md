@@ -12,7 +12,7 @@ area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005, PDR-0002]
-  related_changes: ["GH-69", "GH-81", "GH-32", "GH-92"]
+  related_changes: ["GH-69", "GH-81", "GH-32", "GH-92", "GH-93"]
 summary: "Engineering roadmap — MS-0002 MVP (safe one-way publisher) shipped 2026-07-26; MS-0003 re-scoped to Company Adoption MVP (PDR-0002): conflict resolution in Git, `import`, no-external-services Mermaid, DX tail."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -76,9 +76,14 @@ intervention.
   unsupported-construct diagnostics (codes + locations); golden-fixture
   round-trip verification. **Delivered (GH-92, v0.9.0):** library-only
   converter (`reverseStorage`/`reverseStorageCollectAll` + `normalizeMarkdown`)
-  with the two-class diagnostics taxonomy and the partition-manifest round-trip
-  harness — see
+  with the granular stable-code diagnostics taxonomy and the partition-manifest
+  round-trip harness — see
   [feature-reverse-conversion.md](../spec/features/feature-reverse-conversion.md).
+  **Detection completed (GH-93, v0.10.0):** granular per-class diagnostic
+  codes + page locations (TDR-0014) — attribute-level detection over the
+  mirror allowlist, task-list child integrity, and the GH-31-aligned
+  storage-side adversarial corpus (12/12 categories) with zero-diagnostic
+  canonical counterparts as the false-positive guard.
 - **E2 — `resolve` patch flow** (subset of `MS-0006` pulled forward):
   the remote-side diff is the patch between (a) the Confluence version that
   originated from the last marksync publish (base version, recorded in the

@@ -9,21 +9,21 @@ last_updated: 2026-08-15
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: ["GH-92"]
+  related_changes: ["GH-92", "GH-93"]
   feature_spec: doc/spec/features/feature-reverse-conversion.md
-  decisions: [PDR-0002, ADR-0005, TDR-0012, TDR-0013]
+  decisions: [PDR-0002, ADR-0005, TDR-0012, TDR-0013, TDR-0014]
 ---
 
 # Test Specification: Reverse Conversion (Storage Format → Markdown)
 
 ## Overview
 
-The reverse converter (GH-92, MS-0003 E1) converts Confluence Storage Format to
-canonical Markdown — the deterministic mirror of the forward converter. It is a
-pure library (zero I/O, no CLI), so it is exercised at the **Unit**,
-**Golden fixture**, and **Golden adversarial** tiers only; integration / e2e /
-BDD tiers do not apply (no adapter, network, or lifecycle surface) and run
-unchanged as the regression net.
+The reverse converter (GH-92 + GH-93, MS-0003 E1) converts Confluence Storage
+Format to canonical Markdown — the deterministic mirror of the forward
+converter. It is a pure library (zero I/O, no CLI), so it is exercised at the
+**Unit**, **Golden fixture**, and **Golden adversarial** tiers only;
+integration / e2e / BDD tiers do not apply (no adapter, network, or lifecycle
+surface) and run unchanged as the regression net.
 
 The properties proven through the tests:
 
@@ -36,12 +36,20 @@ The properties proven through the tests:
   machines.
 - **Marksync-structure handling** — provenance panel stripped (0 traces),
   mermaid code macro unwrapped with fence bytes identical to CDATA content,
-  K1 attributes (`ac:schema-version`/`ac:macro-id`) produce output identical
-  to the attribute-free variant.
-- **C-4 diagnostics (PDR-0002)** — every non-canonical Storage construct
-  blocks with a stable code + construct identity + `line:column` location;
-  never silently dropped, never emitted as content; fast-fail and collect-all
-  agree per instance; malformed Storage hits a distinct parse-error arm.
+  K1 attributes (`ac:schema-version`/`ac:macro-id` on macros) produce output
+  identical to the attribute-free variant.
+- **C-4 diagnostics (PDR-0002)** — every non-canonical Storage construct —
+  foreign macro, complex layout, unknown element, non-canonical attribute,
+  misplaced task-list child — blocks with a granular stable code (TDR-0014) +
+  construct identity + `line:column` location (+ caller page context when
+  supplied); never silently dropped, never emitted as content; fast-fail and
+  collect-all agree per instance; malformed Storage hits a distinct
+  parse-error arm.
+- **Detection completeness without false positives** — the GH-31-aligned
+  storage-side corpus pins every category's expectation (supported categories
+  pin zero-diagnostic conversions), and zero-diagnostic sweeps over corpus A,
+  the forward goldens, and K1 variants prove the attribute pass is silent on
+  the canonical mirror vocabulary.
 - **Synthetic artifacts** — the render-policy mermaid image reports exactly one
   informational `marksync-synthetic-artifact` diagnostic alongside successful
   conversion.
@@ -56,13 +64,17 @@ The properties proven through the tests:
 - `src/infra/confluence/parse/reverse-parser.ts` — `parseStorage` (saxes,
   CDATA reassembly, positions, panel strip, K1 tolerance, parse-error arm).
 - `src/infra/confluence/parse/reverse.ts` — `reverseStorage` (fast-fail) /
-  `reverseStorageCollectAll` (collect-all) + the node classifier.
+  `reverseStorageCollectAll` (collect-all) + the node classifier (granular
+  per-class codes, attribute pass over the mirror allowlist, task-list child
+  integrity, page-context resolution).
 - `src/domain/markdown/hast-to-markdown.ts` — the canonical serializer
   (options layer `{bullet:"-", rule:"-"}`).
 - `src/domain/markdown/normalize.ts` — `normalizeMarkdown` (round-trip
   comparison basis; idempotence/fixed-point properties).
 - `src/domain/markdown/reverse-diagnostics.ts` — the diagnostic model
-  (`REVERSE_CODES`, two severity classes, `StorageParseError`, `ReverseError`).
+  (`REVERSE_CODES` with 7 literal-pinned codes, two severity classes +
+  parse-error arm, optional `page` context on all arms, `StorageParseError`,
+  `ReverseError`).
 
 **Reused, not re-tested (delivered by GH-20 et al.):**
 
@@ -91,8 +103,10 @@ The properties proven through the tests:
 ### Unit Tests
 
 **Purpose:** Validate the diagnostic model and the parse substrate in
-isolation: two-class taxonomy shape, stable code values (pinned — codes are a
-public-ish, additions-only surface), location payload with no content echoes,
+isolation: the 7-code registry shape with literal-pinned, additions-only code
+values (codes are a public-ish, additions-only surface frozen pre-E2/E3 by
+TDR-0014), the page-context field's omit-when-absent + verbatim-echo
+serialization at model level, location payload with no content echoes,
 fast-fail/collect-all parity on hand-built multi-instance inputs, malformed
 Storage → stable parse error (never a crash, deterministic across repeats),
 XML entities / CDATA (incl. reassembly) / namespaced `ac:`/`ri:` elements, and
@@ -154,27 +168,42 @@ directory without a manifest entry fails CI.
 ### Golden Adversarial Tests
 
 **Purpose:** Regression-lock reverse diagnostics against the Storage-side
-adversarial corpus — the GH-31 category taxonomy mirrored to Storage inputs.
-The runner walks `tests/adversarial-storage/` directory-driven; for each
-fixture, collect-all diagnostics deep-equal the committed
-`*.classification.json` sidecar (`{ code, construct, location }` per
-instance), or — for `storage-malformed.storage.xhtml` — the sidecar
-`{ "parseError": true }` form asserts the distinct parse-error arm with
-fast-fail/collect-all agreement. Category coverage (unknown macros, non-panel
-info macro, app/gliffy class, nested tables, non-canonical elements,
-multi-instance, malformed) is asserted over the set, and adversarial
-determinism (classify + convert twice) is proven.
+adversarial corpus — the GH-31 category taxonomy mirrored to Storage inputs,
+aligned 12/12 plus the granular-detection classes beyond GH-31. The runner
+walks `tests/adversarial-storage/` directory-driven; for each fixture,
+collect-all diagnostics deep-equal the committed `*.classification.json`
+sidecar (`{ code, construct, location, page? }` per instance — `page` pinned
+where a fixture supplies a page-context companion), or — for the malformed
+fixtures — the sidecar `{ "parseError": true }` form asserts the distinct
+parse-error arm with fast-fail/collect-all agreement (page echo pinned on the
+malformed-with-page fixture). An empty sidecar asserts a zero-diagnostic
+conversion with fast-fail success — the false-positive guard arm for supported
+categories. Beyond per-fixture deep-equality the runner asserts: the Appendix
+B alignment map (every fixture resolves to its expected code set — `[]` for
+zero-diagnostic counterparts), a category-coverage inventory (unknown macros ≥
+2 kinds, non-panel info macro, app/gliffy class, nested tables,
+non-canonical elements incl. block + inline, multi-instance, malformed),
+adversarial determinism (classify + convert twice), and a PII grep-audit whose
+bare-ID scoping is pinned to exactly the jira-referencing fixtures.
 
 **Locations:**
 
 - Runner: `tests/golden/adversarial/reverse-classification-runner.test.ts`
-  (TC-RADV-001/002 + the golden arm of TC-RDIAG-002).
-- Fixtures: 9 pairs under `tests/adversarial-storage/` — `storage-macro-jira`,
-  `storage-macro-toc`, `storage-macro-expand`, `storage-macro-info-no-marker`,
-  `storage-app-gliffy`, `storage-nested-tables`, `storage-raw-html-block`,
-  `storage-multiple-unsupported`, `storage-malformed`. The set lives beside
-  (not inside) `tests/adversarial/` so the pii-audit directory walk is
-  unaffected; a PII grep-audit over the set is asserted inside the runner.
+  (TC-RADV-001/002 + the golden arm of TC-RDIAG-002 + TC-CORP-001..003).
+- Fixtures: 21 pairs under `tests/adversarial-storage/` — unknown macros
+  (`storage-macro-jira`, `storage-macro-toc`, `storage-macro-expand`,
+  `storage-macro-info-no-marker`, `storage-app-gliffy`), supported canonical
+  counterparts (`storage-macro-code`, `storage-emoji`, `storage-long-page`,
+  `storage-mixed-task-regular-lists`), structural fallback
+  (`storage-nested-tables`), non-canonical elements
+  (`storage-raw-html-block`, `storage-raw-html-inline`), granular classes
+  (`storage-complex-layout`, `storage-orphaned-layout`,
+  `storage-exotic-attributes`, `storage-k1-macro-negative`,
+  `storage-task-list-stray-child`), page context (`storage-page-context` with
+  a `.page-context.json` companion, `storage-malformed-page-context`),
+  multi-instance (`storage-multiple-unsupported`), and malformed
+  (`storage-malformed`). The set lives beside (not inside)
+  `tests/adversarial/` so the pii-audit directory walk is unaffected.
 
 ## Test Data
 
@@ -184,9 +213,14 @@ determinism (classify + convert twice) is proven.
 - **Reverse expectation sidecars:** `tests/golden/fixtures/markdown/reverse/` —
   `<name>.md` expected reverse Markdown, `<name>.json` expected diagnostics
   where non-empty.
-- **Adversarial Storage:** synthetic non-canonical Storage bodies + committed
-  classification sidecars (no PII; `JIRA-…` refs in `storage-macro-jira` are
-  scoped out deliberately).
+- **Adversarial Storage:** synthetic non-canonical + canonical-counterpart
+  Storage bodies + committed classification sidecars
+  (`{ code, construct, location, page? }` per instance; `{ "parseError": true
+  }` for malformed; `[]` for zero-diagnostic counterparts) and optional
+  `.page-context.json` companions supplying the caller page context (no PII;
+  `JIRA-…` bare-ID refs are scoped to `storage-macro-jira` and
+  `storage-multiple-unsupported` deliberately, enforced by the runner's PII
+  assertions).
 - **Hand-built unit inputs:** minimal Storage strings for entity/CDATA/
   namespace probes, multi-instance unsupported constructs, and malformed XML
   (mismatched tags, invalid entities, truncated CDATA).
@@ -254,24 +288,29 @@ determinism (classify + convert twice) is proven.
   deep-equals `reverse/mermaid-render-policy.json`; the heading survives; no
   `![`, `marksync-mermaid-`, `ac:image`, or `ri:attachment` in output.
 
-### Scenario 8: Adversarial classification equals sidecars (TC-RADV-001/002)
+### Scenario 8: Adversarial classification equals sidecars (TC-RADV-001/002, TC-CORP-003)
 
-- **Given:** any `tests/adversarial-storage/` fixture.
+- **Given:** any `tests/adversarial-storage/` fixture (optionally with a
+  `.page-context.json` companion).
 - **When:** `reverseStorageCollectAll` runs (and `reverseStorage` for
-  fast-fail).
-- **Then:** blocking diagnostics deep-equal the committed sidecar (stable
-  code, construct identity, `line:column` location); collect-all is
-  exhaustive with per-instance verdicts identical to fast-fail; determinism
-  holds on repeat.
+  fast-fail), with the companion page context when present.
+- **Then:** diagnostics deep-equal the committed sidecar (stable granular
+  code, construct identity, `line:column` location, `page` when supplied —
+  full-array equality, so every non-canonical element and attribute instance
+  appears in exactly one pinned diagnostic: zero unclassified, zero silent
+  drops); collect-all is exhaustive with per-instance verdicts identical to
+  fast-fail; determinism holds on repeat; the Appendix B alignment map and
+  the category-coverage inventory pass over the set.
 
-### Scenario 9: Malformed Storage → parse-error arm (TC-RDIAG-003)
+### Scenario 9: Malformed Storage → parse-error arm (TC-RDIAG-003, TC-PAGE-001)
 
 - **Given:** malformed Storage (unit hand-built inputs; the committed
-  `storage-malformed` fixture).
+  `storage-malformed` fixture; `storage-malformed-page-context` with a page
+  companion).
 - **When:** converted in either mode.
 - **Then:** a stable `StorageParseError` (`reverse/parse-error`, location,
   detail) — never a crash, never partial output; both modes agree; identical
-  error on repeat.
+  error on repeat; the page context is echoed verbatim when supplied.
 
 ### Scenario 10: Normalizer properties (TC-NORM-001/002)
 
@@ -281,6 +320,78 @@ determinism (classify + convert twice) is proven.
   (ATX, `-` bullets, `1.` ordered, backtick fences, inline links, single
   blank-line separation); `normalizeMarkdown(reverse(storage)) ===
   reverse(storage)` (fixed point).
+
+### Scenario 11: Granular code assignment (TC-TAXO-001/002, TC-ELEM-001, TC-LAY-001/002)
+
+- **Given:** hand-built Storage per construct class (unknown macro, layout
+  tree incl. orphaned section/cell, unknown element, structural violation).
+- **When:** converted.
+- **Then:** the registry holds exactly 7 literal-pinned codes; each class
+  emits its mapped code and severity; a layout tree (or orphaned layout
+  family) emits exactly one `reverse/complex-layout` at the outermost family
+  element — inner content never separately diagnosed, never
+  `unknown-element`; structural violations (nested tables) stay on the
+  `unsupported-construct` fallback; sibling layout trees emit one diagnostic
+  each; document-order parity between modes holds.
+
+### Scenario 12: Attribute detection over the mirror allowlist (TC-ATTR-001/002)
+
+- **Given:** canonical elements carrying attributes beyond the mirror
+  allowlist (e.g. `th` with `class`/`colspan`/`data-table-width`/`rowspan`/
+  `style`; multi-element bodies), and boundary inputs (canonical pairings;
+  `ac:schema-version`/`ac:macro-id` on a macro vs. on `p`/`td`).
+- **When:** converted.
+- **Then:** exactly one aggregated `reverse/unsupported-attribute` per
+  offending element — attribute names sorted + deduplicated in the construct
+  identity, element-start location, **no attribute values**; one diagnostic
+  per element across multiple offenders; canonical attribute pairings are
+  silent; K1 names are silent on `ac:structured-macro` only and diagnose
+  (`reverse/unsupported-attribute`) on any other element.
+
+### Scenario 13: Task-list integrity (TC-TASK-001)
+
+- **Given:** an `ac:task-list` with a stray child (unknown element;
+  individually-canonical misplaced element), and a canonical mixed
+  task/regular-list body.
+- **When:** converted.
+- **Then:** the stray child produces a blocking diagnostic at the child
+  (class per the taxonomy — never a silent drop); the canonical mixed list
+  converts with zero diagnostics.
+
+### Scenario 14: Page-context echo and precedence (TC-PAGE-001/002/003)
+
+- **Given:** Storage producing blocking, informational, and parse-error
+  diagnostics; options variants — explicit `page`, no options, `sourcePath`
+  only, explicit `page` + `sourcePath` together, explicit `undefined`.
+- **When:** converted.
+- **Then:** a supplied page context is echoed verbatim on every diagnostic
+  arm (no synthesis, no merge — partial context stays partial); with no
+  context the `page` key is absent and output is byte-identical to the
+  context-free form; `sourcePath` alone populates `{ sourcePath }`; an
+  explicit page wins verbatim over `sourcePath` absorption; signatures are
+  optional-parameters only (existing calls compile and behave identically).
+
+### Scenario 15: False-positive guard sweeps (TC-FP-001)
+
+- **Given:** corpus A (26 fixtures), the 33 forward golden pairs, and the K1
+  variants.
+- **When:** reverse-converted (round-trip where applicable).
+- **Then:** zero new diagnostics — the attribute pass is silent over the
+  forward emission vocabulary; corpus-A round-trip byte-equality remains
+  100%; forward fixtures are byte-unmodified.
+
+### Scenario 16: Corpus alignment inventory + PII scoping (TC-CORP-001/002)
+
+- **Given:** the extended storage-side corpus and the runner inventory.
+- **When:** alignment and coverage are asserted.
+- **Then:** all 12 GH-31 categories have storage-side counterparts with
+  pinned expectations — supported categories (emoji, long-page, macro-code,
+  mixed task/regular lists) pinning zero-diagnostic conversions — and each
+  new class (complex layout incl. orphaned, exotic attributes incl.
+  multi-attribute + K1 negative control, task-list stray child, page context
+  incl. parse-error-with-page) is represented by ≥1 fixture; the PII
+  grep-audit passes with bare-ID matches scoped to exactly the designated
+  fixtures.
 
 ## Performance & Load Tests
 
@@ -304,9 +415,19 @@ NFR-PERF-5) is not a CI gate.
 
 ## Negative Testing
 
-- Unknown macro / non-panel info macro / app-gliffy / nested table /
-  raw-HTML block / multiple unsupported instances → blocking
-  `unsupported-construct` with sidecar-pinned verdicts.
+- Unknown macro / non-panel info macro / app-gliffy → blocking
+  `reverse/unknown-macro` with sidecar-pinned verdicts.
+- Non-canonical element (block `div`, inline `span`, unknown `ac:*`) →
+  blocking `reverse/unknown-element`; nested table / misplaced canonical
+  child → structural-fallback `reverse/unsupported-construct`.
+- Layout family (tree or orphaned section/cell) → exactly one blocking
+  `reverse/complex-layout` per layout tree.
+- Exotic attribute on a canonical element → one aggregated blocking
+  `reverse/unsupported-attribute` per element (sorted names, no values); K1
+  attribute names on non-macro elements diagnose (carve-out confined to
+  `ac:structured-macro`).
+- Non-`ac:task` child of `ac:task-list` → blocking diagnostic at the child —
+  never a silent drop.
 - Code macro missing `ac:plain-text-body` → blocking diagnostic.
 - Malformed XML (mismatched tags, invalid entities, truncated CDATA) →
   `StorageParseError`.
@@ -336,10 +457,14 @@ NFR-PERF-5) is not a CI gate.
 
 - 26/26 corpus-A fixtures byte-equal (0 mismatches); 6/6 corpus-B fixtures
   under explicit expectations; 5/5 Storage-only read-back fixtures green.
-- 9/9 adversarial fixtures sidecar-pinned (incl. the parse-error arm).
+- 21/21 adversarial fixtures sidecar-pinned (incl. the parse-error arms and
+  the zero-diagnostic canonical counterparts); 12/12 GH-31 categories with
+  pinned storage-side counterparts.
+- Zero new diagnostics over corpus A + the 33 forward golden pairs + K1
+  variants (false-positive guard); forward fixtures byte-unmodified.
 - Every diagnostic code value pinned in unit tests; both contract modes
   (fast-fail / collect-all) covered for success, blocking, informational, and
-  parse-error arms.
+  parse-error arms — with and without page context.
 
 ## References
 
@@ -347,8 +472,11 @@ NFR-PERF-5) is not a CI gate.
 - [PDR-0002](../../decisions/PDR-0002-ms0003-rescope-company-adoption-mvp.md)
 - [ADR-0005](../../decisions/ADR-0005-page-body-representation-storage-not-adf.md)
 - [TDR-0012](../../decisions/TDR-0012-reverse-storage-xml-parser-saxes.md),
-  [TDR-0013](../../decisions/TDR-0013-reverse-markdown-serializer-substrate.md)
+  [TDR-0013](../../decisions/TDR-0013-reverse-markdown-serializer-substrate.md),
+  [TDR-0014](../../decisions/TDR-0014-reverse-diagnostics-granular-code-taxonomy.md)
 - [Nonfunctional requirements](../../spec/nonfunctional.md) (NFR-REL-4)
 - [Testing strategy](../../../.ai/rules/testing-strategy.md)
 - [Change test plan
   (GH-92)](../../changes/2026-08/2026-08-15--GH-92--reverse-converter-storage-to-markdown/chg-GH-92-test-plan.md)
+- [Change test plan
+  (GH-93)](../../changes/2026-08/2026-08-15--GH-93--unsupported-construct-detection/chg-GH-93-test-plan.md)

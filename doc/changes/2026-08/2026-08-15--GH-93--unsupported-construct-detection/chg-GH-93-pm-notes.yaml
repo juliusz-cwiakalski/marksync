@@ -8,7 +8,7 @@ phases:
   delivery_planning: { started: "2026-08-15T15:40:00Z", completed: "2026-08-15T16:20:00Z" }
   dor_check: { started: "2026-08-15T16:30:00Z", completed: "2026-08-15T16:55:00Z" }
   delivery: { started: "2026-08-15T17:00:00Z", completed: "2026-08-15T17:10:00Z" }
-  system_spec_update: { started: null, completed: null }
+  system_spec_update: { started: "2026-08-15T17:30:00Z", completed: "2026-08-15T17:55:00Z" }
   review_fix: { started: null, completed: null }
   quality_gates: { started: null, completed: null }
   dod_check: { started: null, completed: null }
@@ -175,4 +175,17 @@ notes:
       per-phase delegation (adopted mid-delivery) + always treat user/agent
       state snapshots as stale until verified against git.
     type: retro
+    date: "2026-08-15"
+  - text: >
+      DOC-SYNC COMPLETE (iter-1, one session after one timeout retry): 8
+      files reconciled — feature-reverse-conversion.md (granular taxonomy
+      TDR-0014, attribute/mirror-allowlist, page context, corpus 21
+      fixtures/12-12, v0.10.0, KPIs current-truth; also fixed stale
+      TDR-0012/0013 Proposed→Accepted cross-refs verified against files),
+      test-spec-reverse-conversion.md (Scenarios 11-16, sidecar page? schema,
+      sweeps), roadmap E1 + glossary + architecture-overview + opportunity-
+      solution-tree + AGENTS.md header (surgical one-liners), CHANGELOG
+      verified consistent (no edit). TDR-0014 remains Proposed (flips at
+      merge). Zero residual documentation gaps reported.
+    type: info
     date: "2026-08-15"
