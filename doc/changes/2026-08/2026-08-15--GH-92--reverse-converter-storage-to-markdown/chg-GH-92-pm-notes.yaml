@@ -11,7 +11,7 @@ phases:
   test_planning: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z" }
   dor_check: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z", verdict: "READY", iterations: 3 }
   delivery_planning: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z", reopened: "2026-08-15", reopen_reason: "DoR iter-1 NOT_READY: plan v1.0 predates TDR-0013 (missing bullet/rule options layer, fallback order contradicts Alt 3, spike corner-checks missing, OQ-P1 shown unresolved). DoR iter-2 NOT_READY: Finding 6 — corpus-B 7→6 count not propagated to plan task 5.1 (manifest instruction still dual-buckets raw-html-block-real, contradicting test-plan v0.3 disjointness rule the same phase builds)" }
-  delivery: { started: "2026-08-15T00:00:00Z", completed: null }
+  delivery: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z" }
   system_spec_update: { started: null, completed: null }
   review_fix: { started: null, completed: null }
   quality_gates: { started: null, completed: null }
@@ -260,4 +260,14 @@ notes:
       resumes where the agent's final commit is assembled under context
       pressure.
     type: retro
+    date: "2026-08-15"
+  - text: >
+      Defect RESOLVED (e996e56 fix(GH-92): restore saxes + hast-util-to-mdast
+      dropped by release commit): both deps restored in alphabetical
+      position; bun install --frozen-lockfile exits 0 "no changes"; full
+      bun run check re-verified green by PM (1606/0, depcruise clean 112
+      modules). Delivery phase marked COMPLETE — coder commits 676d711,
+      9a4ebc3, bdc3f50, 47cb47a, 2b7964f, c1bae1c, 3b76766, 7c8536e, 66a1d4f,
+      142c3f0, 7e5289f, 0581381 + fix e996e56.
+    type: resolved
     date: "2026-08-15"
