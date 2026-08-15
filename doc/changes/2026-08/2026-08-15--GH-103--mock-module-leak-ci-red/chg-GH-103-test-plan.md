@@ -581,14 +581,14 @@ Populated during delivery phases 6–10 by `@coder`, `@runner`, and `@pm` (dod_c
 
 | TC ID | Run Date | Result | Notes |
 |-------|----------|--------|-------|
-| TC-ORDER-001 | — | — | Record the pinned invocation's result + the optional `main` negative control |
-| TC-ORDER-002 | — | — | Include `bun run check` outcome (NFR-4) |
-| TC-ORDER-003 | — | — | Pending PR creation (phase 11); assert the job green before merge (DoD) |
-| TC-SEAM-001 | — | — | Attach like-for-like diff-review conclusion |
-| TC-SEAM-002 | — | — | Confirm tests 1–4 byte-identical; 5–6 wiring-only delta |
-| TC-SEAM-003 | — | — | Confirm zero diffs to the integration file; all nine tests green |
-| TC-SEAM-004 | — | — | Confirm zero diffs; TC-REPAIR-001..013 green |
-| TC-GUARD-001 | — | — | 0 occurrences reported |
-| TC-GUARD-002 | — | — | Self-test red/green fixtures behaved as specified |
-| TC-DOCS-001 | — | — | Rules diff reviewed (phase 5/8) |
-| TC-REG-001 | — | — | Golden/adversarial/mermaid/BDD/e2e-mock green |
+| TC-ORDER-001 | 2026-08-15 | PASS | Ordered invocation `bun test tests/unit/cli/commands/doctor.test.ts tests/unit/cli/commands/repair-command.test.ts tests/integration/` — 267 tests, 0 failures. TC-DOCTOR-013..020 and 022.1 green after unit files in same process. |
+| TC-ORDER-002 | 2026-08-15 | PASS | Standard fast loop `bun test tests/unit/ tests/integration/ tests/golden/` — 1299 tests, 0 failures. `bun run check` green (lint, format:check, typecheck, full test suite, boundaries). |
+| TC-ORDER-003 | — | Pending PR creation (phase 11) — assert the job green before merge (DoD) |
+| TC-SEAM-001 | 2026-08-15 | PASS | Doctor unit rewrite like-for-like verified. Same TC-DOCTOR-011.1–.5 IDs/scenarios/assertions preserved. Stub wiring changed only. Diff review: only mock.module→seam injection changes. |
+| TC-SEAM-002 | 2026-08-15 | PASS | Repair unit rewrite like-for-like verified. Tests 1–4 byte-identical (default-deps path via runCli). Tests 5–6 seam-injected only. Opts-wiring assertions preserved. Diff review: no regression. |
+| TC-SEAM-003 | 2026-08-15 | PASS | Doctor integration tests unmodified (git diff main confirms). All nine tests (TC-DOCTOR-013..020, 022.1) green in ordered run and full suite. Real runDoctor path proven. |
+| TC-SEAM-004 | 2026-08-15 | PASS | Repair tests unmodified (git diff main confirms). TC-REPAIR-001..005 (unit app) and TC-REPAIR-006..013 (integration app) green in full suite. |
+| TC-GUARD-001 | 2026-08-15 | PASS | Guard scan reported 0 occurrences under tests/. `rg "mock\.module\(" tests/` returns nothing (exit 1). |
+| TC-GUARD-002 | 2026-08-15 | PASS | Matcher self-tests passed: reintroduced call-site fixture detected (≥1 hits), prose-only fixture ignored (0 hits), clean/empty fixture (0 hits). |
+| TC-DOCS-001 | 2026-08-15 | PASS | Rules diff reviewed: mock.module ban added to AI-agent over-mocking guardrail + Anti-patterns section. Names DI seams and Bun.spawn as alternatives. last_updated bumped to 2026-08-15. |
+| TC-REG-001 | 2026-08-15 | PASS | Golden/adversarial/mermaid/BDD/e2e-mock green in full suite (1299 tests). git diff main --stat confirms zero changes to these tiers. |
