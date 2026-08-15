@@ -49,18 +49,18 @@ export function reverseStorage(
 	// Classify and map to content HAST
 	const classified = classifyStorage(parsed.value);
 
-			if (classified.diagnostics.some((d) => d.severity === "blocking")) {
-			// Fast-fail: return the first blocking diagnostic
-			const blocking = classified.diagnostics.find(
-				(d) => d.severity === "blocking",
-			) as BlockingDiagnostic;
-			return Result.err({
-				kind: "UnsupportedConstruct",
-				code: blocking.code,
-				construct: blocking.construct,
-				location: blocking.location,
-			} as unknown as ReverseError);
-		}
+	if (classified.diagnostics.some((d) => d.severity === "blocking")) {
+		// Fast-fail: return the first blocking diagnostic
+		const blocking = classified.diagnostics.find(
+			(d) => d.severity === "blocking",
+		) as BlockingDiagnostic;
+		return Result.err({
+			kind: "UnsupportedConstruct",
+			code: blocking.code,
+			construct: blocking.construct,
+			location: blocking.location,
+		} as unknown as ReverseError);
+	}
 
 	// Serialize the content HAST to Markdown
 	const markdown = hastToMarkdown(classified.content);
@@ -293,17 +293,17 @@ function classifyMacro(el: Element): NodeClassificationResult {
 
 /** Classify a code macro → fenced code block. */
 function classifyCodeMacro(el: Element): NodeClassificationResult {
-	const language = el.properties["ac:parameter"]
-		?.toString()
-		.split("=")[1]
-		?.toString()
-		?.trim() || "";
+	const language =
+		el.properties["ac:parameter"]
+			?.toString()
+			.split("=")[1]
+			?.toString()
+			?.trim() || "";
 
 	// Extract CDATA content
 	const cdataBody = el.children.find(
 		(child) =>
-			child.type === "element" &&
-			child.tagName === "ac:plain-text-body",
+			child.type === "element" && child.tagName === "ac:plain-text-body",
 	) as Element | undefined;
 
 	if (!cdataBody) {
@@ -362,18 +362,15 @@ function classifyTaskListMacro(el: Element): NodeClassificationResult {
 
 	for (const task of tasks) {
 		const statusEl = task.children.find(
-			(child) =>
-				child.type === "element" &&
-				child.tagName === "ac:task-status",
+			(child) => child.type === "element" && child.tagName === "ac:task-status",
 		) as Element | undefined;
 
 		const bodyEl = task.children.find(
-			(child) =>
-				child.type === "element" &&
-				child.tagName === "ac:task-body",
+			(child) => child.type === "element" && child.tagName === "ac:task-body",
 		) as Element | undefined;
 
-		const isChecked = statusEl?.properties?.["ac:status"]?.toString() === "complete";
+		const isChecked =
+			statusEl?.properties?.["ac:status"]?.toString() === "complete";
 
 		const taskContent = bodyEl?.children || [];
 

@@ -374,6 +374,6 @@ All 19 test-plan TCs are wired by this plan; phases below are where each first e
 | Phase 1 | ✅ Completed | — | 2026-08-15 | 676d711 | Spike evidence (saxes@6.0.0, MIT license, zero runtime deps, event surface verified, 34/34 corpus fixtures parsed, CDATA byte-identical, gate verdict: NO SWAP) recorded in TDR-0012 UQ-1 |
 | Phase 2 | ✅ Completed | — | 2026-08-15 | 9a4ebc3 | REVERSE_CODES with UNSUPPORTED_CONSTRUCT/SYNTHETIC_ARTIFACT/STORAGE_PARSE_ERROR, BlockingDiagnostic/InformationalDiagnostic unions, 11/11 tests green |
 | Phase 3 | ✅ Completed | — | 2026-08-15 | bdc3f50 | HastBuilder with SAX event handling, position tracking (line/column now captured), panel strip, K1 tolerance, 21/21 tests green |
-| Phase 4 | ☐ In Progress | — | — | — | Substrate verdict (task 4.1: hast-util-to-mdast@10.1.2 PASSED — MIT license, Bun compatible, all HAST shapes work, options layer {bullet: '-', rule: '-'} confirmed, transitive deps all MIT/ISC, corner-checks passed — no fallback needed) |
+| Phase 4 | ✅ Completed | — | 2026-08-15 | TBD | Serializer substrate (hast-util-to-mdast@10.1.2 PASSED), canonical serializer with options layer {bullet: '-', rule: '-'}, normalizer sharing every downstream stage, classifier/content mapping with fast-fail/collect-all parity, DM-1 entry points, 75/75 normalizer tests (TC-NORM-001), 1428 total tests green, boundaries clean |
 | Phase 5 | ☐ Pending | — | — | — | Sidecar review confirmation recorded here |
 | Phase 6 | ☐ Pending | — | — | — | TDR-0012 → Accepted at merge (with license confirmation) |
