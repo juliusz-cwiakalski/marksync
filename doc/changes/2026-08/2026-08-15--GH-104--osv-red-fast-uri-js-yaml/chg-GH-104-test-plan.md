@@ -13,7 +13,7 @@ version_impact: patch
 summary: "Lockfile-only security fix: bump fast-uri override to ^3.1.5, add js-yaml override ^4.3.1, regenerate bun.lock, version 0.8.1 → 0.8.2 — clearing two CVSS 7.5 osv findings and restoring the blocking osv-scan CI gate"
 links:
   change_spec: ./chg-GH-104-spec.md
-  implementation_plan: null
+  implementation_plan: ./chg-GH-104-plan.md
   testing_strategy: .ai/rules/testing-strategy.md
 ---
 
