@@ -6,14 +6,14 @@ ados_distribution: redistributable
 id: ARCHITECTURE-OVERVIEW
 status: Draft
 created: 2026-07-04
-last_updated: 2026-07-15
+last_updated: 2026-08-15
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
-  related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005, ADR-0006, TDR-0003, ADR-0010]
-  related_changes: [GH-18, GH-20, GH-21, GH-22, GH-23, GH-24, GH-26, GH-27, GH-30, GH-63, GH-64, GH-66, GH-69, GH-76, GH-77]
-  summary: "Architecture overview — ports-and-adapters CLI; Markdown→Storage pipeline; Confluence Cloud adapter; UUID+lock state model; no hosted backend."
+  related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005, ADR-0006, TDR-0003, ADR-0010, TDR-0012, TDR-0013]
+  related_changes: [GH-18, GH-20, GH-21, GH-22, GH-23, GH-24, GH-26, GH-27, GH-30, GH-63, GH-64, GH-66, GH-69, GH-76, GH-77, GH-92]
+  summary: "Architecture overview — ports-and-adapters CLI; Markdown↔Storage pipeline; Confluence Cloud adapter; UUID+lock state model; no hosted backend."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
 
@@ -96,6 +96,7 @@ section below govern residence and dependency direction._
 | State classifier | MarkSync binary | domain | Pure three-way `classify({ local?, base?, remote }) → Result<SyncState, MarkSyncError>` + `SyncState` enum + `RemoteState` union + `SharedBase` view + `SyncState → Action` mapping (`NoOp`/`Update`/`Block`/`Skip`) — `src/domain/state/{classifier,sync-state,hashes,actions}.ts` *(delivered — GH-22)* |
 | Concurrency gates | MarkSync binary | domain | Decentralized optimistic-concurrency backstop for overlapping CI runs (ADR-0006 C-5/C-6): `assertOperationFresh` (operation-ID freshness via UUID-v7 time-prefix comparison), `assertPlanNotExpired` (stale-plan expiry, default 15 min, conservative boundary), `decideOnConflict` + `Decision` (409 re-fetch-once: reapply vs block over the `SyncState` matrix) — `src/domain/state/{operation-freshness,plan-expiry,conflict-policy}.ts`; `uuidV7Timestamp` extractor anchors both expiry and freshness via the `runId`'s embedded UUID-v7 timestamp (`src/domain/identity/uuid.ts`) *(delivered — GH-24)* |
 | Markdown parser | MarkSync binary | domain | Markdown → MDAST/HAST (remark + remark-frontmatter + remark-gfm); canonical subset validation. `parseMarkdown` (`src/domain/markdown/parse.ts`) → `mdastToHast` bridge (`src/domain/markdown/mdast-to-hast.ts`) → unsupported-node classifier emitting `UnsupportedConstruct` (`src/domain/markdown/unsupported.ts`) → canonical HAST + `contentHash` sha256 (`src/domain/render/canonicalize.ts`) *(delivered — GH-20; front-matter stripping — GH-63; HTML/link-reference comment stripping — GH-77)* |
+| Markdown serializer + normalizer (canonical) | MarkSync binary | domain | The reverse direction's adapter-agnostic half: `hastToMarkdown` (`src/domain/markdown/hast-to-markdown.ts`) serializes HAST to canonical-form Markdown (canonicalize → hast-util-to-mdast → remark-gfm stringify, options `{bullet: '-', rule: '-'}`, TDR-0013); `normalizeMarkdown` (`src/domain/markdown/normalize.ts`) is the round-trip comparison basis (forward parse → `hastToMarkdown`); reverse diagnostics model (`REVERSE_CODES` two-class taxonomy + standalone `ReverseError` union, `src/domain/markdown/reverse-diagnostics.ts`) *(delivered — GH-92)* |
 | Asset resolver | MarkSync binary | domain | Path-safe, content-addressed local-image resolution. `AssetResolver` (`src/domain/assets/resolver.ts`) walks HAST `img` nodes, resolves each local `src` relative to the doc confined to the configured root (`realpath` + prefix check, symlink-aware → `Forbidden(path-traversal)`, NFR-SEC-7), sha256-identifies each asset, and rewrites the node to the dedup filename `marksync-asset-<sha256>.<ext>` (`src/domain/assets/naming.ts`); remote `http(s)` images skipped *(delivered — GH-26)* |
 | Mermaid transform + port | MarkSync binary | domain | `Renderer` port (`src/domain/mermaid/port.ts`, `render(source, config): Promise<Result<Artifact, MarkSyncError>>`) + HAST transform (`src/domain/mermaid/transform.ts`): when `render.mermaid.policy === "render"`, walks HAST for `pre>code.language-mermaid`, renders each fence via the injected `Renderer` (forwarding `MermaidRenderConfig`), dedups by source within-doc, and replaces the fence with an `img` node (→ `imageMacro` emits `<ac:image><ri:attachment>`); on `RemoteUnreachable` keeps the `pre` and collects a warning *(delivered — GH-69; config passthrough — GH-76)* |
 | Push executor | MarkSync binary | application | Ordered safe writes via `TargetSystem` port; the `computePlan` (pure, no-writes dry-run) + `applyPlan` (parent-first, per-document isolation, journaling, provenance wiring, Conflict-as-drift with re-fetch-once policy) use cases at `src/app/push-flow.ts` *(delivered — GH-23)*. Concurrency gates wired in GH-24 — operation-freshness + stale-plan-expiry before each write, 409 re-fetch-once on `Conflict` (pure gates at `src/domain/state/`) *(delivered — GH-24)*. Asset resolution in `computePlan` + per-entry asset upload/reuse in `applyPlan` (reuse-on-exists → 0 writes; `PageBinding.attachmentHashes` replacement — current run's complete set replaces the old set on Update/Create, pruning stale entries; `NO_CHANGE` preserves existing entries) wired via `AssetResolver` (`src/domain/assets/`) *(delivered — GH-26; replacement semantics — GH-76)*. Mermaid transform wired into `computePlan` after asset resolution and before `renderBody` when `policy === "render"` — merges mermaid artifacts into `PlanEntry.assets`, populates `ContentHash.attachmentHashes`, and emits the one-time privacy warning *(delivered — GH-69)*. Provenance: `Plan.visiblePanel` (from `config.provenance.visiblePanel`) threads through `applyPlan`→`processEntry`; `appendProvenancePanel` appends the `{info}` macro to the write body only (never to the HAST hash → no false drift); `bindingToProperty` writes the 14-field `marksync.metadata` property; `formatVersionMessageWithMeta` produces the version message + `trimMarker` *(delivered — GH-27)* |
@@ -116,7 +117,7 @@ section below govern residence and dependency direction._
 | Confluence search + restrictions | MarkSync binary | infrastructure (adapter) | `SearchService` (CQL, v1-only) + `RestrictionsService` (v1-only) — minimal for MS-0002 *(delivered — GH-21)* |
 | Confluence page-history provenance | MarkSync binary | infrastructure (adapter) | `version.message` formatting per ADR-0010 (`formatVersionMessage`/`formatVersionMessageWithMeta` — MarkSync/Git prefix, compact included-commit summary, deterministic trim to `MAX_VERSION_MESSAGE_LEN`, returns `message` + `trimMarker`); visible provenance panel builder (`buildProvenancePanel` → Storage XHTML `{info}` macro with the `marksync:provenance-panel` marker); direct-edit classifier (`classifyVersion` → `"marksync"` \| `"direct"` by the `marksync git` prefix, NFR-REL-9) *(delivered — GH-21; panel + classifier + trimMarker — GH-27)* |
 | ConfluenceTarget adapter | MarkSync binary | infrastructure (adapter) | `class ConfluenceTarget implements TargetSystem` — composes the client + all services; `renderBody` delegates to `renderStorage`; the sole `TargetSystem` implementor *(delivered — GH-21)* |
-| Confluence reverse converter | MarkSync binary | infrastructure (adapter) | Storage/ADF → Markdown (later phase; `MS-0005+`); target-specific body parsing |
+| Confluence reverse converter | MarkSync binary | infrastructure (adapter) | Storage Format → Markdown for the canonical GFM subset (`MS-0003` E1, PDR-0002): saxes Storage→HAST parser with provenance-panel strip + K1 read-back tolerance (`parseStorage`, `src/infra/confluence/parse/reverse-parser.ts`, TDR-0012) and the classifier + entry points `reverseStorage`/`reverseStorageCollectAll` (`src/infra/confluence/parse/reverse.ts`) serializing via the domain-tier `hastToMarkdown`; two-class diagnostics (blocking `unsupported-construct` / informational `marksync-synthetic-artifact`) with stable codes + line:column locations *(delivered — GH-92; [spec](../spec/features/feature-reverse-conversion.md))* |
 
 ### C4 L3 — Component diagram
 
@@ -150,7 +151,7 @@ flowchart TB
       ConfClient["Confluence client\n(REST v2/v1)"]
       ConfRender["Storage renderer\n(HAST → Storage)"]
       ConfAttach["Attachment manager"]
-      ConfRev["Reverse converter\n(MS-0005+)"]
+      ConfRev["Reverse converter\n(Storage→Markdown, GH-92)"]
       ConfProp["Content property manager"]
       ConfHist["Page-history provenance"]
     end
@@ -184,7 +185,7 @@ flowchart TB
 | new domain rule (drift, identity, planning) | `src/domain/<context>/` | no infra imports |
 | asset/path-safety resolution (local images, attachments) | `src/domain/assets/` | no infra imports; `AssetResolver` + `assetFilename` delivered (GH-26) |
 | new Markdown transform (generic) | `src/domain/render/` | MDAST/HAST-level; adapter-agnostic |
-| new Confluence-specific render/reverse | `src/infra/confluence/render/` | HAST→Storage, Storage→MDAST; behind `TargetSystem` port |
+| new Confluence-specific render/reverse | `src/infra/confluence/render/` (HAST→Storage) / `src/infra/confluence/parse/` (Storage→HAST) | reverse parse delivered as `parseStorage` + `reverseStorage` (GH-92); behind `TargetSystem` port when app wiring lands (E2/E3) |
 | new Confluence endpoint use | `src/infra/confluence/` | behind `ConfluenceClient` interface |
 | new target-system adapter | `src/infra/<target>/` | implements `TargetSystem` port; renderer + reverse converter + client |
 | new Git operation | `src/infra/git/` | behind `Repository` interface |
@@ -238,7 +239,7 @@ the integration-scenarios docs (`doc/inception/integration-scenarios/`)._
 | app → target system port | listAttachments | `listAttachments(pageId)` | `Result<AttachmentRef[], MarkSyncError>` | `Forbidden`, `RateLimited`, `RemoteUnreachable` |
 | app → target system port | searchPages | `searchPages(cql)` | `Result<PageRef[], MarkSyncError>` | `RateLimited`, `RemoteUnreachable` |
 | app → target system port | getRestrictions | `getRestrictions(pageId)` | `Result<PageRestrictions, MarkSyncError>` | `Forbidden`, `RateLimited`, `RemoteUnreachable` |
-| app → target system port | reverseConvert | `reverseConvert(bodyRepr)` | `MdastRoot` | `UnsupportedConstruct` (`MS-0005+`) |
+| app → target system port | reverseConvert | `reverseConvert(bodyRepr)` | `MdastRoot` | `UnsupportedConstruct` — port-method binding is future wiring (`MS-0005+`); the library foundation is delivered: `reverseStorage`/`reverseStorageCollectAll` (`src/infra/confluence/parse/reverse.ts`) return canonical Markdown + two-class diagnostics with a standalone `ReverseError` union *(GH-92)* |
 | app → mermaid port | render | `render(source, config)` → `Promise<Result<Artifact, MarkSyncError>>` | `Artifact{ bytes, mime: "image/svg+xml", hash, kind: "mermaid" }` | `RemoteUnreachable` (HTTP 4xx/5xx, DNS, timeout) → per-fence fallback to `code` block + warning (ADR-0002 C-2). Port at `src/domain/mermaid/port.ts`; implemented by `KrokiClient` (`src/infra/mermaid/kroki.ts`, public Kroki — rung 6, opt-in `render` policy with a one-time privacy warning). The adapter forwards `deterministicIds`/`htmlLabels` as Kroki diagram options and normalizes the SVG before hashing (`normalizeSvg`, §3.3 rules) for deterministic attachment identity. The in-process rung-1 adapter (Part B) is deferred to MS-0003+ *(delivered — GH-69; config passthrough + normalized hashing — GH-76; code-policy default — GH-25)* |
 | app → link resolver | resolveLink | `resolveLink(sourcePath, target, bindings)` | `Result<PageRef \| string, MarkSyncError>` | `UnresolvedLink` for an unresolvable `.md` target; external/anchor/non-`.md` targets pass through as the original string *(delivered — GH-23)* |
 | app → state classifier | classify | `classify({ local?, base?, remote })` | `Result<SyncState, MarkSyncError>` | `Forbidden` (when `remote.kind === "forbidden"` — not a sync state); `local` optional (absent ⇒ `LOCAL_MISSING`); invoked only for bound documents |
@@ -267,7 +268,7 @@ converter. The `Renderer` interface mirrors spec §9.11.
 | Provenance (page history + visible panel + property) | Confluence page-history provenance, push executor (panel injection + property enrichment) |
 | `repair-state` | lock/journal store |
 | `doctor` health-check | app (`runDoctor` orchestration), credential provider, config loader, Confluence adapter (read + opt-in self-cleaning scratch-page probe) *(delivered — GH-30)* |
-| Reverse sync (later) | Confluence reverse converter, pull/conflict service |
+| Reverse conversion / reverse sync (later) | Confluence reverse converter (library delivered — GH-92), pull/conflict service (later) |
 | JSON/machine-readable output | output service, CLI adapter |
 
 ### Module-boundary heuristics
@@ -304,9 +305,9 @@ flowchart TD
 - The dry-run path (Load → Classify → return `Plan` with 0 writes) is `computePlan`; the apply path (create/update parent-first → upload assets → update bodies + property → journal → lock) is `applyPlan` — both at `src/app/push-flow.ts` *(delivered — GH-23)*. The asset-upload step (per-entry upload after Create/Update, reuse-on-exists, `attachmentHashes` replacement — current run's set replaces the old set on Update/Create, pruning stale entries) is wired via `AssetResolver` (`src/domain/assets/`) *(delivered — GH-26; replacement semantics — GH-76)*. Writes are serialized (bounded concurrency = 1, ADR-0010 C-3); each mutation is journaled (`src/app/journal.ts`) before the lock updates, and a 409 surfaces as drift with no retry.
 - Concurrency control (`A-FEA-7`): decentralized — Confluence 409 on stale `version.number` + operation-ID dedup + stale-plan expiry. No shared service; no pessimistic leasing. CI concurrency-group templates reduce overlap at the source. *(delivered — GH-24)*
 
-### Reverse sync flow (later — `MS-0005+`)
+### Reverse sync flow (later — `MS-0005+`; converter foundation delivered)
 
-- `pull` reads remote Storage/ADF → reverse-converts to Markdown patch → writes to conflict workspace → **never** auto-commits (spec §9.9).
+- `pull` reads remote Storage Format → reverse-converts to Markdown patch via the delivered reverse converter (`reverseStorage`, GH-92 — canonical subset only; unsupported constructs block with diagnostics, C-4) → writes to conflict workspace → **never** auto-commits (spec §9.9). The `resolve`/`import` flows that consume the converter are `MS-0003` E2/E3.
 
 ## External dependencies and integrations
 
