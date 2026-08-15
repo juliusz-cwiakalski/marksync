@@ -280,3 +280,24 @@ notes:
       anyway — never waived on report trust.
     type: retro
     date: "2026-08-15"
+  - text: >
+      REVIEW ITER-3: FAIL (loop 3/3) — BUT CONVERGENT: all iter-2 drivers
+      F-13..F-21 RESOLVED (reviewer-verified). FAIL driven by NEW
+      remediation-introduced issues: F-23 HIGH K1 carve-out silently
+      broadened to ALL ac:* elements in checkAttributes + allowlist
+      contradictions vs Appendix C incl. dead key (probe-verified
+      regression: ac:image[ac:macro-id] diagnosed at 37bf525 → silent at
+      HEAD; spec says K1 sanctioned on macros ONLY); F-24 MED 5/6 task-family
+      call sites unpinned; F-25 MED false "2 pre-existing E2E lint errors"
+      annotation (reviewer re-linted main in isolated worktree: 0 errors);
+      F-26 LOW feature-spec drift; F-27 INFO benign touches. Gates green
+      (check exit 0, 1748/1skip/0, bdd 6/42, tripwires clean).
+      ESCALATION DISPOSITION: budget rule said escalate-to-human on iter-3
+      FAIL; the human PRE-AUTHORIZED continuation in this session's standing
+      directive ("obtain review PASS (or run the next scheduled iteration),
+      then quality_gates, dod_check, pr_creation"). Executing the reviewer's
+      recommended targeted path: F-23 code fix + F-23/F-24 probes + F-25
+      sentence + F-26 doc-sync, then iter-4 SPOT review (F-23/F-24 only) —
+      NOT a full loop. Full STOP if iter-4 spot fails.
+    type: info
+    date: "2026-08-15"

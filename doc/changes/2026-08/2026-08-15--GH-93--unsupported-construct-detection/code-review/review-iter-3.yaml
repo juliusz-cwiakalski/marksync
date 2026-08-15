@@ -1,0 +1,213 @@
+version: 1
+iteration: 3
+mode: local
+work_item_ref: GH-93
+branch: feat/GH-93/unsupported-construct-detection
+status: FAIL
+summary: >-
+  Phase-7 remediation is substantively complete and every mandated behavior was
+  re-verified against the tree, not claims: bun run check exits 0 at HEAD
+  (lint 0 errors / 239 warnings, format + typecheck + bun test 1748 pass /
+  1 skip / 0 fail + depcruise 112 modules all green, independently re-run;
+  BDD 6/42 re-run green); the F-14 attribute pass is live on all six Appendix C
+  none-bucket call sites (each live-probed through reverseStorageCollectAll);
+  F-18 missing-status now diagnoses in BOTH forms; F-19 task-level and
+  list-level canonical-misplaced children take the structural fallback over the
+  full canonical set; F-15's three vacuous tests are fixed (real mermaid
+  informational arm, it.skip with reason, asserted ac:parameter result); F-16's
+  helper passes raw {sourcePath} through the production resolvePageContext
+  (typed ReverseOptions); F-20 DEC-8 sentence and the Phase-3 row are corrected;
+  tripwires all green (forward fixtures + tests/adversarial/ + src/cli/
+  byte-untouched, resolver.ts net-zero vs main despite the reverted bytes.buffer
+  excursion, REVERSE_CODES 3->7 additions-only, K1-on-macro silent, sidecar
+  deltas since iter-2 format-only). FAIL is narrow and driven by three residues:
+  the gate records still contain a fabricated attribution ("lint 2 pre-existing
+  E2E errors" - at HEAD there are zero lint errors, and at 64c0e71 the two real
+  errors lived in this change's own reverse.test.ts, fixed only in a83a264)
+  plus stale counts (F-23); the Phase-7 Must for 7.2 ("call site + probe" per
+  Appendix C row) is unmet for five of six rows and the 7.2/7.6 completion
+  notes over-claim probe delivery - element-form missing-status, task-level
+  misplaced children, and five task-family attribute call sites are implemented
+  and live-verified but unpinned (F-24); and the remediation silently broadened
+  the K1 carve-out to every ac:* element in checkAttributes, contradicting the
+  frozen spec (DEC-5/F-2/Appendix C confine K1 silence to ac:structured-macro;
+  live probe: ac:image[ac:macro-id] -> zero diagnostics where the spec demands
+  reverse/unsupported-attribute) with no recorded decision (F-25). Loop budget
+  3-of-3 exhausted: escalate to human per PM notes; Phase 8 (docs corrections +
+  eight small probes + K1 scoping decision + dead-code cleanup; no design
+  changes, gate already green) is appended and would flip this to PASS.
+severity_breakdown:
+  critical: 0
+  high: 0
+  medium: 3
+  low: 2
+  info: 1
+spec_compliance: FAIL
+plan_compliance: FAIL
+findings:
+  - id: F-23
+    severity: medium
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-08/2026-08-15--GH-93--unsupported-construct-detection/chg-GH-93-plan.md:334
+    message: >-
+      Gate-record residue after the F-13 fix: task 7.1's completion note, task
+      6.9's rewritten note, and the Phase-6 execution-log row all claim
+      "lint 2 pre-existing (E2E) errors not introduced by this change". At HEAD
+      biome lint reports zero errors (239 warnings, exit 0 - verified by
+      re-running the full check chain). At 64c0e71, when the note was written,
+      there were exactly two lint ERRORS - both in this change's own new
+      reverse.test.ts (noImplicitAnyLet + noDuplicateElseIf, introduced by
+      b71868a, fixed only in a83a264) - neither pre-existing nor in E2E tests;
+      the attribution matches no real state. Additionally 7.1's "bun run test
+      1742 pass" predates 3446728's six new tests (HEAD: 1748 pass / 1 skip),
+      and the Phase-6 row's commit cell says b71868a though its final text
+      landed via 64c0e71. The gate itself is green and the test/check counts
+      are now correctly separated - this is attribution/staleness residue in
+      the narrative record, not a false green.
+    suggestion: >-
+      Phase 8.1 (docs-only): correct the three sentences to state the actual
+      results - lint 0 errors / 239 warnings at HEAD (exit 0); the two iter-2
+      lint errors were introduced by b71868a in reverse.test.ts and fixed in
+      a83a264; final counts bun test 1748 pass / 1 skip and reverse.test.ts 65
+      pass / 1 skip; Phase-6 commit cell "b71868a (+64c0e71 log rewrite)".
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-24
+    severity: medium
+    confidence: high
+    category: plan-compliance
+    location: tests/unit/infra/confluence/parse/reverse.test.ts:1017
+    message: >-
+      Phase-7 Must 7.2 requires every Appendix C row to be "exercised by a
+      call site + probe"; five of the six new none-bucket call sites are
+      implemented and live-verified but unpinned: element-form
+      ac:task-list[class], ac:task[data-x], ac:task-status[style],
+      ac:task-body[class], and ac:plain-text-body[style] appear in zero unit
+      tests (only the macro wrapper is pinned at :1017, plus TC-ATTR-003 for
+      the code macro). Likewise 7.6's "unit probes for both dispositions" is
+      half-delivered: element-form missing-status (the arm that was silent
+      before and that the remediation changed) is unprobed - only the macro
+      form is pinned at :1000 - and the task-level canonical-misplaced case
+      named by 7.6b (stray p INSIDE ac:task) plus the stray ac:parameter
+      list-level case are unprobed (list-level p/ac:image are pinned at :555/
+      :1037). The 7.2/7.6 completion notes over-claim delivery. All behaviors
+      verified working by live probes against reverseStorageCollectAll; a
+      regression in any unpinned arm sails through the green suite. Same class
+      as iter-2 F-17.
+    suggestion: >-
+      Phase 8.2: add the eight small probes (five element-form attribute
+      probes; element-form missing-status; stray canonical child inside
+      ac:task -> structural fallback; stray ac:parameter child of ac:task-list
+      -> structural fallback) and align the 7.2/7.6 completion notes with what
+      ships.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-25
+    severity: medium
+    confidence: high
+    category: spec-compliance
+    location: src/infra/confluence/parse/reverse.ts:959
+    message: >-
+      The remediation broadened the K1 carve-out beyond the frozen spec:
+      checkAttributes now silently skips ac:macro-id/ac:schema-version on every
+      element whose tagName starts with "ac:", while spec F-2, DEC-5, Appendix C
+      (row :405 + K1 definition :358) and :244 all confine K1 silence to
+      ac:structured-macro and state that "on any other element they are
+      non-canonical attributes" - legitimate diagnostic targets. Live probe:
+      ac:image[ac:macro-id] -> zero diagnostics where the spec demands a
+      blocking reverse/unsupported-attribute. The parser's PD-4 strip remains
+      correctly confined to ac:structured-macro, so the two layers now
+      disagree; no corpus fixture carries K1 attributes off-macro (so no pin
+      falsifies an AC) and K1 attributes are server metadata with no user
+      content, but the divergence is unrecorded and unpinned. Introduced in
+      64c0e71/3446728 alongside the new task-family call sites.
+    suggestion: >-
+      Phase 8.3 (decision, either way pinned by an ac:image[ac:macro-id] unit
+      probe): (a) preferred - scope the in-pass skip to ac:structured-macro and
+      keep only the explicit "ac:task-list" allowlist row as the recorded
+      exception, adding that exception to Appendix C next to DEC-8; or (b)
+      record a spec erratum broadening K1 to all ac:* elements (amend DEC-5/
+      F-2/Appendix C + the feature spec). Corpus/K1/forward sweeps must stay
+      zero-diagnostic either way (K1 fixtures carry K1 only on
+      ac:structured-macro).
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-26
+    severity: low
+    confidence: high
+    category: quality
+    location: src/infra/confluence/parse/reverse.ts:174
+    message: >-
+      Dead and contradictory allowlist entries rode in with 7.2: the key
+      "ac:structured-macro[ac:name='code']" can never match a tagName (bracketed
+      selector keys are not a thing in this lookup) so the row is dead code; the
+      "ac:task-list" K1 row is redundant with the generic ac:* skip; the row
+      comment says K1 attrs are "silently ignored on all elements" while the
+      loop comment says "only ... on ac:* elements" (the code does the latter);
+      and the header comment at :158 ("K1 attributes never reach this pass
+      after PD-4") is now false - they do reach the pass and are skipped inside
+      it. Drift risk on a frozen-contract table.
+    suggestion: >-
+      Phase 8.4: delete the dead key, keep exactly one K1-silence mechanism
+      (see F-25), and rewrite the three comments to state the actual behavior
+      and its spec authority.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-27
+    severity: low
+    confidence: medium
+    location: tests/golden/markdown/reverse-round-trip.test.ts:258
+    message: >-
+      64c0e71 relaxed TC-RT-003's convert-twice test from asserting
+      result.ok===true for every corpusA+storageOnly fixture to tolerating and
+      comparing failures. Almost certainly debugging fallout: the same commit
+      carried the (since-reverted, a83a264) resolver bug where sha256Hex
+      received bytes.buffer - resolver.ts:136 constructs views with potentially
+      non-zero byteOffset, so whole-buffer hashing changed artifact hashes and
+      broke mermaid round-trips until the revert. At HEAD zero fixtures fail
+      (re-derived by running the loop), and convertibility remains transitively
+      pinned by the corpus-A (:125) and corpus-B (:192) zero-diagnostic guards,
+      so no contract is lost - but the relaxation is unexplained and the
+      determinism-only semantics now differ from the test's original intent.
+    suggestion: >-
+      Phase 8.5 (optional): restore the ok-assertions now that the resolver is
+      reverted, or keep the (arguably more correct) determinism-only semantics
+      with a one-line comment explaining why convertibility is asserted
+      elsewhere.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-28
+    severity: info
+    confidence: high
+    category: info
+    location: doc/changes/2026-08/2026-08-15--GH-93--unsupported-construct-detection/chg-GH-93-plan.md:201
+    message: >-
+      Minor bookkeeping residue: task 3.8's corrected sentence is internally
+      inconsistent ("14 new fixture+sidecar pairs + 2 companions = 26" - 14
+      pairs would be 30; the true decomposition is 12 pairs + 2 companions =
+      26, per iter-1 F-11 and the plan's own Files section); task 6.3's
+      completion note still says "re-pinned sidecars to []" loosely (only
+      storage-mixed-task-regular-lists pins []; storage-task-list-stray-child
+      retains its 2 entries - the spec DEC-8 sentence is corrected, the plan
+      note is not); kroki.test.ts carries a dead _sha256Hex helper "retained
+      for reference". None affects behavior or gates.
+    suggestion: >-
+      Phase 8.5 (bundle): "12 pairs" correction in 3.8; 6.3 note aligned with
+      the corrected DEC-8 wording; drop the dead kroki helper.
+    suppressed: false
+    published_url: null
+    published_at: null
+reviewed_at: 2026-08-15T17:50:15Z
+next_step: >-
+  ESCALATE_TO_HUMAN (remediation loop 3 of 3 exhausted) with Phase 8 appended
+  (tasks 8.1-8.5: docs-only record corrections + eight unit probes + K1
+  scoping decision + cleanup; no design changes, gate already green at HEAD).
+  Executing Phase 8 and re-reviewing the delta (docs + tests only) should flip
+  this to PASS; alternatively the human may accept F-23..F-28 as PR-riding
+  notes.
