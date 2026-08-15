@@ -27,7 +27,7 @@ The central design risk this plan guards against is **self-reference**: the roun
 
 ### 1.1 In Scope
 
-- Golden-tier **round-trip harness** over the existing 33-pair corpus, partitioned per spec DEC-7/DM-4: corpus A (26 canonical fixtures — byte-equality), corpus B (7 annotation/defensive fixtures — explicit expectations), plus a committed partition manifest whose completeness is asserted (AC-F2-1's mechanical guardrail)
+- Golden-tier **round-trip harness** over the existing 33-pair corpus, partitioned per spec DEC-7/DM-4: corpus A (26 canonical fixtures — byte-equality), corpus B (6 annotation/defensive fixtures with a Storage form — explicit expectations; `raw-html-block-real` is manifest-`excluded`, not corpus-B — no Storage twin), plus a committed partition manifest whose completeness and bucket disjointness are asserted (AC-F2-1's mechanical guardrail)
 - **Storage-only reverse fixtures**: existing `provenance-panel.storage.xhtml` (panel strip) and `mermaid-render-policy.storage.xhtml` (synthetic artifact); NEW K1 attribute variants of macro-bearing canonical fixtures and one realistic combined read-back fixture (AC-F3-1, AC-F3-3)
 - **Mermaid code-macro unwrap** fidelity — fence bytes identical to CDATA content (AC-F3-2)
 - **Storage-side adversarial set** (new fixtures under `tests/adversarial-storage/`, runner under `tests/golden/adversarial/`) mirroring the GH-31 category taxonomy, regression-locking reverse diagnostics incl. fast-fail/collect-all parity (AC-F4-1)
@@ -146,6 +146,7 @@ Tier assignments follow the spec AC tier column and `.ai/rules/testing-strategy.
 - **Framework**: `bun:test`, real pipeline (mirror of `tests/golden/adversarial/classification-runner.test.ts`, GH-31)
 - **Runner**: `tests/golden/adversarial/reverse-classification-runner.test.ts` — TC-RADV-001/002, golden-side execution of TC-RDIAG-002's multi-instance parity
 - **Fixtures**: NEW `tests/adversarial-storage/*.storage.xhtml` + `*.classification.json` sidecars (runners under `tests/golden/`, fixtures at top level beside `tests/adversarial/` — the GH-31 DEC-5 runner/fixture split, relocated per plan PD-5: a subdirectory of `tests/adversarial/` would crash the pii-audit directory walk with EISDIR)
+- **pii-audit scope note (DoR iter-1 Finding 4)**: the top-level placement ships this set **outside `tests/adversarial/` and hence outside `pii-audit.test.ts`'s walk by design** (the PD-5 relocation; a subdirectory would EISDIR-crash that unmodifiable suite). Compensating control: the PII grep-audit over `tests/adversarial-storage/` (email + internal-ticket-URL patterns = 0 matches across the 18 new files; bare-ID pattern scoped out with a comment — `storage-macro-jira` legitimately needs `JIRA-…` refs) is implementation-plan task **5.7** (`chg-GH-92-plan.md` v1.1), asserted inside `reverse-classification-runner.test.ts`. It is a plan task riding the TC-RADV runner, not a standalone test-plan TC — cross-referenced here so the scope gap is examined, not silent
 - **Sidecar schema**: an array of expected blocking diagnostics (`{ code, construct, location }` per instance) — OR the object `{ "parseError": true }` for the malformed-Storage fixture, asserting the distinct parse-error arm
 
 ### 4.4 Harness Mechanics (normative for the implementation)
@@ -183,13 +184,15 @@ expect(all.diagnostics).toHaveLength(N)           // exhaustive — no truncatio
 
 ```
 manifest    = read("round-trip-partition.json")   // { corpusA[], corpusB[], storageOnly[], excluded[]{name,reason} }
+// manifest rule: a fixture appears in EXACTLY ONE bucket — corpusA/corpusB/storageOnly/excluded are pairwise disjoint
 discoveredMd          = glob("*.md")              // 33 today
 discoveredStorageOnly = orphan "*.storage.xhtml"  // no .md twin
+expect(pairwiseDisjoint(corpusA, corpusB, excludedNames)).toBe(true)  // dual bucketing is a manifest error
 expect(symmetricDifference(discoveredMd, A ∪ B ∪ excluded)).toBeEmpty()
 expect(symmetricDifference(discoveredStorageOnly, manifest.storageOnly)).toBeEmpty()
 ```
 
-A fixture dropped into the directory without a manifest entry fails CI with an instructive message ("classify me: A, B, storageOnly, or excluded+reason") — adding a fixture or expanding the subset without 100% pass cannot be silently skipped (AC-F2-1).
+A fixture dropped into the directory without a manifest entry fails CI with an instructive message ("classify me: A, B, storageOnly, or excluded+reason") — adding a fixture or expanding the subset without 100% pass cannot be silently skipped (AC-F2-1). Disjointness consequence for authoring: `corpusB` lists only fixtures with explicit reverse expectations (a Storage form + a committed sidecar); a fixture with no Storage twin (e.g. `raw-html-block-real`) lives in `excluded` only — never in both.
 
 ## 5. Test Scenarios
 
@@ -201,7 +204,7 @@ A fixture dropped into the directory without a manifest entry fails CI with an i
 | TC-RT-002 | Corpus-B explicit reverse expectations (annotation/defensive fixtures) | Edge Case | Important | High | AC-F1-1 (corpus-B arm), DM-4 | Golden |
 | TC-RT-003 | Reverse determinism in-process (convert twice, deep-equal) | Corner Case | Critical | High | AC-F1-2, NFR-2 | Golden |
 | TC-RT-004 | Reverse determinism across runs (committed snapshot layer) | Corner Case | Critical | High | AC-F1-2, NFR-2 | Golden |
-| TC-RT-005 | Partition-manifest completeness — guardrail auto-inclusion | Regression | Critical | High | AC-F2-1, DM-4, NFR-1 | Golden |
+| TC-RT-005 | Partition-manifest completeness + bucket disjointness — guardrail auto-inclusion | Regression | Critical | High | AC-F2-1, DM-4, NFR-1 | Golden |
 | TC-RT-006 | Provenance-panel strip on read-back (0 content, 0 wrapper, 0 marker, 0 diagnostics) | Happy Path | Critical | High | AC-F3-1, DEC-6 | Golden |
 | TC-RT-007 | Mermaid code-macro unwrap: fence bytes identical to CDATA, 0 wrapper artifacts | Happy Path | Critical | High | AC-F3-2 | Golden |
 | TC-RT-008 | K1 attribute tolerance: output identical to attr-free variant, 0 diagnostics | Happy Path | Critical | High | AC-F3-3, NFR-4 | Golden |
@@ -273,7 +276,7 @@ A fixture dropped into the directory without a manifest entry fails CI with an i
 
 **Steps**:
 
-1. For each corpus-B fixture (except `raw-html-block-real`, which is manifest-excluded as forward-only): read the committed Storage side (`.storage.xhtml`), run `reverse`, and compare the Markdown output byte-wise to `reverse/<name>.md`
+1. For each of the 6 corpus-B fixtures — every corpus-B fixture has a Storage form by the manifest's disjointness rule; `raw-html-block-real` is not corpus-B (it lives in `excluded` only), so no per-fixture carve-out exists in the loop: read the committed Storage side (`.storage.xhtml`), run `reverse`, and compare the Markdown output byte-wise to `reverse/<name>.md`
 2. Where a `reverse/<name>.json` exists, deep-compare emitted diagnostics; where absent, assert 0 diagnostics
 3. Assert specifically per fixture class:
    - `frontmatter`, `html-comment-block`, `link-ref-comment`: output equals the canonical body; **no** front-matter / comment / reference-definition is ever synthesized (DEC-6 — reverse never invents metadata)
@@ -356,18 +359,20 @@ A fixture dropped into the directory without a manifest entry fails CI with an i
 
 **Preconditions**:
 
-- Manifest committed with `corpusA` (26), `corpusB` (7), `storageOnly` (5), `excluded` (1: `raw-html-block-real`, reason: forward-error fixture, no Storage form)
+- Manifest committed with `corpusA` (26), `corpusB` (6), `storageOnly` (5), `excluded` (1: `raw-html-block-real`, reason: forward-error fixture, no Storage form). `raw-html-block-real` appears in `excluded` **only** — it has no Storage twin (verified on disk: 34 `.storage.xhtml` = 32 twins + 2 Storage-only), so it cannot round-trip; raw-HTML constructs are classification-only per its forward `.unsupported.txt` sidecar. `corpusB` membership is limited to fixtures with explicit reverse expectations
 
 **Steps**:
 
-1. Discover all `*.md` files in the fixtures dir (33 today); assert the symmetric difference between discovery and `corpusA ∪ corpusB ∪ excluded-names` is empty
-2. Discover orphan `*.storage.xhtml` files (no `.md` twin — 5 today: the 2 existing Storage-only + 3 new); assert the symmetric difference with `manifest.storageOnly` is empty
-3. Assert every `excluded` entry carries a non-empty reason
-4. Negative self-test (GH-103 TC-GUARD-002 pattern): feed the completeness helper an unlisted fixture name and assert it **fails** — proving the guardrail detects, not just passes
+1. Discover all `*.md` files in the fixtures dir (33 today); assert the symmetric difference between discovery and `corpusA ∪ corpusB ∪ excluded-names` is empty — the union covers all 33 exactly (26 + 6 + 1), no more, no less
+2. Assert the `*.md` buckets are **pairwise disjoint**: no fixture name appears in more than one of `corpusA` / `corpusB` / `excluded` — dual bucketing (e.g. `raw-html-block-real` in both `corpusB` and `excluded`) is a manifest error and fails the suite
+3. Discover orphan `*.storage.xhtml` files (no `.md` twin — 5 today: the 2 existing Storage-only + 3 new); assert the symmetric difference with `manifest.storageOnly` is empty
+4. Assert every `excluded` entry carries a non-empty reason
+5. Negative self-test (GH-103 TC-GUARD-002 pattern): feed the completeness helper an unlisted fixture name and assert it **fails** — proving the guardrail detects, not just passes
 
 **Expected Outcome**:
 
 - No fixture can exist outside the harness: any added fixture (or subset-expansion fixture) that is unpartitioned or failing breaks CI — AC-F2-1's "mechanically enforcing" clause
+- No fixture can exist in two buckets — iteration semantics are unambiguous: exactly one bucket drives each harness loop (corpusA → equality, corpusB → explicit sidecars, excluded → never iterated)
 - Classification of a new fixture is a conscious, reviewed manifest edit (mirrors the strategy's explicit-snapshot-update discipline)
 
 ---
@@ -783,7 +788,7 @@ A fixture dropped into the directory without a manifest entry fails CI with an i
 
 (Construct-family note: ordered nesting is covered by `ordered-list-nested`; no separate plain-`ordered-list` fixture exists in the corpus and none is invented — AC-F1-1's family enumeration maps onto exactly these 26.)
 
-**Corpus B — annotation/defensive fixtures (7, all existing; assert explicit expectations):**
+**Corpus B — annotation/defensive fixtures (6, all existing; assert explicit expectations — membership requires a Storage form + committed sidecar):**
 
 | Fixture | Reverse input | Explicit expectation |
 |---|---|---|
@@ -793,7 +798,8 @@ A fixture dropped into the directory without a manifest entry fails CI with an i
 | `link-ref-comment` | `<h1>` + `<p>` | canonical body; no reference definitions synthesized; 0 diagnostics |
 | `mixed-html-comment` | empty Storage (forward error fixture w/ empty golden) | empty Markdown; 0 diagnostics |
 | `raw-html-inline-real` | `<p>Text &lt;b&gt;raw&lt;/b&gt; inline.</p>` | canonical escaping of literal `<b>` text pinned in sidecar; raw HTML never emitted; 0 diagnostics |
-| `raw-html-block-real` | — (no Storage form; forward-error fixture) | **manifest-excluded (forward-only)** — its `.unsupported.txt` keeps serving the forward classification; nothing to reverse |
+
+**Excluded from round trip (1):** `raw-html-block-real` — the single canonical bucket is the manifest's `excluded` (reason: forward-error fixture, no Storage form; disjointness rule above). It has **no Storage twin on disk** (34 `.storage.xhtml` = 32 twins + 2 Storage-only), so it cannot round-trip; its forward `.unsupported.txt` sidecar keeps serving the forward classification — raw-HTML constructs are classification-only. It is never listed in `corpusB`, which is limited to fixtures with explicit reverse expectations.
 
 **Storage-only reverse fixtures (5 = 2 existing + 3 new):**
 
@@ -805,7 +811,7 @@ A fixture dropped into the directory without a manifest entry fails CI with an i
 | `mermaid-code-policy-k1.storage.xhtml` | **NEW** | K1 attrs on the mermaid macro (AC-F3-3 + AC-F3-2) |
 | `readback-realistic.storage.xhtml` | **NEW** | Flow-2 shape: canonical (kitchensink) body + K1 attrs + appended panel — the composite read-back a real `resolve`/`import` will fetch (F-3a+F-3d together; RSK-2 evidence) |
 
-**NEW Storage-side adversarial set (`tests/adversarial-storage/`, top level per PD-5, extends the GH-31 taxonomy):**
+**NEW Storage-side adversarial set (`tests/adversarial-storage/`, top level per PD-5, extends the GH-31 taxonomy; outside pii-audit's `tests/adversarial/` walk by design — compensating grep-audit is plan task 5.7, see the §4.3 scope note):**
 
 | Fixture | GH-31 category mirrored | Sidecar expectation |
 |---|---|---|
@@ -895,7 +901,7 @@ Unit-test file paths mirror the final `src/` module layout; if the plan (phase 4
 
 ### 8.2 Assumptions
 
-- A-1: The 33-pair corpus inventory read at intake (`main @ 80065a4`) is complete and current: 26 corpus-A + 7 corpus-B fixtures, 2 `.unsupported.txt` sidecars, 2 Storage-only fixtures — the partition in §6.2 enumerates all of them
+- A-1: The 33-pair corpus inventory read at intake (`main @ 80065a4`) is complete and current: 26 corpus-A + 6 corpus-B fixtures + 1 manifest-excluded (`raw-html-block-real`, no Storage twin), 2 `.unsupported.txt` sidecars, 2 Storage-only fixtures — the partition in §6.2 enumerates all of them
 - A-2: The forward golden loader (`storage-renderer.test.ts`) ignores every non-`.md` file and every subdirectory in the fixtures dir (verified against its source: `readdirSync(...).filter(f => f.endsWith(".md"))`) — new Storage-only fixtures, the manifest, and the `reverse/` subdir are invisible to it, keeping NG-3 holdable with zero modifications
 - A-3: `normalize` is (or wraps) the same canonical serializer the reverse converter uses — the spec's DEC-3 single-definition requirement; the tests treat divergence as a failure (TC-NORM-002), never as plan latitude
 - A-4: Bun's `toMatchSnapshot` is deterministic across runs on the pinned Bun version and OS matrix in use (same mechanism as the existing forward snapshots — established repo practice, ADR-0002 C-1 posture)
@@ -917,6 +923,7 @@ Unit-test file paths mirror the final `src/` module layout; if the plan (phase 4
 |---------|------|--------|---------|
 | 0.1 | 2026-08-15 | test-plan-writer (GH-92) | Initial test plan — 19 scenarios across golden-fixture / golden-adversarial / unit tiers; corpus partition pinned (26 A / 7 B / 5 Storage-only / 9 adversarial-new, DEC-7/DM-4); harness mechanics normative (byte-equality, in-process + snapshot determinism, fast-fail/collect-all parity, manifest guardrail); test-design decisions D-TST-1..3; no integration/e2e/BDD/Mermaid-DOM scenarios (spec §8.1/NG-5) with rationale; over-mocking guardrail compliance note (zero mocks, `mock.module` ban per GH-103). |
 | 0.2 | 2026-08-15 | test-plan amendment (PM reopen) | PD-5: relocate Storage-side adversarial fixtures from a storage/ subdirectory under tests/adversarial/ (would crash the adversarial pii-audit directory walk with EISDIR) to top-level tests/adversarial-storage/ — aligns with plan v1.0 |
+| 0.3 | 2026-08-15 | test-plan amendment (DoR iter-1 findings 3+4) | manifest buckets made disjoint with single canonical bucket for raw-html-block-real (excluded, classification-only — no Storage twin); TC-RT-005 asserts disjointness + coverage; adversarial-storage pii-audit scope note cross-referencing plan task 5.7 |
 
 ## 10. Test Execution Log
 
