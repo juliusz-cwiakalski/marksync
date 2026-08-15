@@ -292,7 +292,7 @@ describe("reverse-diagnostics", () => {
 			expect(result.ok).toBe(false);
 			if (!result.ok) {
 				const error = result.error;
-				expect(error.code).toBe(REVERSE_CODES.UNSUPPORTED_CONSTRUCT);
+				expect(error.code).toBe(REVERSE_CODES.UNKNOWN_MACRO);
 				expect(error.construct).toContain('ac:name="unknown-macro"');
 				expect(error.location).toBeDefined();
 				expect(error.location.line).toBeGreaterThan(0);
@@ -356,7 +356,7 @@ describe("reverse-diagnostics", () => {
 			// Fast-fail returns the first blocking error (gliffy)
 			expect(fastFail.ok).toBe(false);
 			if (!fastFail.ok) {
-				expect(fastFail.error.code).toBe(REVERSE_CODES.UNSUPPORTED_CONSTRUCT);
+				expect(fastFail.error.code).toBe(REVERSE_CODES.UNKNOWN_MACRO);
 				expect(fastFail.error.construct).toContain('ac:name="gliffy"');
 			}
 
@@ -453,12 +453,12 @@ describe("reverse-diagnostics", () => {
 				expect(collectAll.value.diagnostics).toHaveLength(1);
 
 				// Verify per-instance verdict shape
-				expect(fastFail.error.code).toBe(REVERSE_CODES.UNSUPPORTED_CONSTRUCT);
+				expect(fastFail.error.code).toBe(REVERSE_CODES.UNKNOWN_MACRO);
 				expect(fastFail.error.construct).toBeDefined();
 				expect(fastFail.error.location).toBeDefined();
 
 				expect(collectAll.value.diagnostics[0].code).toBe(
-					REVERSE_CODES.UNSUPPORTED_CONSTRUCT,
+					REVERSE_CODES.UNKNOWN_MACRO,
 				);
 			}
 		});

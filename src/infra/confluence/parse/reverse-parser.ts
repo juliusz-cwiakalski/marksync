@@ -323,8 +323,8 @@ function normalizeElement(el: Element): Element | null {
 		return null; // Strip entirely
 	}
 
-	// K1 tolerance: drop schema-version and macro-id attributes
-	const properties = dropK1Attributes(el.properties);
+	// K1 tolerance: drop schema-version and macro-id attributes (confined to macros only, PD-4)
+	const properties = dropK1Attributes(el.properties, el.tagName);
 
 	// Recursively normalize children with phrasing context
 	const isPhrasing = PHRASING_ELEMENTS.has(el.tagName);
@@ -368,12 +368,18 @@ function hasMarkerComment(el: Element): boolean {
 	return false;
 }
 
-/** Drop K1 tolerance attributes (schema-version, macro-id). */
-function dropK1Attributes(props: Properties): Properties {
+/** Drop K1 tolerance attributes (schema-version, macro-id) — confined to ac:structured-macro only (PD-4). */
+function dropK1Attributes(props: Properties, tagName?: string): Properties {
+	// K1 carve-out: only drop these attributes on ac:structured-macro (ADR-0005-sanctioned)
+	// On all other elements, they are exotic attributes per Appendix C
+	if (tagName !== "ac:structured-macro") {
+		return props; // Don't strip K1 on non-macro elements
+	}
+
 	const result: Properties = {};
 	for (const [key, value] of Object.entries(props)) {
 		if (key === "ac:schema-version" || key === "ac:macro-id") {
-			continue; // Skip K1 attributes
+			continue; // Skip K1 attributes only on macros
 		}
 		result[key] = value;
 	}

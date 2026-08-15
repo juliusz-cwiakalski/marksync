@@ -1,6 +1,6 @@
 [
 	{
-		"code": "reverse/unsupported-construct",
+		"code": "reverse/unknown-macro",
 		"construct": "ac:structured-macro[ac:name=\"info\"]",
 		"location": {
 			"line": 1,

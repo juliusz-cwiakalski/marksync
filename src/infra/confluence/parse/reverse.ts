@@ -8,6 +8,7 @@ import {
 	REVERSE_CODES,
 	type ReverseDiagnostic,
 	type ReverseError,
+	type ReversePageContext,
 	type ReverseSuccess,
 	type UnsupportedConstructError,
 } from "#domain/markdown/reverse-diagnostics";
@@ -24,6 +25,8 @@ export type { ReverseSuccess } from "#domain/markdown/reverse-diagnostics";
 export interface ReverseOptions {
 	/** Reserved for future diagnostic provenance context. */
 	sourcePath?: string;
+	/** Caller-supplied page context — echoed verbatim into all diagnostics (PD-2). */
+	page?: ReversePageContext;
 }
 
 /**
@@ -42,13 +45,23 @@ export function reverseStorage(
 	body: string,
 	opts?: ReverseOptions,
 ): Result<ReverseSuccess, ReverseError> {
-	const parsed = parseStorage(body, opts);
+	// Resolve page context: explicit page verbatim; else sourcePath absorption; else absent
+	const page = resolvePageContext(opts);
+
+	const parsed = parseStorage(
+		body,
+		opts?.sourcePath ? { sourcePath: opts.sourcePath } : undefined,
+	);
 	if (!parsed.ok) {
-		return Result.err(parsed.error);
+		// Attach page context to parse error (PD-2)
+		return Result.err({
+			...parsed.error,
+			...(page !== undefined && { page }),
+		});
 	}
 
 	// Classify and map to content HAST
-	const classified = classifyStorage(parsed.value);
+	const classified = classifyStorage(parsed.value, page);
 
 	if (classified.diagnostics.some((d) => d.severity === "blocking")) {
 		// Fast-fail: return the first blocking diagnostic
@@ -60,6 +73,7 @@ export function reverseStorage(
 			code: blocking.code,
 			construct: blocking.construct,
 			location: blocking.location,
+			...(blocking.page !== undefined && { page: blocking.page }), // Parity with collect-all (TC-DET-001)
 		};
 		return Result.err(error);
 	}
@@ -83,18 +97,30 @@ export function reverseStorage(
  * the fast-fail error when one exists.
  *
  * @param body - Storage XHTML string.
+ * @param opts - Reverse options.
  * @returns All diagnostics (preserving severity/class) on success or parse error.
  */
 export function reverseStorageCollectAll(
 	body: string,
+	opts?: ReverseOptions,
 ): Result<{ diagnostics: ReverseDiagnostic[] }, StorageParseError> {
-	const parsed = parseStorage(body);
+	// Resolve page context: explicit page verbatim; else sourcePath absorption; else absent
+	const page = resolvePageContext(opts);
+
+	const parsed = parseStorage(
+		body,
+		opts?.sourcePath ? { sourcePath: opts.sourcePath } : undefined,
+	);
 	if (!parsed.ok) {
-		return Result.err(parsed.error);
+		// Attach page context to parse error (PD-2)
+		return Result.err({
+			...parsed.error,
+			...(page !== undefined && { page }),
+		});
 	}
 
 	// Classify and collect all diagnostics
-	const classified = classifyStorage(parsed.value);
+	const classified = classifyStorage(parsed.value, page);
 
 	// Return all diagnostics preserving severity/class (F-1 fix)
 	// The contract now correctly separates blocking from informational
@@ -107,6 +133,47 @@ interface ClassificationResult {
 	diagnostics: Array<BlockingDiagnostic | InformationalDiagnostic>;
 }
 
+/** Resolve page context from options (PD-2). */
+function resolvePageContext(
+	opts?: ReverseOptions,
+): ReversePageContext | undefined {
+	// Explicit page wins verbatim, no merge
+	if (opts?.page) {
+		return opts.page;
+	}
+	// Absorption: sourcePath only
+	if (opts?.sourcePath) {
+		return { sourcePath: opts.sourcePath };
+	}
+	// Absent → omitted (never null, byte-identical to GH-92)
+	return undefined;
+}
+
+/**
+ * Canonical attribute allowlist — exactly what the forward converter emits (Appendix C).
+ * An attribute is canonical on an element iff the forward converter emits it there.
+ *
+ * Derived from emission sites in src/infra/confluence/render/storage.ts:
+ * - a[href] at :103
+ * - ac:parameter[ac:name] at :193
+ * - ac:structured-macro[ac:name] at :195 (K1 attributes never reach this pass after PD-4)
+ * - ac:image[ac:alt] at :201 (conditional)
+ * - ri:url[ri:value] at :203
+ * - ri:attachment[ri:filename] at :206
+ * - All other canonical elements emit no attributes
+ */
+const CANONICAL_ATTRIBUTE_ALLOWLIST: Record<string, string[]> = {
+	a: ["href"],
+	"ac:image": ["ac:alt"],
+	"ri:attachment": ["ri:filename"],
+	"ri:url": ["ri:value"],
+	"ac:structured-macro": ["ac:name"],
+	"ac:parameter": ["ac:name"],
+	// All other canonical elements (h1-h6, p, strong, em, del, code, img, ul, ol, li, table, thead,
+	// tbody, tr, th, td, blockquote, hr, pre, ac:task-list, ac:task, ac:task-status, ac:task-body,
+	// ac:plain-text-body) → empty allowlist → any attribute is exotic
+} as const;
+
 /**
  * Classify Storage-HAST into content HAST + diagnostics.
  *
@@ -115,12 +182,15 @@ interface ClassificationResult {
  * - Mermaid render artifact → informational diagnostic + dropped
  * - Everything else → blocking diagnostic
  */
-function classifyStorage(hast: Root): ClassificationResult {
+function classifyStorage(
+	hast: Root,
+	page?: ReversePageContext,
+): ClassificationResult {
 	const content: Root = { type: "root", children: [] };
 	const diagnostics: Array<BlockingDiagnostic | InformationalDiagnostic> = [];
 
 	for (const child of hast.children) {
-		const result = classifyNode(child);
+		const result = classifyNode(child, page);
 		if (result.content) {
 			content.children.push(result.content);
 		}
@@ -137,7 +207,10 @@ interface NodeClassificationResult {
 }
 
 /** Classify a single HAST node. */
-function classifyNode(node: RootContent): NodeClassificationResult {
+function classifyNode(
+	node: RootContent,
+	page?: ReversePageContext,
+): NodeClassificationResult {
 	if (node.type === "text") {
 		return { content: node, diagnostics: [] };
 	}
@@ -148,7 +221,7 @@ function classifyNode(node: RootContent): NodeClassificationResult {
 	}
 
 	if (node.type === "element") {
-		return classifyElement(node);
+		return classifyElement(node, page);
 	}
 
 	// Unknown node types (doctype, etc.) — ignored (not reachable from page-body Storage)
@@ -156,7 +229,10 @@ function classifyNode(node: RootContent): NodeClassificationResult {
 }
 
 /** Classify a HAST element. */
-function classifyElement(el: Element): NodeClassificationResult {
+function classifyElement(
+	el: Element,
+	page?: ReversePageContext,
+): NodeClassificationResult {
 	const tagName = el.tagName;
 	const props = el.properties || {};
 
@@ -187,17 +263,17 @@ function classifyElement(el: Element): NodeClassificationResult {
 		// Check for mermaid render policy artifact (DEC-1, AC-F4-2)
 		if (src.startsWith("marksync-mermaid-")) {
 			const location = getLocation(el);
+			const diagnostic: InformationalDiagnostic = {
+				severity: "informational",
+				class: "marksync-synthetic-artifact",
+				code: REVERSE_CODES.SYNTHETIC_ARTIFACT,
+				construct: "ac:image (mermaid render policy)",
+				location,
+				...(page !== undefined && { page }),
+			};
 			return {
 				content: null,
-				diagnostics: [
-					{
-						severity: "informational",
-						class: "marksync-synthetic-artifact",
-						code: REVERSE_CODES.SYNTHETIC_ARTIFACT,
-						construct: "ac:image (mermaid render policy)",
-						location,
-					},
-				],
+				diagnostics: [diagnostic],
 			};
 		}
 
@@ -218,12 +294,12 @@ function classifyElement(el: Element): NodeClassificationResult {
 
 	// Handle Confluence macros
 	if (tagName === "ac:structured-macro") {
-		return classifyMacro(el);
+		return classifyMacro(el, page);
 	}
 
 	// Handle ac:task-list (Confluence-specific element)
 	if (tagName === "ac:task-list") {
-		return classifyTaskListElement(el);
+		return classifyTaskListElement(el, page);
 	}
 
 	// Handle recognized canonical elements (pass through)
@@ -260,27 +336,32 @@ function classifyElement(el: Element): NodeClassificationResult {
 		if (tagName === "td" || tagName === "th") {
 			if (hasDescendantTable(el)) {
 				const location = getLocation(el);
+				const diagnostic: BlockingDiagnostic = {
+					severity: "blocking",
+					class: "unsupported-construct",
+					code: REVERSE_CODES.UNSUPPORTED_CONSTRUCT,
+					construct: `${tagName} containing nested table`,
+					location,
+					...(page !== undefined && { page }),
+				};
 				return {
 					content: null,
-					diagnostics: [
-						{
-							severity: "blocking",
-							class: "unsupported-construct",
-							code: REVERSE_CODES.UNSUPPORTED_CONSTRUCT,
-							construct: `${tagName} containing nested table`,
-							location,
-						},
-					],
+					diagnostics: [diagnostic],
 				};
 			}
 		}
 
+		// Attribute pass: check for exotic attributes (F-2, Appendix C)
+		const attrDiagnostic = checkAttributes(el, page);
+
 		// Recursively classify children
 		const classifiedChildren: ElementContent[] = [];
-		const diagnostics: Array<BlockingDiagnostic | InformationalDiagnostic> = [];
+		const diagnostics: Array<BlockingDiagnostic | InformationalDiagnostic> = [
+			...(attrDiagnostic ? [attrDiagnostic] : []),
+		];
 
 		for (const child of el.children) {
-			const result = classifyNode(child);
+			const result = classifyNode(child, page);
 			if (result.content) {
 				classifiedChildren.push(result.content as ElementContent);
 			}
@@ -293,54 +374,77 @@ function classifyElement(el: Element): NodeClassificationResult {
 		};
 	}
 
+	// Handle complex layout family (F-1, DEC-4)
+	if (isLayoutFamily(el.tagName)) {
+		const location = getLocation(el);
+		const diagnostic: BlockingDiagnostic = {
+			severity: "blocking",
+			class: "unsupported-construct",
+			code: REVERSE_CODES.COMPLEX_LAYOUT,
+			construct: tagName,
+			location,
+			...(page !== undefined && { page }),
+		};
+		return {
+			content: null,
+			diagnostics: [diagnostic],
+		};
+	}
+
 	// Unknown element → blocking diagnostic
 	const location = getLocation(el);
+	const diagnostic: BlockingDiagnostic = {
+		severity: "blocking",
+		class: "unsupported-construct",
+		code: REVERSE_CODES.UNKNOWN_ELEMENT,
+		construct: tagName,
+		location,
+		...(page !== undefined && { page }),
+	};
 	return {
 		content: null,
-		diagnostics: [
-			{
-				severity: "blocking",
-				class: "unsupported-construct",
-				code: REVERSE_CODES.UNSUPPORTED_CONSTRUCT,
-				construct: tagName,
-				location,
-			},
-		],
+		diagnostics: [diagnostic],
 	};
 }
 
 /** Classify a Confluence macro. */
-function classifyMacro(el: Element): NodeClassificationResult {
+function classifyMacro(
+	el: Element,
+	page?: ReversePageContext,
+): NodeClassificationResult {
 	const macroName = el.properties["ac:name"]?.toString();
 
 	if (macroName === "code") {
-		return classifyCodeMacro(el);
+		return classifyCodeMacro(el, page);
 	}
 
 	if (macroName === "task-list") {
-		return classifyTaskListMacro(el);
+		return classifyTaskListMacro(el, page);
 	}
 
 	// Info macros are NOT classified here — panel strip already handled by parser
 	// However, if the parser didn't strip it (no marker), we treat it as unknown
 	// to preserve the blocking diagnostic behavior
 	const location = getLocation(el);
+	const diagnostic: BlockingDiagnostic = {
+		severity: "blocking",
+		class: "unsupported-construct",
+		code: REVERSE_CODES.UNKNOWN_MACRO,
+		construct: `ac:structured-macro[ac:name="${macroName}"]`,
+		location,
+		...(page !== undefined && { page }),
+	};
 	return {
 		content: null,
-		diagnostics: [
-			{
-				severity: "blocking",
-				class: "unsupported-construct",
-				code: REVERSE_CODES.UNSUPPORTED_CONSTRUCT,
-				construct: `ac:structured-macro[ac:name="${macroName}"]`,
-				location,
-			},
-		],
+		diagnostics: [diagnostic],
 	};
 }
 
 /** Classify a code macro → fenced code block. */
-function classifyCodeMacro(el: Element): NodeClassificationResult {
+function classifyCodeMacro(
+	el: Element,
+	page?: ReversePageContext,
+): NodeClassificationResult {
 	// Extract language from ac:parameter ac:name="language" element
 	const languageParam = el.children.find(
 		(child) =>
@@ -363,17 +467,17 @@ function classifyCodeMacro(el: Element): NodeClassificationResult {
 
 	if (!cdataBody) {
 		const location = getLocation(el);
+		const diagnostic: BlockingDiagnostic = {
+			severity: "blocking",
+			class: "unsupported-construct",
+			code: REVERSE_CODES.UNSUPPORTED_CONSTRUCT,
+			construct: "ac:structured-macro[ac:name='code'] (missing body)",
+			location,
+			...(page !== undefined && { page }),
+		};
 		return {
 			content: null,
-			diagnostics: [
-				{
-					severity: "blocking",
-					class: "unsupported-construct",
-					code: REVERSE_CODES.UNSUPPORTED_CONSTRUCT,
-					construct: "ac:structured-macro[ac:name='code'] (missing body)",
-					location,
-				},
-			],
+			diagnostics: [diagnostic],
 		};
 	}
 
@@ -401,7 +505,10 @@ function classifyCodeMacro(el: Element): NodeClassificationResult {
 }
 
 /** Shared helper: map ac:task sequence → task-list HAST (RSK-P2). */
-function mapTaskSequenceToGfmTaskList(tasks: Element[]): Element {
+function mapTaskSequenceToGfmTaskList(
+	tasks: Element[],
+	page?: ReversePageContext,
+): Element {
 	const listItems: Element[] = [];
 
 	for (const task of tasks) {
@@ -437,7 +544,7 @@ function mapTaskSequenceToGfmTaskList(tasks: Element[]): Element {
 		// Classify task body content
 		const classifiedBody: ElementContent[] = [];
 		for (const child of taskContent) {
-			const result = classifyNode(child);
+			const result = classifyNode(child, page);
 			if (result.content) {
 				classifiedBody.push(result.content as ElementContent);
 			}
@@ -470,7 +577,10 @@ function mapTaskSequenceToGfmTaskList(tasks: Element[]): Element {
  * NOTE: The forward renderer emits <ac:task-list> directly, not this macro form.
  * This branch handles real Confluence task-list macros for completeness.
  */
-function classifyTaskListMacro(el: Element): NodeClassificationResult {
+function classifyTaskListMacro(
+	el: Element,
+	_page?: ReversePageContext,
+): NodeClassificationResult {
 	const tasks = el.children.filter(
 		(child) =>
 			child.type === "element" &&
@@ -482,20 +592,66 @@ function classifyTaskListMacro(el: Element): NodeClassificationResult {
 			),
 	) as Element[];
 
-	return { content: mapTaskSequenceToGfmTaskList(tasks), diagnostics: [] };
+	return {
+		content: mapTaskSequenceToGfmTaskList(tasks, _page),
+		diagnostics: [],
+	};
 }
 
 /** Classify an ac:task-list element → GFM task list (RSK-P2).
  * This is the form emitted by the forward renderer (storage.ts:155).
  */
-function classifyTaskListElement(el: Element): NodeClassificationResult {
+function classifyTaskListElement(
+	el: Element,
+	page?: ReversePageContext,
+): NodeClassificationResult {
 	// ac:task-list is a direct element (not ac:structured-macro)
 	// It contains ac:task elements directly as children
-	const tasks = el.children.filter(
-		(child) => child.type === "element" && child.tagName === "ac:task",
-	) as Element[];
+	const diagnostics: Array<BlockingDiagnostic | InformationalDiagnostic> = [];
+	const tasks: Element[] = [];
 
-	return { content: mapTaskSequenceToGfmTaskList(tasks), diagnostics: [] };
+	// Check for non-ac:task children (F-3, DEC-6)
+	for (const child of el.children) {
+		if (child.type === "element") {
+			if (child.tagName === "ac:task") {
+				tasks.push(child);
+			} else {
+				// Non-canonical child → diagnose
+				const location = getLocation(child);
+				const code = isCanonicalElement(child.tagName)
+					? REVERSE_CODES.UNSUPPORTED_CONSTRUCT
+					: REVERSE_CODES.UNKNOWN_ELEMENT;
+
+				const diagnostic: BlockingDiagnostic = {
+					severity: "blocking",
+					class: "unsupported-construct",
+					code,
+					construct: child.tagName,
+					location,
+					...(page !== undefined && { page }),
+				};
+				diagnostics.push(diagnostic);
+			}
+		}
+		// Non-whitespace text children per OQ-P2 default (fallback at the task-list element)
+		else if (child.type === "text" && child.value.trim() !== "") {
+			const location = getLocation(el);
+			const diagnostic: BlockingDiagnostic = {
+				severity: "blocking",
+				class: "unsupported-construct",
+				code: REVERSE_CODES.UNSUPPORTED_CONSTRUCT,
+				construct: `ac:task-list with non-whitespace text child`,
+				location,
+				...(page !== undefined && { page }),
+			};
+			diagnostics.push(diagnostic);
+		}
+	}
+
+	return {
+		content: mapTaskSequenceToGfmTaskList(tasks, page),
+		diagnostics,
+	};
 }
 
 /** Check if an element contains a table descendant (F-8: deep detection). */
@@ -523,4 +679,86 @@ function getLocation(el: Element): { line: number; column: number } {
 	}
 	// Fallback if position not available
 	return { line: 1, column: 1 };
+}
+
+/** Check if an element is canonical (in the canonical allowlist). */
+function isCanonicalElement(tagName: string): boolean {
+	return [
+		"h1",
+		"h2",
+		"h3",
+		"h4",
+		"h5",
+		"h6",
+		"p",
+		"strong",
+		"em",
+		"del",
+		"code",
+		"a",
+		"img",
+		"ul",
+		"ol",
+		"li",
+		"table",
+		"thead",
+		"tbody",
+		"tr",
+		"td",
+		"th",
+		"blockquote",
+		"hr",
+		"pre",
+	].includes(tagName);
+}
+
+/** Check for exotic attributes on canonical elements (F-2, Appendix C). */
+function checkAttributes(
+	el: Element,
+	page?: ReversePageContext,
+): BlockingDiagnostic | null {
+	const tagName = el.tagName;
+	const props = el.properties || {};
+
+	// Skip if not in the canonical list (unknown elements are handled elsewhere)
+	if (!isCanonicalElement(tagName)) {
+		return null;
+	}
+
+	// Get the allowed attributes for this element from the mirror allowlist
+	const allowedAttrs = CANONICAL_ATTRIBUTE_ALLOWLIST[tagName] || [];
+
+	// Collect exotic attributes (names only, no values, per NFR-6)
+	const exoticAttrs: string[] = [];
+	for (const attrName of Object.keys(props)) {
+		if (!allowedAttrs.includes(attrName)) {
+			exoticAttrs.push(attrName);
+		}
+	}
+
+	if (exoticAttrs.length === 0) {
+		return null; // No exotic attributes
+	}
+
+	// Sort and dedupe attribute names (determinism)
+	const sortedAttrs = Array.from(new Set(exoticAttrs)).sort();
+
+	const location = getLocation(el);
+	return {
+		severity: "blocking",
+		class: "unsupported-construct",
+		code: REVERSE_CODES.UNSUPPORTED_ATTRIBUTE,
+		construct: `${tagName}[${sortedAttrs.join(", ")}]`,
+		location,
+		...(page !== undefined && { page }),
+	};
+}
+
+/** Handle complex layout family (F-1, DEC-4) */
+function isLayoutFamily(tagName: string): boolean {
+	return (
+		tagName === "ac:layout" ||
+		tagName === "ac:layout-section" ||
+		tagName === "ac:layout-cell"
+	);
 }
