@@ -4,7 +4,7 @@
 ados_distribution: project-generated
 id: TDR-0013
 decision_type: tdr
-status: Proposed
+status: Accepted
 created: 2026-08-15
 decision_date: null
 last_updated: 2026-08-15
