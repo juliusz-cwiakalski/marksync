@@ -1,0 +1,42 @@
+name: GH-90 historical-version probe (spike)
+# CEO-waiver-authorized additive probe (issue #90 comment 5300646430, GH-32
+# precedent): spike-branch-only evidence capture for GH-90. Additive only —
+# no security controls removed; ci.yml / run-e2e.yml untouched.
+on:
+  push:
+    branches: [docs/GH-90/historical-version-api-spike]
+    paths:
+      - .github/workflows/gh-90-historical-probe.yml
+      - scripts/gh-90-historical-probe.mjs
+  workflow_dispatch: {} # usable only once this file reaches the default branch (post-merge re-runs)
+
+concurrency:
+  # NOT the e2e-sandbox group: the probe must never cancel or queue behind
+  # nightly e2e. cancel-in-progress cancels only this probe's stale re-runs.
+  group: gh-90-probe
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    name: Historical-version matrix capture (spec §5.1)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.2.23"
+
+      - name: Run probe (zero-dependency — no install step)
+        run: bun scripts/gh-90-historical-probe.mjs
+        env:
+          MARKSYNC_E2E_CONFLUENCE_BASE_URL: ${{ secrets.E2E_CONFLUENCE_BASE_URL }}
+          MARKSYNC_E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+          MARKSYNC_E2E_API_TOKEN: ${{ secrets.E2E_API_TOKEN }}
+          MARKSYNC_E2E_SPACE_KEY: ${{ secrets.E2E_SPACE_KEY }}
+          MARKSYNC_E2E_PARENT_PAGE_ID: ${{ secrets.E2E_PARENT_PAGE_ID }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gh-90-evidence
+          path: gh-90-evidence/
