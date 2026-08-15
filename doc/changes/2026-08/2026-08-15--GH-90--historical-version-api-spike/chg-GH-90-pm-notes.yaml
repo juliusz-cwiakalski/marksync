@@ -8,7 +8,7 @@ phases:
   specification: { started: 2026-08-15, completed: 2026-08-15 }
   test_planning: { started: 2026-08-15, completed: 2026-08-15 }
   delivery_planning: { started: 2026-08-15, completed: 2026-08-15 }
-  dor_check: { started: null, completed: null, verdict: null, iterations: 0 }
+  dor_check: { started: 2026-08-15, completed: 2026-08-15, verdict: READY, iterations: 1 }
   delivery: { started: null, completed: null }
   system_spec_update: { started: null, completed: null }
   review_fix: { started: null, completed: null, verdict: null, iterations: 0 }
@@ -101,6 +101,15 @@ notes:
       ("No implementation plan exists by design" → reference to the delivered
       chg-GH-90-plan.md). Cosmetic only; flagged by @plan-writer; no reopen
       needed.
+    type: info
+    date: "2026-08-15"
+  - text: >
+      DoR READY iter-1 (10/10 facets, 0 blocking). Two non-blocking findings
+      absorbed into delivery: (minor) plan task 2.5 — redaction sweep-3
+      bare-word "Authorization" pattern may false-positive on TDR-0011 prose;
+      coder to extend task-1.8 phrasing caution to TDR prose or narrow the
+      pattern in-line. (nit) spec AC-F3-1 Given-clause bounds the endpoint
+      forms; wording tweak optional, not required.
     type: info
     date: "2026-08-15"
   - text: >
