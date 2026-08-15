@@ -9,7 +9,7 @@ phases:
   test_planning: { started: 2026-08-15T04:22:00Z, completed: 2026-08-15T04:35:00Z }
   delivery_planning: { started: 2026-08-15T04:35:00Z, completed: 2026-08-15T04:50:00Z }
   dor_check: { started: 2026-08-15T04:50:00Z, completed: 2026-08-15T05:05:00Z }
-  delivery: { started: null, completed: null }
+  delivery: { started: 2026-08-15T05:06:00Z, completed: 2026-08-15T05:55:00Z }
   system_spec_update: { started: null, completed: null }
   review_fix: { started: null, completed: null }
   quality_gates: { started: null, completed: null }
@@ -35,6 +35,20 @@ open_questions: []
 blockers: []
 
 notes:
+  - text: >
+      Phase 6 complete: @coder executed all 5 plan phases, 6 commits
+      (c7d58af DI seams, 14fe403 test rewrites + PR#102 fix, 3d26ffe
+      guard, b3047af rules ban, 1e99417 evidence, 88a6536 test-plan
+      log). PM validation: mock.module grep clean, guard file with
+      concatenated needle, version 0.8.2 unchanged, worktree dirty only
+      with plan phase-5 check-offs (folded into this checkpoint).
+      Results: full suite 1314/0, ordered run 267/0, fast loop 1299/0,
+      guard 4/0, bun run check green. NOTE: pre-fix ordered-run baseline
+      PASSED locally (local fs order ≠ GitHub ubuntu-latest order) —
+      anticipated in delegation; CI on PR is authoritative AC-F1-3 proof.
+      All spec §17 ACs reconciled except AC-F1-3 pending PR.
+    type: info
+    date: 2026-08-15
   - text: >
       Phase 5 complete: DoR READY iter-1 (10/10 facets PASS; 0 critical, 0
       major; 1 minor + 3 nits, all advisory). Review at
