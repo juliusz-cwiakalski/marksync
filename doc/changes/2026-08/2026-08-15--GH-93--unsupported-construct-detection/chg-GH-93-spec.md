@@ -404,7 +404,8 @@ An attribute is canonical on an element iff the forward converter emits it there
 | `ri:url` | `ri:value` |
 | `ac:structured-macro` | `ac:name`; **plus K1 carve-out**: `ac:schema-version`, `ac:macro-id` (silently dropped, never diagnostic) |
 | `ac:parameter` | `ac:name` |
-| All other canonical elements (h1–h6, p, strong, em, del, code, img, ul, ol, li, table, thead, tbody, tr, th, td, blockquote, hr, pre, ac:task-list, ac:task, ac:task-status, ac:task-body, ac:plain-text-body) | none |
+| `ac:task-list` | **recorded K1 exception**: `ac:schema-version`, `ac:macro-id` — canonical-silent via the explicit allowlist row (DEC-8-adjacent exception to the macro-only carve-out; see below) |
+| All other canonical elements (h1–h6, p, strong, em, del, code, img, ul, ol, li, table, thead, tbody, tr, th, td, blockquote, hr, pre, ac:task, ac:task-status, ac:task-body, ac:plain-text-body) | none |
 
 Everything else on a canonical element → `reverse/unsupported-attribute`. The allowlist is pinned by the zero-diagnostic sweeps (NFR-3) and evolves only with the forward emission vocabulary (§22).
 
@@ -427,6 +428,7 @@ Everything else on a canonical element → `reverse/unsupported-attribute`. The 
 | 0.1 | 2026-08-15 | spec-writer (GH-93) | Initial draft — granular code taxonomy (DEC-1, Appendix A), page-context semantics (DEC-2), mirror attribute allowlist (DEC-5, Appendix C), GH-31 alignment map (DEC-3, Appendix B), layout single-construct rule (DEC-4), task-list closure (DEC-6), version 0.10.0 (DEC-7). OQ-1 flags the code taxonomy for @decision-advisor confirmation. Pending DoR review. |
 | 0.2 | 2026-08-15 | decision-advisor (GH-93 OQ-1) | OQ-1 resolved — TDR-0014 independently confirms DEC-1 (granular per-class taxonomy + structural fallback + two emitted-code re-assignments) as the frozen pre-E2/E3 contract, with two clarifying pins (orphaned layout-family classification; consumers bind to `code` strings). DEC-1 rationale now references TDR-0014. |
 | 0.3 | 2026-08-15 | doc-syncer (GH-93 remediation) | DEC-8 recorded post-remediation: `ac:task-id` canonical-silent exception added to Appendix C (task 6.3, option b); feature spec + test spec reconciled to delivered behavior (attribute-pass scope over specially-handled elements, task-body diagnostic propagation, macro-form child integrity, first-blocking runner parity). |
+| 0.4 | 2026-08-15 | doc-syncer (GH-93 phase-8 remediation, commit b7a18f6) | Appendix C exception recorded for the `ac:task-list` K1 row: `ac:schema-version`/`ac:macro-id` canonical-silent on `ac:task-list` via `CANONICAL_ATTRIBUTE_ALLOWLIST` (review remediation task 8.3; DEC-8-adjacent) — K1 silence in `checkAttributes` is scoped to `ac:structured-macro` only; table row pulled out of the none-bucket to match the delivered allowlist. |
 
 ---
 

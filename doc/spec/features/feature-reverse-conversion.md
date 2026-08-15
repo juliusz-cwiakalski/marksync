@@ -184,8 +184,8 @@ reverse-direction guardrail).
   `ac:`/`ri:` elements (`ac:image` with its `ri:attachment`/`ri:url`
   children, the code macro's `ac:structured-macro`/`ac:parameter`), and the
   task-family elements (`ac:task-list`, `ac:task`, `ac:task-status`,
-  `ac:task-body`, `ac:plain-text-body` — all none-bucket rows); anything
-  beyond the allowlist
+  `ac:task-body`, `ac:plain-text-body` — none-bucket rows, `ac:task-list`
+  excepted per its K1-exception row); anything beyond the allowlist
   (e.g. `colspan`, `rowspan`, `style`, `class`, `data-table-width` on table
   cells; user-set `ac:image` properties such as `ac:align`, `ac:width`) is a
   blocking `reverse/unsupported-attribute` diagnostic — never a silent drop.
@@ -246,13 +246,14 @@ reverse-direction guardrail).
 | code macro with `language=mermaid` (code policy) | ```mermaid fence |
 | `ac:image` + `ri:filename="marksync-mermaid-…"` (render policy) | dropped; informational `marksync-synthetic-artifact` |
 | info macro containing the panel marker | dropped entirely, no diagnostic |
-| `ac:schema-version` / `ac:macro-id` on `ac:structured-macro` (K1 read-back) | ignored, no diagnostic |
+| `ac:schema-version` / `ac:macro-id` on `ac:structured-macro` (K1 read-back); the same two names on `ac:task-list` (recorded allowlist-row exception) | ignored, no diagnostic |
 | `ac:task-id` child of `ac:task` (server-assigned) | dropped silently, no diagnostic (documented mirror-principle exception) |
 | `ac:layout` / `ac:layout-section` / `ac:layout-cell` (any depth, incl. orphaned) | one blocking `reverse/complex-layout` per layout tree |
 | non-canonical attribute on a canonical element (`colspan`, `style`, …) | one blocking `reverse/unsupported-attribute` per element (sorted attribute names) |
 | unknown `ac:structured-macro` (jira, toc, expand, gliffy, non-panel info) | blocking `reverse/unknown-macro` |
 | non-canonical element (`div`, inline `span`, unknown `ac:*`) | blocking `reverse/unknown-element` |
 | non-`ac:task` child of `ac:task-list` | blocking diagnostic at the child (`reverse/unknown-element` or structural fallback) |
+| `ac:task` missing `ac:task-status` (element or macro form) | blocking structural fallback at the task (`ac:task without ac:task-status`) |
 | canonical element in non-canonical position (table inside `td`/`th`, …) | blocking `reverse/unsupported-construct` (structural fallback) |
 
 ### 3.3 Canonical emission form
@@ -299,7 +300,9 @@ metadata assignment on adoption is E3 `import`'s explicit step.
   never separately diagnosed; orphaned sections/cells classify at the
   outermost family element present.
 - **Task-list stray children:** a non-`ac:task` child of `ac:task-list` is
-  diagnosed at the child and never dropped.
+  diagnosed at the child and never dropped; an `ac:task` missing its
+  `ac:task-status` is the structural fallback (`ac:task without
+  ac:task-status`) at the task, in both the element and macro forms.
 - **Comments in Storage:** dropped during classification (the panel marker was
   already consumed by the parser); never emitted.
 - **Render-policy pages:** mermaid diagrams are lost on reverse (the source is
@@ -331,7 +334,7 @@ with the canonical-form options layer defined once at the serializer.
 | Reverse diagnostics (`src/domain/markdown/reverse-diagnostics.ts`) | Granular taxonomy, stable additions-only `REVERSE_CODES` (7 codes: 5 blocking-path + informational + parse-error), optional `page` context on every diagnostic arm, `StorageParseError` + `ReverseError` standalone union (not a `MarkSyncError` kind) — frozen pre-E2/E3 by TDR-0014 | Implemented (GH-92, extended GH-93) |
 | Round-trip harness (`tests/golden/markdown/reverse-round-trip.test.ts`, `reverse-readback.test.ts`) | Golden-tier verification: corpus-A byte equality, determinism, partition-manifest guardrail, read-back fixtures, zero-diagnostic sweeps over canonical corpora (false-positive guard) | Implemented (GH-92, extended GH-93) |
 | Storage-side adversarial set (`tests/adversarial-storage/` + `tests/golden/adversarial/reverse-classification-runner.test.ts`) | GH-31-aligned regression lock (21 fixtures, 12/12 categories + new classes): sidecar deep-equality incl. `page?`, zero-diagnostic success branch, category inventory, fast-fail/collect-all parity and determinism, parse-error arm, PII scoping | Implemented (GH-92, extended GH-93) |
-| Classifier unit armory (`tests/unit/infra/confluence/parse/reverse.test.ts`) | Classifier pinned on hand-built inputs — 10 TC arms, 84 tests (element/layout incl. orphaned, attribute aggregation + allowlist boundary incl. specially-handled `ac:*`/`ri:*` and task-family elements + K1 scoping, task-list integrity incl. the `ac:task-id` canonical-silent probe and body-diagnostic propagation, page-context, determinism + first-blocking parity), with TC-TAXO-002 entry-point probes (`tests/unit/domain/markdown/reverse-diagnostics.test.ts`) and parser K1-survival probes (`tests/unit/infra/confluence/parse/reverse-parser.test.ts`) | Implemented (GH-93) |
+| Classifier unit armory (`tests/unit/infra/confluence/parse/reverse.test.ts`) | Classifier pinned on hand-built inputs — 15 TC arms, 84 tests (element/layout incl. orphaned, attribute aggregation + allowlist boundary incl. specially-handled `ac:*`/`ri:*` and task-family elements + K1 scoping, task-list integrity incl. the `ac:task-id` canonical-silent probe, macro-form integrity, and body-diagnostic propagation, page-context, determinism + first-blocking parity), with TC-TAXO-002 entry-point probes (`tests/unit/domain/markdown/reverse-diagnostics.test.ts`) and parser K1-survival probes (`tests/unit/infra/confluence/parse/reverse-parser.test.ts`) | Implemented (GH-93) |
 | `resolve` / `import` flows (E2/E3) | Consumers of the library contract — diffing, patch generation, adoption UX; route on `code` strings (TDR-0014) | Future (MS-0003 E2/E3) |
 
 Dependencies added: `saxes@6.0.0` (XML parser, TDR-0012),
@@ -402,14 +405,17 @@ Dependencies added: `saxes@6.0.0` (XML parser, TDR-0012),
       offending elements each produce their own diagnostic (incl.
       specially-handled elements — `ac:image[ac:align, ac:width]`
       sidecar-pinned); K1 attribute names are silent on
-      `ac:structured-macro` only and diagnose on other swept elements
-      (unit-pinned on `p`/`td`). *(TC-ATTR-001/002.)*
+      `ac:structured-macro` and — as the recorded allowlist-row exception —
+      on `ac:task-list`, and diagnose on every other swept element
+      (unit-pinned on `p`/`td` and `ac:image[ac:macro-id]`).
+      *(TC-ATTR-001/002.)*
 - [x] **Task-list integrity:** a non-`ac:task` child of `ac:task-list` yields
       a blocking diagnostic at the child (class per taxonomy) — enforced in
       both the element and macro forms, with task-body diagnostics
-      propagating; `ac:task-id` is the sole canonical-silent exception;
-      canonical mixed task/regular lists convert with zero diagnostics.
-      *(TC-TASK-001.)*
+      propagating; an `ac:task` missing its `ac:task-status` is the
+      structural fallback in both forms; `ac:task-id` is the sole
+      canonical-silent exception; canonical mixed task/regular lists convert
+      with zero diagnostics. *(TC-TASK-001.)*
 - [x] **Page context:** a caller-supplied `{pageId?, title?, sourcePath?}` is
       echoed verbatim on blocking, informational, and parse-error arms;
       omitted-when-absent output is byte-identical to the context-free form;

@@ -111,14 +111,18 @@ the real entry points, the page-context field's omit-when-absent +
 verbatim-echo serialization at model level, location payload with no content
 echoes, fast-fail/collect-all parity on hand-built multi-instance inputs
 (first-blocking selection), malformed Storage → stable parse error (never a
-crash, deterministic across repeats), XML entities / CDATA (incl. reassembly)
-/ namespaced `ac:`/`ri:` elements, K1-confinement survival (K1 names dropped
-on macros, survive the parse elsewhere), the attribute pass (aggregation,
-allowlist boundary incl. the specially-handled `ac:*`/`ri:*` elements),
-task-list integrity in both forms (incl. the `ac:task-id` canonical-silent
-exception and task-body diagnostic propagation), and the normalizer's
-determinism + idempotence + canonical-form invariants over the corpus
-fixtures.
+  crash, deterministic across repeats), XML entities / CDATA (incl. reassembly)
+  / namespaced `ac:`/`ri:` elements, K1-confinement survival (K1 names dropped
+  on macros, survive the parse elsewhere), the attribute pass (aggregation,
+  allowlist boundary incl. the specially-handled `ac:*`/`ri:*` and task-family
+  elements — `ac:task-list`, `ac:task`, `ac:task-status`, `ac:task-body`,
+  `ac:plain-text-body`; K1 names silent on `ac:structured-macro` plus the
+  recorded `ac:task-list` allowlist-row exception, diagnosing on every other
+  swept element), task-list integrity in both forms (incl. the `ac:task-id`
+  canonical-silent exception, task-body diagnostic propagation, and an
+  `ac:task` missing `ac:task-status` → structural fallback in both forms),
+  and the normalizer's determinism + idempotence + canonical-form invariants
+  over the corpus fixtures.
 
 **Tools:** `bun:test`; hand-built minimal Storage strings where fixture files
 would be overkill; committed golden fixtures may be read directly (no mocks).
@@ -126,13 +130,16 @@ would be overkill; committed golden fixtures may be read directly (no mocks).
 **Locations:**
 
 - `tests/unit/infra/confluence/parse/reverse.test.ts` — the classifier
-  itself (10 TC arms): per-class classification (TC-ELEM/TC-LAY incl.
+  itself (15 TC arms, 84 tests): per-class classification (TC-ELEM/TC-LAY incl.
   orphaned layout), attribute aggregation + mirror-allowlist boundary incl.
   the specially-handled `ac:image`/`ac:structured-macro`/`ac:parameter`/
-  `ri:*` elements (TC-ATTR-001/002), task-list integrity in both forms incl.
-  the `ac:task-id` canonical-silent probe and task-body diagnostic
-  propagation (TC-TASK-001), page-context echo/precedence/byte-compat
-  (TC-PAGE-001..003), determinism + first-blocking parity (TC-DET-001).
+  `ri:*` and task-family elements (TC-ATTR-001/002/003), K1 confinement to
+  `ac:structured-macro` + the `ac:task-list` allowlist-row exception
+  (TC-ATTR-002/003), task-list integrity in both forms incl. the `ac:task-id`
+  canonical-silent probe, missing-`ac:task-status` fallback, and task-body
+  diagnostic propagation (TC-TASK-001..004), page-context echo/precedence/
+  byte-compat (TC-PAGE-001..003), determinism + first-blocking parity
+  (TC-DET-001).
 - `tests/unit/infra/confluence/parse/reverse-parser.test.ts` — parse substrate
   + parse-error arm + K1-confinement survival (`p[ac:macro-id]` /
   `td[ac:schema-version]` survive the parse; macro K1 stays dropped,
@@ -360,32 +367,37 @@ bare-ID scoping is pinned to exactly the jira-referencing fixtures.
   `style`; multi-element bodies), and boundary inputs (canonical pairings;
   exotic attributes on the specially-handled elements — user-set `ac:image`
   properties (`ac:align`/`ac:width`, sidecar-pinned), extra `ri:*` attributes
-  on `ri:url`/`ri:attachment`, `ac:parameter` extras;
-  `ac:schema-version`/`ac:macro-id` on a macro vs. on `p`/`td`).
+  on `ri:url`/`ri:attachment`, `ac:parameter` extras, exotic attributes on
+  the task-family elements;
+  `ac:schema-version`/`ac:macro-id` on a macro or `ac:task-list` vs. on
+  `p`/`td`/`ac:image`).
 - **When:** converted.
 - **Then:** exactly one aggregated `reverse/unsupported-attribute` per
   offending element — attribute names sorted + deduplicated in the construct
   identity, element-start location, **no attribute values**; one diagnostic
   per element across multiple offenders (incl. the specially-handled
-  `ac:*`/`ri:*` elements); canonical attribute pairings are silent; K1 names
-  are silent on `ac:structured-macro` only and diagnose
-  (`reverse/unsupported-attribute`) on other swept elements (pinned on
-  `p`/`td`; the parser keeps K1 names alive off-macro — K1-survival probes).
+  `ac:*`/`ri:*` and task-family elements); canonical attribute pairings are
+  silent; K1 names are silent on `ac:structured-macro` and — as the recorded
+  allowlist-row exception — on `ac:task-list`, and diagnose
+  (`reverse/unsupported-attribute`) on every other swept element (pinned on
+  `p`/`td` and `ac:image[ac:macro-id]`; the parser keeps K1 names alive
+  off-macro — K1-survival probes).
 
 ### Scenario 13: Task-list integrity (TC-TASK-001)
 
 - **Given:** an `ac:task-list` with a stray child (unknown element;
   individually-canonical misplaced element incl. `ac:*` canonicals), a task
   body containing an unsupported element, the `task-list` macro form with a
-  non-`ac:task` child / an `ac:task` missing `ac:task-status`, a task
-  carrying `ac:task-id`, and a canonical mixed task/regular-list body.
+  non-`ac:task` child, an `ac:task` missing `ac:task-status` in either the
+  element or the macro form, a task carrying `ac:task-id`, and a canonical
+  mixed task/regular-list body.
 - **When:** converted.
 - **Then:** the stray child produces a blocking diagnostic at the child
   (class per the taxonomy — never a silent drop); task-body diagnostics
-  propagate; the macro form enforces the same child integrity (missing
-  status → structural fallback at the task); `ac:task-id` is dropped
-  silently (the canonical-silent exception); the canonical mixed list
-  converts with zero diagnostics.
+  propagate; a missing `ac:task-status` is the structural fallback at the
+  task (`ac:task without ac:task-status`) in both forms; `ac:task-id` is
+  dropped silently (the canonical-silent exception); the canonical mixed
+  list converts with zero diagnostics.
 
 ### Scenario 14: Page-context echo and precedence (TC-PAGE-001/002/003)
 
@@ -452,11 +464,13 @@ NFR-PERF-5) is not a CI gate.
 - Layout family (tree or orphaned section/cell) → exactly one blocking
   `reverse/complex-layout` per layout tree.
 - Exotic attribute on a canonical element — incl. the specially-handled
-  `ac:*`/`ri:*` elements (user-set `ac:image` properties →
+  `ac:*`/`ri:*` and task-family elements (user-set `ac:image` properties →
   `ac:image[ac:align, ac:width]`, sidecar-pinned) → one aggregated blocking
   `reverse/unsupported-attribute` per element (sorted names, no values); K1
-  attribute names on non-macro elements diagnose (carve-out confined to
-  `ac:structured-macro`; unit-pinned on `p`/`td`).
+  attribute names on elements other than `ac:structured-macro` (and the
+  recorded `ac:task-list` exception) diagnose (carve-out confined to
+  `ac:structured-macro` + `ac:task-list`; unit-pinned on `p`/`td` and
+  `ac:image[ac:macro-id]`).
 - Non-`ac:task` child of `ac:task-list` → blocking diagnostic at the child —
   never a silent drop (sole element-level exception: `ac:task-id` inside
   `ac:task`, dropped silently as server-assigned metadata).
@@ -494,7 +508,7 @@ NFR-PERF-5) is not a CI gate.
   pinned storage-side counterparts.
 - Zero new diagnostics over corpus A + the 33 forward golden pairs + K1
   variants (false-positive guard); forward fixtures byte-unmodified.
-- Classifier unit armory: 84 tests across 10 TC arms
+- Classifier unit armory: 84 tests across 15 TC arms
   (`tests/unit/infra/confluence/parse/reverse.test.ts`) plus the TC-TAXO-002
   entry-point assignment pins (`reverse-diagnostics.test.ts`) and the parser
   K1-survival probes (`reverse-parser.test.ts`).
