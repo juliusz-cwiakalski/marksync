@@ -6,13 +6,13 @@ ados_distribution: redistributable
 id: TECH-STACK
 status: Draft
 created: 2026-07-04
-last_updated: 2026-07-13
+last_updated: 2026-08-15
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
-  related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005, ADR-0006, TDR-0002, TDR-0003, TDR-0004, ADR-0010, ADR-0011]
-  related_changes: [GH-63, GH-69]
+  related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005, ADR-0006, TDR-0002, TDR-0003, TDR-0004, ADR-0010, ADR-0011, TDR-0012, TDR-0013]
+  related_changes: [GH-63, GH-69, GH-92]
   summary: "Tech stack — TypeScript + Bun single-binary CLI; remark/HAST Markdown pipeline; official Mermaid; Confluence Storage Format; local-first, no DB."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -57,6 +57,8 @@ Confluence contract; ADR-0005 settled Storage over ADF._
 | `remark` + `remark-gfm` (unified) | latest | Markdown → MDAST parser; GFM table/task-list/strikethrough support |
 | `remark-frontmatter` (unified) | latest | Strips document-leading YAML front-matter (`marksync.uuid`) from the MDAST before rendering (GH-63) |
 | `rehype` + `remark-rehype` | latest | MDAST → HAST (HTML AST); the bridge to Storage rendering |
+| `saxes` | 6.0.0 (pinned) | Strict streaming SAX XML parser for the reverse converter's Storage Format → HAST parse (fragment mode, CDATA reassembly, line/column positions for diagnostics; TDR-0012; GH-92) |
+| `hast-util-to-mdast` | ^10.1.2 | HAST → MDAST bridge for the reverse converter's canonical Markdown serialization (TDR-0013; GH-92) |
 | `happy-dom` | latest | Headless DOM for in-process Mermaid `mermaid.render()` (preferred per TDR-0004). **Deferred to MS-0003+** (GH-11 H4 FAIL — no SVG layout engine; `jsdom` is the documented fallback if a shim path emerges) |
 | `mermaid` (official npm) | latest | Diagram rendering — the load-bearing dependency justifying TypeScript (ADR-0001/0002). **Deferred to MS-0003+** (GH-11 H4 FAIL; MS-0002 renders via Kroki HTTP API using built-in `fetch` — no `mermaid` npm dependency, GH-69) |
 | `uuid` (v9+) | latest | UUID v7 generation for document identity (ADR-0006). `crypto.randomUUID()` fallback where v7 is available |

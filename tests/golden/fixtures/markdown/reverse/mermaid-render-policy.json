@@ -1,0 +1,12 @@
+[
+  {
+    "severity": "informational",
+    "class": "marksync-synthetic-artifact",
+    "code": "marksync/synthetic-artifact",
+    "construct": "ac:image (mermaid render policy)",
+    "location": {
+      "line": 3,
+      "column": 36
+    }
+  }
+]

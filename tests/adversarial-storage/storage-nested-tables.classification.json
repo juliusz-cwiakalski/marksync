@@ -1,0 +1,10 @@
+[
+	{
+		"code": "reverse/unsupported-construct",
+		"construct": "td containing nested table",
+		"location": {
+			"line": 1,
+			"column": 48
+		}
+	}
+]

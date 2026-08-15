@@ -1,0 +1,119 @@
+version: 1
+iteration: 3
+mode: local
+work_item_ref: GH-92
+branch: feat/GH-92/reverse-converter-storage-to-markdown
+status: FAIL
+summary: >-
+  Final re-review after Phase-8 remediation (5ef0718 + b0cd7b1 + 780f8c3). All five code-substance
+  findings from iteration 2 are verified CLOSED empirically at HEAD by this review: the mixed-order
+  parity test exists and is green (informational at [0], first blocking entry ≡ fast-fail on
+  code/construct/location), world.ts is byte-identical to main (empty diff), the readback-reflowed
+  sidecar is byte-correct including the trailing newline AND wired via the TC-RT-002 storageOnly arm
+  including the heading-reflow case, PHRASING_ELEMENTS includes h1-h6 (the reviewer repro now yields
+  "# a **b** *c* d\n"), OQ-T3 p95 is recorded honestly as dropped, the span removal is behavior-neutral
+  (bare span is itself a blocking unsupported construct — verified live), and the Phase-7 Execution Log
+  row carries real SHAs with the ff4145c dangling note. Full gates re-run by this review: bun run check
+  green (biome + format + tsc + 1610/0 tests + depcruise clean over 112 modules), BDD 6 scenarios /
+  42 steps green, tripwire holds (zero modified files under src/ or tests/; zero src/cli/). FAIL is
+  narrow and hygiene-only: Phase-8's own Must ACs remain violated — four reverse/ sidecars are still
+  unconsumed (code-block-python-k1.md, mermaid-code-policy-k1.md, mermaid-render-policy.md,
+  readback-realistic.md) while task 8.4 claims "remaining sidecars are all consumed" (its specific
+  mermaid-render-policy.md / mermaid-render-golden.test.ts claim is false — that test uses the name
+  only as a sourcePath label), task 7.12 still asserts "reverse-parser.ts imports merged" (provably
+  unchanged since file creation — the same false claim F-20 flagged, "corrected" by restating it),
+  task 8.9 is checked with a "(PENDING: Will run after all fixes are committed)" note, and the Phase-8
+  Execution Log commit was regressed back to "TBD" by 780f8c3 after b0cd7b1 had filled in 5ef0718.
+  No correctness, security, or regression findings; remediation Phase 9 is documentation/fixture
+  hygiene only.
+severity_breakdown:
+  critical: 0
+  high: 0
+  medium: 1
+  low: 2
+  info: 1
+spec_compliance: PASS
+plan_compliance: FAIL
+findings:
+  - id: F-23
+    severity: medium
+    confidence: high
+    category: plan-compliance
+    location: tests/golden/fixtures/markdown/reverse/
+    message: >-
+      Phase-8 Must AC "no dead fixture files under tests/golden/fixtures/markdown/reverse/" is unmet:
+      four sidecars have zero consuming tests (verified by grep across tests/, src/, scripts/, tools/):
+      code-block-python-k1.md, mermaid-code-policy-k1.md (TC-RT-008 compares k1 vs attr-free variant
+      but never reads these .md sidecars), mermaid-render-policy.md (only the .json twin is consumed),
+      and readback-realistic.md (TC-RT-006 derives its expectation inline from
+      normalizeMarkdown(kitchensink.md); the sidecar is byte-identical to that expectation but never
+      read). Task 8.4's closure note claims "remaining reverse/ sidecars are all consumed" and
+      specifically that mermaid-render-policy.md is consumed by mermaid-render-golden.test.ts — false;
+      that test uses "mermaid-render-policy.md" only as a sourcePath string label and reads the
+      .storage.xhtml from the fixtures root. 8.4's "Both dead 0-byte sidecars deleted" is also
+      inaccurate: only provenance-panel.md was deleted; mixed-html-comment.md survives (legitimately —
+      TC-RT-002 genuinely consumes it because the 0-byte mixed-html-comment.storage.xhtml exists and
+      existsSync returns true, so the byte comparison runs).
+    suggestion: >-
+      Delete the four unconsumed sidecars (simplest) or wire byte-equality arms for them into
+      TC-RT-008/009/006; correct 8.4's note to the true disposition of every file in reverse/ and the
+      actual deletions performed.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-24
+    severity: low
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-08/2026-08-15--GH-92--reverse-converter-storage-to-markdown/chg-GH-92-plan.md:331
+    message: >-
+      Task 7.12's "corrected" note still claims "reverse-parser.ts imports merged" — false at HEAD:
+      lines 16-17 carry two same-module import statements, unchanged since the file's creation
+      (verified via git log -L; only an `import type` qualifier was added in 47cb47a). This is the
+      same false claim iter-2 F-20 flagged; the remediation "corrected the note" by restating the
+      falsehood. The appended justification for reverse.ts:17 ("required by TypeScript's separate
+      import semantics for types vs values") is also inaccurate — `import { X, type Y }` is valid TS.
+    suggestion: >-
+      Reword 7.12 to state the imports were intentionally left as two statements (type-only import
+      kept separate per repo import style) and drop the false "merged" claim and the inaccurate
+      TS-semantics justification.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-25
+    severity: low
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-08/2026-08-15--GH-92--reverse-converter-storage-to-markdown/chg-GH-92-plan.md:369
+    message: >-
+      Task 8.9 is checked [x] but its note reads "(PENDING: Will run after all fixes are committed)" —
+      a contradictory closure record (the gates were in fact run; this review re-ran them green).
+      Additionally, the Phase-8 Execution Log commit field was set to 5ef0718 by b0cd7b1 and then
+      regressed back to "TBD" by 780f8c3 — a new placeholder of exactly the F-11/F-21 class introduced
+      while fixing the previous one.
+    suggestion: >-
+      Restore the Phase-8 commit SHA (5ef0718, noting b0cd7b1/780f8c3 as doc follow-ups) and replace
+      8.9's PENDING parenthetical with the actual verified gate results.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-26
+    severity: info
+    confidence: high
+    category: code-quality
+    location: tests/golden/markdown/reverse-round-trip.test.ts:177
+    message: >-
+      Stale comment: "mixed-html-comment has no Storage form (empty file)" — the 0-byte
+      mixed-html-comment.storage.xhtml exists, existsSync returns true, and the real byte comparison
+      against the 0-byte sidecar runs; the early-return branch never fires. Harmless (the correct
+      path executes) but misleading to future readers.
+    suggestion: >-
+      Reword the comment (or remove the dead early-return branch) so the test describes what actually
+      happens: empty Storage reverses to "" and byte-equals the 0-byte sidecar.
+    suppressed: false
+    published_url: null
+    published_at: null
+reviewed_at: 2026-08-15T15:10:00Z
+next_step: >-
+  EXECUTE_REMEDIATION_PHASE (Phase 9, tasks 9.1-9.5 — fixture disposition + note accuracy only, no
+  production code changes; iteration-4 spot-check of 9.1-9.3).

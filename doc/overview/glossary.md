@@ -6,13 +6,13 @@ ados_distribution: redistributable
 id: GLOSSARY
 status: Draft
 created: 2026-07-05
-last_updated: 2026-07-26
+last_updated: 2026-08-15
 owners: [Juliusz Ćwiąkalski]
 area: domain
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0005, ADR-0006, ADR-0010, ADR-0011, PDR-0001, TDR-0010]
-  related_changes: [GH-15, GH-17, GH-18, GH-22, GH-66, GH-74, GH-77, GH-88]
+  related_changes: [GH-15, GH-17, GH-18, GH-22, GH-66, GH-74, GH-77, GH-88, GH-92]
   summary: "Reader-friendly glossary of terms and acronyms used across the MarkSync repository."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -28,7 +28,7 @@ Documentation Handbook §9 for the glossary-vs-UL distinction._
 
 | Term / acronym | Definition | Category | Related UL term |
 |---|---|---|---|
-| **ADF** | Atlassian Document Format — Confluence's JSON-based body representation for v2 API. MarkSync writes Storage Format, not ADF (ADR-0005); reverse conversion reads either. | Confluence | Body Representation |
+| **ADF** | Atlassian Document Format — Confluence's JSON-based body representation for v2 API. MarkSync writes Storage Format, not ADF (ADR-0005); the reverse converter reads Storage Format. | Confluence | Body Representation |
 | **Adapter** | A module that implements a port defined by the domain/application layer. The Confluence adapter is the first and currently the only `TargetSystem` implementor. | Architecture | Target System |
 | **Adopt** | Bring a pre-existing Confluence page into MarkSync's managed set without losing its content. Depends on reverse sync; tracked as A-VAL-3. | Product | — |
 | **Agent** | An AI coding/documentation agent that operates MarkSync non-interactively via CLI + JSON output. One of three operator personas. | Operator | — |
@@ -91,7 +91,8 @@ Documentation Handbook §9 for the glossary-vs-UL distinction._
 | **Remark** | The Markdown → MDAST parser library MarkSync uses (part of the unified ecosystem). | Tooling | — |
 | **repair-state** | A command for recovering from stale locks or interrupted-apply journal replay. Minimal in `MS-0002`; expanded in `MS-0004`. | CLI | — |
 | **Repository** | The `Repository` port/interface abstracting Git operations. Shell-Git is the implementor (TDR-0003); `isomorphic-git` is the swap option. | Architecture | — |
-| **Reverse sync** | Confluence → Git reconciliation: reads remote Storage/ADF, reverse-converts to Markdown patch, writes to conflict workspace, **never** auto-commits. Deferred to `MS-0005+`. | Process | — |
+| **Reverse converter** | The Storage Format → Markdown mirror of the forward pipeline: canonical GFM subset, deterministic canonical emission form, provenance-panel strip, K1 tolerance, two-class diagnostics (blocking `unsupported-construct` / informational `marksync-synthetic-artifact`). Library-only (`reverseStorage`/`reverseStorageCollectAll`); feeds `resolve`/`import` (MS-0003 E1, GH-92). | Domain | — |
+| **Reverse sync** | Confluence → Git reconciliation: reads remote Storage Format, reverse-converts to Markdown patch, writes to conflict workspace, **never** auto-commits. Canonical-subset reverse conversion is delivered (MS-0003 E1, GH-92); the full flow is deferred to `MS-0005+`. | Process | — |
 | **Run ID** | A unique identifier per sync execution. Used for journal tracking and partial-apply recovery. | State | Run |
 | **Sandbox** | A dedicated Confluence test space for live E2E testing. Not per-suite; isolated from the fast test loop. | Testing | — |
 | **SBOM** | Software Bill of Materials — a machine-readable inventory of components/dependencies. Generated per release (NFR-SEC-4). | Security | — |

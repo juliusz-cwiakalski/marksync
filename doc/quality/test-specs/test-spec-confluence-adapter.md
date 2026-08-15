@@ -5,11 +5,11 @@ ados_distribution: project-generated
 id: TEST-SPEC-CONFLUENCE-ADAPTER
 status: Current
 created: 2026-07-10
-last_updated: 2026-07-15
+last_updated: 2026-08-15
 owners: [Juliusz Ćwiąkalski]
 service: marksync-cli
 links:
-  related_changes: [GH-21, GH-27, GH-66, GH-71, GH-29]
+  related_changes: [GH-21, GH-27, GH-66, GH-71, GH-29, GH-92]
   feature_spec: doc/spec/features/feature-confluence-adapter.md
   decisions: [ADR-0005, ADR-0006, ADR-0010]
 ---
@@ -62,7 +62,9 @@ guardrail in `.ai/rules/testing-strategy.md`:
   wired GH-29 with a guarded create/read/delete smoke; adapter scenarios
   409/attachments deferred to MS2-E5-S3).
 - `labels.ts` add/delete — deferred to post-MS-0002 (DEC-8).
-- Reverse conversion (Storage/ADF → Markdown) — MS-0005+.
+- Reverse conversion (Storage Format → Markdown) — has its own test spec:
+  [test-spec-reverse-conversion.md](./test-spec-reverse-conversion.md)
+  (delivered — GH-92); not part of the adapter's port/transport surface.
 
 ## Test Levels
 

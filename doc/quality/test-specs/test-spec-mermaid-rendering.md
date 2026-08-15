@@ -356,5 +356,5 @@ Not part of MS-0002. NFR-PERF-* targets are deferred to MS-0003+.
   NFR-PERF-4)
 - [Architecture overview](../../overview/architecture-overview.md)
 - [Testing strategy](../../../.ai/rules/testing-strategy.md)
-- [Change test plan (GH-69)](../changes/2026-07/2026-07-13--GH-69--mermaid-kroki-render/chg-GH-69-test-plan.md)
-- [Change test plan (GH-76)](../changes/2026-07/2026-07-14--GH-76--mermaid-deterministic-svg-lock-prune/chg-GH-76-test-plan.md)
+- [Change test plan (GH-69)](../../changes/2026-07/2026-07-13--GH-69--mermaid-kroki-render/chg-GH-69-test-plan.md)
+- [Change test plan (GH-76)](../../changes/2026-07/2026-07-14--GH-76--mermaid-deterministic-svg-lock-prune/chg-GH-76-test-plan.md)

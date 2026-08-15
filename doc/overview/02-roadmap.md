@@ -6,13 +6,13 @@ ados_distribution: redistributable
 id: ROADMAP-ENGINEERING
 status: Draft
 created: 2026-07-03
-last_updated: 2026-07-26
+last_updated: 2026-08-15
 owners: [Juliusz Ćwiąkalski]
 area: engineering
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0002, PDR-0001, TDR-0001, ADR-0005, PDR-0002]
-  related_changes: ["GH-69", "GH-81", "GH-32"]
+  related_changes: ["GH-69", "GH-81", "GH-32", "GH-92"]
 summary: "Engineering roadmap — MS-0002 MVP (safe one-way publisher) shipped 2026-07-26; MS-0003 re-scoped to Company Adoption MVP (PDR-0002): conflict resolution in Git, `import`, no-external-services Mermaid, DX tail."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -74,7 +74,11 @@ intervention.
 - **E1 — Reverse converter foundation** (subset of `MS-0005` pulled forward):
   Storage Format → Markdown for the canonical GFM subset (ADR-0005); stable
   unsupported-construct diagnostics (codes + locations); golden-fixture
-  round-trip verification.
+  round-trip verification. **Delivered (GH-92, v0.9.0):** library-only
+  converter (`reverseStorage`/`reverseStorageCollectAll` + `normalizeMarkdown`)
+  with the two-class diagnostics taxonomy and the partition-manifest round-trip
+  harness — see
+  [feature-reverse-conversion.md](../spec/features/feature-reverse-conversion.md).
 - **E2 — `resolve` patch flow** (subset of `MS-0006` pulled forward):
   the remote-side diff is the patch between (a) the Confluence version that
   originated from the last marksync publish (base version, recorded in the
@@ -133,7 +137,7 @@ server; GUI/editor plugins; hosted SaaS; broad public-user DX activation
 |---|---|---|---|
 | Pilot team operation | Target | Company team runs MarkSync as their docs workflow | ≥ 2 weeks continuous operation at milestone close |
 | Conflict resolvability | Target | Known conflict classes resolvable via the documented `resolve` flow | 100% |
-| Reverse round-trip fidelity | Guardrail | Canonical GFM fixtures surviving Storage→Markdown round-trip | 100% (re-run on every subset expansion) |
+| Reverse round-trip fidelity | Guardrail | Canonical GFM fixtures surviving Storage→Markdown round-trip | 100% (re-run on every subset expansion) — enforced mechanically by the GH-92 round-trip harness + partition manifest |
 | Zero silent overwrites | Guardrail | Incidents where a remote edit is overwritten without an explicit conflict (incl. `resolve`/`import` flows) | **0** (permanent guardrail, R-VAL-4) |
 | Default rendering egress | Guardrail | External service calls under default rendering configuration | **0** (self-hosted endpoint is explicit config; public Kroki stays opt-in) |
 | Unsupported-construct diagnostics | Target | Known unsupported-construct classes emitting stable diagnostic codes + locations on `import`/`resolve` | 100% |
