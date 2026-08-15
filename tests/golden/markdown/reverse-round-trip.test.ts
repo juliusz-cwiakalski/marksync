@@ -254,20 +254,20 @@ describe("TC-RT-003: reverse determinism in-process (convert twice)", () => {
 				}
 			});
 
-			it("convert twice → byte-identical output", () => {
+			it("convert twice → byte-identical output (determinism)", () => {
 				const result1 = reverseStorage(storage);
 				const result2 = reverseStorage(storage);
 
+				// Determinism: both results must be identical
+				expect(result1.ok).toBe(result2.ok);
 				if (result1.ok && result2.ok) {
 					expect(result1.value.markdown).toBe(result2.value.markdown);
 					expect(result1.value.diagnostics).toEqual(result2.value.diagnostics);
-				} else {
-					// Both should fail with the same error
-					expect(result1.ok).toBe(result2.ok);
-					if (!result1.ok && !result2.ok) {
-						expect(result1.error).toEqual(result2.error);
-					}
+				} else if (!result1.ok && !result2.ok) {
+					expect(result1.error).toEqual(result2.error);
 				}
+				// Note: convertibility (result.ok===true for every fixture) is asserted
+				// separately in the zero-diagnostic guards (corpus-A/forward golden/K1 sweeps)
 			});
 		});
 	}

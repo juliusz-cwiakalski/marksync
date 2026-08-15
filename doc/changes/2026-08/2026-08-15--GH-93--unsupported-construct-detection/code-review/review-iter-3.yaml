@@ -64,7 +64,11 @@ findings:
       and the Phase-6 row's commit cell says b71868a though its final text
       landed via 64c0e71. The gate itself is green and the test/check counts
       are now correctly separated - this is attribution/staleness residue in
-      the narrative record, not a false green.
+      the narrative record, not a false green. Empirically pinned by the
+      completion pass: full bun run check re-run in isolated worktrees at
+      each remediation commit - exit 1 at 64c0e71 and 3446728 (lint step,
+      both errors in reverse.test.ts), exit 0 first at a83a264 - so 64c0e71's
+      "green gate" commit message also overstates its own tree.
     suggestion: >-
       Phase 8.1 (docs-only): correct the three sentences to state the actual
       results - lint 0 errors / 239 warnings at HEAD (exit 0); the two iter-2
@@ -196,7 +200,16 @@ findings:
       storage-mixed-task-regular-lists pins []; storage-task-list-stray-child
       retains its 2 entries - the spec DEC-8 sentence is corrected, the plan
       note is not); kroki.test.ts carries a dead _sha256Hex helper "retained
-      for reference". None affects behavior or gates.
+      for reference". None affects behavior or gates. Root cause recovered
+      from reflog (completion pass): the branch tip was reset from e8b2b27
+      back to 3446728 mid-remediation and re-committed as a83a264; the squash
+      dropped e8b2b27's already-written plan correction - task 3.8's
+      "14-to-12 pairs" fix and a Phase-7-row finishing-pass sentence with the
+      final gate numbers (bun test 1748 pass / 1 skip / 0 fail) plus the
+      resolver-revert note (f68486c/e8b2b27 remain dangling). The Phase-7 row
+      as committed also cites "line 696" for the it.skip (actual: :693).
+      Task 8.5 re-applies the lost hunk; process note - avoid history rewrites
+      once review-referenced commits exist.
     suggestion: >-
       Phase 8.5 (bundle): "12 pairs" correction in 3.8; 6.3 note aligned with
       the corrected DEC-8 wording; drop the dead kroki helper.
@@ -224,7 +237,12 @@ findings:
       session grades the K1 broadening high (also a regression vs 37bf525 where
       ac:image[ac:macro-id] was diagnosed); this review grades it medium on
       impact while agreeing on substance and fix. Phase 8 tasks 8.1-8.5 cover
-      the full set under either numbering.
+      the full set under either numbering. Completion pass (second session):
+      reconciled the markdown record's finding-count lines to this YAML
+      (7 findings, 2 info), appended the worktree-verified per-commit gate
+      results to F-23, and recorded the branch-reset root cause in F-28;
+      superseded first drafts preserved under
+      tmp/opencode/opencode/gh93-iter3/superseded-draft/.
     suggestion: >-
       None required (resolved by this record). Reconcile numbering references
       before the iteration-4 spot review; process note (repeat of iter-2 F-22):

@@ -9,17 +9,6 @@ const SVG = new TextEncoder().encode(
 	'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>',
 );
 
-// SHA-256 helper for test fixtures (unused, retained for reference)
-async function _sha256Hex(bytes: Uint8Array): Promise<string> {
-	const d = await crypto.subtle.digest(
-		"SHA-256",
-		bytes as unknown as ArrayBuffer,
-	);
-	return [...new Uint8Array(d)]
-		.map((b) => b.toString(16).padStart(2, "0"))
-		.join("");
-}
-
 const RENDER_CONFIG: MermaidRenderConfig = {
 	policy: "render",
 	securityLevel: "strict",

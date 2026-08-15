@@ -456,6 +456,22 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 			});
 		});
 
+		it("ac:image with ac:macro-id produces unsupported-attribute (K1 scoping)", () => {
+			const storage = `
+				<ac:image ac:alt="Test image" ac:macro-id="abc123">
+					<ri:url ri:value="https://example.com/image.png" />
+				</ac:image>
+			`;
+			const result = collectDiagnostics(storage);
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0]).toMatchObject({
+				code: "reverse/unsupported-attribute",
+				construct: "ac:image[ac:macro-id]",
+				severity: "blocking",
+			});
+		});
+
 		it("canonical attributes on ac:parameter[ac:name] are silent", () => {
 			const storage = `
 				<ac:structured-macro ac:name="code">
@@ -572,6 +588,139 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 			});
 		});
 
+		it("stray ac:parameter child of ac:task-list produces structural fallback", () => {
+			const storage = `
+				<ac:task-list>
+					<ac:task>
+						<ac:task-status>complete</ac:task-status>
+						<ac:task-body><p>Task 1</p></ac:task-body>
+					</ac:task>
+					<ac:parameter ac:name="stray">Stray parameter</ac:parameter>
+				</ac:task-list>
+			`;
+			const result = collectDiagnostics(storage);
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0]).toMatchObject({
+				code: "reverse/unsupported-construct",
+				construct: "ac:parameter",
+				severity: "blocking",
+			});
+		});
+
+		it("element-form ac:task-list with exotic class produces unsupported-attribute", () => {
+			const storage = `
+				<ac:task-list class="custom-class">
+					<ac:task>
+						<ac:task-status>complete</ac:task-status>
+						<ac:task-body><p>Task 1</p></ac:task-body>
+					</ac:task>
+				</ac:task-list>
+			`;
+			const result = collectDiagnostics(storage);
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0]).toMatchObject({
+				code: "reverse/unsupported-attribute",
+				construct: "ac:task-list[class]",
+				severity: "blocking",
+			});
+		});
+
+		it("element-form ac:task with exotic data-x produces unsupported-attribute", () => {
+			const storage = `
+				<ac:task-list>
+					<ac:task data-x="custom">
+						<ac:task-status>complete</ac:task-status>
+						<ac:task-body><p>Task 1</p></ac:task-body>
+					</ac:task>
+				</ac:task-list>
+			`;
+			const result = collectDiagnostics(storage);
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0]).toMatchObject({
+				code: "reverse/unsupported-attribute",
+				construct: "ac:task[data-x]",
+				severity: "blocking",
+			});
+		});
+
+		it("element-form ac:task-status with exotic style produces unsupported-attribute", () => {
+			const storage = `
+				<ac:task-list>
+					<ac:task>
+						<ac:task-status style="color: red">complete</ac:task-status>
+						<ac:task-body><p>Task 1</p></ac:task-body>
+					</ac:task>
+				</ac:task-list>
+			`;
+			const result = collectDiagnostics(storage);
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0]).toMatchObject({
+				code: "reverse/unsupported-attribute",
+				construct: "ac:task-status[style]",
+				severity: "blocking",
+			});
+		});
+
+		it("element-form ac:task-body with exotic class produces unsupported-attribute", () => {
+			const storage = `
+				<ac:task-list>
+					<ac:task>
+						<ac:task-status>complete</ac:task-status>
+						<ac:task-body class="body-class"><p>Task 1</p></ac:task-body>
+					</ac:task>
+				</ac:task-list>
+			`;
+			const result = collectDiagnostics(storage);
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0]).toMatchObject({
+				code: "reverse/unsupported-attribute",
+				construct: "ac:task-body[class]",
+				severity: "blocking",
+			});
+		});
+
+		it("ac:plain-text-body with exotic style inside code macro produces unsupported-attribute", () => {
+			const storage = `
+				<ac:structured-macro ac:name="code">
+					<ac:parameter ac:name="language">javascript</ac:parameter>
+					<ac:plain-text-body style="color: red"><![CDATA[console.log("hello");]]></ac:plain-text-body>
+				</ac:structured-macro>
+			`;
+			const result = collectDiagnostics(storage);
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0]).toMatchObject({
+				code: "reverse/unsupported-attribute",
+				construct: "ac:plain-text-body[style]",
+				severity: "blocking",
+			});
+		});
+
+		it("stray canonical p child inside ac:task produces structural fallback (not unknown-element)", () => {
+			const storage = `
+				<ac:task-list>
+					<ac:task>
+						<ac:task-status>complete</ac:task-status>
+						<ac:task-body><p>Canonical body</p></ac:task-body>
+						<p>Stray canonical paragraph</p>
+					</ac:task>
+				</ac:task-list>
+			`;
+			const result = collectDiagnostics(storage);
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0]).toMatchObject({
+				code: "reverse/unsupported-construct",
+				construct: "p",
+				severity: "blocking",
+			});
+		});
+
 		it("mixed list: only stray children are diagnosed", () => {
 			const storage = `
 				<ac:task-list>
@@ -647,6 +796,137 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 
 			// ac:task-id should be silently ignored
 			expect(result.value.diagnostics).toHaveLength(0);
+		});
+
+		it("element-form ac:task-list with class produces unsupported-attribute", () => {
+			const storage = `
+				<ac:task-list class="custom-class">
+					<ac:task>
+						<ac:task-status>complete</ac:task-status>
+						<ac:task-body><p>Task 1</p></ac:task-body>
+					</ac:task>
+				</ac:task-list>
+			`;
+			const result = collectDiagnostics(storage);
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0]).toMatchObject({
+				code: "reverse/unsupported-attribute",
+				construct: "ac:task-list[class]",
+				severity: "blocking",
+			});
+		});
+
+		it("ac:task with data-x produces unsupported-attribute", () => {
+			const storage = `
+				<ac:task-list>
+					<ac:task data-x="custom">
+						<ac:task-status>complete</ac:task-status>
+						<ac:task-body><p>Task 1</p></ac:task-body>
+					</ac:task>
+				</ac:task-list>
+			`;
+			const result = collectDiagnostics(storage);
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0]).toMatchObject({
+				code: "reverse/unsupported-attribute",
+				construct: "ac:task[data-x]",
+				severity: "blocking",
+			});
+		});
+
+		it("ac:task-status with style produces unsupported-attribute", () => {
+			const storage = `
+				<ac:task-list>
+					<ac:task>
+						<ac:task-status style="color: red;">complete</ac:task-status>
+						<ac:task-body><p>Task 1</p></ac:task-body>
+					</ac:task>
+				</ac:task-list>
+			`;
+			const result = collectDiagnostics(storage);
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0]).toMatchObject({
+				code: "reverse/unsupported-attribute",
+				construct: "ac:task-status[style]",
+				severity: "blocking",
+			});
+		});
+
+		it("ac:task-body with class produces unsupported-attribute", () => {
+			const storage = `
+				<ac:task-list>
+					<ac:task>
+						<ac:task-status>complete</ac:task-status>
+						<ac:task-body class="custom-class"><p>Task 1</p></ac:task-body>
+					</ac:task>
+				</ac:task-list>
+			`;
+			const result = collectDiagnostics(storage);
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0]).toMatchObject({
+				code: "reverse/unsupported-attribute",
+				construct: "ac:task-body[class]",
+				severity: "blocking",
+			});
+		});
+
+		it("ac:plain-text-body with style inside code macro produces unsupported-attribute", () => {
+			const storage = `
+				<ac:structured-macro ac:name="code">
+					<ac:parameter ac:name="language">javascript</ac:parameter>
+					<ac:plain-text-body style="font-family: monospace;">console.log("hello");</ac:plain-text-body>
+				</ac:structured-macro>
+			`;
+			const result = collectDiagnostics(storage);
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0]).toMatchObject({
+				code: "reverse/unsupported-attribute",
+				construct: "ac:plain-text-body[style]",
+				severity: "blocking",
+			});
+		});
+
+		it("element-form ac:task without ac:task-status produces unsupported-construct", () => {
+			const storage = `
+				<ac:task-list>
+					<ac:task>
+						<ac:task-body><p>Task without status</p></ac:task-body>
+					</ac:task>
+				</ac:task-list>
+			`;
+			const result = collectDiagnostics(storage);
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0]).toMatchObject({
+				code: "reverse/unsupported-construct",
+				construct: "ac:task without ac:task-status",
+				severity: "blocking",
+			});
+		});
+
+		it("stray canonical p child inside ac:task produces structural fallback", () => {
+			const storage = `
+				<ac:task-list>
+					<ac:task>
+						<ac:task-status>complete</ac:task-status>
+						<p>Stray paragraph inside task</p>
+						<ac:task-body><p>Task 1</p></ac:task-body>
+					</ac:task>
+				</ac:task-list>
+			`;
+			const result = collectDiagnostics(storage);
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0]).toMatchObject({
+				code: "reverse/unsupported-construct",
+				construct: "p",
+				severity: "blocking",
+			});
 		});
 	});
 
@@ -923,6 +1203,22 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 			expect(result.value.diagnostics[0]).toMatchObject({
 				code: "reverse/unsupported-attribute",
 				construct: "ac:structured-macro[class]",
+				severity: "blocking",
+			});
+		});
+
+		it("ac:image with K1 ac:macro-id produces unsupported-attribute (K1 only silent on ac:structured-macro)", () => {
+			const storage = `
+				<ac:image ac:alt="Test image" ac:macro-id="12345">
+					<ri:url ri:value="https://example.com/image.png" />
+				</ac:image>
+			`;
+			const result = collectDiagnostics(storage);
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0]).toMatchObject({
+				code: "reverse/unsupported-attribute",
+				construct: "ac:image[ac:macro-id]",
 				severity: "blocking",
 			});
 		});

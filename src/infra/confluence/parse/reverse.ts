@@ -149,17 +149,21 @@ function resolvePageContext(
 }
 
 /**
- * Canonical attribute allowlist — exactly what the forward converter emits (Appendix C).
- * An attribute is canonical on an element iff the forward converter emits it there.
+ * Canonical attribute allowlist — mirror principle (spec F-2, DEC-5, Appendix C):
+ * an attribute is canonical on an element iff the forward converter emits it there.
  *
  * Derived from emission sites in src/infra/confluence/render/storage.ts:
  * - a[href] at :103
  * - ac:parameter[ac:name] at :193
- * - ac:structured-macro[ac:name] at :195 (K1 attributes never reach this pass after PD-4)
+ * - ac:structured-macro[ac:name] at :195 (K1 attributes are canonical-silent per DEC-5)
  * - ac:image[ac:alt] at :201 (conditional)
  * - ri:url[ri:value] at :203
  * - ri:attachment[ri:filename] at :206
  * - All other canonical elements emit no attributes
+ *
+ * K1 carve-out: ac:macro-id, ac:schema-version are silently ignored ONLY on
+ * ac:structured-macro (per DEC-5/F-2/Appendix C). The ac:task-list row below is
+ * the recorded exception (DEC-8-adjacent, per spec Appendix C).
  */
 const CANONICAL_ATTRIBUTE_ALLOWLIST: Record<string, string[]> = {
 	a: ["href"],

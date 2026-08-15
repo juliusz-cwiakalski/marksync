@@ -408,7 +408,11 @@ An attribute is canonical on an element iff the forward converter emits it there
 
 Everything else on a canonical element → `reverse/unsupported-attribute`. The allowlist is pinned by the zero-diagnostic sweeps (NFR-3) and evolves only with the forward emission vocabulary (§22).
 
-**Documented mirror-principle exception (element-level; DEC-8):** the `ac:task-id` child of `ac:task` — server-assigned task metadata with no GFM counterpart and no user content — is canonical-silent: dropped without a diagnostic on read-back, pinned by unit probe. It is the sole silent element drop outside the K1 carve-out. (Recorded in review remediation task 6.3, option b.)
+**Documented mirror-principle exceptions:**
+
+- **`ac:task-id` child of `ac:task` (element-level; DEC-8):** server-assigned task metadata with no GFM counterpart and no user content — canonical-silent: dropped without a diagnostic on read-back, pinned by unit probe. It is the sole silent element drop outside the K1 carve-out. (Recorded in review remediation task 6.3, option b.)
+
+- **`ac:task-list` K1 exception (attribute-level; DEC-8-adjacent):** `ac:schema-version`/`ac:macro-id` are canonical-silent on `ac:task-list` via the allowlist row, despite being exotic on all other non-macro elements per DEC-5. This is a documented exception to the macro-only K1 carve-out, pinned by unit probe and the allowlist constant. (Recorded in review remediation task 8.3.)
 
 ### Appendix D — Evidence artifacts
 
