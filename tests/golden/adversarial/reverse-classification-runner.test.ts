@@ -221,18 +221,23 @@ describe("TC-RADV-001: adversarial classification regression lock", () => {
 						mappedFastFail.page = fastFail.error.page;
 					}
 
+					// F-8: select first blocking diagnostic, not diagnostics[0]
+					const firstBlocking = collectAll.value.diagnostics.find(
+						(d) => d.severity === "blocking",
+					);
+
 					const mappedCollectAll: {
 						code: string;
 						construct: string;
 						location: { line: number; column: number };
 						page?: { pageId?: string; title?: string; sourcePath?: string };
 					} = {
-						code: collectAll.value.diagnostics[0].code,
-						construct: collectAll.value.diagnostics[0].construct,
-						location: collectAll.value.diagnostics[0].location,
+						code: firstBlocking?.code || "",
+						construct: firstBlocking?.construct || "",
+						location: firstBlocking?.location || { line: 1, column: 1 },
 					};
-					if (collectAll.value.diagnostics[0].page) {
-						mappedCollectAll.page = collectAll.value.diagnostics[0].page;
+					if (firstBlocking?.page) {
+						mappedCollectAll.page = firstBlocking.page;
 					}
 
 					expect(mappedFastFail).toEqual(mappedCollectAll);
@@ -445,18 +450,23 @@ describe("TC-RDIAG-002 golden arm: cross-mode per-instance stability", () => {
 				mappedFastFail.page = fastFail.error.page;
 			}
 
+			// F-8: select first blocking diagnostic, not diagnostics[0]
+			const firstBlocking = collectAll.value.diagnostics.find(
+				(d) => d.severity === "blocking",
+			);
+
 			const mappedCollectAll: {
 				code: string;
 				construct: string;
 				location: { line: number; column: number };
 				page?: { pageId?: string; title?: string; sourcePath?: string };
 			} = {
-				code: collectAll.value.diagnostics[0].code,
-				construct: collectAll.value.diagnostics[0].construct,
-				location: collectAll.value.diagnostics[0].location,
+				code: firstBlocking?.code || "",
+				construct: firstBlocking?.construct || "",
+				location: firstBlocking?.location || { line: 1, column: 1 },
 			};
-			if (collectAll.value.diagnostics[0].page) {
-				mappedCollectAll.page = collectAll.value.diagnostics[0].page;
+			if (firstBlocking?.page) {
+				mappedCollectAll.page = firstBlocking.page;
 			}
 
 			expect(mappedFastFail).toEqual(mappedCollectAll);

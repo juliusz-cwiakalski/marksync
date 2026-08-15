@@ -622,4 +622,93 @@ describe("reverse-diagnostics", () => {
 			expect(deserialized.page.title).toBe("Fast Fail Test");
 		});
 	});
+
+	describe("TC-TAXO-002: assignment map pins via real entry points", () => {
+		it("jira macro → reverse/unknown-macro (blocking)", () => {
+			const storage =
+				'<ac:structured-macro ac:name="jira"><ac:parameter ac:name="key"><ac:plain-text-body><![CDATA[PROJ-123]]></ac:plain-text-body></ac:parameter></ac:structured-macro>';
+			const result = reverseStorageCollectAll(storage);
+
+			expect(result.ok).toBe(true);
+			if (!result.ok) return;
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0].code).toBe("reverse/unknown-macro");
+			expect(result.value.diagnostics[0].severity).toBe("blocking");
+		});
+
+		it("layout tree → reverse/complex-layout (blocking)", () => {
+			const storage =
+				"<ac:layout><ac:layout-section><ac:layout-cell>content</ac:layout-cell></ac:layout-section></ac:layout>";
+			const result = reverseStorageCollectAll(storage);
+
+			expect(result.ok).toBe(true);
+			if (!result.ok) return;
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0].code).toBe("reverse/complex-layout");
+			expect(result.value.diagnostics[0].severity).toBe("blocking");
+		});
+
+		it("td colspan → reverse/unsupported-attribute (blocking)", () => {
+			const storage = '<table><tbody><tr><td colspan="2">Cell</td></tr></tbody></table>';
+			const result = reverseStorageCollectAll(storage);
+
+			expect(result.ok).toBe(true);
+			if (!result.ok) return;
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0].code).toBe("reverse/unsupported-attribute");
+			expect(result.value.diagnostics[0].severity).toBe("blocking");
+		});
+
+		it("div → reverse/unknown-element (blocking)", () => {
+			const storage = "<div>content</div>";
+			const result = reverseStorageCollectAll(storage);
+
+			expect(result.ok).toBe(true);
+			if (!result.ok) return;
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0].code).toBe("reverse/unknown-element");
+			expect(result.value.diagnostics[0].severity).toBe("blocking");
+		});
+
+		it("nested table → reverse/unsupported-construct (blocking fallback)", () => {
+			const storage =
+				"<table><tbody><tr><td><table><tbody><tr><td>nested</td></tr></tbody></table></td></tr></tbody></table>";
+			const result = reverseStorageCollectAll(storage);
+
+			expect(result.ok).toBe(true);
+			if (!result.ok) return;
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0].code).toBe("reverse/unsupported-construct");
+			expect(result.value.diagnostics[0].severity).toBe("blocking");
+		});
+
+		it("render-policy image → marksync/synthetic-artifact (informational)", () => {
+			const storage =
+				'<ac:image ac:alt="Mermaid"><ri:url ri:value="marksync-mermaid-abc123" /></ac:image>';
+			const result = reverseStorageCollectAll(storage);
+
+			expect(result.ok).toBe(true);
+			if (!result.ok) return;
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0].code).toBe("marksync/synthetic-artifact");
+			expect(result.value.diagnostics[0].severity).toBe("informational");
+		});
+
+	it("malformed → reverse/parse-error (blocking)", () => {
+		const storage = "<invalid";
+		const result = reverseStorageCollectAll(storage);
+
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+
+		expect(result.error.code).toBe("reverse/parse-error");
+		expect(result.error.kind).toBe("StorageParseError");
+	});
+	});
 });

@@ -1,18 +1,26 @@
 [
-	{
-		"code": "reverse/unsupported-attribute",
-		"construct": "th[class, colspan, data-table-width, rowspan, style]",
-		"location": {
-			"line": 4,
-			"column": 108
-		}
-	},
-	{
-		"code": "reverse/unsupported-attribute",
-		"construct": "td[style]",
-		"location": {
-			"line": 8,
-			"column": 30
-		}
-	}
+  {
+    "code": "reverse/unsupported-attribute",
+    "construct": "th[class, colspan, data-table-width, rowspan, style]",
+    "location": {
+      "line": 4,
+      "column": 108
+    }
+  },
+  {
+    "code": "reverse/unsupported-attribute",
+    "construct": "td[style]",
+    "location": {
+      "line": 8,
+      "column": 30
+    }
+  },
+  {
+    "code": "reverse/unsupported-attribute",
+    "construct": "ac:image[ac:align, ac:width]",
+    "location": {
+      "line": 12,
+      "column": 64
+    }
+  }
 ]

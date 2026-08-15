@@ -11,14 +11,13 @@ import {
 	type ReversePageContext,
 	type ReverseSuccess,
 	type UnsupportedConstructError,
+	type StorageParseError,
 } from "#domain/markdown/reverse-diagnostics";
 import { hastToMarkdown } from "#domain/markdown/hast-to-markdown";
 import { parseStorage } from "#infra/confluence/parse/reverse-parser";
 import type { Element, ElementContent, Root, RootContent } from "hast";
-import type { StorageParseError } from "#domain/markdown/reverse-diagnostics";
 
 /** Reverse contract entry point (spec DM-1). */
-// Import from domain to avoid duplication (typescript.md structural-duplication rule)
 export type { ReverseSuccess } from "#domain/markdown/reverse-diagnostics";
 
 /** Reverse conversion contract with provenance context (reserved for future use). */
@@ -169,10 +168,55 @@ const CANONICAL_ATTRIBUTE_ALLOWLIST: Record<string, string[]> = {
 	"ri:url": ["ri:value"],
 	"ac:structured-macro": ["ac:name"],
 	"ac:parameter": ["ac:name"],
-	// All other canonical elements (h1-h6, p, strong, em, del, code, img, ul, ol, li, table, thead,
-	// tbody, tr, th, td, blockquote, hr, pre, ac:task-list, ac:task, ac:task-status, ac:task-body,
-	// ac:plain-text-body) → empty allowlist → any attribute is exotic
-} as const;
+	// All other elements → no allowlist → any attribute is exotic
+};
+
+/**
+ * Canonical elements set — used for both classification pass-through and
+ * attribute-pass scope. Plain-HTML only; ac:* canonical elements are checked
+ * separately in isCanonicalAcElement (F-7, F-9).
+ */
+const CANONICAL_ELEMENTS = [
+	"h1",
+	"h2",
+	"h3",
+	"h4",
+	"h5",
+	"h6",
+	"p",
+	"strong",
+	"em",
+	"del",
+	"code",
+	"a",
+	"img",
+	"ul",
+	"ol",
+	"li",
+	"table",
+	"thead",
+	"tbody",
+	"tr",
+	"td",
+	"th",
+	"blockquote",
+	"hr",
+	"pre",
+] as const;
+
+/**
+ * ac:* canonical elements (Appendix C). Used for stray-child classification
+ * (F-7) — these are canonical when in correct position but should trigger
+ * the structural fallback when misplaced (not unknown-element).
+ */
+const CANONICAL_AC_ELEMENTS = [
+	"ac:image",
+	"ac:task-list",
+	"ac:task",
+	"ac:task-status",
+	"ac:task-body",
+	"ac:plain-text-body",
+] as const;
 
 /**
  * Classify Storage-HAST into content HAST + diagnostics.
@@ -241,20 +285,38 @@ function classifyElement(
 		const altText = props["ac:alt"]?.toString() || "";
 		let src = "";
 
+		// Check for exotic attributes on ac:image (F-1, Appendix C)
+		const attrDiagnostic = checkAttributes(el, page);
+
 		// Look for ri:attachment children (with ri:filename property) or ri:url children
+		const diagnostics: Array<BlockingDiagnostic | InformationalDiagnostic> = [];
+		if (attrDiagnostic) {
+			diagnostics.push(attrDiagnostic);
+		}
+
 		for (const child of el.children) {
 			if (child.type === "element") {
 				if (child.tagName === "ri:attachment") {
+					// Check for exotic attributes on ri:attachment (F-1, Appendix C)
+					const riAttrDiagnostic = checkAttributes(child, page);
+					if (riAttrDiagnostic) {
+						diagnostics.push(riAttrDiagnostic);
+					}
+
 					const filename = child.properties["ri:filename"]?.toString();
 					if (filename) {
 						src = filename;
-						break;
 					}
 				} else if (child.tagName === "ri:url") {
+					// Check for exotic attributes on ri:url (F-1, Appendix C)
+					const riAttrDiagnostic = checkAttributes(child, page);
+					if (riAttrDiagnostic) {
+						diagnostics.push(riAttrDiagnostic);
+					}
+
 					const urlValue = child.properties["ri:value"]?.toString();
 					if (urlValue) {
 						src = urlValue;
-						break;
 					}
 				}
 			}
@@ -273,7 +335,7 @@ function classifyElement(
 			};
 			return {
 				content: null,
-				diagnostics: [diagnostic],
+				diagnostics: [...diagnostics, diagnostic],
 			};
 		}
 
@@ -288,7 +350,15 @@ function classifyElement(
 				},
 				children: [],
 			};
-			return { content: imgElement, diagnostics: [] };
+			return {
+				content: imgElement,
+				diagnostics,
+			};
+		}
+
+		// If no source found but we have attribute diagnostics, return them
+		if (diagnostics.length > 0) {
+			return { content: null, diagnostics };
 		}
 	}
 
@@ -302,36 +372,7 @@ function classifyElement(
 		return classifyTaskListElement(el, page);
 	}
 
-	// Handle recognized canonical elements (pass through)
-	const canonicalElements = [
-		"h1",
-		"h2",
-		"h3",
-		"h4",
-		"h5",
-		"h6",
-		"p",
-		"strong",
-		"em",
-		"del",
-		"code",
-		"a",
-		"img",
-		"ul",
-		"ol",
-		"li",
-		"table",
-		"thead",
-		"tbody",
-		"tr",
-		"td",
-		"th",
-		"blockquote",
-		"hr",
-		"pre",
-	];
-
-	if (canonicalElements.includes(tagName)) {
+	if (CANONICAL_ELEMENTS.includes(tagName as any)) {
 		// Check for nested tables (table ANYWHERE inside td/th)
 		if (tagName === "td" || tagName === "th") {
 			if (hasDescendantTable(el)) {
@@ -445,6 +486,21 @@ function classifyCodeMacro(
 	el: Element,
 	page?: ReversePageContext,
 ): NodeClassificationResult {
+	// Check for exotic attributes on ac:structured-macro (F-1, Appendix C)
+	const attrDiagnostic = checkAttributes(el, page);
+
+	// Check for exotic attributes on ac:parameter children (F-1)
+	const paramDiagnostics: Array<BlockingDiagnostic | InformationalDiagnostic> =
+		[];
+	for (const child of el.children) {
+		if (child.type === "element" && child.tagName === "ac:parameter") {
+			const paramAttrDiagnostic = checkAttributes(child, page);
+			if (paramAttrDiagnostic) {
+				paramDiagnostics.push(paramAttrDiagnostic);
+			}
+		}
+	}
+
 	// Extract language from ac:parameter ac:name="language" element
 	const languageParam = el.children.find(
 		(child) =>
@@ -477,7 +533,11 @@ function classifyCodeMacro(
 		};
 		return {
 			content: null,
-			diagnostics: [diagnostic],
+			diagnostics: [
+				...(attrDiagnostic ? [attrDiagnostic] : []),
+				...paramDiagnostics,
+				diagnostic,
+			],
 		};
 	}
 
@@ -501,17 +561,53 @@ function classifyCodeMacro(
 		children: [codeElement],
 	};
 
-	return { content: preElement, diagnostics: [] };
+	return {
+		content: preElement,
+		diagnostics: [
+			...(attrDiagnostic ? [attrDiagnostic] : []),
+			...paramDiagnostics,
+		],
+	};
 }
 
-/** Shared helper: map ac:task sequence → task-list HAST (RSK-P2). */
+/** Shared helper: map ac:task sequence → task-list HAST + diagnostics (F-2, RSK-P2). */
 function mapTaskSequenceToGfmTaskList(
 	tasks: Element[],
 	page?: ReversePageContext,
-): Element {
+): {
+	content: Element;
+	diagnostics: Array<BlockingDiagnostic | InformationalDiagnostic>;
+} {
 	const listItems: Element[] = [];
+	const allDiagnostics: Array<BlockingDiagnostic | InformationalDiagnostic> =
+		[];
 
 	for (const task of tasks) {
+		// Check for unknown children of ac:task (F-3: ac:task-id and others)
+		// ac:task-status and ac:task-body are canonical
+		// ac:task-id is canonical-silent (server-assigned metadata, no GFM counterpart)
+		const ignoredTaskChildren = [
+			"ac:task-status",
+			"ac:task-body",
+			"ac:task-id",
+		];
+		for (const child of task.children) {
+			if (child.type === "element") {
+				if (!ignoredTaskChildren.includes(child.tagName)) {
+					const location = getLocation(child);
+					const diagnostic: BlockingDiagnostic = {
+						severity: "blocking",
+						class: "unsupported-construct",
+						code: REVERSE_CODES.UNKNOWN_ELEMENT,
+						construct: child.tagName,
+						location,
+						...(page !== undefined && { page }),
+					};
+					allDiagnostics.push(diagnostic);
+				}
+			}
+		}
+
 		const statusEl = task.children.find(
 			(child) => child.type === "element" && child.tagName === "ac:task-status",
 		) as Element | undefined;
@@ -541,13 +637,15 @@ function mapTaskSequenceToGfmTaskList(
 			children: [],
 		};
 
-		// Classify task body content
+		// Classify task body content and collect diagnostics (F-2)
 		const classifiedBody: ElementContent[] = [];
 		for (const child of taskContent) {
 			const result = classifyNode(child, page);
 			if (result.content) {
 				classifiedBody.push(result.content as ElementContent);
 			}
+			// Propagate body classification diagnostics (F-2)
+			allDiagnostics.push(...result.diagnostics);
 		}
 
 		const li: Element = {
@@ -563,7 +661,7 @@ function mapTaskSequenceToGfmTaskList(
 	}
 
 	// Map to ul.contains-task-list
-	return {
+	const ulElement: Element = {
 		type: "element",
 		tagName: "ul",
 		properties: {
@@ -571,30 +669,79 @@ function mapTaskSequenceToGfmTaskList(
 		},
 		children: listItems,
 	};
+
+	return {
+		content: ulElement,
+		diagnostics: allDiagnostics,
+	};
 }
 
-/** Classify a task-list macro → GFM task list (RSK-P2).
+/** Classify a task-list macro → GFM task list (RSK-P2, F-4, F-6).
  * NOTE: The forward renderer emits <ac:task-list> directly, not this macro form.
  * This branch handles real Confluence task-list macros for completeness.
  */
 function classifyTaskListMacro(
 	el: Element,
-	_page?: ReversePageContext,
+	page?: ReversePageContext,
 ): NodeClassificationResult {
-	const tasks = el.children.filter(
-		(child) =>
-			child.type === "element" &&
-			child.tagName === "ac:task" &&
-			(child as Element).children.some(
-				(grandchild) =>
-					grandchild.type === "element" &&
-					grandchild.tagName === "ac:task-status",
-			),
-	) as Element[];
+	const diagnostics: Array<BlockingDiagnostic | InformationalDiagnostic> = [];
+	const tasks: Element[] = [];
+
+	// Check for non-ac:task children (F-4, F-6, DEC-6)
+	for (const child of el.children) {
+		if (child.type === "element") {
+			if (child.tagName === "ac:task") {
+				// Check if the task has ac:task-status
+				if (
+					child.children.some(
+						(grandchild) =>
+							grandchild.type === "element" &&
+							grandchild.tagName === "ac:task-status",
+					)
+				) {
+					tasks.push(child);
+				} else {
+					// ac:task without ac:task-status → diagnose
+					const location = getLocation(child);
+					const diagnostic: BlockingDiagnostic = {
+						severity: "blocking",
+						class: "unsupported-construct",
+						code: REVERSE_CODES.UNSUPPORTED_CONSTRUCT,
+						construct: "ac:task without ac:task-status",
+						location,
+						...(page !== undefined && { page }),
+					};
+					diagnostics.push(diagnostic);
+				}
+			} else {
+				// Non-ac:task child → diagnose
+				const location = getLocation(child);
+				const code =
+					isCanonicalElement(child.tagName) ||
+					isCanonicalAcElement(child.tagName)
+						? REVERSE_CODES.UNSUPPORTED_CONSTRUCT
+						: REVERSE_CODES.UNKNOWN_ELEMENT;
+
+				const diagnostic: BlockingDiagnostic = {
+					severity: "blocking",
+					class: "unsupported-construct",
+					code,
+					construct: child.tagName,
+					location,
+					...(page !== undefined && { page }),
+				};
+				diagnostics.push(diagnostic);
+			}
+		}
+	}
+
+	// Map tasks to GFM format and collect body diagnostics (F-2)
+	const { content, diagnostics: taskBodyDiagnostics } =
+		mapTaskSequenceToGfmTaskList(tasks, page);
 
 	return {
-		content: mapTaskSequenceToGfmTaskList(tasks, _page),
-		diagnostics: [],
+		content,
+		diagnostics: [...diagnostics, ...taskBodyDiagnostics],
 	};
 }
 
@@ -610,17 +757,19 @@ function classifyTaskListElement(
 	const diagnostics: Array<BlockingDiagnostic | InformationalDiagnostic> = [];
 	const tasks: Element[] = [];
 
-	// Check for non-ac:task children (F-3, DEC-6)
+	// Check for non-ac:task children (F-3, F-5, F-7, DEC-6)
 	for (const child of el.children) {
 		if (child.type === "element") {
 			if (child.tagName === "ac:task") {
 				tasks.push(child);
 			} else {
-				// Non-canonical child → diagnose
+				// Non-canonical child → diagnose (F-7: use full canonical set)
 				const location = getLocation(child);
-				const code = isCanonicalElement(child.tagName)
-					? REVERSE_CODES.UNSUPPORTED_CONSTRUCT
-					: REVERSE_CODES.UNKNOWN_ELEMENT;
+				const code =
+					isCanonicalElement(child.tagName) ||
+					isCanonicalAcElement(child.tagName)
+						? REVERSE_CODES.UNSUPPORTED_CONSTRUCT
+						: REVERSE_CODES.UNKNOWN_ELEMENT;
 
 				const diagnostic: BlockingDiagnostic = {
 					severity: "blocking",
@@ -648,9 +797,13 @@ function classifyTaskListElement(
 		}
 	}
 
+	// Map tasks to GFM format and collect body diagnostics (F-2)
+	const { content, diagnostics: taskBodyDiagnostics } =
+		mapTaskSequenceToGfmTaskList(tasks, page);
+
 	return {
-		content: mapTaskSequenceToGfmTaskList(tasks, page),
-		diagnostics,
+		content,
+		diagnostics: [...diagnostics, ...taskBodyDiagnostics],
 	};
 }
 
@@ -683,36 +836,18 @@ function getLocation(el: Element): { line: number; column: number } {
 
 /** Check if an element is canonical (in the canonical allowlist). */
 function isCanonicalElement(tagName: string): boolean {
-	return [
-		"h1",
-		"h2",
-		"h3",
-		"h4",
-		"h5",
-		"h6",
-		"p",
-		"strong",
-		"em",
-		"del",
-		"code",
-		"a",
-		"img",
-		"ul",
-		"ol",
-		"li",
-		"table",
-		"thead",
-		"tbody",
-		"tr",
-		"td",
-		"th",
-		"blockquote",
-		"hr",
-		"pre",
-	].includes(tagName);
+	return CANONICAL_ELEMENTS.includes(tagName as any);
 }
 
-/** Check for exotic attributes on canonical elements (F-2, Appendix C). */
+/**
+ * Check if an element is an ac:* canonical element (Appendix C).
+ * Used for stray-child classification (F-7).
+ */
+function isCanonicalAcElement(tagName: string): boolean {
+	return CANONICAL_AC_ELEMENTS.includes(tagName as any);
+}
+
+/** Check for exotic attributes on canonical/specially-handled elements (F-1, F-2, Appendix C). */
 function checkAttributes(
 	el: Element,
 	page?: ReversePageContext,
@@ -720,12 +855,17 @@ function checkAttributes(
 	const tagName = el.tagName;
 	const props = el.properties || {};
 
-	// Skip if not in the canonical list (unknown elements are handled elsewhere)
-	if (!isCanonicalElement(tagName)) {
-		return null;
+	// Check if this element is canonical (plain-HTML or ac:*) or has an explicit allowlist
+	const isCanonical =
+		CANONICAL_ELEMENTS.includes(tagName as any) ||
+		CANONICAL_AC_ELEMENTS.includes(tagName as any);
+	const hasExplicitAllowlist = tagName in CANONICAL_ATTRIBUTE_ALLOWLIST;
+
+	if (!isCanonical && !hasExplicitAllowlist) {
+		return null; // Unknown elements are handled elsewhere
 	}
 
-	// Get the allowed attributes for this element from the mirror allowlist
+	// Get the allowed attributes (empty array for canonical elements not in table)
 	const allowedAttrs = CANONICAL_ATTRIBUTE_ALLOWLIST[tagName] || [];
 
 	// Collect exotic attributes (names only, no values, per NFR-6)
