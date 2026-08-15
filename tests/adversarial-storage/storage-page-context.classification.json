@@ -1,0 +1,15 @@
+[
+	{
+		"code": "reverse/unknown-macro",
+		"construct": "ac:structured-macro[ac:name=\"toc\"]",
+		"location": {
+			"line": 3,
+			"column": 57
+		},
+		"page": {
+			"pageId": "12345",
+			"title": "Test Page Title",
+			"sourcePath": "/pages/test-page.md"
+		}
+	}
+]

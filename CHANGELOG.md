@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-08-15
+
+### Added
+- **Granular reverse diagnostic codes** (4 new codes + page-context payload, GH-93):
+  - `reverse/unknown-macro` — foreign/unknown macros (jira, toc, expand, gliffy, etc.)
+  - `reverse/complex-layout` — ac:layout family (exactly one diagnostic per tree)
+  - `reverse/unsupported-attribute` — exotic attributes on canonical elements (aggregated, sorted, deduplicated names)
+  - `reverse/unknown-element` — non-canonical elements (div, span, unknown ac:*, etc.)
+  - Page-context field (`pageId`/`title`/`sourcePath`) echoed on all diagnostic arms (blocking, informational, parse-error)
+- **Attribute-level detection** over mirror allowlist (exactly what forward converter emits per Appendix C)
+- **Task-list integrity** — non-`ac:task` children diagnosed (unknown-element or structural fallback)
+- **GH-31-aligned storage-side adversarial corpus** (12/12 categories, 21 fixtures) with zero-diagnostic canonical counterparts as false-positive guard
+- **Extended classification runner** — sidecar schema `page?`, success branch on empty sidecars, category inventory, PII scoping
+- **New-class fixtures** — complex layout, orphaned layout, exotic attributes (multi-element), K1 negative control, task-list stray child, page-context echo
+
+### Changed
+- **Emitted-code re-assignments** (unknown macros, unknown elements → dedicated codes; sidecars re-pinned, 7 affected)
+- K1 carve-out confined to `ac:structured-macro` only (Phase 2 PD-4)
+- False-positive guard — zero new diagnostics over corpus-A (26) + forward golden (33) + K1 variants
+- Corpus-A round-trip byte-equality 100% unchanged (forward fixtures byte-unmodified)
+- `reverseStorageCollectAll()` gains optional `opts` parameter (optional-params-only, `ReverseOptions.page` support)
+- `ReverseOptions.sourcePath` absorbed as `{page: {sourcePath}}` convenience
+
 ## [0.9.0] - 2026-08-15
 
 ### Added

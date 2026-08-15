@@ -1,0 +1,9 @@
+{
+	"parseError": true,
+	"detail": "malformed",
+	"page": {
+		"pageId": "54321",
+		"title": "Malformed Test Page",
+		"sourcePath": "/pages/malformed.md"
+	}
+}

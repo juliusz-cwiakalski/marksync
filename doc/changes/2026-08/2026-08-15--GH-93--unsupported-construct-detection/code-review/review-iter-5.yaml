@@ -1,0 +1,93 @@
+version: 1
+iteration: 5
+mode: local
+work_item_ref: GH-93
+branch: feat/GH-93/unsupported-construct-detection
+status: PASS
+summary: >-
+  Record-only re-check per the iter-4 prescription, independently re-derived
+  by the reviewer at terminal HEAD 41742a4 (the f14ad51 plan-row correction
+  and the 41742a4 PR record landed mid-review — fourth racing session of
+  this change; every fact below re-verified against the terminal tree by
+  this session's own runs). F-30 RESOLVED: no fabricated action claims
+  remain in chg-GH-93-plan.md — task 8.1 states "75 pass / 1 skip (deduped
+  from 84; 18 probes added across 40ad117+b7a18f6)" and the Phase-8
+  execution row attributes every action per commit (cell "40ad117 +
+  b7a18f6 + 2345560"; task-3.8 + kroki corrections made BY b7a18f6, "not
+  pre-existing"; gates per point-in-time: 1766 pre-dedup -> 1758
+  post-dedup). F-31 RESOLVED: 2345560 removed 8 of 84 tests (file numstat
+  1 insertion / 146 deletions), leaving 76 (75 pass / 1 skip / 0 fail, solo
+  re-run by this review); zero duplicate it() titles and zero duplicate
+  describe IDs (uniq -c all 1s; second TC-ATTR-003 renamed TC-ATTR-004 with
+  test-spec references updated); probe arithmetic verified per commit
+  (40ad117 +2 it(, b7a18f6 +16 = 18). Gates independently green at HEAD:
+  bun run check exit 0 — bun test 1758 pass / 1 skip / 0 fail, depcruise
+  112 modules; test:bdd 6 scenarios / 42 steps; tripwires 0 files changed
+  vs main (src/cli/, tests/golden/fixtures/markdown/, tests/adversarial/,
+  both resolver.ts paths net-zero). Spec counts current (feature spec :337
+  + test spec :133/:511: "16 TC arms, 75 tests"). The md-FAIL/yaml-PASS
+  iter-4 divergence is reconciled by the third-session certification (both
+  verdicts true per commit range, ID swap + yaml off-by-one disclosed).
+  Residuals are info-only and ride PR #110. The PM-executed iter-5 draft
+  (f14ad51) is superseded by this reviewer record; its facts were
+  independently confirmed and it is preserved in git history.
+severity_breakdown:
+  critical: 0
+  high: 0
+  medium: 0
+  low: 0
+  info: 3
+spec_compliance: PASS
+plan_compliance: PASS
+findings:
+  - id: F-36
+    severity: info
+    confidence: high
+    category: spec-compliance
+    location: doc/spec/features/feature-reverse-conversion.md:337
+    message: >-
+      Armory-count wording says "75 tests" (feature spec :337; test spec
+      :133 and :511) while bun reports "Ran 76 tests" — 75 pass + 1 skip
+      (the documented parse-error it.skip, reverse.test.ts:860). Pass-count
+      convention, used consistently; every record that spells it out is
+      exact ("75 pass / 1 skip").
+    suggestion: >-
+      Optional at next doc touch: "75 tests + 1 skipped probe" for absolute
+      clarity.
+    suppressed: false
+  - id: F-37
+    severity: info
+    confidence: high
+    category: quality
+    location: doc/changes/2026-08/2026-08-15--GH-93--unsupported-construct-detection/code-review/review-iter-4.yaml:94
+    message: >-
+      Cosmetic defects in the consolidated iter-4 yaml, already disclosed in
+      review.md's certification section: F-31's message carries an
+      off-by-one ("the file has 75 tests / 74 pass + 1 skip"; actual 76 /
+      75 + 1), the F-30/F-31 IDs are swapped relative to b724c2d's
+      committed FAIL record, and reviewed_at is local-time-as-Z. Verdict
+      unaffected; cite findings by content across b724c2d..bb20e8e (the
+      F-29 rule, recurred).
+    suggestion: >-
+      None required — the disclosure in review.md suffices; do not rewrite
+      the published record.
+    suppressed: false
+  - id: F-38
+    severity: info
+    confidence: medium
+    category: process
+    location: doc/changes/2026-08/2026-08-15--GH-93--unsupported-construct-detection/chg-GH-93-review.md:402
+    message: >-
+      The iter-4 certification session observed one full-suite run at
+      bb20e8e with 1757 pass / 1 skip / 1 fail (unidentified, load-suspect
+      flake; not reproduced in that session's two subsequent runs nor in
+      either gate run of this review — both 1758/1/0).
+    suggestion: >-
+      Gates discipline note: re-run on any red before diagnosing; tag the
+      flake if it recurs post-merge.
+    suppressed: false
+reviewed_at: 2026-08-15T19:20:00Z
+next_step: >-
+  PROCEED — all 11 lifecycle phases complete (PR #110 recorded at 41742a4);
+  F-30/F-31 closed; residuals info-only, riding the PR record per the
+  iter-4 prescription.

@@ -1,6 +1,6 @@
 [
 	{
-		"code": "reverse/unsupported-construct",
+		"code": "reverse/unknown-element",
 		"construct": "div",
 		"location": {
 			"line": 2,

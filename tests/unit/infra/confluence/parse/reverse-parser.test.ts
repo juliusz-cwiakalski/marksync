@@ -324,6 +324,62 @@ describe("reverse-parser", () => {
 		});
 	});
 
+	describe("K1-survival (F-1, PD-4): K1 names exotic off-macro survive to classifier", () => {
+		it("p[ac:macro-id] survives the parse", () => {
+			const storage = '<p ac:macro-id="123">paragraph</p>';
+			const result = parseStorage(storage);
+
+			expect(result.ok).toBe(true);
+			if (!result.ok) return;
+
+			const root = result.value;
+			const p = root.children[0] as Element;
+			expect(p.properties["ac:macro-id"]).toBe("123");
+		});
+
+		it("td[ac:schema-version] survives the parse", () => {
+			const storage =
+				'<table><tbody><tr><td ac:schema-version="1">Cell</td></tr></tbody></table>';
+			const result = parseStorage(storage);
+
+			expect(result.ok).toBe(true);
+			if (!result.ok) return;
+
+			const root = result.value;
+			const table = root.children[0] as Element;
+			const tbody = table.children[0] as Element;
+			const tr = tbody.children[0] as Element;
+			const td = tr.children[0] as Element;
+			expect(td.properties["ac:schema-version"]).toBe("1");
+		});
+
+		it("macro K1 still dropped (byte-identical output)", () => {
+			const storageWithK1 =
+				'<ac:structured-macro ac:name="code" ac:schema-version="1" ac:macro-id="xyz"><ac:plain-text-body><![CDATA[foo]]></ac:plain-text-body></ac:structured-macro>';
+			const storageWithoutK1 =
+				'<ac:structured-macro ac:name="code"><ac:plain-text-body><![CDATA[foo]]></ac:plain-text-body></ac:structured-macro>';
+
+			const result1 = parseStorage(storageWithK1);
+			const result2 = parseStorage(storageWithoutK1);
+
+			expect(result1.ok).toBe(true);
+			expect(result2.ok).toBe(true);
+			if (!result1.ok || !result2.ok) return;
+
+			const macro1 = result1.value.children[0] as Element;
+			const macro2 = result2.value.children[0] as Element;
+
+			// K1 attributes dropped on macro
+			expect(macro1.properties["ac:schema-version"]).toBeUndefined();
+			expect(macro1.properties["ac:macro-id"]).toBeUndefined();
+
+			// Tree byte-identical to attr-free tree
+			expect(stripPositions(result1.value)).toEqual(
+				stripPositions(result2.value),
+			);
+		});
+	});
+
 	describe("fragment mode", () => {
 		it("parses multi-root fragments", () => {
 			const storage = "<h1>First</h1><p>Second</p>";

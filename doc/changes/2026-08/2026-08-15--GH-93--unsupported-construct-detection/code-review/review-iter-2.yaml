@@ -1,0 +1,260 @@
+version: 1
+iteration: 2
+mode: local
+work_item_ref: GH-93
+branch: feat/GH-93/unsupported-construct-detection
+status: FAIL
+summary: >-
+  Phase-6 remediation is substantively real: the F-1 critical ac:image clause is
+  fixed and corpus-pinned, task-body diagnostics propagate (live-probed), DEC-8
+  records the ac:task-id disposition, the promised 874-line unit file exists
+  (59 green tests, 10 TC arms, 7 TC-TAXO-002 row probes, 3 K1-survival probes),
+  and iter-1 F-8/F-9/F-12 are cleanly closed. FAIL is driven by three things:
+  the gate is RED at HEAD (2 lint errors inside the new unit file + 6 format
+  violations) while the Phase-6 log records "bun run check (1742 pass)" — 1742
+  is the bare bun-test count and the check chain cannot pass (F-13); the F-1
+  attribute pass remains undelivered for the Appendix C none-bucket task-list
+  family, task-list macro, and ac:plain-text-body — probe-confirmed silent
+  drops against task 6.1's own enumerated set checked [x] (F-14); and the
+  TC-PAGE-003 absorption/precedence pins are illusory because the test helper
+  pre-wraps {sourcePath} into {page:{sourcePath}} so the production absorption
+  path is never exercised (F-16) — the exact F-5 gap 6.6 claimed to close.
+  Four explicitly-promised probes are missing though their code paths work
+  (F-17); three tests assert less than their titles (F-15); task-child
+  taxonomy asymmetries and an incomplete stray-child canonical set remain —
+  ac:parameter/ri:*/ac:structured-macro stray children probe as
+  unknown-element (F-18/F-19); iter-1 F-11 bookkeeping
+  remains unapplied and 6.9's completion note is a placeholder (F-20/F-21).
+  Phase 7 (tasks 7.1-7.7) landed concurrently as commit d801080 from the
+  interrupted prior iteration-2 session; this review re-derived every finding
+  independently, supersedes that record's review section (preserved in
+  history), incorporates its unique F-7 residual into F-19, and appends no
+  new remediation phase.
+severity_breakdown:
+  critical: 1
+  high: 2
+  medium: 4
+  low: 2
+  info: 1
+spec_compliance: FAIL
+plan_compliance: FAIL
+findings:
+  - id: F-13
+    severity: critical
+    confidence: high
+    category: plan-compliance
+    location: tests/unit/infra/confluence/parse/reverse.test.ts:24
+    message: >-
+      bun run check is RED at HEAD while the Phase-6 execution log records it
+      green. Lint fails on 2 errors both in the new unit file (:24
+      noImplicitAnyLet on `let reverseOptions;`; :35 noDuplicateElseIf — the
+      dead absorption branch of F-16); format:check fails on 6 files (3
+      re-pinned sidecars with 2-space indent + missing trailing newline, plus
+      the 3 touched test files). The logged "bun run check (1742 pass)" is the
+      bare bun-test count; the check chain dies at step 1. Task 6.9's note
+      ("Running final gates now") is a placeholder. Violates green-at-every-
+      commit, Phase-6 Must (prior Musts hold at HEAD), AC-F7-2 "all tiers
+      green", and the delivery-record honesty standard.
+    suggestion: >-
+      Per Phase 7.1: type + restructure the helper (folds into F-16), run
+      bun run format over the 6 flagged files (tab indent + trailing newline
+      per corpus convention), re-run the full chain + BDD + tripwire, and
+      replace the false/placeholder gate records with actual results.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-14
+    severity: high
+    confidence: high
+    category: spec-compliance
+    location: src/infra/confluence/parse/reverse.ts:751
+    message: >-
+      F-1 residual: no checkAttributes call site exists for ac:task-list
+      (element or macro form), ac:task, ac:task-status, ac:task-body, or
+      ac:plain-text-body — all Appendix C none-bucket rows ("Everything else on
+      a canonical element → reverse/unsupported-attribute") and all enumerated
+      by PD-5 and task 6.1. Live probes: ac:task-list[class], ac:task[data-x],
+      ac:plain-text-body[style] → zero diagnostics (silent drops). The 6.1
+      completion note quietly narrows the set to ac:image /
+      ac:structured-macro / ac:parameter / ri:url / ri:attachment while the
+      checkbox claims the task done; the re-synced feature spec matches the
+      delivered subset (docs synced to the shortfall, not the contract).
+    suggestion: >-
+      Per Phase 7.2: add the call sites (none-bucket → any attribute exotic)
+      or record the Appendix C erratum + feature-spec truth; unit probe for
+      whichever ships; corpus/K1/forward sweeps must stay zero-diagnostic.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-16
+    severity: high
+    confidence: high
+    category: correctness
+    location: tests/unit/infra/confluence/parse/reverse.test.ts:27
+    message: >-
+      TC-PAGE-003 absorption/precedence pins are illusory. The helper's
+      else-if chain converts a raw {sourcePath} into {page:{sourcePath}}
+      before it reaches reverseStorageCollectAll, so resolvePageContext's
+      absorption branch (reverse.ts:144-146) and explicit-page-wins-over-
+      absorption precedence are never exercised; the intended pass-through
+      branch (:35) is unreachable (biome noDuplicateElseIf — one of the two
+      F-13 lint errors independently flags it). Every absorption/precedence
+      test asserts the helper's re-implementation, not the library: break
+      resolvePageContext and they still pass. This is the F-5 gap task 6.6
+      claimed to close.
+    suggestion: >-
+      Per Phase 7.5: pass raw options through to the entry point (type the
+      helper against ReverseOptions) and pin absorption plus {sourcePath,
+      page} precedence against the production code.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-15
+    severity: medium
+    confidence: high
+    category: plan-compliance
+    location: tests/unit/infra/confluence/parse/reverse.test.ts:454
+    message: >-
+      Three tests assert less than their titles. (a) :656 "echoes page context
+      on informational diagnostics" feeds ac:structured-macro[ac:name="mermaid"]
+      which classifies as BLOCKING reverse/unknown-macro (live-probed) — the
+      informational-arm page echo, the actual F-5 gap, remains unpinned. (b)
+      :671 parse-error echo test has no assertion (console.log deferral) yet
+      counts toward the "59 tests" figure; the contract holds cross-tier via
+      the golden companions, the test is dishonest. (c) :454 "exotic
+      attributes on ac:parameter are diagnosed" never asserts its computed
+      result and pivots to an unknown-macro assertion — the named contract
+      (code verified correct by probe) is unpinned.
+    suggestion: >-
+      Per Phase 7.4/7.3: assert the computed results; convert :671 to it.skip
+      with the deferral reason or implement it; use a real mermaid artifact
+      (ac:image + ri:url marksync-mermaid-…) for the informational arm.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-17
+    severity: medium
+    confidence: high
+    category: plan-compliance
+    location: tests/unit/infra/confluence/parse/reverse.test.ts:520
+    message: >-
+      Four probes explicitly promised by Phase-6 tasks are missing though the
+      implemented behaviors work (all live-probed): 6.1 recognized-macro exotic
+      attribute (ac:structured-macro[class] → blocking ✓ unpinned); 6.2
+      task-body with unknown + exotic-attribute elements (both diagnosed ✓
+      unpinned); 6.4 macro-form integrity (stray child by class ✓ unpinned —
+      ac:name="task-list" appears in zero tests); 6.5 stray ac:image child of
+      ac:task-list → structural fallback (unpinned; TC-TASK-001 pins only
+      span/p, so the ac:*-fallback half of the 6.5 fix has no pin). A
+      regression in any of these sails through the green suite.
+    suggestion: Per Phase 7.3, add the four probes as specified.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-18
+    severity: medium
+    confidence: high
+    category: correctness
+    location: src/infra/confluence/parse/reverse.ts:611
+    message: >-
+      Unrecorded asymmetry: an ac:task missing ac:task-status is silently
+      converted to an unchecked item in the element form (live probe → zero
+      diagnostics) but diagnosed as structural fallback "ac:task without
+      ac:task-status" in the macro form (:703-715). The forward converter
+      always emits status, so a status-less task is non-canonical by the
+      mirror principle; silent defaulting is the degrade-without-diagnostic
+      class this change removes. The feature spec documents only the macro-form
+      side (docs match code; the asymmetry is nowhere recorded as a decision).
+    suggestion: >-
+      Per Phase 7.6a: share the missing-status check in
+      mapTaskSequenceToGfmTaskList (both forms diagnose) or record the
+      element-form silence in Appendix C next to DEC-8; pin either way.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-19
+    severity: medium
+    confidence: high
+    category: correctness
+    location: src/infra/confluence/parse/reverse.ts:596
+    message: >-
+      Canonical-set selection for stray/misplaced children is incomplete and
+      inconsistent. (a) Non-ignored children of ac:task are classified with
+      blanket reverse/unknown-element (:594-607) — a stray canonical p as
+      direct child of ac:task probes as unknown-element, while the same p one
+      level up takes the structural fallback per DEC-6/F-7 (:768-772). (b)
+      CANONICAL_AC_ELEMENTS (:212-219) omits ac:parameter, ri:attachment,
+      ri:url, and ac:structured-macro — all Appendix C-canonical — so these
+      stray children of ac:task-list live-probe as reverse/unknown-element
+      instead of the structural fallback; the feature spec's "(plain-HTML or
+      ac:*)" misplaced-child wording over-claims. Wrong-code edges on the
+      TDR-0014-frozen taxonomy; none pinned. (F-7 residual, observed by the
+      concurrent d801080 record and probe-verified here.)
+    suggestion: >-
+      Per Phase 7.6b (extended): one shared code-selection covering the full
+      canonical set (plain-HTML + every Appendix C ac:*/ri:* row) used at both
+      the ac:task-list and ac:task child levels; unit probes for both levels.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-20
+    severity: low
+    confidence: high
+    category: spec-compliance
+    location: doc/changes/2026-08/2026-08-15--GH-93--unsupported-construct-detection/chg-GH-93-spec.md:280
+    message: >-
+      DEC-8's evidence sentence says "the two affected sidecars pin []" but
+      only storage-mixed-task-regular-lists pins []; storage-task-list-stray-
+      child correctly retains its 2 stray-child entries (its ac:task-id
+      instances contribute nothing). The 6.3 completion note ("re-pinned
+      sidecars to []") carries the same inaccuracy. The exception itself is
+      correctly implemented and unit-pinned; the record overstates.
+    suggestion: >-
+      Per Phase 7.7: correct the sentence in the spec DEC-8/history wording at
+      next doc touch (via @doc-syncer).
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-21
+    severity: low
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-08/2026-08-15--GH-93--unsupported-construct-detection/chg-GH-93-plan.md:201
+    message: >-
+      Iter-1 F-11 bookkeeping still outstanding: task 3.8 still says "14 pairs
+      + 2 companions = 30 new committed files" vs actual 26 (the plan's own
+      Files section and revision log say 26); Phase-3 row still "30 new files"
+      (:417). Task 6.9 is checked [x] with the placeholder note "COMPLETED:
+      Running final gates now" — neither a gate result nor the corrections.
+      Acknowledged as still-outstanding by Phase-7 task 7.7.
+    suggestion: Per Phase 7.7, apply the count corrections alongside the
+      F-13 gate-record fix.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-22
+    severity: info
+    confidence: high
+    category: info
+    location: doc/changes/2026-08/2026-08-15--GH-93--unsupported-construct-detection/chg-GH-93-review.md:114
+    message: >-
+      Concurrent-session race: the interrupted prior iteration-2 session's
+      artifacts landed as commit d801080 (Phase 7 + revision 1.2 + pm-notes +
+      its own review-iter-2 record) while this review was executing its
+      gates, colliding with this session's writes. This record supersedes the
+      d801080 review section (preserved in git history), adopts the
+      F-13..F-21 numbering so the committed Phase 7 references resolve, and
+      incorporates d801080's one unique observation (the F-7 residual
+      stray-child canonical-set gap) into F-19 after independent
+      live-probe verification. Grading divergence recorded: d801080 graded
+      F-13 high; this review grades it critical (false green-gate record on a
+      red check).
+    suggestion: >-
+      None required (resolved by this record). Process note: reviewer plan
+      edits and review artifacts should land atomically; concurrent sessions
+      on one change folder need serialization.
+    suppressed: false
+    published_url: null
+    published_at: null
+reviewed_at: 2026-08-15T16:49:03Z
+next_step: EXECUTE_REMEDIATION_PHASE

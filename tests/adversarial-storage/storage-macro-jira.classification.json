@@ -1,6 +1,6 @@
 [
 	{
-		"code": "reverse/unsupported-construct",
+		"code": "reverse/unknown-macro",
 		"construct": "ac:structured-macro[ac:name=\"jira\"]",
 		"location": {
 			"line": 1,

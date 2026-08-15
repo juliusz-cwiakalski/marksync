@@ -122,6 +122,9 @@ describe("TC-RT-001: corpus-A round-trip byte equality", () => {
 				expect(reversed.ok).toBe(true);
 				if (!reversed.ok) return;
 
+				// False-positive guard: corpus-A fixtures emit zero diagnostics (AC-F7-1)
+				expect(reversed.value.diagnostics).toEqual([]);
+
 				// Expected: normalize(md)
 				const expected = normalizeMarkdown(md);
 
@@ -186,6 +189,10 @@ describe("TC-RT-002: corpus-B explicit reverse expectations", () => {
 				expect(reversed.ok).toBe(true);
 				if (!reversed.ok) return;
 
+				// False-positive guard: corpus-B fixtures emit zero diagnostics
+				// (committed expectations unchanged, all zero-diagnostic today)
+				expect(reversed.value.diagnostics).toEqual([]);
+
 				// Compare against the sidecar
 				const expectedPath = join(reverseDir, `${name}.md`);
 				const expected = readFileSync(expectedPath, "utf-8");
@@ -247,17 +254,20 @@ describe("TC-RT-003: reverse determinism in-process (convert twice)", () => {
 				}
 			});
 
-			it("convert twice → byte-identical output", () => {
+			it("convert twice → byte-identical output (determinism)", () => {
 				const result1 = reverseStorage(storage);
 				const result2 = reverseStorage(storage);
 
-				expect(result1.ok).toBe(true);
-				expect(result2.ok).toBe(true);
-
+				// Determinism: both results must be identical
+				expect(result1.ok).toBe(result2.ok);
 				if (result1.ok && result2.ok) {
 					expect(result1.value.markdown).toBe(result2.value.markdown);
 					expect(result1.value.diagnostics).toEqual(result2.value.diagnostics);
+				} else if (!result1.ok && !result2.ok) {
+					expect(result1.error).toEqual(result2.error);
 				}
+				// Note: convertibility (result.ok===true for every fixture) is asserted
+				// separately in the zero-diagnostic guards (corpus-A/forward golden/K1 sweeps)
 			});
 		});
 	}

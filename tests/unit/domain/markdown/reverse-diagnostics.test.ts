@@ -16,6 +16,52 @@ import {
 } from "#infra/confluence/parse/reverse";
 
 describe("reverse-diagnostics", () => {
+	describe("TC-TAXO-001: registry snapshot — exactly 7 codes, additions-only", () => {
+		it("has exactly 7 codes with literal-pinned values", () => {
+			const codeValues = Object.values(REVERSE_CODES);
+			expect(codeValues).toHaveLength(7);
+
+			// Three 0.9.0 codes unchanged
+			expect(REVERSE_CODES.UNSUPPORTED_CONSTRUCT).toBe(
+				"reverse/unsupported-construct",
+			);
+			expect(REVERSE_CODES.SYNTHETIC_ARTIFACT).toBe(
+				"marksync/synthetic-artifact",
+			);
+			expect(REVERSE_CODES.STORAGE_PARSE_ERROR).toBe("reverse/parse-error");
+
+			// Four new GH-93 codes (Appendix A)
+			expect(REVERSE_CODES.UNKNOWN_MACRO).toBe("reverse/unknown-macro");
+			expect(REVERSE_CODES.COMPLEX_LAYOUT).toBe("reverse/complex-layout");
+			expect(REVERSE_CODES.UNSUPPORTED_ATTRIBUTE).toBe(
+				"reverse/unsupported-attribute",
+			);
+			expect(REVERSE_CODES.UNKNOWN_ELEMENT).toBe("reverse/unknown-element");
+		});
+
+		it("5 blocking-path codes are pairwise distinct and distinct from informational + parse-error", () => {
+			const blockingCodes = [
+				REVERSE_CODES.UNKNOWN_MACRO,
+				REVERSE_CODES.COMPLEX_LAYOUT,
+				REVERSE_CODES.UNSUPPORTED_ATTRIBUTE,
+				REVERSE_CODES.UNKNOWN_ELEMENT,
+				REVERSE_CODES.UNSUPPORTED_CONSTRUCT,
+			];
+
+			const informationalCode = REVERSE_CODES.SYNTHETIC_ARTIFACT;
+			const parseErrorCode = REVERSE_CODES.STORAGE_PARSE_ERROR;
+
+			// All blocking codes are distinct
+			expect(new Set(blockingCodes).size).toBe(5);
+
+			// Blocking codes are distinct from informational and parse-error
+			for (const code of blockingCodes) {
+				expect(code).not.toBe(informationalCode);
+				expect(code).not.toBe(parseErrorCode);
+			}
+		});
+	});
+
 	describe("TC-RDIAG-001: blocking diagnostic shape", () => {
 		it("has stable per-class code", () => {
 			const diagnostic: BlockingDiagnostic = {
@@ -246,7 +292,7 @@ describe("reverse-diagnostics", () => {
 			expect(result.ok).toBe(false);
 			if (!result.ok) {
 				const error = result.error;
-				expect(error.code).toBe(REVERSE_CODES.UNSUPPORTED_CONSTRUCT);
+				expect(error.code).toBe(REVERSE_CODES.UNKNOWN_MACRO);
 				expect(error.construct).toContain('ac:name="unknown-macro"');
 				expect(error.location).toBeDefined();
 				expect(error.location.line).toBeGreaterThan(0);
@@ -310,7 +356,7 @@ describe("reverse-diagnostics", () => {
 			// Fast-fail returns the first blocking error (gliffy)
 			expect(fastFail.ok).toBe(false);
 			if (!fastFail.ok) {
-				expect(fastFail.error.code).toBe(REVERSE_CODES.UNSUPPORTED_CONSTRUCT);
+				expect(fastFail.error.code).toBe(REVERSE_CODES.UNKNOWN_MACRO);
 				expect(fastFail.error.construct).toContain('ac:name="gliffy"');
 			}
 
@@ -407,12 +453,12 @@ describe("reverse-diagnostics", () => {
 				expect(collectAll.value.diagnostics).toHaveLength(1);
 
 				// Verify per-instance verdict shape
-				expect(fastFail.error.code).toBe(REVERSE_CODES.UNSUPPORTED_CONSTRUCT);
+				expect(fastFail.error.code).toBe(REVERSE_CODES.UNKNOWN_MACRO);
 				expect(fastFail.error.construct).toBeDefined();
 				expect(fastFail.error.location).toBeDefined();
 
 				expect(collectAll.value.diagnostics[0].code).toBe(
-					REVERSE_CODES.UNSUPPORTED_CONSTRUCT,
+					REVERSE_CODES.UNKNOWN_MACRO,
 				);
 			}
 		});
@@ -466,6 +512,210 @@ describe("reverse-diagnostics", () => {
 			} else {
 				expect(blocking.severity).toBe("blocking");
 			}
+		});
+	});
+
+	describe("TC-TAXO-001: page-context field — omit-when-absent at model level", () => {
+		it("diagnostic without page serializes with no page key", () => {
+			const diagnostic: BlockingDiagnostic = {
+				severity: "blocking",
+				class: "unsupported-construct",
+				code: REVERSE_CODES.UNSUPPORTED_CONSTRUCT,
+				construct: "ac:structured-macro[ac:name='unknown']",
+				location: { line: 1, column: 1 },
+			};
+
+			const serialized = JSON.stringify(diagnostic);
+			expect(serialized).not.toContain("page");
+		});
+
+		it("diagnostic with page serializes verbatim (no synthesis, no merge)", () => {
+			const pageContext = {
+				pageId: "12345",
+				title: "Test Page",
+				sourcePath: "docs/test.md",
+			};
+
+			const diagnostic: BlockingDiagnostic = {
+				severity: "blocking",
+				class: "unsupported-construct",
+				code: REVERSE_CODES.UNSUPPORTED_CONSTRUCT,
+				construct: "ac:structured-macro[ac:name='unknown']",
+				location: { line: 1, column: 1 },
+				page: pageContext,
+			};
+
+			const serialized = JSON.stringify(diagnostic);
+			const deserialized = JSON.parse(serialized);
+
+			// Page is present and verbatim (no synthesis)
+			expect(deserialized.page).toBeDefined();
+			expect(deserialized.page.pageId).toBe("12345");
+			expect(deserialized.page.title).toBe("Test Page");
+			expect(deserialized.page.sourcePath).toBe("docs/test.md");
+		});
+
+		it("partial page context (pageId only) serializes verbatim (no synthesis)", () => {
+			const pageContext = {
+				pageId: "12345",
+			};
+
+			const diagnostic: InformationalDiagnostic = {
+				severity: "informational",
+				class: "marksync-synthetic-artifact",
+				code: REVERSE_CODES.SYNTHETIC_ARTIFACT,
+				construct: "ac:image[ri:filename='marksync-mermaid-hash.svg']",
+				location: { line: 1, column: 1 },
+				page: pageContext,
+			};
+
+			const serialized = JSON.stringify(diagnostic);
+			const deserialized = JSON.parse(serialized);
+
+			// Only the supplied key is present (no synthesis of title/sourcePath)
+			expect(deserialized.page).toBeDefined();
+			expect(deserialized.page.pageId).toBe("12345");
+			expect(deserialized.page.title).toBeUndefined();
+			expect(deserialized.page.sourcePath).toBeUndefined();
+		});
+
+		it("parse error carries page verbatim", () => {
+			const pageContext = {
+				sourcePath: "pages/test.page",
+			};
+
+			const parseError: StorageParseError = {
+				kind: "StorageParseError",
+				code: REVERSE_CODES.STORAGE_PARSE_ERROR,
+				location: { line: 1, column: 1 },
+				detail: "mismatched tag",
+				page: pageContext,
+			};
+
+			const serialized = JSON.stringify(parseError);
+			const deserialized = JSON.parse(serialized);
+
+			expect(deserialized.page).toBeDefined();
+			expect(deserialized.page.sourcePath).toBe("pages/test.page");
+			expect(deserialized.page.pageId).toBeUndefined();
+		});
+
+		it("fast-fail error carries page for parity with collect-all", () => {
+			const pageContext = {
+				pageId: "54321",
+				title: "Fast Fail Test",
+			};
+
+			const fastFailError: UnsupportedConstructError = {
+				kind: "UnsupportedConstruct",
+				code: REVERSE_CODES.UNSUPPORTED_CONSTRUCT,
+				construct: "nested table",
+				location: { line: 5, column: 3 },
+				page: pageContext,
+			};
+
+			const serialized = JSON.stringify(fastFailError);
+			const deserialized = JSON.parse(serialized);
+
+			expect(deserialized.page).toBeDefined();
+			expect(deserialized.page.pageId).toBe("54321");
+			expect(deserialized.page.title).toBe("Fast Fail Test");
+		});
+	});
+
+	describe("TC-TAXO-002: assignment map pins via real entry points", () => {
+		it("jira macro → reverse/unknown-macro (blocking)", () => {
+			const storage =
+				'<ac:structured-macro ac:name="jira"><ac:parameter ac:name="key"><ac:plain-text-body><![CDATA[PROJ-123]]></ac:plain-text-body></ac:parameter></ac:structured-macro>';
+			const result = reverseStorageCollectAll(storage);
+
+			expect(result.ok).toBe(true);
+			if (!result.ok) return;
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0].code).toBe("reverse/unknown-macro");
+			expect(result.value.diagnostics[0].severity).toBe("blocking");
+		});
+
+		it("layout tree → reverse/complex-layout (blocking)", () => {
+			const storage =
+				"<ac:layout><ac:layout-section><ac:layout-cell>content</ac:layout-cell></ac:layout-section></ac:layout>";
+			const result = reverseStorageCollectAll(storage);
+
+			expect(result.ok).toBe(true);
+			if (!result.ok) return;
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0].code).toBe("reverse/complex-layout");
+			expect(result.value.diagnostics[0].severity).toBe("blocking");
+		});
+
+		it("td colspan → reverse/unsupported-attribute (blocking)", () => {
+			const storage =
+				'<table><tbody><tr><td colspan="2">Cell</td></tr></tbody></table>';
+			const result = reverseStorageCollectAll(storage);
+
+			expect(result.ok).toBe(true);
+			if (!result.ok) return;
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0].code).toBe(
+				"reverse/unsupported-attribute",
+			);
+			expect(result.value.diagnostics[0].severity).toBe("blocking");
+		});
+
+		it("div → reverse/unknown-element (blocking)", () => {
+			const storage = "<div>content</div>";
+			const result = reverseStorageCollectAll(storage);
+
+			expect(result.ok).toBe(true);
+			if (!result.ok) return;
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0].code).toBe("reverse/unknown-element");
+			expect(result.value.diagnostics[0].severity).toBe("blocking");
+		});
+
+		it("nested table → reverse/unsupported-construct (blocking fallback)", () => {
+			const storage =
+				"<table><tbody><tr><td><table><tbody><tr><td>nested</td></tr></tbody></table></td></tr></tbody></table>";
+			const result = reverseStorageCollectAll(storage);
+
+			expect(result.ok).toBe(true);
+			if (!result.ok) return;
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0].code).toBe(
+				"reverse/unsupported-construct",
+			);
+			expect(result.value.diagnostics[0].severity).toBe("blocking");
+		});
+
+		it("render-policy image → marksync/synthetic-artifact (informational)", () => {
+			const storage =
+				'<ac:image ac:alt="Mermaid"><ri:url ri:value="marksync-mermaid-abc123" /></ac:image>';
+			const result = reverseStorageCollectAll(storage);
+
+			expect(result.ok).toBe(true);
+			if (!result.ok) return;
+
+			expect(result.value.diagnostics).toHaveLength(1);
+			expect(result.value.diagnostics[0].code).toBe(
+				"marksync/synthetic-artifact",
+			);
+			expect(result.value.diagnostics[0].severity).toBe("informational");
+		});
+
+		it("malformed → reverse/parse-error (blocking)", () => {
+			const storage = "<invalid";
+			const result = reverseStorageCollectAll(storage);
+
+			expect(result.ok).toBe(false);
+			if (result.ok) return;
+
+			expect(result.error.code).toBe("reverse/parse-error");
+			expect(result.error.kind).toBe("StorageParseError");
 		});
 	});
 });

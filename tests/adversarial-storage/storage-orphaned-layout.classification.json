@@ -1,0 +1,10 @@
+[
+	{
+		"code": "reverse/complex-layout",
+		"construct": "ac:layout-section",
+		"location": {
+			"line": 1,
+			"column": 37
+		}
+	}
+]

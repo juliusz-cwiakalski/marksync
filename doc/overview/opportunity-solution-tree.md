@@ -12,7 +12,7 @@ area: discovery
 document_classification: current-truth
 links:
   related_decisions: [ADR-0001, ADR-0002, ADR-0005]
-  related_changes: ["GH-92"]
+  related_changes: ["GH-92", "GH-93"]
 summary: "Opportunity Solution Tree — ties MarkSync's outcome to the user problems (opportunities), solutions, and validation experiments."
 ai_assistance: "AI-assisted drafting; human-authored and approved by Juliusz Ćwiąkalski."
 ---
@@ -100,4 +100,4 @@ _Validation status reflects the Confluence API validation spike where applicable
 | S2.2 (single binary) | `MS-0002` / MVP | A clean OS image with no language runtime runs the binary end-to-end | `config validate` + dry-run succeed on clean Linux/macOS/Windows | **Unvalidated** — spike pending (Bun compile + signing/trust). Stop if binary cannot run without a runtime or signing is blocked. |
 | S3.1 (in-process Mermaid) | `MS-0003+` | The official `mermaid` library renders deterministically headless without Chromium | One diagram renders in-process; output is byte-stable for unchanged input | **Spike PARTIAL** (GH-11, 2026-07-06): library runs headless but H4 fidelity FAIL (no SVG layout engine). CEO-DEC-1 (2026-07-13): MS-0002 ships `code` policy; faithful render deferred to MS-0003+ (SVG-layout shim or Chromium); language NOT reconsidered (deterministic path exists). |
 | S4.1 (agent contracts) | `MS-0002` / MVP | JSON output + exit codes are stable enough for an agent to drive safely | Contract tests pass; agent completes plan→validate→publish via JSON only | **Unvalidated** — test once CLI exists. |
-| S5.1 (reverse sync) | `MS-0005` | The canonical subset reverse-converts to semantically-equivalent Markdown | Round-trip fixtures match; unsupported constructs never vanish silently | **Validated for the canonical subset** (GH-92, `MS-0003` E1: 26/26 corpus-A round-trip fixtures byte-equal; 9 Storage-side adversarial fixtures pin the never-silent-drop diagnostics). Real-corpus (enriched-page) evidence lands with `MS-0003` E2/E3. |
+| S5.1 (reverse sync) | `MS-0005` | The canonical subset reverse-converts to semantically-equivalent Markdown | Round-trip fixtures match; unsupported constructs never vanish silently | **Validated for the canonical subset** (GH-92 + GH-93, `MS-0003` E1: 26/26 corpus-A round-trip fixtures byte-equal; 21 GH-31-aligned Storage-side adversarial fixtures pin the never-silent-drop diagnostics — elements and attributes — with granular stable codes). Real-corpus (enriched-page) evidence lands with `MS-0003` E2/E3. |

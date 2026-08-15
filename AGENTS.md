@@ -19,7 +19,9 @@ wiki/adapters may follow.
 `MS-0002` (MVP safe one-way publisher) shipped 2026-07-26; the repo is
 **in active `MS-0003` implementation** (Company Adoption MVP, `PDR-0002`):
 the reverse converter Storage Format → Markdown (`GH-92`, E1) is delivered,
-feeding the `resolve` (E2) and `import` (E3) flows. A tag-triggered binary
+with complete unsupported-construct detection — granular stable diagnostic
+codes + page locations, frozen pre-E2/E3 (`GH-93`, TDR-0014) — feeding the
+`resolve` (E2) and `import` (E3) flows. A tag-triggered binary
 release pipeline ships self-contained Linux + Windows binaries (`GH-32`).
 See [doc/overview/02-roadmap.md](doc/overview/02-roadmap.md).
 
