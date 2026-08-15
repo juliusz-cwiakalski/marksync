@@ -20,6 +20,23 @@ phases:
 
 decisions:
   - text: >
+      TDR-0012 (via @decision-advisor, resolves spec OQ-1 / test-plan OQ-T1):
+      adopt saxes (strict streaming SAX XML parser, pure JS, zero deps) for
+      Storage→HAST parsing behind the infra-tier port; @xmldom/xmldom is the
+      designated swap-target fallback. parse5/hast-util-from-html ELIMINATED
+      on grammar (WHATWG tokenizer has no CDATA-in-content and error-recovers
+      — NFR-4 C-2/C-3 unsatisfiable); parse5 absent from bun.lock (stale
+      node_modules artifact — the "already present" premise was false).
+      saxes line/column positions power F-4 diagnostic locations. Record:
+      doc/decisions/TDR-0012-reverse-storage-xml-parser-saxes.md (status
+      Proposed; human confirms at PR review; flips Accepted at merge).
+      MANDATES a pre-lock spike (version/license/event-surface/positions +
+      30-min Bun smoke over 35 corpus fixtures) before dependency pin is
+      final; license acceptance reserved to human. Residual risk: foreign
+      entities (&nbsp; etc.) hard-rejected on E3 external corpora until a
+      bounded entity pre-pass exists (revisit trigger armed).
+    date: "2026-08-15"
+  - text: >
       PM-DEC-1: Include unsupported-construct diagnostics (stable codes +
       locations) in GH-92 scope even though ticket AC omits them. Authority:
       PDR-0002 Decision §1 and roadmap E1 both list diagnostics inside epic E1;
