@@ -357,14 +357,19 @@ bare-ID scoping is pinned to exactly the jira-referencing fixtures.
 - **Given:** canonical elements carrying attributes beyond the mirror
   allowlist (e.g. `th` with `class`/`colspan`/`data-table-width`/`rowspan`/
   `style`; multi-element bodies), and boundary inputs (canonical pairings;
+  exotic attributes on the specially-handled elements — user-set `ac:image`
+  properties (`ac:align`/`ac:width`, sidecar-pinned), extra `ri:*` attributes
+  on `ri:url`/`ri:attachment`, `ac:parameter` extras;
   `ac:schema-version`/`ac:macro-id` on a macro vs. on `p`/`td`).
 - **When:** converted.
 - **Then:** exactly one aggregated `reverse/unsupported-attribute` per
   offending element — attribute names sorted + deduplicated in the construct
   identity, element-start location, **no attribute values**; one diagnostic
-  per element across multiple offenders; canonical attribute pairings are
-  silent; K1 names are silent on `ac:structured-macro` only and diagnose
-  (`reverse/unsupported-attribute`) on any other element.
+  per element across multiple offenders (incl. the specially-handled
+  `ac:*`/`ri:*` elements); canonical attribute pairings are silent; K1 names
+  are silent on `ac:structured-macro` only and diagnose
+  (`reverse/unsupported-attribute`) on other swept elements (pinned on
+  `p`/`td`; the parser keeps K1 names alive off-macro — K1-survival probes).
 
 ### Scenario 13: Task-list integrity (TC-TASK-001)
 
@@ -445,12 +450,15 @@ NFR-PERF-5) is not a CI gate.
   child → structural-fallback `reverse/unsupported-construct`.
 - Layout family (tree or orphaned section/cell) → exactly one blocking
   `reverse/complex-layout` per layout tree.
-- Exotic attribute on a canonical element → one aggregated blocking
+- Exotic attribute on a canonical element — incl. the specially-handled
+  `ac:*`/`ri:*` elements (user-set `ac:image` properties →
+  `ac:image[ac:align, ac:width]`, sidecar-pinned) → one aggregated blocking
   `reverse/unsupported-attribute` per element (sorted names, no values); K1
   attribute names on non-macro elements diagnose (carve-out confined to
-  `ac:structured-macro`).
+  `ac:structured-macro`; unit-pinned on `p`/`td`).
 - Non-`ac:task` child of `ac:task-list` → blocking diagnostic at the child —
-  never a silent drop.
+  never a silent drop (sole element-level exception: `ac:task-id` inside
+  `ac:task`, dropped silently as server-assigned metadata).
 - Code macro missing `ac:plain-text-body` → blocking diagnostic.
 - Malformed XML (mismatched tags, invalid entities, truncated CDATA) →
   `StorageParseError`.
@@ -485,9 +493,14 @@ NFR-PERF-5) is not a CI gate.
   pinned storage-side counterparts.
 - Zero new diagnostics over corpus A + the 33 forward golden pairs + K1
   variants (false-positive guard); forward fixtures byte-unmodified.
+- Classifier unit armory: 59 tests across 10 TC arms
+  (`tests/unit/infra/confluence/parse/reverse.test.ts`) plus the TC-TAXO-002
+  entry-point assignment pins (`reverse-diagnostics.test.ts`) and the parser
+  K1-survival probes (`reverse-parser.test.ts`).
 - Every diagnostic code value pinned in unit tests; both contract modes
   (fast-fail / collect-all) covered for success, blocking, informational, and
-  parse-error arms — with and without page context.
+  parse-error arms — with and without page context; runner parity selects
+  the **first blocking** diagnostic (informational instances may precede it).
 
 ## References
 

@@ -99,9 +99,10 @@ reverse-direction guardrail).
   returned (mirroring the forward `findUnsupported` precedent).
 - **Collect-all enumeration:** `reverseStorageCollectAll(body, opts?)` lists
   every diagnostic instance with per-instance verdicts identical to the
-  fast-fail path (`all.diagnostics[0]` deep-equals the fast-fail error) —
-  mirroring the forward `findUnsupported`/`findAllUnsupported` parity
-  (GH-20 DEC-1).
+  fast-fail path (the fast-fail error deep-equals the collect-all array's
+  **first blocking** diagnostic — informational instances may precede it in
+  document order) — mirroring the forward `findUnsupported`/
+  `findAllUnsupported` parity (GH-20 DEC-1).
 - **Marksync-structure handling on read-back:**
   - **Provenance panel strip** — any `ac:structured-macro ac:name="info"` whose
     body contains the `<!-- marksync:provenance-panel -->` marker comment
@@ -123,9 +124,10 @@ reverse-direction guardrail).
     `ac:schema-version` and `ac:macro-id` attributes on
     `ac:structured-macro` are dropped silently (no diagnostic, never in
     output); output is byte-identical to the attribute-free variant. The
-    carve-out is confined to macros: those attribute names on any other
-    element are non-canonical attributes and diagnose as
-    `reverse/unsupported-attribute`. Structural (pretty-print) whitespace is
+    carve-out is confined to macros: on any other element the attribute pass
+    covers, those attribute names are non-canonical attributes and diagnose
+    as `reverse/unsupported-attribute` (unit-pinned on `p`/`td` — the parser
+    keeps K1 names alive off-macro). Structural (pretty-print) whitespace is
     dropped.
 - **Granular diagnostics taxonomy (TDR-0014):** the `REVERSE_CODES` registry
   (`src/domain/markdown/reverse-diagnostics.ts`) is additions-only and stable
@@ -158,7 +160,8 @@ reverse-direction guardrail).
   - **Blocking `reverse/unsupported-construct` (structural fallback)** —
     canonical elements in non-canonical positions or compositions the subset
     cannot represent: a table nested inside `td`/`th`, individually-canonical
-    children misplaced in an `ac:task-list`, and unclassifiable constructs.
+    children (plain-HTML or `ac:*`) misplaced in an `ac:task-list`, and
+    unclassifiable constructs.
   - **Informational `marksync/synthetic-artifact`** — recognized marksync
     artifacts (the mermaid render-policy image) reported alongside successful
     conversion; same payload shape (code + construct + location).
@@ -174,8 +177,12 @@ reverse-direction guardrail).
   `a[href]`, `ac:image[ac:alt]`, `ri:attachment[ri:filename]`,
   `ri:url[ri:value]`, `ac:structured-macro[ac:name]` (+ K1 carve-out),
   `ac:parameter[ac:name]`; every other canonical element allows none.
-  Anything beyond the allowlist (e.g. `colspan`, `rowspan`, `style`, `class`,
-  `data-table-width` on table cells; user-set `ac:image` properties) is a
+  The pass covers every plain-HTML canonical element and the
+  specially-handled `ac:`/`ri:` elements — `ac:image` with its
+  `ri:attachment`/`ri:url` children, and the code macro's
+  `ac:structured-macro`/`ac:parameter`; anything beyond the allowlist
+  (e.g. `colspan`, `rowspan`, `style`, `class`, `data-table-width` on table
+  cells; user-set `ac:image` properties such as `ac:align`, `ac:width`) is a
   blocking `reverse/unsupported-attribute` diagnostic — never a silent drop.
   The allowlist evolves only with the forward emission vocabulary; the
   zero-diagnostic sweeps keep the two in lockstep.
@@ -319,6 +326,7 @@ with the canonical-form options layer defined once at the serializer.
 | Reverse diagnostics (`src/domain/markdown/reverse-diagnostics.ts`) | Granular taxonomy, stable additions-only `REVERSE_CODES` (7 codes: 5 blocking-path + informational + parse-error), optional `page` context on every diagnostic arm, `StorageParseError` + `ReverseError` standalone union (not a `MarkSyncError` kind) — frozen pre-E2/E3 by TDR-0014 | Implemented (GH-92, extended GH-93) |
 | Round-trip harness (`tests/golden/markdown/reverse-round-trip.test.ts`, `reverse-readback.test.ts`) | Golden-tier verification: corpus-A byte equality, determinism, partition-manifest guardrail, read-back fixtures, zero-diagnostic sweeps over canonical corpora (false-positive guard) | Implemented (GH-92, extended GH-93) |
 | Storage-side adversarial set (`tests/adversarial-storage/` + `tests/golden/adversarial/reverse-classification-runner.test.ts`) | GH-31-aligned regression lock (21 fixtures, 12/12 categories + new classes): sidecar deep-equality incl. `page?`, zero-diagnostic success branch, category inventory, fast-fail/collect-all parity and determinism, parse-error arm, PII scoping | Implemented (GH-92, extended GH-93) |
+| Classifier unit armory (`tests/unit/infra/confluence/parse/reverse.test.ts`) | Classifier pinned on hand-built inputs — 10 TC arms (element/layout incl. orphaned, attribute aggregation + allowlist boundary incl. specially-handled `ac:*`/`ri:*` elements, task-list integrity incl. the `ac:task-id` canonical-silent probe and body-diagnostic propagation, page-context, determinism + first-blocking parity), with TC-TAXO-002 entry-point probes (`tests/unit/domain/markdown/reverse-diagnostics.test.ts`) and parser K1-survival probes (`tests/unit/infra/confluence/parse/reverse-parser.test.ts`) | Implemented (GH-93) |
 | `resolve` / `import` flows (E2/E3) | Consumers of the library contract — diffing, patch generation, adoption UX; route on `code` strings (TDR-0014) | Future (MS-0003 E2/E3) |
 
 Dependencies added: `saxes@6.0.0` (XML parser, TDR-0012),
@@ -386,9 +394,11 @@ Dependencies added: `saxes@6.0.0` (XML parser, TDR-0012),
       beyond the mirror allowlist yields exactly one aggregated blocking
       `reverse/unsupported-attribute` per element — sorted, deduplicated
       attribute names, element-start location, no attribute values; multiple
-      offending elements each produce their own diagnostic; K1 attribute names
-      are silent on `ac:structured-macro` only and diagnose elsewhere.
-      *(TC-ATTR-001/002.)*
+      offending elements each produce their own diagnostic (incl.
+      specially-handled elements — `ac:image[ac:align, ac:width]`
+      sidecar-pinned); K1 attribute names are silent on
+      `ac:structured-macro` only and diagnose on other swept elements
+      (unit-pinned on `p`/`td`). *(TC-ATTR-001/002.)*
 - [x] **Task-list integrity:** a non-`ac:task` child of `ac:task-list` yields
       a blocking diagnostic at the child (class per taxonomy) — enforced in
       both the element and macro forms, with task-body diagnostics

@@ -226,3 +226,20 @@ notes:
       be named.
     type: retro
     date: "2026-08-15"
+  - text: >
+      REMEDIATION COMPLETE (b71868a, across 2 interrupted sessions — mid-flight
+      diff validated + finished): 6.1 fix-forward (attribute pass over
+      specially-handled ac:*/ri:*; exotic-attrs sidecar re-pinned w/
+      ac:image[ac:align, ac:width]); 6.2 task-body diagnostics propagate;
+      6.3 option b ac:task-id canonical-silent (server-assigned metadata;
+      2 sidecars re-pin []); 6.4 macro-form child integrity; 6.5 stray
+      canonical ac:* child → structural fallback; 6.6 unit file CREATED +
+      verified this time (874 lines, 59 tests, spot-run 162/0 incl. runner);
+      6.7 first-blocking parity; 6.8 constant dedupe; 6.9 bookkeeping +
+      gates (check 1742/0, bdd 6/42, tripwires clean). Post-remediation
+      doc re-sync a5c42f8 (ac:task-id exception in 3 homes: spec Appendix C
+      + DEC-8, feature spec, test spec; parity semantics; roadmap/glossary/
+      architecture verified unaffected). Ready for re-review iter-2
+      (mandatory scope per reviewer: 6.1-6.3 + 6.6).
+    type: info
+    date: "2026-08-15"
