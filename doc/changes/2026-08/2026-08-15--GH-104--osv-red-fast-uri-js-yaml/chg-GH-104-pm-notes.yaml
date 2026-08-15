@@ -12,7 +12,7 @@ phases:
   delivery_planning: { started: 2026-08-15, completed: 2026-08-15 }
   dor_check: { started: 2026-08-15, completed: 2026-08-15 }
   delivery: { started: 2026-08-15, completed: 2026-08-15 }
-  system_spec_update: { started: null, completed: null }
+  system_spec_update: { started: 2026-08-15, completed: 2026-08-15 }
   review_fix: { started: null, completed: null }
   quality_gates: { started: null, completed: null }
   dod_check: { started: null, completed: null }
@@ -98,5 +98,16 @@ notes:
       updated, version 0.8.2, git diff main -- src/ tests/ empty. bun run
       check 1310 pass / 0 fail. AC-F3-1 (CI osv-scan green) remains the only
       open AC — observed at PR (phase 11).
+    type: info
+    date: 2026-08-15
+
+  - text: >
+      Doc-sync verdict: no gaps (verified no-op). Swept spec/quality/
+      guides/overview/index/decisions + README version refs. Dependency pin
+      versions are not current-truth content (GH-88 precedent);
+      security-baseline NFR-SEC-4 documents controls not individual override
+      entries (fast-uri was never documented there → js-yaml not added);
+      README:93 version is illustrative (was stale before this change);
+      TDR-0010 0.8.1 ref is frozen history. No files changed.
     type: info
     date: 2026-08-15
