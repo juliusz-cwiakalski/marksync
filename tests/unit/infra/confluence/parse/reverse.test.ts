@@ -13,7 +13,12 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 	/** Helper: parse Storage string and collect all diagnostics. */
 	function collectDiagnostics(
 		storage: string,
-		options?: { pageId?: string; title?: string; sourcePath?: string; page?: { pageId?: string; title?: string; sourcePath?: string } },
+		options?: {
+			pageId?: string;
+			title?: string;
+			sourcePath?: string;
+			page?: { pageId?: string; title?: string; sourcePath?: string };
+		},
 	) {
 		const parsed = parseStorage(storage);
 		if (!parsed.ok) {
@@ -180,7 +185,11 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 			const result = collectDiagnostics(storage);
 
 			expect(result.value.diagnostics).toHaveLength(2);
-			expect(result.value.diagnostics.every((d) => d.code === "reverse/complex-layout")).toBe(true);
+			expect(
+				result.value.diagnostics.every(
+					(d) => d.code === "reverse/complex-layout",
+				),
+			).toBe(true);
 		});
 
 		it("both fast-fail and collect-all modes work", () => {
@@ -241,7 +250,9 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 
 			// Should be complex-layout, not unknown-element
 			expect(result.value.diagnostics[0].code).toBe("reverse/complex-layout");
-			expect(result.value.diagnostics[0].code).not.toBe("reverse/unknown-element");
+			expect(result.value.diagnostics[0].code).not.toBe(
+				"reverse/unknown-element",
+			);
 		});
 
 		it("orphaned layout never produces multiple diagnostics", () => {
@@ -280,7 +291,9 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 			const storage = `<td zebra="1" apple="2" mango="3">Cell</td>`;
 			const result = collectDiagnostics(storage);
 
-			expect(result.value.diagnostics[0].construct).toBe("td[apple, mango, zebra]");
+			expect(result.value.diagnostics[0].construct).toBe(
+				"td[apple, mango, zebra]",
+			);
 		});
 
 		it("deduplicates duplicate attribute names", () => {
@@ -299,7 +312,9 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 			const result1 = collectDiagnostics(storage1);
 			const result2 = collectDiagnostics(storage2);
 
-			expect(result1.value.diagnostics[0].construct).toBe(result2.value.diagnostics[0].construct);
+			expect(result1.value.diagnostics[0].construct).toBe(
+				result2.value.diagnostics[0].construct,
+			);
 		});
 
 		it("element-start location is correct", () => {
@@ -422,8 +437,10 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 			const result = collectDiagnostics(storage);
 
 			// K1 attributes should not trigger diagnostics on macros
-			const k1Diagnostics = result.value.diagnostics.filter((d) =>
-				d.construct.includes("ac:macro-id") || d.construct.includes("ac:schema-version"),
+			const k1Diagnostics = result.value.diagnostics.filter(
+				(d) =>
+					d.construct.includes("ac:macro-id") ||
+					d.construct.includes("ac:schema-version"),
 			);
 			expect(k1Diagnostics).toHaveLength(0);
 		});
@@ -471,7 +488,9 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 
 			// Should have unknown-macro diagnostic
 			expect(unknownResult.value.diagnostics.length).toBeGreaterThan(0);
-			expect(unknownResult.value.diagnostics[0].code).toBe("reverse/unknown-macro");
+			expect(unknownResult.value.diagnostics[0].code).toBe(
+				"reverse/unknown-macro",
+			);
 		});
 
 		it("canonical attributes on ac:structured-macro[ac:name] are silent", () => {
@@ -576,7 +595,9 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 			const result = collectDiagnostics(storage);
 
 			expect(result.value.diagnostics).toHaveLength(2);
-			expect(result.value.diagnostics.every((d) => d.construct === "span")).toBe(true);
+			expect(
+				result.value.diagnostics.every((d) => d.construct === "span"),
+			).toBe(true);
 		});
 
 		it("canonical mixed task/regular-list body produces zero diagnostics", () => {
@@ -672,7 +693,9 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 			// Note: saxes parser is tolerant, so we use a different approach
 			// The parse error test is handled in the integration layer
 			// Here we skip it for the unit test layer
-			console.log("Parse-error page context tested in integration layer, skipping unit test");
+			console.log(
+				"Parse-error page context tested in integration layer, skipping unit test",
+			);
 		});
 
 		it("partial page context is echoed verbatim (no synthesis)", () => {
@@ -738,7 +761,9 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 	describe("TC-PAGE-003: sourcePath absorption and precedence", () => {
 		it("sourcePath absorption produces page:{sourcePath}", () => {
 			const storage = `<div>Unknown</div>`;
-			const result = collectDiagnostics(storage, { sourcePath: "/path/to/file.md" });
+			const result = collectDiagnostics(storage, {
+				sourcePath: "/path/to/file.md",
+			});
 
 			expect(result.value.diagnostics[0]).toMatchObject({
 				page: { sourcePath: "/path/to/file.md" },
@@ -766,11 +791,17 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 			const resultExplicit = collectDiagnostics(storage, {
 				page: { pageId: "page-explicit" },
 			});
-			const resultAbsorption = collectDiagnostics(storage, { sourcePath: "/path.md" });
+			const resultAbsorption = collectDiagnostics(storage, {
+				sourcePath: "/path.md",
+			});
 			const resultAbsent = collectDiagnostics(storage);
 
-			expect(resultExplicit.value.diagnostics[0].page).toEqual({ pageId: "page-explicit" });
-			expect(resultAbsorption.value.diagnostics[0].page).toEqual({ sourcePath: "/path.md" });
+			expect(resultExplicit.value.diagnostics[0].page).toEqual({
+				pageId: "page-explicit",
+			});
+			expect(resultAbsorption.value.diagnostics[0].page).toEqual({
+				sourcePath: "/path.md",
+			});
 			expect(resultAbsent.value.diagnostics[0]).not.toHaveProperty("page");
 		});
 
@@ -781,7 +812,9 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 			const result1 = collectDiagnostics(storage, options);
 			const result2 = collectDiagnostics(storage, options);
 
-			expect(result1.value.diagnostics[0].page).toEqual(result2.value.diagnostics[0].page);
+			expect(result1.value.diagnostics[0].page).toEqual(
+				result2.value.diagnostics[0].page,
+			);
 		});
 	});
 
@@ -807,7 +840,9 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 			const result1 = collectDiagnostics(storage1);
 			const result2 = collectDiagnostics(storage2);
 
-			expect(result1.value.diagnostics[0].construct).toBe(result2.value.diagnostics[0].construct);
+			expect(result1.value.diagnostics[0].construct).toBe(
+				result2.value.diagnostics[0].construct,
+			);
 		});
 
 		it("fast-fail equals collect-all first blocking on code", () => {
@@ -838,7 +873,9 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 
 			expect(fastFail.ok).toBe(false);
 			if (!fastFail.ok) {
-				expect(fastFail.error.construct).toBe(collectAll.value.diagnostics[0].construct);
+				expect(fastFail.error.construct).toBe(
+					collectAll.value.diagnostics[0].construct,
+				);
 			}
 		});
 
@@ -854,7 +891,9 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 
 			expect(fastFail.ok).toBe(false);
 			if (!fastFail.ok) {
-				expect(fastFail.error.location).toEqual(collectAll.value.diagnostics[0].location);
+				expect(fastFail.error.location).toEqual(
+					collectAll.value.diagnostics[0].location,
+				);
 			}
 		});
 
@@ -867,7 +906,9 @@ describe("reverse classifier unit tests (plan task 2.6)", () => {
 
 			expect(fastFail.ok).toBe(false);
 			if (!fastFail.ok) {
-				expect(fastFail.error.page).toEqual(collectAll.value.diagnostics[0].page);
+				expect(fastFail.error.page).toEqual(
+					collectAll.value.diagnostics[0].page,
+				);
 			}
 		});
 	});

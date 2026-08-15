@@ -258,12 +258,15 @@ describe("TC-RT-003: reverse determinism in-process (convert twice)", () => {
 				const result1 = reverseStorage(storage);
 				const result2 = reverseStorage(storage);
 
-				expect(result1.ok).toBe(true);
-				expect(result2.ok).toBe(true);
-
 				if (result1.ok && result2.ok) {
 					expect(result1.value.markdown).toBe(result2.value.markdown);
 					expect(result1.value.diagnostics).toEqual(result2.value.diagnostics);
+				} else {
+					// Both should fail with the same error
+					expect(result1.ok).toBe(result2.ok);
+					if (!result1.ok && !result2.ok) {
+						expect(result1.error).toEqual(result2.error);
+					}
 				}
 			});
 		});

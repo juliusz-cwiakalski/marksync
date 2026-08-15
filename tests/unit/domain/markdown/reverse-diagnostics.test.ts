@@ -651,14 +651,17 @@ describe("reverse-diagnostics", () => {
 		});
 
 		it("td colspan → reverse/unsupported-attribute (blocking)", () => {
-			const storage = '<table><tbody><tr><td colspan="2">Cell</td></tr></tbody></table>';
+			const storage =
+				'<table><tbody><tr><td colspan="2">Cell</td></tr></tbody></table>';
 			const result = reverseStorageCollectAll(storage);
 
 			expect(result.ok).toBe(true);
 			if (!result.ok) return;
 
 			expect(result.value.diagnostics).toHaveLength(1);
-			expect(result.value.diagnostics[0].code).toBe("reverse/unsupported-attribute");
+			expect(result.value.diagnostics[0].code).toBe(
+				"reverse/unsupported-attribute",
+			);
 			expect(result.value.diagnostics[0].severity).toBe("blocking");
 		});
 
@@ -683,7 +686,9 @@ describe("reverse-diagnostics", () => {
 			if (!result.ok) return;
 
 			expect(result.value.diagnostics).toHaveLength(1);
-			expect(result.value.diagnostics[0].code).toBe("reverse/unsupported-construct");
+			expect(result.value.diagnostics[0].code).toBe(
+				"reverse/unsupported-construct",
+			);
 			expect(result.value.diagnostics[0].severity).toBe("blocking");
 		});
 
@@ -696,19 +701,21 @@ describe("reverse-diagnostics", () => {
 			if (!result.ok) return;
 
 			expect(result.value.diagnostics).toHaveLength(1);
-			expect(result.value.diagnostics[0].code).toBe("marksync/synthetic-artifact");
+			expect(result.value.diagnostics[0].code).toBe(
+				"marksync/synthetic-artifact",
+			);
 			expect(result.value.diagnostics[0].severity).toBe("informational");
 		});
 
-	it("malformed → reverse/parse-error (blocking)", () => {
-		const storage = "<invalid";
-		const result = reverseStorageCollectAll(storage);
+		it("malformed → reverse/parse-error (blocking)", () => {
+			const storage = "<invalid";
+			const result = reverseStorageCollectAll(storage);
 
-		expect(result.ok).toBe(false);
-		if (result.ok) return;
+			expect(result.ok).toBe(false);
+			if (result.ok) return;
 
-		expect(result.error.code).toBe("reverse/parse-error");
-		expect(result.error.kind).toBe("StorageParseError");
-	});
+			expect(result.error.code).toBe("reverse/parse-error");
+			expect(result.error.kind).toBe("StorageParseError");
+		});
 	});
 });

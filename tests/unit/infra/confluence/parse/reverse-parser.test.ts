@@ -338,7 +338,8 @@ describe("reverse-parser", () => {
 		});
 
 		it("td[ac:schema-version] survives the parse", () => {
-			const storage = '<table><tbody><tr><td ac:schema-version="1">Cell</td></tr></tbody></table>';
+			const storage =
+				'<table><tbody><tr><td ac:schema-version="1">Cell</td></tr></tbody></table>';
 			const result = parseStorage(storage);
 
 			expect(result.ok).toBe(true);
@@ -373,7 +374,9 @@ describe("reverse-parser", () => {
 			expect(macro1.properties["ac:macro-id"]).toBeUndefined();
 
 			// Tree byte-identical to attr-free tree
-			expect(stripPositions(result1.value)).toEqual(stripPositions(result2.value));
+			expect(stripPositions(result1.value)).toEqual(
+				stripPositions(result2.value),
+			);
 		});
 	});
 

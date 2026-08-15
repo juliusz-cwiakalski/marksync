@@ -9,7 +9,8 @@ const SVG = new TextEncoder().encode(
 	'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>',
 );
 
-async function sha256Hex(bytes: Uint8Array): Promise<string> {
+// SHA-256 helper for test fixtures (unused, retained for reference)
+async function _sha256Hex(bytes: Uint8Array): Promise<string> {
 	const d = await crypto.subtle.digest(
 		"SHA-256",
 		bytes as unknown as ArrayBuffer,

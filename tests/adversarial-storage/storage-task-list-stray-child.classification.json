@@ -1,18 +1,18 @@
 [
-  {
-    "code": "reverse/unknown-element",
-    "construct": "span",
-    "location": {
-      "line": 9,
-      "column": 9
-    }
-  },
-  {
-    "code": "reverse/unsupported-construct",
-    "construct": "p",
-    "location": {
-      "line": 10,
-      "column": 6
-    }
-  }
+	{
+		"code": "reverse/unknown-element",
+		"construct": "span",
+		"location": {
+			"line": 9,
+			"column": 9
+		}
+	},
+	{
+		"code": "reverse/unsupported-construct",
+		"construct": "p",
+		"location": {
+			"line": 10,
+			"column": 6
+		}
+	}
 ]
