@@ -119,11 +119,11 @@ GH-92 shipped the reverse converter (Storage Format → Markdown, v0.9.0) with a
 
 **Tasks**:
 
-- [ ] **1.1** Extend `REVERSE_CODES` (`src/domain/markdown/reverse-diagnostics.ts`) with the four Appendix A codes — `UNKNOWN_MACRO: "reverse/unknown-macro"`, `COMPLEX_LAYOUT: "reverse/complex-layout"`, `UNSUPPORTED_ATTRIBUTE: "reverse/unsupported-attribute"`, `UNKNOWN_ELEMENT: "reverse/unknown-element"` — exact literal strings, `as const`; the three 0.9.0 entries untouched (additions-only, DM-3).
-- [ ] **1.2** Add `ReversePageContext` (`{ pageId?: string; title?: string; sourcePath?: string }`, all optional, caller-supplied only) and an optional `page?: ReversePageContext` field on `BlockingDiagnostic`, `InformationalDiagnostic`, `StorageParseError`, and `UnsupportedConstructError` (the fast-fail error must carry it for parity — TC-DET-001). Field is omitted when absent, never `null` (PD-2, DM-2, NFR-6: no content echoes — page context is caller-supplied metadata).
-- [ ] **1.3** Per PD-1: keep `kind: "UnsupportedConstruct"` on the error union for all blocking classes; optionally widen `BlockingDiagnostic.class` additively to the five blocking labels. Whichever lands, no assertion anywhere may route on `class`/`kind`/`construct` (routing-pin rule).
-- [ ] **1.4** Update `tests/unit/domain/markdown/reverse-diagnostics.test.ts` — TC-TAXO-001: enumerate `REVERSE_CODES` values; assert exactly 7 entries matching the literal strings; assert the three 0.9.0 values present and unchanged; assert the 5 blocking-path codes pairwise distinct and distinct from the informational + parse-error codes. Add model-level page-shape probes: a diagnostic constructed without `page` serializes with no `page` key; with `page` it serializes verbatim (no synthesis, no merge).
-- [ ] **1.5** Green boundary: `bun run check` — classifier untouched, adversarial runner still green against the 0.9.0-code sidecars (proves the registry growth is purely additive at the commit boundary).
+- [x] **1.1** Extend `REVERSE_CODES` (`src/domain/markdown/reverse-diagnostics.ts`) with the four Appendix A codes — `UNKNOWN_MACRO: "reverse/unknown-macro"`, `COMPLEX_LAYOUT: "reverse/complex-layout"`, `UNSUPPORTED_ATTRIBUTE: "reverse/unsupported-attribute"`, `UNKNOWN_ELEMENT: "reverse/unknown-element"` — exact literal strings, `as const`; the three 0.9.0 entries untouched (additions-only, DM-3).
+- [x] **1.2** Add `ReversePageContext` (`{ pageId?: string; title?: string; sourcePath?: string }`, all optional, caller-supplied only) and an optional `page?: ReversePageContext` field on `BlockingDiagnostic`, `InformationalDiagnostic`, `StorageParseError`, and `UnsupportedConstructError` (the fast-fail error must carry it for parity — TC-DET-001). Field is omitted when absent, never `null` (PD-2, DM-2, NFR-6: no content echoes — page context is caller-supplied metadata).
+- [x] **1.3** Per PD-1: keep `kind: "UnsupportedConstruct"` on the error union for all blocking classes; optionally widen `BlockingDiagnostic.class` additively to the five blocking labels. Whichever lands, no assertion anywhere may route on `class`/`kind`/`construct` (routing-pin rule).
+- [x] **1.4** Update `tests/unit/domain/markdown/reverse-diagnostics.test.ts` — TC-TAXO-001: enumerate `REVERSE_CODES` values; assert exactly 7 entries matching the literal strings; assert the three 0.9.0 values present and unchanged; assert the 5 blocking-path codes pairwise distinct and distinct from the informational + parse-error codes. Add model-level page-shape probes: a diagnostic constructed without `page` serializes with no `page` key; with `page` it serializes verbatim (no synthesis, no merge).
+- [x] **1.5** Green boundary: `bun run check` — classifier untouched, adversarial runner still green against the 0.9.0-code sidecars (proves the registry growth is purely additive at the commit boundary).
 
 **Acceptance Criteria**:
 
@@ -371,7 +371,7 @@ All 18 test-plan TCs are wired by this plan; phases below are where each first e
 
 | Phase | Status | Started | Completed | Commit | Notes |
 |-------|--------|---------|-----------|--------|-------|
-| Phase 1 | ⬜ Pending | — | — | TBD | Registry + page payload + TC-TAXO-001 |
+| Phase 1 | ✅ Completed | — | 2026-08-15 | 88c9bb8 | Registry + page payload + TC-TAXO-001 (all 7 codes, omit-when-absent pinned) |
 | Phase 2 | ⬜ Pending | — | — | TBD | Classifier + unit tier + 7 re-pins (stability-check verdict to be recorded here) |
 | Phase 3 | ⬜ Pending | — | — | TBD | Corpus 12/12 + runner extension |
 | Phase 4 | ⬜ Pending | — | — | TBD | False-positive guard + tripwire |
