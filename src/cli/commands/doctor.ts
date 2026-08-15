@@ -12,6 +12,13 @@ import { mapMarkSyncErrorToCommandError } from "#cli/error-map";
 import { runDoctor } from "#app/doctor";
 import { cwd } from "node:process";
 
+/** Injectable seams for tests (DEC-4); production callers omit `deps`.
+ *  Exists so unit tests never need `mock.module`, which is process-global
+ *  under bun:test workers and leaks into unrelated test files. */
+export interface DoctorCommandDeps {
+	runDoctor?: typeof runDoctor;
+}
+
 /**
  * Run `marksync doctor`. Calls the app-tier `runDoctor` orchestration and
  * constructs `CommandResult<DoctorReport>` directly (DEC-4). On `ok(report)`,
@@ -23,8 +30,10 @@ import { cwd } from "node:process";
  */
 export async function doctorCommand(
 	flags: { probeCapabilities?: boolean } = {},
+	deps: DoctorCommandDeps = {},
 ): Promise<CommandResult<DoctorReport>> {
-	const report = await runDoctor({
+	const run = deps.runDoctor ?? runDoctor;
+	const report = await run({
 		cwd: cwd(),
 		probeCapabilities: flags.probeCapabilities === true,
 	});
