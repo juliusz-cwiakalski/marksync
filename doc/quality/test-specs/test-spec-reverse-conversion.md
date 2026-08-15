@@ -130,7 +130,7 @@ would be overkill; committed golden fixtures may be read directly (no mocks).
 **Locations:**
 
 - `tests/unit/infra/confluence/parse/reverse.test.ts` — the classifier
-  itself (16 TC arms, 77 tests): per-class classification (TC-ELEM/TC-LAY incl.
+  itself (16 TC arms, 75 tests): per-class classification (TC-ELEM/TC-LAY incl.
   orphaned layout), attribute aggregation + mirror-allowlist boundary incl.
   the specially-handled `ac:image`/`ac:structured-macro`/`ac:parameter`/
   `ri:*` and task-family elements (TC-ATTR-001/002/003/004), K1 confinement to
@@ -508,7 +508,7 @@ NFR-PERF-5) is not a CI gate.
   pinned storage-side counterparts.
 - Zero new diagnostics over corpus A + the 33 forward golden pairs + K1
   variants (false-positive guard); forward fixtures byte-unmodified.
-- Classifier unit armory: 77 tests across 16 TC arms
+- Classifier unit armory: 75 tests across 16 TC arms
   (`tests/unit/infra/confluence/parse/reverse.test.ts`) plus the TC-TAXO-002
   entry-point assignment pins (`reverse-diagnostics.test.ts`) and the parser
   K1-survival probes (`reverse-parser.test.ts`).
