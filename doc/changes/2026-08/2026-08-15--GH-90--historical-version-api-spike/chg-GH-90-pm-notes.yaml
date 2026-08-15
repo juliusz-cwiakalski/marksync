@@ -87,6 +87,21 @@ blockers:
       decisions). Delivery resumed with amended plan.
     date: "2026-08-15"
     resolved_date: "2026-08-15"
+  - text: >
+      A-1 RECURRENCE in CI (2026-08-15, same day): the CEO-authorized CI
+      probe failed fast — E2E_* secrets are NOT configured in the repo.
+      Probe run 31866891540 (commit b46895d) shows all five MARKSYNC_E2E_*
+      env vars empty. Premise check: nightly run-e2e.yml run 31861445358
+      (2026-08-15T03:18Z, conclusion=success) logged "[E2E Skip]
+      MARKSYNC_E2E_* secrets not configured, skipping live-sandbox test" —
+      only 2 sandbox-guard unit checks ran. The "success" was green-by-skip,
+      not live-validated secrets. Both credential paths dead: local token
+      revoked + CI secrets never configured. Human input requested via
+      OPEN-Q2 (configure 5 secrets + fresh API token; resume = gh run rerun
+      31866891540). Workflow+script committed b46895d, ready to run. Issue
+      relabeled blocked + human-input-needed.
+    date: "2026-08-15"
+    resolved_date: null
 
 doc_risks:
   - doc/decisions/00-index.md — must add TDR-0011 row (@decision flow inside delivery).
@@ -148,6 +163,22 @@ notes:
       last-verified date in pm-context. The spike artifacts themselves (spec,
       test plan, plan, DoR) were unaffected — abort criteria A-1 worked as
       designed, costing one commit instead of a corrupted evidence pack.
+    type: retro
+    date: "2026-08-15"
+  - text: >
+      Retro — A-1 recurrence (2026-08-15): the CEO premise "E2E secrets ARE
+      valid (run-e2e.yml succeeded)" was accepted on run CONCLUSION without
+      inspecting the job LOG — the run was green-by-skip ([E2E Skip] secrets
+      not configured), so the premise was false and the plan amendment +
+      coder session built on it (~2 delegate sessions wasted). Lessons:
+      (1) credential-dependent premises must be verified against the
+      consuming job's logs (skip vs live), never just the run conclusion;
+      (2) skip-guarded green jobs are a standing CI hazard for exactly this
+      misread — candidate improvement: make run-e2e.yml distinguish
+      "skipped (secrets absent)" from "live-validated" in its conclusion or
+      step summary (separate ticket, not GH-90). The empty-env probe log
+      exposed the truth within one run — the fail-fast self-check worked as
+      designed.
     type: retro
     date: "2026-08-15"
   - text: >

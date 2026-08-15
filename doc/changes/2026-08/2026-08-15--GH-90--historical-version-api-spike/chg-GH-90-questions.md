@@ -1,8 +1,46 @@
 # GH-90 — Blocking Questions
 
-Status: **BLOCKED — awaiting human input** (delivery phase 6, plan abort A-1)
+Status: **BLOCKED — awaiting human input** (delivery phase 6, plan abort A-1, second occurrence: CI secrets absent)
 
-## OPEN-Q1: Restore Confluence sandbox access (or provide working credentials)
+## OPEN-Q2: Configure the E2E_* Actions secrets (they were never set — nightly e2e has been green-by-skip)
+
+**Question:** The CEO-authorized CI path cannot execute: the
+`E2E_*` secrets are **not configured** in this repository. Evidence:
+
+- The probe run ([31866891540](https://github.com/juliusz-cwiakalski/marksync/actions/runs/31866891540),
+  commit `b46895d`) failed fast: all five `MARKSYNC_E2E_*` env vars mapped
+  to empty values → script hard-failed on missing env.
+- The nightly `run-e2e.yml` run cited as proof of valid secrets
+  ([31861445358](https://github.com/juliusz-cwiakalski/marksync/actions/runs/31861445358),
+  2026-08-15T03:18Z, conclusion=success) actually logged
+  `[E2E Skip] MARKSYNC_E2E_* secrets not configured, skipping live-sandbox
+  test` — only the 2 sandbox-guard unit checks ran. Green conclusion,
+  skipped substance.
+
+**Ask (owner, ~5 minutes):** in repo Settings → Secrets and variables →
+Actions → New repository secret, add:
+
+| Secret name | Value |
+|---|---|
+| `E2E_CONFLUENCE_BASE_URL` | `https://cwiakalski.atlassian.net` |
+| `E2E_USER_EMAIL` | the Atlassian account email |
+| `E2E_API_TOKEN` | a **fresh** API token (id.atlassian.com → Security → API tokens) — the old local one is revoked |
+| `E2E_SPACE_KEY` | the sandbox space key (e.g. `marksyncte`) |
+| `E2E_PARENT_PAGE_ID` | parent page id under that space (e.g. `39223464`) or leave unset if none |
+
+Then reply "secrets set" on #90. Resume is immediate: `gh run rerun
+31866891540` (or any push touching the script) re-executes the ready probe;
+evidence lands as the `gh-90-evidence` artifact.
+
+**Why it blocks:** GH-90's deliverable is live request/response evidence +
+TDR-0011 verdict. Local token revoked (OPEN-Q1) + CI secrets absent (this
+question) = no live-API path. Mocks remain unacceptable (TDR-0001 C-1).
+
+**State on resume:** Workflow + script are committed and green-ready
+(`b46895d`); plan tasks 1.12–1.17 partially executed (author→push→watch→
+diagnose); remaining: artifact download → evidence/ → TDR-0011 → finalize.
+
+## OPEN-Q1: Restore Confluence sandbox access (or provide working credentials) — RESOLVED (superseded by OPEN-Q2 context)
 
 **Question:** The sandbox credentials at `tmp/marksync-demo/.env` (tenant
 `cwiakalski.atlassian.net`) authenticate but cannot access Confluence. All
