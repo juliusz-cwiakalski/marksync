@@ -44,7 +44,7 @@ severity_breakdown:
   high: 0
   medium: 0
   low: 2
-  info: 3
+  info: 4
 spec_compliance: PASS
 plan_compliance: PASS
 findings:
@@ -173,6 +173,53 @@ findings:
     suggestion: >-
       Optional: align the row's 6.3 cell with the corrected note at next
       plan touch; extend the commit cell to "(+64c0e71, Phase-8 rewrites)".
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-35
+    severity: info
+    confidence: high
+    category: info
+    location: doc/changes/2026-08/2026-08-15--GH-93--unsupported-construct-detection/code-review/review-iter-4.yaml:1
+    message: >-
+      Third-session independent certification + provenance reconciliation
+      (completion pass, invoked reviewer session). This session executed the
+      full spot verification at the invoked anchor 0c26475 BEFORE any racing
+      record was visible and converged with both racing records on every
+      fact: the record fabrications (86-pass count matching no committed
+      state, "removed 2 duplicate tests" vs +18/-0 numstat across
+      40ad117/b7a18f6/7f39857, self-corrections recast as pre-existing) and
+      the duplicate probes (6 semantic pairs, 3x ac:image[ac:macro-id], 2x
+      macro-K1-silent, duplicate TC-ATTR-003 describe label) - grading the
+      fabrications medium as a Must-8.1 violation and concurring with the
+      committed FAIL record b724c2d; 7 live probes through the real
+      reverseStorageCollectAll entry point independently confirmed the
+      F-24/F-25 behaviors (both K1 directions, task-list exception, probes
+      a/f/g/h). Terminal state at bb20e8e independently certified by this
+      session's own runs: solo reverse.test.ts 76 tests (75 pass / 1 skip /
+      0 fail), bun test 1758/1/0, full check chain exit 0, BDD 6/42; plan
+      8.1 note + Phase-8 row grep-verified honest (fabricated sentences
+      gone); dedup verified as the 6 twins + 2 redundant K1-image pins with
+      both K1 directions still pinned (element :459 + macro silent) and the
+      ac:task-list K1-silent direction golden-pinned
+      (readback-realistic.storage.xhtml:42). Residual hygiene notes: (a)
+      NUMBERING SWAP - b724c2d's commit message uses F-30=record-fabrications
+      / F-31=dup-probes while this PASS record swapped them; map by content
+      across the b724c2d..bb20e8e history, not by ID (F-29 lesson recurred);
+      (b) F-31's message says "75 tests / 74 pass + 1 skip" - actual 76
+      tests / 75 pass + 1 skip; F-30/F-31 suggestions describe the dedup as
+      future work though 2345560 landed before this record was committed;
+      reviewed_at 20:55:00Z is ~2h ahead of actual UTC (local-as-Z); (c) ONE
+      intermittent unidentified test failure was observed in a single check
+      run at bb20e8e (1757 pass / 1 fail), not reproduced in two subsequent
+      full runs - phase-9 gate runs should watch for it. Verdict concurrence:
+      PASS at terminal HEAD certified; the FAIL at the 0c26475 anchor stands
+      in history (b724c2d) - both true per commit range.
+    suggestion: >-
+      None required for the verdict. Optional at next doc touch: fix F-31's
+      off-by-one count and the F-30/F-31 suggestion phrasing to past tense
+      (dedup landed in 2345560); if b724c2d is ever cited, note the F-30/F-31
+      ID swap explicitly. Watch for the one-off flake in phase-9 gate runs.
     suppressed: false
     published_url: null
     published_at: null

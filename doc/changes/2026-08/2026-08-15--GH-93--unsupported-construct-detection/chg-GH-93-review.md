@@ -374,3 +374,37 @@ Next Step: **ESCALATE_TO_HUMAN** — docs-only correction (Phase-8 row + 8.1 sen
 ## Residuals
 
 None blocking. F-32..F-34 (info) ride the PR record as notes per the iter-4 prescription.
+
+---
+
+# Iteration 4 (SPOT) — third-session independent certification (completion pass)
+
+**Mode**: local · **Iteration**: 4 (SPOT, third session) · **Date**: 2026-08-15
+**Verdict up front**: **PASS — certified at terminal HEAD `bb20e8e`** (all gates independently re-run by this session). At the **invoked anchor `0c26475`** this session's independently-derived verdict was **FAIL (narrow)** — concurring with the committed record `b724c2d` — and the remediation that followed (`2345560`) closed its drivers. Both verdicts are true per commit range; neither was rewritten by this pass.
+
+This was the session invoked to run the iteration-4 spot review (scope F-23/F-24/F-25 per the recorded PM disposition). It executed the full verification at `0c26475` **before any racing record became visible**, then watched the tree move twice mid-review (the `b724c2d` FAIL record; then the PM-superseded full-stop → `2345560` remediation + `bb20e8e` PASS consolidation — the third concurrent-session race of this change, cf. F-22/F-29). Per the F-29 protocol it re-derived everything independently, concurs, and appends this certification rather than rewriting or renumbering anything.
+
+## Independent derivation at `0c26475` (pre-dating contact with the racing records — convergent on every fact)
+
+- **F-23 → RESOLVED**: the three named sentences (plan `:308`/`:334`/`:446`) truthful — phantom "pre-existing E2E" gone; attribution `b71868a`-introduced / `a83a264`-fixed matches iter-3's worktree-verified per-commit gate history; Phase-6 commit cell corrected.
+- **F-24 → RESOLVED**: all 8 mandated probes present (`:591`/`:611`/`:630`/`:649`/`:668`/`:687`/`:704`/`:894`), zero duplicate titles; Must 7.2 met for all six rows.
+- **F-25 → RESOLVED**: K1 skip gated on `ac:structured-macro` alone; `ac:task-list` explicit allowlist row; Appendix C exception row + history 0.4 + feature-spec/test-spec current-truth; both directions pinned.
+- **NEW (graded medium, Must-8.1 class → the FAIL)**: the Phase-8 record's fabrications — "86 pass / 1 skip (8 new probes added)" matches no committed state (solo: 83 pass + 1 skip; 18 tests added, not 8; 86 reconstructable only as the pre-dedup *draft* count 66+2+18−2); "removed 2 duplicate tests" vs `b7a18f6` numstat **296/0**; self-corrections recast as pre-existing ("task 3.8 already 12 pairs", "(8.2) … from prior session"); `7f39857` "dedupe probes" message vs a 1-line plan-only commit.
+- **NEW (low)**: six semantically duplicate probe pairs + `ac:image[ac:macro-id]` pinned 3× + macro-K1-silent 2× + two describes sharing the `TC-ATTR-003` label.
+- **7 live probes** through the real `reverseStorageCollectAll` (unique to this session): K1-on-macro silent · `ac:image[ac:macro-id]` blocking · `ac:task-list` K1 silent (exception row) · `ac:task-list[class]` blocking · element-form missing-status blocking · stray `p` inside `ac:task` fallback · stray `ac:parameter` fallback — all exactly per spec.
+- Gates at `0c26475`: `bun run check` exit 0 (1766 pass / 1 skip / 0 fail), BDD 6/42, tripwires + `REVERSE_CODES` additions-only — all green.
+
+## Terminal-state certification at `bb20e8e` (this session's own runs)
+
+- `reverse.test.ts` solo: **76 tests — 75 pass / 1 skip / 0 fail**; dedup verified as exactly the 6 batch-2 twins + 2 redundant `ac:image` K1 pins; both K1 directions remain pinned (`:459` element blocking, macro silent) and the `ac:task-list` K1-silent direction is golden-pinned (`readback-realistic.storage.xhtml:42` carries both K1 names on `ac:task-list`; zero-diagnostic sweep green).
+- `bun test`: **1758 pass / 1 skip / 0 fail**; `bun run check` full chain: **exit 0**; `bun run test:bdd`: **6/42**.
+- Plan records grep-verified honest: "86 pass"/"removed 2 duplicate tests"/"8 new probes" all gone; 8.1 note and Phase-8 row state committed-state facts (18 probes across `40ad117`+`b7a18f6`; dedup to 75 pass attributed to `2345560`).
+- **One caveat for phase 9**: a single check-chain run at `bb20e8e` produced **1757 pass / 1 skip / 1 fail** (unidentified test; load-sensitive flake suspected — no explicit timing assertions found). Not reproduced in two subsequent full runs. Quality-gate runs should re-run on any red rather than assume determinism.
+
+## Provenance and hygiene notes (F-35 in the YAML)
+
+1. **Numbering swap across the verdict flip**: `b724c2d` (committed FAIL) uses F-30=record-fabrications / F-31=dup-probes; the consolidated PASS record swapped them (F-30=dupes / F-31=record-claims). Cite by content across `b724c2d..bb20e8e`, not by ID — the F-29 lesson recurred.
+2. The YAML's F-31 message carries an off-by-one ("75 tests / 74 pass + 1 skip"; actual 76 / 75 + 1), and its F-30/F-31 suggestions phrase the dedup as future work though `2345560` preceded the record commit; `reviewed_at: 20:55:00Z` is ~2 h ahead of actual UTC (local-time-as-Z). Cosmetic; the verdict is unaffected.
+3. Timeline of the four sessions: (1) FAIL record at `b5e9e5e`-state → committed `b724c2d`; (2) FAIL consolidation at `0c26475` (superseded in place); (3) PM disposition + `2345560`/`bb20e8e` remediation + PASS consolidation; (4) this certification. The FAIL→PASS sequence is preserved in git history (`b724c2d`) and pm-notes — the plan's own records were corrected, never the history.
+
+*No source code was modified by this review. Scratch artifacts (live-probe script, full gate logs) preserved under `tmp/opencode/opencode/gh93-iter4/`. Consolidated YAML: `code-review/review-iter-4.yaml` (PASS, F-30..F-35).*
