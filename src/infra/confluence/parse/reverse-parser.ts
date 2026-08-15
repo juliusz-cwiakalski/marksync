@@ -176,7 +176,9 @@ class HastBuilder {
 		} else {
 			// Nested element — stack is non-empty here
 			const parent = this.stack[this.stack.length - 1];
-			parent.children.push(element);
+			if (parent) {
+				parent.children.push(element);
+			}
 		}
 
 		this.stack.push(element);
