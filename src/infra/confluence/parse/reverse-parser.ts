@@ -13,7 +13,7 @@ import type {
 	RootContent,
 	Text,
 } from "hast";
-import { StorageParseError } from "#domain/markdown/reverse-diagnostics";
+import type { StorageParseError } from "#domain/markdown/reverse-diagnostics";
 import { REVERSE_CODES } from "#domain/markdown/reverse-diagnostics";
 
 /** Parser options — diagnostic provenance context (spec DM-1). */
@@ -55,7 +55,8 @@ export function parseStorage(
 
 		// Use saxes event emitter API (on() method, not on<event> properties)
 		parser.on("error", (err) => {
-			const loc = err.position ?? { line: 1, column: 1 };
+			// Capture position from parser at error time (saxes Error has no position property)
+			const loc = { line: parser.line, column: parser.column };
 			builder.addError({
 				kind: "StorageParseError",
 				code: REVERSE_CODES.STORAGE_PARSE_ERROR,
@@ -67,7 +68,9 @@ export function parseStorage(
 		parser.on("text", (text) => builder.addText(text));
 		parser.on("cdata", (cdata) => builder.addCdata(cdata));
 		parser.on("comment", (comment) => builder.addComment(comment));
-		parser.on("opentag", (tag) => builder.openTag(tag));
+		parser.on("opentag", (tag) =>
+			builder.openTag(tag, { line: parser.line, column: parser.column }),
+		);
 		parser.on("closetag", () => builder.closeTag());
 		parser.on("end", () => builder.finish());
 
@@ -135,7 +138,10 @@ class HastBuilder {
 	}
 
 	/** Open tag — push new element onto stack with position. */
-	openTag(tag: saxes.SaxesTag): void {
+	openTag(
+		tag: saxes.SaxesTag,
+		position: { line: number; column: number },
+	): void {
 		this.flushText();
 
 		const properties = buildProperties(tag.attributes);
@@ -144,9 +150,21 @@ class HastBuilder {
 			tagName: tag.name,
 			properties,
 			children: [],
-			// Position tracking disabled for now due to saxes type issues
-			// TODO: Re-enable with proper typing when available
-			position: undefined,
+			// Position tracking for F-4 diagnostics — saxes provides line/column at tag open
+			// saxes: line is 1-indexed, column is 0-indexed
+			// unist Point: both line and column are 1-indexed, so add 1 to column
+			position: {
+				start: {
+					line: position.line,
+					column: position.column + 1,
+					offset: undefined,
+				},
+				end: {
+					line: position.line,
+					column: position.column + 1,
+					offset: undefined,
+				},
+			},
 		};
 
 		if (this.root === null) {
@@ -154,10 +172,12 @@ class HastBuilder {
 			this.root = { type: "root", children: [element] };
 		} else if (this.stack.length === 0) {
 			// Fragment mode: multiple root-level elements
-			this.root!.children.push(element);
+			this.root?.children.push(element);
 		} else {
 			// Nested element
-			this.stack[this.stack.length - 1].children.push(element);
+			const parent = this.stack[this.stack.length - 1];
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- length > 0 ensured by else-if condition
+			parent!.children.push(element);
 		}
 
 		this.stack.push(element);
@@ -184,7 +204,7 @@ class HastBuilder {
 		}
 
 		if (this.stack.length === 0) {
-			this.root!.children.push(child);
+			this.root?.children.push(child);
 		} else {
 			const parent = this.stack[this.stack.length - 1];
 			if (parent) {
@@ -208,7 +228,11 @@ class HastBuilder {
 }
 
 /** Build HAST properties from saxes attributes (namespaced names preserved). */
-function buildProperties(attrs: Record<string, string | boolean>): Properties {
+function buildProperties(
+	attrs:
+		| Record<string, string | boolean>
+		| Record<string, saxes.SaxesAttributeNS>,
+): Properties {
 	const result: Properties = {};
 	for (const [key, value] of Object.entries(attrs)) {
 		if (value === true) continue; // Boolean attributes (rare in Storage)
@@ -217,7 +241,7 @@ function buildProperties(attrs: Record<string, string | boolean>): Properties {
 		// We preserve the simple string values for use by the classifier
 		if (typeof value === "object" && value !== null && "value" in value) {
 			// Namespace-aware attribute: store the simple string value
-			result[key] = (value as { value: string }).value;
+			result[key] = (value as saxes.SaxesAttributeNS).value;
 		} else {
 			// Simple attribute
 			result[key] = value as string | boolean;

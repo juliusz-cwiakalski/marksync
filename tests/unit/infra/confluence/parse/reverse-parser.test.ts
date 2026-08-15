@@ -2,6 +2,29 @@
 
 import { describe, expect, it } from "bun:test";
 import { parseStorage } from "#infra/confluence/parse/reverse-parser";
+import type { Root } from "hast";
+
+/** Helper to strip position information for position-agnostic comparisons. */
+function stripPositions(node: Root): Root {
+	return {
+		...node,
+		children: node.children.map((child) => stripPositionsFromNode(child)),
+	};
+}
+
+function stripPositionsFromNode(node: any): any {
+	if (node.type === "element") {
+		return {
+			...node,
+			position: undefined,
+			children: node.children.map(stripPositionsFromNode),
+		};
+	}
+	if (node.position) {
+		return { ...node, position: undefined };
+	}
+	return node;
+}
 import type { Element, Text } from "hast";
 import { REVERSE_CODES } from "#domain/markdown/reverse-diagnostics";
 
@@ -193,7 +216,10 @@ describe("reverse-parser", () => {
 			if (!result1.ok || !result2.ok) return;
 
 			// After normalization, both should produce identical trees
-			expect(result1.value).toEqual(result2.value);
+			// Position tracking is not part of K1 tolerance comparison, so strip it
+			const withoutPositions1 = stripPositions(result1.value);
+			const withoutPositions2 = stripPositions(result2.value);
+			expect(withoutPositions1).toEqual(withoutPositions2);
 		});
 	});
 
