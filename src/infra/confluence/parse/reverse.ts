@@ -6,22 +6,23 @@ import {
 	type BlockingDiagnostic,
 	type InformationalDiagnostic,
 	REVERSE_CODES,
-	type StorageParseError,
+	type ReverseDiagnostic,
 	type ReverseError,
+	type ReverseSuccess,
+	type UnsupportedConstructError,
 } from "#domain/markdown/reverse-diagnostics";
 import { hastToMarkdown } from "#domain/markdown/hast-to-markdown";
 import { parseStorage } from "#infra/confluence/parse/reverse-parser";
 import type { Element, ElementContent, Root, RootContent } from "hast";
+import type { StorageParseError } from "#domain/markdown/reverse-diagnostics";
 
 /** Reverse contract entry point (spec DM-1). */
-export interface ReverseSuccess {
-	markdown: string;
-	diagnostics: InformationalDiagnostic[];
-}
+// Import from domain to avoid duplication (typescript.md structural-duplication rule)
+export type { ReverseSuccess } from "#domain/markdown/reverse-diagnostics";
 
-/** Reverse conversion contract with fast-fail/collect-all parity (spec DEC-2). */
+/** Reverse conversion contract with provenance context (reserved for future use). */
 export interface ReverseOptions {
-	/** Diagnostic provenance context (spec DM-1). */
+	/** Reserved for future diagnostic provenance context. */
 	sourcePath?: string;
 }
 
@@ -54,12 +55,13 @@ export function reverseStorage(
 		const blocking = classified.diagnostics.find(
 			(d) => d.severity === "blocking",
 		) as BlockingDiagnostic;
-		return Result.err({
+		const error: UnsupportedConstructError = {
 			kind: "UnsupportedConstruct",
 			code: blocking.code,
 			construct: blocking.construct,
 			location: blocking.location,
-		} as unknown as ReverseError);
+		};
+		return Result.err(error);
 	}
 
 	// Serialize the content HAST to Markdown
@@ -77,14 +79,15 @@ export function reverseStorage(
  * Reverse convert Storage XHTML with collect-all semantics.
  *
  * Enumerates all unsupported constructs without partial conversion (spec DEC-2).
- * Per test-plan §4.4: `all.diagnostics[0]` deep-equals the fast-fail error.
+ * Per test-plan §4.4: the first blocking diagnostic in the array deep-equals
+ * the fast-fail error when one exists.
  *
  * @param body - Storage XHTML string.
- * @returns All diagnostics on success or parse error.
+ * @returns All diagnostics (preserving severity/class) on success or parse error.
  */
 export function reverseStorageCollectAll(
 	body: string,
-): Result<{ diagnostics: ReverseError[] }, StorageParseError> {
+): Result<{ diagnostics: ReverseDiagnostic[] }, StorageParseError> {
 	const parsed = parseStorage(body);
 	if (!parsed.ok) {
 		return Result.err(parsed.error);
@@ -93,26 +96,9 @@ export function reverseStorageCollectAll(
 	// Classify and collect all diagnostics
 	const classified = classifyStorage(parsed.value);
 
-	// Map diagnostics to error arms
-	const diagnostics = classified.diagnostics.map((d) => {
-		if (d.severity === "blocking") {
-			return {
-				kind: "UnsupportedConstruct",
-				code: d.code,
-				construct: d.construct,
-				location: d.location,
-			} as unknown as ReverseError;
-		}
-		// Informational diagnostics are not errors, but we include them for completeness
-		return {
-			kind: "UnsupportedConstruct",
-			code: d.code,
-			construct: d.construct,
-			location: d.location,
-		} as unknown as ReverseError;
-	});
-
-	return Result.ok({ diagnostics });
+	// Return all diagnostics preserving severity/class (F-1 fix)
+	// The contract now correctly separates blocking from informational
+	return Result.ok({ diagnostics: classified.diagnostics });
 }
 
 /** Classification result: content HAST + diagnostics. */
@@ -165,7 +151,7 @@ function classifyNode(node: RootContent): NodeClassificationResult {
 		return classifyElement(node);
 	}
 
-	// Unknown node type (doctype, etc.) — ignore
+	// Unknown node types (doctype, etc.) — ignored (not reachable from page-body Storage)
 	return { content: null, diagnostics: [] };
 }
 
@@ -173,26 +159,6 @@ function classifyNode(node: RootContent): NodeClassificationResult {
 function classifyElement(el: Element): NodeClassificationResult {
 	const tagName = el.tagName;
 	const props = el.properties || {};
-
-	// Check for mermaid render policy artifact (DEC-1, AC-F4-2)
-	if (
-		tagName === "ac:image" &&
-		props["ri:filename"]?.toString().startsWith("marksync-mermaid-")
-	) {
-		const location = getLocation(el);
-		return {
-			content: null,
-			diagnostics: [
-				{
-					severity: "informational",
-					class: "marksync-synthetic-artifact",
-					code: REVERSE_CODES.SYNTHETIC_ARTIFACT,
-					construct: "ac:image (mermaid render policy)",
-					location,
-				},
-			],
-		};
-	}
 
 	// Handle ac:image elements (regular images, not mermaid artifacts)
 	if (tagName === "ac:image") {
@@ -290,12 +256,9 @@ function classifyElement(el: Element): NodeClassificationResult {
 	];
 
 	if (canonicalElements.includes(tagName)) {
-		// Check for nested tables (table inside td/th)
+		// Check for nested tables (table ANYWHERE inside td/th)
 		if (tagName === "td" || tagName === "th") {
-			const hasNestedTable = el.children.some(
-				(child) => child.type === "element" && child.tagName === "table",
-			);
-			if (hasNestedTable) {
+			if (hasDescendantTable(el)) {
 				const location = getLocation(el);
 				return {
 					content: null,
@@ -437,7 +400,76 @@ function classifyCodeMacro(el: Element): NodeClassificationResult {
 	return { content: preElement, diagnostics: [] };
 }
 
-/** Classify a task-list macro → GFM task list (RSK-P2). */
+/** Shared helper: map ac:task sequence → task-list HAST (RSK-P2). */
+function mapTaskSequenceToGfmTaskList(tasks: Element[]): Element {
+	const listItems: Element[] = [];
+
+	for (const task of tasks) {
+		const statusEl = task.children.find(
+			(child) => child.type === "element" && child.tagName === "ac:task-status",
+		) as Element | undefined;
+
+		const bodyEl = task.children.find(
+			(child) => child.type === "element" && child.tagName === "ac:task-body",
+		) as Element | undefined;
+
+		// Status is in the text child of ac:task-status
+		const statusText = statusEl?.children.find(
+			(child) => child.type === "text",
+		);
+		const isChecked =
+			statusText?.type === "text" && statusText.value === "complete";
+
+		const taskContent = bodyEl?.children || [];
+
+		// Map to remark-gfm task-list HAST shape:
+		// ul.contains-task-list → li.task-list-item → input[checked]
+		const inputEl: Element = {
+			type: "element",
+			tagName: "input",
+			properties: {
+				type: "checkbox",
+				checked: isChecked ? true : undefined,
+			},
+			children: [],
+		};
+
+		// Classify task body content
+		const classifiedBody: ElementContent[] = [];
+		for (const child of taskContent) {
+			const result = classifyNode(child);
+			if (result.content) {
+				classifiedBody.push(result.content as ElementContent);
+			}
+		}
+
+		const li: Element = {
+			type: "element",
+			tagName: "li",
+			properties: {
+				className: ["task-list-item"],
+			},
+			children: [inputEl, ...classifiedBody],
+		};
+
+		listItems.push(li);
+	}
+
+	// Map to ul.contains-task-list
+	return {
+		type: "element",
+		tagName: "ul",
+		properties: {
+			className: ["contains-task-list"],
+		},
+		children: listItems,
+	};
+}
+
+/** Classify a task-list macro → GFM task list (RSK-P2).
+ * NOTE: The forward renderer emits <ac:task-list> directly, not this macro form.
+ * This branch handles real Confluence task-list macros for completeness.
+ */
 function classifyTaskListMacro(el: Element): NodeClassificationResult {
 	const tasks = el.children.filter(
 		(child) =>
@@ -450,73 +482,12 @@ function classifyTaskListMacro(el: Element): NodeClassificationResult {
 			),
 	) as Element[];
 
-	const listItems: Element[] = [];
-
-	for (const task of tasks) {
-		const statusEl = task.children.find(
-			(child) => child.type === "element" && child.tagName === "ac:task-status",
-		) as Element | undefined;
-
-		const bodyEl = task.children.find(
-			(child) => child.type === "element" && child.tagName === "ac:task-body",
-		) as Element | undefined;
-
-		// Status is in the text child of ac:task-status
-		const statusText = statusEl?.children.find(
-			(child) => child.type === "text",
-		);
-		const isChecked =
-			statusText?.type === "text" && statusText.value === "complete";
-
-		const taskContent = bodyEl?.children || [];
-
-		// Map to remark-gfm task-list HAST shape:
-		// ul.contains-task-list → li.task-list-item → input[checked]
-		const inputEl: Element = {
-			type: "element",
-			tagName: "input",
-			properties: {
-				type: "checkbox",
-				checked: isChecked ? true : undefined,
-			},
-			children: [],
-		};
-
-		// Classify task body content
-		const classifiedBody: ElementContent[] = [];
-		for (const child of taskContent) {
-			const result = classifyNode(child);
-			if (result.content) {
-				classifiedBody.push(result.content as ElementContent);
-			}
-		}
-
-		const li: Element = {
-			type: "element",
-			tagName: "li",
-			properties: {
-				className: ["task-list-item"],
-			},
-			children: [inputEl, ...classifiedBody],
-		};
-
-		listItems.push(li);
-	}
-
-	// Map to ul.contains-task-list
-	const ul: Element = {
-		type: "element",
-		tagName: "ul",
-		properties: {
-			className: ["contains-task-list"],
-		},
-		children: listItems,
-	};
-
-	return { content: ul, diagnostics: [] };
+	return { content: mapTaskSequenceToGfmTaskList(tasks), diagnostics: [] };
 }
 
-/** Classify an ac:task-list element → GFM task list (RSK-P2). */
+/** Classify an ac:task-list element → GFM task list (RSK-P2).
+ * This is the form emitted by the forward renderer (storage.ts:155).
+ */
 function classifyTaskListElement(el: Element): NodeClassificationResult {
 	// ac:task-list is a direct element (not ac:structured-macro)
 	// It contains ac:task elements directly as children
@@ -524,70 +495,22 @@ function classifyTaskListElement(el: Element): NodeClassificationResult {
 		(child) => child.type === "element" && child.tagName === "ac:task",
 	) as Element[];
 
-	const listItems: Element[] = [];
+	return { content: mapTaskSequenceToGfmTaskList(tasks), diagnostics: [] };
+}
 
-	for (const task of tasks) {
-		const statusEl = task.children.find(
-			(child) => child.type === "element" && child.tagName === "ac:task-status",
-		) as Element | undefined;
-
-		const bodyEl = task.children.find(
-			(child) => child.type === "element" && child.tagName === "ac:task-body",
-		) as Element | undefined;
-
-		// Status is in the text child of ac:task-status
-		const statusText = statusEl?.children.find(
-			(child) => child.type === "text",
-		);
-		const isChecked =
-			statusText?.type === "text" && statusText.value === "complete";
-
-		const taskContent = bodyEl?.children || [];
-
-		// Map to remark-gfm task-list HAST shape:
-		// ul.contains-task-list → li.task-list-item → input[checked]
-		const inputEl: Element = {
-			type: "element",
-			tagName: "input",
-			properties: {
-				type: "checkbox",
-				checked: isChecked ? true : undefined,
-			},
-			children: [],
-		};
-
-		// Classify task body content
-		const classifiedBody: ElementContent[] = [];
-		for (const child of taskContent) {
-			const result = classifyNode(child);
-			if (result.content) {
-				classifiedBody.push(result.content as ElementContent);
+/** Check if an element contains a table descendant (F-8: deep detection). */
+function hasDescendantTable(el: Element): boolean {
+	for (const child of el.children) {
+		if (child.type === "element") {
+			if (child.tagName === "table") {
+				return true;
+			}
+			if (hasDescendantTable(child)) {
+				return true;
 			}
 		}
-
-		const li: Element = {
-			type: "element",
-			tagName: "li",
-			properties: {
-				className: ["task-list-item"],
-			},
-			children: [inputEl, ...classifiedBody],
-		};
-
-		listItems.push(li);
 	}
-
-	// Map to ul.contains-task-list
-	const ul: Element = {
-		type: "element",
-		tagName: "ul",
-		properties: {
-			className: ["contains-task-list"],
-		},
-		children: listItems,
-	};
-
-	return { content: ul, diagnostics: [] };
+	return false;
 }
 
 /** Get location from a HAST element (F-4 diagnostics). */

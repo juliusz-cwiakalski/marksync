@@ -5,18 +5,22 @@ work_item_ref: GH-92
 branch: feat/GH-92/reverse-converter-storage-to-markdown
 status: FAIL
 summary: >-
-  First review of the GH-92 reverse converter. Delivery is substantially strong: 362 new/affected tests
-  pass, forward golden fixtures are byte-unchanged (additions only), src/cli is untouched (PD-2 honored),
-  saxes pinned exact 6.0.0, and the options layer lives solely in hast-to-markdown.ts. FAIL is driven by
-  an empirically-proven collect-all contract violation (informational diagnostics relabeled as blocking
-  errors; all.diagnostics[0] does not deep-equal the fast-fail error when an informational precedes a
-  blocking construct), a runtime/type divergence on the blocking-error arm masked by double casts, and a
-  silent content-loss edge where inter-inline structural whitespace is dropped (rendered space lost).
+  First review of the GH-92 reverse converter (Storage Format -> Markdown). Delivery is substantially
+  strong: 468 reverse-surface tests pass, corpus-A byte equality 26/26, forward golden fixtures
+  byte-unchanged (additions only), src/cli untouched (PD-2 honored), saxes exact 6.0.0, options layer
+  single-point in hast-to-markdown.ts, no mock.module. FAIL is driven by an empirically reproduced
+  collect-all contract violation (informational diagnostics relabeled as blocking errors; all[0] does
+  not deep-equal the fast-fail error when an informational precedes a blocking construct), a
+  runtime/type divergence on the blocking-error arm masked by double casts, silent inline content loss
+  where inter-sibling structural whitespace is dropped, and normative TC-RT-002 left as a placeholder
+  while the plan records tasks 5.3/5.4 complete. This iteration merges two colliding prior review
+  passes (each had verified-real findings the other missed) into one authoritative set; the plan now
+  carries a single Phase 7 remediation.
 severity_breakdown:
   critical: 1
-  high: 2
-  medium: 6
-  low: 2
+  high: 3
+  medium: 7
+  low: 3
   info: 0
 spec_compliance: FAIL
 plan_compliance: FAIL
@@ -27,15 +31,16 @@ findings:
     category: correctness
     location: src/infra/confluence/parse/reverse.ts:97
     message: >-
-      Collect-all maps informational diagnostics into the blocking error shape (kind "UnsupportedConstruct"),
-      discarding severity/class, so DM-2's two-class taxonomy collapses and the normative test-plan §4.4
-      parity (all.diagnostics[0] deep-equals the fast-fail error) breaks whenever an informational precedes
-      a blocking construct in document order. Empirically reproduced: mermaid render artifact + gliffy macro
-      yields all[0] = informational mislabeled as UnsupportedConstruct vs fast-fail = gliffy blocking.
+      Collect-all maps informational diagnostics into the blocking error shape (kind
+      "UnsupportedConstruct"), discarding severity/class, collapsing DM-2's two-class taxonomy and
+      breaking the normative test-plan §4.4:178 parity (all.diagnostics[0] deep-equals the fast-fail
+      error) whenever an informational precedes a blocking construct in document order. Empirically
+      reproduced in this review: mermaid render artifact + gliffy macro yields all[0] = mislabeled
+      informational (marksync/synthetic-artifact, 2:31) vs fast-fail = gliffy blocking error (3:42).
     suggestion: >-
-      Return ReverseDiagnostic[] preserving severity/class (filter to blocking for the error arm, surface
-      informationals separately) and add a mixed-order parity test asserting the first blocking entry
-      deep-equals the fast-fail error.
+      Return ReverseDiagnostic[] preserving severity/class (blocking entries for the error-arm parity,
+      informationals surfaced separately) and add a mixed-order parity test asserting the first
+      blocking entry deep-equals the fast-fail error.
     suppressed: false
     published_url: null
     published_at: null
@@ -46,12 +51,12 @@ findings:
     location: src/infra/confluence/parse/reverse.ts:62
     message: >-
       Runtime blocking error {kind, code, construct, location} does not match the declared
-      BlockingDiagnostic {severity, class, code, construct, location} (reverse-diagnostics.ts:15-21);
-      the divergence is silenced by "as unknown as ReverseError" double casts. Consumers cannot
-      discriminate ReverseError arms reliably and never-exhaustive checks are unsound.
+      BlockingDiagnostic {severity, class, code, construct, location} (reverse-diagnostics.ts:15-21,47);
+      the divergence is silenced by "as unknown as ReverseError" double casts (reverse.ts:57-62,104,112).
+      Consumers cannot discriminate ReverseError arms reliably; never-exhaustive checks are unsound.
     suggestion: >-
       Declare the error union faithfully (e.g. a {kind: "UnsupportedConstruct"} variant in the domain
-      model) and construct it type-safely without double casts.
+      model, or return the BlockingDiagnostic as-is) and construct it type-safely without double casts.
     suppressed: false
     published_url: null
     published_at: null
@@ -62,26 +67,43 @@ findings:
     location: src/infra/confluence/parse/reverse-parser.ts:110
     message: >-
       Whitespace-only text containing a newline is dropped in every context (parse-time flushText and
-      normalizeChildren), including between inline siblings. Repro: <p>foo <strong>a</strong>\n<em>b</em>
-      baz</p> reverses to "foo **a***b* baz" — the HTML-rendered space is silently lost and words join.
-      Exceeds K1 tolerance; silent content loss on the RSK-2 real-read-back path.
+      normalizeChildren), including between inline siblings. Empirically reproduced:
+      <p>foo <strong>a</strong>\n<em>b</em> baz</p> reverses to "foo **a***b* baz" - the HTML-rendered
+      space is silently lost and words join. Exceeds K1 tolerance; silent content loss on the RSK-2
+      real-read-back path; unreachable by the forward golden corpus.
     suggestion: >-
-      Drop structural whitespace only between block-level siblings; in phrasing-content contexts collapse
-      the chunk to a single space. Add a reflowed-paragraph fixture.
+      Drop structural whitespace only between block-level siblings; in phrasing-content contexts
+      collapse the chunk to a single space. Add a reflowed-paragraph fixture.
     suppressed: false
     published_url: null
     published_at: null
   - id: F-4
-    severity: medium
+    severity: high
     confidence: high
-    category: dependencies
-    location: package.json:54
-    message: hast-util-to-mdast pinned with caret (^10.1.2) though plan task 4.1 requires an exact pin and the byte-form guarantees rest on the locked substrate.
-    suggestion: Run bun add -E hast-util-to-mdast@10.1.2.
+    category: plan-compliance
+    location: tests/golden/markdown/reverse-round-trip.test.ts:159
+    message: >-
+      TC-RT-002 (corpus-B explicit reverse expectations) is a placeholder - comments admit it, the only
+      assertion is reversed.ok, and the reverseDir variable (:163) is dead. The task-5.4 sidecars exist
+      but only mermaid-render-policy.json is consumed anywhere. Task 5.3's negative self-test and p95
+      timing are also absent. Plan tasks 5.3/5.4 are checked [x] with COMPLETED notes - CHECKED_BUT_MISSING.
+    suggestion: >-
+      Wire corpus-B byte-equality assertions against each reverse/ sidecar (empty-output semantics for
+      mixed-html-comment), add the negative self-test, and remove or consume dead fixtures.
     suppressed: false
     published_url: null
     published_at: null
   - id: F-5
+    severity: medium
+    confidence: high
+    category: dependencies
+    location: package.json:54
+    message: hast-util-to-mdast pinned with caret (^10.1.2) though plan task 4.1 requires an exact pin and the byte-form guarantees rest on the locked substrate (saxes is exact).
+    suggestion: bun add -E hast-util-to-mdast@10.1.2.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-6
     severity: medium
     confidence: high
     category: plan-compliance
@@ -91,7 +113,7 @@ findings:
     suppressed: false
     published_url: null
     published_at: null
-  - id: F-6
+  - id: F-7
     severity: medium
     confidence: high
     category: code-quality
@@ -101,17 +123,21 @@ findings:
     suppressed: false
     published_url: null
     published_at: null
-  - id: F-7
+  - id: F-8
     severity: medium
     confidence: high
     category: code-quality
     location: src/infra/confluence/parse/reverse.ts:441
-    message: ~70 verbatim duplicated lines between classifyTaskListMacro and classifyTaskListElement; the macro variant is unreachable from forward output (storage.ts:155 emits <ac:task-list> directly).
-    suggestion: Extract one shared ac:task-sequence mapper; drop the speculative macro branch or justify it with a comment.
+    message: >-
+      ~70 verbatim duplicated lines between classifyTaskListMacro and classifyTaskListElement (the
+      macro variant unreachable from forward output, which emits <ac:task-list> directly); plus an
+      unreachable mermaid pre-check at reverse.ts:178-195 (ri:filename is never a property of ac:image
+      itself; the real path is :222) duplicating the informational-diagnostic block.
+    suggestion: Extract one shared ac:task-sequence mapper; delete the :178-195 pre-check or justify it with a comment.
     suppressed: false
     published_url: null
     published_at: null
-  - id: F-8
+  - id: F-9
     severity: medium
     confidence: medium
     category: correctness
@@ -121,17 +147,29 @@ findings:
     suppressed: false
     published_url: null
     published_at: null
-  - id: F-9
+  - id: F-10
     severity: medium
     confidence: high
     category: plan-compliance
-    location: doc/changes/2026-08/2026-08-15--GH-92--reverse-converter-storage-to-markdown/chg-GH-92-plan.md:377
-    message: Execution Log stale — Phase 4 commit "TBD", Phases 5/6 marked Pending despite [x] tasks and delivery commits 7e5289f/0581381/f607cd3; Phase 5 sidecar-review confirmation not recorded.
+    location: tests/golden/markdown/reverse-round-trip.test.ts:100
+    message: Task 5.3 promised per-fixture timing + corpus p95 vs the 200 ms ceiling (NFR-3 informational, OQ-T3); no timing code exists and the COMPLETED note omits p95 silently.
+    suggestion: Add record-only timing or record the drop and the OQ-T3 decision.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-11
+    severity: medium
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-08/2026-08-15--GH-92--reverse-converter-storage-to-markdown/chg-GH-92-plan.md:442
+    message: >-
+      Execution Log stale - Phase 4 commit "TBD", Phases 5/6 marked Pending despite [x] tasks and
+      delivery commits 7e5289f/0581381/f607cd3; Phase-5 sidecar human-review confirmation not recorded.
     suggestion: Close the rows with commits and record the sidecar-review confirmation.
     suppressed: false
     published_url: null
     published_at: null
-  - id: F-10
+  - id: F-12
     severity: low
     confidence: medium
     category: code-quality
@@ -141,7 +179,7 @@ findings:
     suppressed: false
     published_url: null
     published_at: null
-  - id: F-11
+  - id: F-13
     severity: low
     confidence: high
     category: code-quality
@@ -151,5 +189,18 @@ findings:
     suppressed: false
     published_url: null
     published_at: null
-reviewed_at: 2026-08-15T00:00:00Z
+  - id: F-14
+    severity: low
+    confidence: high
+    category: code-quality
+    location: src/infra/confluence/parse/reverse-parser.ts:16
+    message: >-
+      Parser plumbing nits - two import statements from the same module (:16-17), eslint-disable +
+      parent! non-null assertion where the stack guard makes it redundant (:179-180), and
+      ParseOptions.sourcePath accepted but never read (_opts).
+    suggestion: Merge imports, restructure to avoid the assertion, wire or drop sourcePath.
+    suppressed: false
+    published_url: null
+    published_at: null
+reviewed_at: 2026-08-15T11:04:44Z
 next_step: EXECUTE_REMEDIATION_PHASE

@@ -157,20 +157,25 @@ describe("TC-RT-001: corpus-A round-trip byte equality", () => {
 });
 
 describe("TC-RT-002: corpus-B explicit reverse expectations", () => {
-	for (const name of partition.corpusB) {
+	const corpusBNames = [
+		"frontmatter",
+		"html-comment-block",
+		"html-comment-inline",
+		"link-ref-comment",
+		"mixed-html-comment",
+		"raw-html-inline-real",
+	];
+
+	for (const name of corpusBNames) {
 		describe(name, () => {
-			const md = readFileSync(join(fixturesDir, `${name}.md`), "utf-8");
 			const reverseDir = join(fixturesDir, "reverse");
 
 			it(`reverse matches explicit expectation sidecar`, () => {
-				// Note: For now, this is a placeholder test since we haven't generated sidecars yet
-				// The actual sidecar generation is task 5.4, which we'll implement later
-				// For now, we just verify the reverse completes without error
-
-				// Use the existing Storage file, don't regenerate (corpus-B may contain unsupported content)
+				// Use the existing Storage file, don't regenerate
 				const storagePath = join(fixturesDir, `${name}.storage.xhtml`);
 				if (!existsSync(storagePath)) {
-					// Skip if no Storage file exists (e.g. empty file)
+					// mixed-html-comment has no Storage form (empty file)
+					expect(name).toBe("mixed-html-comment");
 					return;
 				}
 				const forward = readFileSync(storagePath, "utf-8");
@@ -178,9 +183,23 @@ describe("TC-RT-002: corpus-B explicit reverse expectations", () => {
 				const reversed = reverseStorage(forward);
 
 				expect(reversed.ok).toBe(true);
+				if (!reversed.ok) return;
+
+				// Compare against the sidecar
+				const expectedPath = join(reverseDir, `${name}.md`);
+				const expected = readFileSync(expectedPath, "utf-8");
+				expect(reversed.value.markdown).toBe(expected);
 			});
 		});
 	}
+
+	it("negative self-test: unlisted fixture name fails completeness", () => {
+		// This test verifies that adding a new corpus-B fixture without updating the loop
+		// would be caught by the completeness check in TC-RT-005
+		const manifestNames = new Set(partition.corpusB);
+		const loopNames = new Set(corpusBNames);
+		expect(loopNames).toEqual(manifestNames);
+	});
 });
 
 describe("TC-RT-003: reverse determinism in-process (convert twice)", () => {

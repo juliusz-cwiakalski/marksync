@@ -39,12 +39,21 @@ export interface StorageParseError {
 	readonly detail: string;
 }
 
+// Unsupported construct error — blocking shape with kind tag for ReverseError union.
+// Identical to BlockingDiagnostic for collect-all parity (test-plan §4.4).
+export interface UnsupportedConstructError {
+	readonly kind: "UnsupportedConstruct";
+	readonly code: ReverseCode;
+	readonly construct: string;
+	readonly location: { line: number; column: number };
+}
+
 export interface ReverseSuccess {
 	readonly markdown: string;
 	readonly diagnostics: InformationalDiagnostic[];
 }
 
-export type ReverseError = StorageParseError | BlockingDiagnostic;
+export type ReverseError = StorageParseError | UnsupportedConstructError;
 
 export type ReverseResult = Result<ReverseSuccess, ReverseError>;
 

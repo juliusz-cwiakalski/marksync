@@ -40,7 +40,8 @@
     "mermaid-render-policy",
     "code-block-python-k1",
     "mermaid-code-policy-k1",
-    "readback-realistic"
+    "readback-realistic",
+    "readback-reflowed"
   ],
   "excluded": [
     {

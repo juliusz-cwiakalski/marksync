@@ -190,7 +190,7 @@ describe("reverse-parser", () => {
 			expect(macro.properties["ac:macro-id"]).toBeUndefined();
 		});
 
-		it("drops structural whitespace", () => {
+		it("drops structural whitespace between blocks", () => {
 			const storage = "<p>Text</p>\n\n<p>More text</p>";
 			const result = parseStorage(storage);
 
@@ -198,8 +198,9 @@ describe("reverse-parser", () => {
 			if (!result.ok) return;
 
 			const root = result.value;
+			// Root is block-level context, so structural whitespace is dropped
 			expect(root.children).toHaveLength(2);
-			// The newline between paragraphs is dropped
+			// The newlines between paragraphs are dropped
 		});
 
 		it("K1 attributes: normalized tree matches attr-free tree", () => {

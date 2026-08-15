@@ -16,9 +16,9 @@ import type {
 import type { StorageParseError } from "#domain/markdown/reverse-diagnostics";
 import { REVERSE_CODES } from "#domain/markdown/reverse-diagnostics";
 
-/** Parser options — diagnostic provenance context (spec DM-1). */
+/** Parser options — not currently used (reserved for future provenance context). */
 export interface ParseOptions {
-	/** Source file path for error reporting (optional but recommended). */
+	/** Reserved for future diagnostic provenance context. */
 	sourcePath?: string;
 }
 
@@ -107,13 +107,13 @@ class HastBuilder {
 		if (this.pendingTextChunks.length === 0) return;
 
 		const combined = this.pendingTextChunks.join("");
-		if (!isStructuralWhitespace(combined)) {
-			const textNode: Text = {
-				type: "text",
-				value: combined,
-			};
-			this.addChild(textNode);
-		}
+		// Preserve all text for now — context-aware whitespace handling happens
+		// in normalizeReadback() where we know parent element type
+		const textNode: Text = {
+			type: "text",
+			value: combined,
+		};
+		this.addChild(textNode);
 		this.pendingTextChunks = [];
 	}
 
@@ -174,10 +174,9 @@ class HastBuilder {
 			// Fragment mode: multiple root-level elements
 			this.root?.children.push(element);
 		} else {
-			// Nested element
+			// Nested element — stack is non-empty here
 			const parent = this.stack[this.stack.length - 1];
-			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- length > 0 ensured by else-if condition
-			parent!.children.push(element);
+			parent.children.push(element);
 		}
 
 		this.stack.push(element);
@@ -259,24 +258,46 @@ function isStructuralWhitespace(value: string): boolean {
  * Apply read-back normalization to the parsed HAST:
  * - Strip provenance panels (info macros with marker)
  * - Drop K1 attributes (schema-version, macro-id)
- * - Normalize whitespace (drop structural whitespace)
+ * - Normalize whitespace (context-aware: drop structural between blocks, collapse to space in phrasing)
  *
  * This is the reverse-side counterpart to ADR-0005's K1 tolerance.
  */
 function normalizeReadback(root: Root): Root {
 	return {
 		type: "root",
-		children: normalizeChildren(root.children),
+		children: normalizeChildren(root.children, false), // root is block-level context
 	};
 }
 
-function normalizeChildren(children: RootContent[]): RootContent[] {
+// Phrasing content elements (inline context where whitespace should collapse to space)
+const PHRASING_ELEMENTS = new Set([
+	"p",
+	"em",
+	"strong",
+	"a",
+	"code",
+	"span",
+	"td",
+	"th",
+	"li",
+	"span",
+]);
+
+function normalizeChildren(
+	children: RootContent[],
+	parentIsPhrasing: boolean,
+): RootContent[] {
 	const result: RootContent[] = [];
 	for (const child of children) {
 		if (child.type === "text") {
 			if (!isStructuralWhitespace(child.value)) {
 				result.push(child);
+			} else if (parentIsPhrasing) {
+				// In phrasing context, collapse structural whitespace to a single space (F-3 fix)
+				// This preserves rendered spaces between inline elements
+				result.push({ type: "text", value: " " });
 			}
+			// In block context, drop structural whitespace entirely
 		} else if (child.type === "element") {
 			const normalized = normalizeElement(child);
 			if (normalized !== null) {
@@ -299,9 +320,11 @@ function normalizeElement(el: Element): Element | null {
 	// K1 tolerance: drop schema-version and macro-id attributes
 	const properties = dropK1Attributes(el.properties);
 
-	// Recursively normalize children
+	// Recursively normalize children with phrasing context
+	const isPhrasing = PHRASING_ELEMENTS.has(el.tagName);
 	const children = normalizeChildren(
 		el.children as ElementContent[],
+		isPhrasing,
 	) as ElementContent[];
 
 	return {
