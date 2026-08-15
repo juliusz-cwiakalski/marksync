@@ -106,3 +106,56 @@ Phase 1 (saxes pre-lock spike, go/no-go per TDR-0012 C-1..C-7, @xmldom/xmldom de
 ## Override / Gate Decision
 
 No override requested or needed — full DoR applied. **NOT_READY**: Finding 1 is a genuine cross-artifact contradiction on the delivery plan's highest-risk phase (Phase 4, RSK-P1/P2 territory), and as written task 4.2 produces Appendix-B-violating output. Reopen **delivery_planning** only; spec and test plan pass all facets (findings 3–4 are non-blocking polish that may ride along with the test plan's next touch but do not require a reopen on their own). Re-run this gate after the plan v1.1 amendment; expected outcome READY at iteration 2. No human input required (Pause: no) — TDR-0013 already records the human license-acceptance reservation at PR, which is the correct deferral point.
+
+---
+
+# Readiness Review Iteration 2 (DoR Gate — GH-92, re-review after remediation)
+
+Verdict: NOT_READY
+Work Item: GH-92
+Date: 2026-08-15
+Pause Required: no
+
+Reviewer: `@readiness-reviewer` (adversarial DoR gate, lifecycle phase 5, iteration 2)
+Inputs: `chg-GH-92-spec.md` v0.1 (unchanged), `chg-GH-92-test-plan.md` v0.3, `chg-GH-92-plan.md` v1.1 (revision log: TDR-0013 integration, TDR-0012 precedence note, pii-audit scope note, qualified loader paths), `chg-GH-92-pm-notes.yaml` (iter-1 reopen log verified), `doc/decisions/TDR-0013-reverse-markdown-serializer-substrate.md` (read in full), iteration-1 record above, tree @ working dir (fixtures re-verified: 34 `.storage.xhtml`).
+
+## Per-Finding Closure Table (iteration 1 → 2)
+
+| # | Iter-1 finding | Claimed remediation | Verified status |
+|---|---|---|---|
+| 1 | [major] Plan predates TDR-0013 (no options layer, wrong fallback order, missing corner-checks, OQ-P1 stale) | plan v1.1 tasks 4.1/4.2/4.3, PD-3, Binding inputs, Artifacts, RSK-P1, OQ-P1, task 6.6 | **CLOSED (verified in substance)** — options layer `{bullet: '-', rule: '-'}` pinned at task 4.2's single load-bearing point and stated to live inside `hastToMarkdown` alone (4.3, matching TDR-0013 C-1/Impl #4); fallback Alt 3 → Alt 2-last-resort consistent across PD-3, RSK-P1, and task 4.1 (matches TDR-0013 Impl #5); both corner-checks (bulletOther 3 trigger cases incl. the `bullet:'-'` → `bulletOther:'*'` derivation; `resourceLink:false` bare-text autolink) in 4.1 with the "record in TDR-0013, not ad hoc" rule (Impl #3); OQ-P1 marked RESOLVED; TDR-0013 in Binding inputs + Artifacts + frontmatter links; accepted-flip wired in 6.6. Cross-checked against the TDR-0013 text itself — no mischaracterization. |
+| 2 | [minor] TDR-0012 Impl #3 stale MarkSyncError wording vs PM-DEC-3/PD-2 | plan task 3.3 precedence note + task 6.6 revisit-log record + Artifacts-table note | **CLOSED** — precedence note present in task 3.3 (and echoed in PD-2 + Artifacts); supersession recording in TDR-0012's revisit log at the Accepted flip is task 6.6. Coder receives unambiguous instruction at the point of contradiction. |
+| 3 | [minor] `raw-html-block-real` dual-bucketed in manifest design (both artifacts) | test-plan v0.3: buckets pairwise disjoint, raw-html-block-real excluded-only, TC-RT-005 asserts disjointness + 26+6+1 union | **CLOSED in the test plan; NOT propagated to the plan** — test-plan v0.3 verified solid (§4.4 manifest rule line "dual bucketing is a manifest error"; §6.2 excluded-only; TC-RT-005 steps 1–2; TC-RT-002 step 1 carve-out removed; A-1 updated to 26+6+1). **BUT plan v1.1 task 5.1 still enumerates `corpusB` [7 — … incl. `raw-html-block-real`] alongside `excluded` [{name: raw-html-block-real}]** → new Finding 6 below. |
+| 4 | [nit] adversarial set outside pii-audit walk, PII loss unexamined | test-plan §4.3 scope note + plan task 5.6 note + task 5.7 compensating grep-audit | **CLOSED** — scope note in both artifacts, examined not silent; 5.7 asserts email + internal-ticket-URL patterns = 0 across the 18 files, bare-ID pattern scoped out with the jira-fixture rationale; correctly framed as a plan task riding TC-RADV, not a standalone TC. |
+| 5 | [nit] loader paths bare-named in Constraints | plan Constraints now fully qualified | **CLOSED** — `tests/golden/markdown/storage-renderer.test.ts` + `tests/integration/markdown/pipeline-roundtrip.test.ts` + `tests/unit/_helpers/assert-well-formed-xml.test.ts` with extension-filter semantics stated. |
+
+## Facet Summary (re-evaluated)
+
+- spec_completeness: PASS (unchanged — spec defines corpus B qualitatively; no count to drift)
+- ac_quality: PASS
+- plan_coverage: PASS
+- test_traceability: PASS
+- cross_artifact_consistency: **FAIL** (Finding 6)
+- decision_capture: PASS
+- system_spec_consistency: PASS
+- plan_doc_update_coverage: PASS
+- plan_code_area_coverage: PASS (improved — loader paths qualified)
+- dod_defined: PASS
+
+## New-Inconsistency Sweep (amendments checked for collateral damage)
+
+- Options layer 4.2 ↔ 4.3 ↔ PD-3 ↔ RSK-P1 ↔ TDR-0013: consistent (single definition point; no separate stringification path).
+- Fallback order PD-3 ↔ task 4.1 ↔ RSK-P1 ↔ TDR-0013 Impl #5: consistent (Alt 3 first, Alt 2 last resort).
+- corpus-B count 7→6 propagation: test plan ✓ (§6.2, §4.4, TC-RT-002/005, A-1, §6.2 fixtures list, sidecar count line), plan task 5.4 ✓ ("the 6 corpus-B fixtures"), plan §Context "partition 26 A / 7 B" ✗ stale, **plan task 5.1 ✗ stale + contradictory (Finding 6)**.
+- Fixture disk inventory re-verified: 34 `.storage.xhtml` — matches the 32-twin + 2-Storage-only accounting both artifacts rely on.
+
+## Findings
+
+6. [major] cross_artifact_consistency — chg-GH-92-plan.md task 5.1 (manifest enumeration) vs chg-GH-92-test-plan.md §4.4/§6.2/TC-RT-005 (v0.3)
+   Gap: Task 5.1 instructs the coder to commit `round-trip-partition.json` with `corpusB` [7 — frontmatter, html-comment-block, html-comment-inline, link-ref-comment, mixed-html-comment, raw-html-inline-real, **raw-html-block-real**] **and** `excluded` [{name: "raw-html-block-real", …}] — the exact dual bucketing that binding test-plan v0.3 §4.4 declares a manifest error ("a fixture appears in EXACTLY ONE bucket — dual bucketing is a manifest error") and that TC-RT-005 step 2 asserts against. Executing task 5.1 as written produces a manifest that fails the harness committed in the same phase; the plan is also internally inconsistent (task 5.4 and the Binding-inputs partition line say 6). This is Finding 3's root cause resurfacing at the plan↔test-plan boundary because the v0.3 fix was not propagated to task 5.1 (plan v1.1's revision log lists no 5.1 touch). Persistent root cause, new location.
+   Suggested remediation target phase: delivery_planning
+   Suggested fix: single edit to task 5.1 — `corpusB` [6 — frontmatter, html-comment-block, html-comment-inline, link-ref-comment, mixed-html-comment, raw-html-inline-real] (raw-html-block-real removed; `excluded` entry unchanged), and update the Binding-inputs partition phrase "26 A / 7 B" → "26 A / 6 B / 1 excluded" for count consistency. Bump plan to v1.2. No other artifact changes; test plan and spec are correct as they stand.
+
+## Override / Gate Decision
+
+No override requested or needed — full DoR applied. **NOT_READY**: one major cross-artifact contradiction remains (Finding 6), and it sits on a phase-5 deliverable the coder authors verbatim. Reopen **delivery_planning** only — a single-task edit (5.1 + one count phrase), no spec/test-plan impact. All four other iteration-1 findings verified closed in substance, not merely claimed. Expected outcome READY at iteration 3 with no other changes. No human input required (Pause: no). Iteration cap note: this is iteration 2 of ~3; the blocking gap is a mechanical propagation miss, not a stalemate.

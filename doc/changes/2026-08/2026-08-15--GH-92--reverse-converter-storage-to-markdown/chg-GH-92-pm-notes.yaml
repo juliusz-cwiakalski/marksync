@@ -10,7 +10,7 @@ phases:
   specification: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z" }
   test_planning: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z" }
   dor_check: { started: "2026-08-15T00:00:00Z", completed: null }
-  delivery_planning: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z", reopened: "2026-08-15", reopen_reason: "DoR iter-1 NOT_READY: plan v1.0 predates TDR-0013 (missing bullet/rule options layer, fallback order contradicts Alt 3, spike corner-checks missing, OQ-P1 shown unresolved)" }
+  delivery_planning: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z", reopened: "2026-08-15", reopen_reason: "DoR iter-1 NOT_READY: plan v1.0 predates TDR-0013 (missing bullet/rule options layer, fallback order contradicts Alt 3, spike corner-checks missing, OQ-P1 shown unresolved). DoR iter-2 NOT_READY: Finding 6 — corpus-B 7→6 count not propagated to plan task 5.1 (manifest instruction still dual-buckets raw-html-block-real, contradicting test-plan v0.3 disjointness rule the same phase builds)" }
   dor_check: { started: "2026-08-15T00:00:00Z", completed: null }
   delivery: { started: null, completed: null }
   system_spec_update: { started: null, completed: null }
@@ -188,5 +188,27 @@ notes:
       Improvement: when a decision lands AFTER an artifact that depends on
       it, re-run the dependent artifact's validation (or sequence the
       decision before the artifact) before the phase checkpoint commit.
+    type: retro
+    date: "2026-08-15"
+  - text: >
+      DoR iter-2 NOT_READY: findings 1-5 all CLOSED (verified vs TDR-0013
+      text, disk, and amended tasks). NEW Finding 6 [major]: plan task 5.1
+      still enumerates corpusB [7] including raw-html-block-real while
+      test-plan v0.3 TC-RT-005 asserts disjointness — executing 5.1 as
+      written commits a manifest failing the harness built in the same
+      phase; also stale "26 A / 7 B" in Binding inputs (task 5.4 already
+      says 6). Mechanical propagation miss; iter 2 of max 3. Remediation:
+      plan v1.2 via @plan-writer (5.1 corpusB→6 + binding-inputs count) →
+      DoR iter-3.
+    type: info
+    date: "2026-08-15"
+  - text: >
+      Retro — DoR iter-2: cross-artifact count changes (7→6 corpus-B) must
+      be propagated with a checklist sweep across ALL artifacts citing the
+      count (plan task text, binding inputs, test plan, spec if numeric).
+      The iter-1 remediation updated the rule but missed one instruction
+      site. Improvement for @plan-writer delegations: when amending a count
+      or bucket rule, grep ALL artifacts for the old value before declaring
+      done.
     type: retro
     date: "2026-08-15"
