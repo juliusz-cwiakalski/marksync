@@ -174,7 +174,8 @@ describe("TC-RT-002: corpus-B explicit reverse expectations", () => {
 				// Use the existing Storage file, don't regenerate
 				const storagePath = join(fixturesDir, `${name}.storage.xhtml`);
 				if (!existsSync(storagePath)) {
-					// mixed-html-comment has no Storage form (empty file)
+					// Defensive guard: every corpus-B fixture currently has a
+					// Storage twin (mixed-html-comment's is a 0-byte file).
 					expect(name).toBe("mixed-html-comment");
 					return;
 				}
