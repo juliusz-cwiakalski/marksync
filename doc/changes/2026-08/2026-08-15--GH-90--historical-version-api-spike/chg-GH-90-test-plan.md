@@ -54,7 +54,7 @@ There is no shipped code (spec NG-1); nothing enters any CI test suite. This pla
 - PDR-0002 — TO-CONFIRM row, revisit trigger #3 (NO-GO fallback wording), Decision §2 (`resolve` base-version diff)
 - `doc/inception/integration-scenarios/08-page-versions.md` — P5-05/P5-06 prior evidence (delta baseline)
 - `doc/guides/security-baseline.md` — secret/redaction posture backing NFR-1
-- No implementation plan exists by design — docs-only spike (spec §25); this plan carries the execution procedure
+- `chg-GH-90-plan.md` — implementation plan (delivery phase 4) operationalizes this procedure as 24 phased tasks
 
 ## 3. Coverage Overview
 

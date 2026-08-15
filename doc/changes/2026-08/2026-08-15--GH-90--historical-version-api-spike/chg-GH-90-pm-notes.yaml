@@ -7,7 +7,7 @@ phases:
   clarify_scope: { started: 2026-08-15, completed: 2026-08-15 }
   specification: { started: 2026-08-15, completed: 2026-08-15 }
   test_planning: { started: 2026-08-15, completed: 2026-08-15 }
-  delivery_planning: { started: null, completed: null }
+  delivery_planning: { started: 2026-08-15, completed: 2026-08-15 }
   dor_check: { started: null, completed: null, verdict: null, iterations: 0 }
   delivery: { started: null, completed: null }
   system_spec_update: { started: null, completed: null }
@@ -94,6 +94,13 @@ notes:
       body. AC-4 (TDR created with evidence links) = TDR-0011 in
       doc/decisions/ + 00-index row. All redaction per C-7/NFR: no token,
       email, or Basic-auth header in any captured artifact.
+    type: info
+    date: "2026-08-15"
+  - text: >
+      PM coordination edit: fixed stale line in chg-GH-90-test-plan.md §2
+      ("No implementation plan exists by design" → reference to the delivered
+      chg-GH-90-plan.md). Cosmetic only; flagged by @plan-writer; no reopen
+      needed.
     type: info
     date: "2026-08-15"
   - text: >
