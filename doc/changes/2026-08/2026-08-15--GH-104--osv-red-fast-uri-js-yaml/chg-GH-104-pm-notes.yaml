@@ -13,7 +13,7 @@ phases:
   dor_check: { started: 2026-08-15, completed: 2026-08-15 }
   delivery: { started: 2026-08-15, completed: 2026-08-15 }
   system_spec_update: { started: 2026-08-15, completed: 2026-08-15 }
-  review_fix: { started: null, completed: null }
+  review_fix: { started: 2026-08-15, completed: 2026-08-15 }
   quality_gates: { started: null, completed: null }
   dod_check: { started: null, completed: null }
   pr_creation: { started: null, completed: null, url: null }
@@ -109,5 +109,17 @@ notes:
       entries (fast-uri was never documented there → js-yaml not added);
       README:93 version is illustrative (was stale before this change);
       TDR-0010 0.8.1 ref is frozen history. No files changed.
+    type: info
+    date: 2026-08-15
+
+  - text: >
+      Review verdict PASS iter-1 (code-review/review-iter-1.yaml): 0 critical/
+      high/medium/low, 1 info (F-1 = AC-F3-1 pre-merge DoD assertion: do not
+      merge without green osv-scan on the PR — already tracked). Reviewer
+      independently verified: all ACs (F3-1 deferred by design), surgical
+      lockfile diff (overrides echo + 2 pins + integrity only, no skew,
+      consumer edges unchanged), registry integrity hashes byte-identical to
+      npm dist.integrity (anti-typosquat), frozen-lockfile exit 0, zero
+      src/tests diff, bun run check 1310 pass / 0 fail re-run.
     type: info
     date: 2026-08-15
