@@ -6,7 +6,7 @@ change_folder: doc/changes/2026-08/2026-08-15--GH-103--mock-module-leak-ci-red
 phases:
   clarify_scope: { started: 2026-08-15T04:10:00Z, completed: 2026-08-15T04:10:00Z }
   specification: { started: 2026-08-15T04:21:00Z, completed: 2026-08-15T04:22:00Z }
-  test_planning: { started: null, completed: null }
+  test_planning: { started: 2026-08-15T04:22:00Z, completed: 2026-08-15T04:35:00Z }
   delivery_planning: { started: null, completed: null }
   dor_check: { started: null, completed: null }
   delivery: { started: null, completed: null }
@@ -35,6 +35,20 @@ open_questions: []
 blockers: []
 
 notes:
+  - text: >
+      Phase 3 complete: chg-GH-103-test-plan.md (594 lines, 11 scenarios).
+      Guard pinned (D-TST-1): scanning unit test
+      tests/unit/meta/no-mock-module.test.ts matching call syntax
+      "mock.module(" (concatenation-built needle — handoff patch retains
+      paren-free prose mentions in warning comments, so bare-name scan would
+      false-positive). AC-F1-1 invocation pinned: bun test unit-files-first
+      + tests/integration/. AC-F3-1 split explicit (repair 1-4 unchanged
+      runCli, 5-6 seam-injected). D-TST-2: rejected default-deps
+      doctorCommand unit test (would hit real fs/git). Ticket shorthand
+      "TC-DOCTOR-013..022" = 9 real tests (no 021). R-TST-5: handoff
+      patch's "PR #105" comment drift to correct at re-validation.
+    type: info
+    date: 2026-08-15
   - text: >
       Phase 2 complete: chg-GH-103-spec.md (343 lines). 7 ACs: AC-F1-1
       (order-reproducible fast-loop green), AC-F1-2 (full fast-loop green),
