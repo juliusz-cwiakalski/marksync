@@ -353,27 +353,33 @@ Next Step: **ESCALATE_TO_HUMAN** — docs-only correction (Phase-8 row + 8.1 sen
 
 *Review artifacts: `code-review/review-iter-4.yaml` (machine-readable, same findings). No source code was modified by this review; no plan phase appended (disposition: full stop); one scratch diff dump under pre-approved `tmp/opencode/opencode/`.*
 
-# Iteration 5 (record-only re-check — records vs tree after F-30/F-31 remediation)
+# Iteration 5 (record re-check — reviewer-certified)
 
-**Mode**: local (record-only, per the iter-4 verdict's own prescription) · **Iteration**: 5 · **Date**: 2026-08-15
-**Executor**: PM (documented exception — two consecutive reviewer-session interruptions; every check below re-executed directly with commands inline; disclosed for human review at PR hand-off)
-**Scope**: F-30 (record fabrications) + F-31 (duplicate probes) only — the iter-4 FAIL drivers.
+**Mode**: local (record-only, minimal scope per the iter-4 verdict's own prescription) · **Iteration**: 5 · **Date**: 2026-08-15
+**HEAD**: `41742a4` — the `f14ad51` plan-row correction and the `41742a4` PR record landed mid-review (the fourth racing session of this change); every fact below was re-derived independently against the terminal tree.
+**Provenance**: supersedes the PM-executed iter-5 draft (documented exception after two reviewer-session interruptions; preserved verbatim in git history at `f14ad51`). This reviewer session re-executed every check and confirms all of the draft's facts; findings numbered onward from the iter-4 yaml's F-35.
 
 ## Verdict (iteration 5)
 
-**Status: PASS** — records now match the tree; F-30 RESOLVED, F-31 RESOLVED.
+**Status: PASS** — records now match the tree; **F-30 RESOLVED, F-31 RESOLVED**. Residuals: 3 info findings (F-36..F-38), none blocking, riding PR #110 per the iter-4 prescription.
 
-## Evidence (re-executed at HEAD after the Phase-8-row correction riding this commit)
+## Evidence (independently re-executed at `41742a4`)
 
-- **F-31 tree state**: `rg -o 'it\("[^"]+"' tests/unit/infra/confluence/parse/reverse.test.ts | sort | uniq -c | sort -rn` → all titles count 1 (5 task-family pairs, stray-p pair, triple `ac:image[ac:macro-id]`, double macro-K1 deduped by 2345560); describes unique. Solo run: **76 tests: 75 pass / 1 skip / 0 fail**.
-- **F-30 record state**: `chg-GH-93-plan.md` — no "removed 2 duplicate tests" or "86 pass" fabrications remain (grep-verified); task 8.1 states "75 pass / 1 skip (deduped from 84; 18 probes added across 40ad117+b7a18f6)"; Phase-8 execution row (corrected in this commit) attributes every action honestly: probes DELIVERED by phase-8 commits, dedup by 2345560, task-3.8 + kroki corrections made BY b7a18f6, both pre-/post-dedup gate counts stated.
-- **Spec counts**: feature spec + test spec carry the 75-test armory figure (b389630/bb20e8e).
-- **Gates**: `bun run check` → exit 0 (lint 0 errors / 239 warnings; bun test 1758 pass / 1 skip / 0 fail); `bun run test:bdd` → 6 scenarios / 42 steps green.
-- **Review-artifact coherence**: this file carries one consolidated iter-4 record + provenance notes (superseded drafts preserved in git history b724c2d and under tmp/opencode/opencode/ per F-29 discipline).
+- **F-31 RESOLVED (tree)**: solo `bun test tests/unit/infra/confluence/parse/reverse.test.ts` → **76 tests: 75 pass / 1 skip / 0 fail**. `rg -o 'it\("[^"]+"' … | sort | uniq -c` → every title count 1; zero duplicate `describe` IDs (the second TC-ATTR-003 renamed **TC-ATTR-004**, test-spec references updated to TC-ATTR-003/004). Dedup shape verified: `2345560` file numstat = **1 insertion / 146 deletions** — 8 tests removed (the 6 racing-session pairs + 1 redundant `ac:image[ac:macro-id]` twin + 1 macro-K1 twin; 84 → 76). Probe arithmetic per commit: `40ad117` +2 `it(`, `b7a18f6` +16 → **18 probes**, exactly as recorded.
+- **F-30 RESOLVED (records)**: grep-verified — "removed 2 duplicate tests", "86 pass", "8 new probes" survive only inside historical review narrative, never as live claims. Task 8.1 states "75 pass / 1 skip (deduped from 84; 18 probes added across 40ad117+b7a18f6)" — matches this review's own runs. Phase-8 execution row (corrected by `f14ad51`): commit cell `40ad117 + b7a18f6 + 2345560`; "(8.2) 8 required probes DELIVERED by this phase's own commits"; task-3.8 + kroki corrections "BOTH made by b7a18f6 (not pre-existing)"; gates per point-in-time ("pre-dedup: 1766/1 skip/0 … post-dedup at 2345560: 1758 pass/1 skip/0 fail") — the current-truth numbers reproduced by this review; the 1766 pre-dedup figure matches iter-4's independently recorded runs at `0c26475`.
+- **Spec counts current**: feature spec (`:337`) + test spec (`:133`, `:511`) → "16 TC arms, 75 tests" (75 pass + 1 skip = 76 total; wording note → F-36).
+- **Gates (this review's own runs)**: `bun run check` → **exit 0** — lint 0 errors, `bun test` **1758 pass / 1 skip / 0 fail** (1759 tests / 134 files, 60 snapshots), depcruise 112 modules clean; `bun run test:bdd` → **6 scenarios / 42 steps green**; tripwires → **0 files changed vs `main`** (`src/cli/`, `tests/golden/fixtures/markdown/`, `tests/adversarial/`, both `resolver.ts` paths net-zero).
+- **Iter-4 record coherence**: one consolidated md record + third-session certification + provenance notes; superseded FAIL drafts preserved (`b724c2d` in git history); the md-FAIL/yaml-PASS divergence is reconciled per commit range (FAIL true at `0c26475`, PASS certified at `bb20e8e`) with the F-30/F-31 ID swap and the yaml off-by-one disclosed — coherent.
 
-## Residuals
+## Residuals (info-only, ride PR #110)
 
-None blocking. F-32..F-34 (info) ride the PR record as notes per the iter-4 prescription.
+- **F-36** — "75 tests" wording elides the 1 documented skip (76 ran); optional "75 tests + 1 skipped probe" at next doc touch.
+- **F-37** — iter-4 yaml cosmetics: F-31 message off-by-one ("74 pass"; actual 75), F-30↔F-31 IDs swapped vs `b724c2d`, `reviewed_at` local-time-as-Z; disclosed in the certification section — cite by content.
+- **F-38** — one unreproduced 1757/1-fail full-suite run at `bb20e8e` (certification session); both of this review's gate runs clean — re-run-on-red discipline noted.
+
+Review chain: iter-1 FAIL (12) → Phase 6 → iter-2 FAIL (F-13..F-21) → Phase 7 → iter-3 FAIL convergent (F-23..F-28) → Phase 8 → iter-4 SPOT FAIL at `0c26475` (F-30/F-31; PASS certified at `bb20e8e`) → `2345560` dedup + honest records + `f14ad51` row correction → **iter-5 record re-check PASS** → lifecycle complete, PR #110.
+
+*Review artifacts: `code-review/review-iter-5.yaml` (machine-readable, same findings). No source code was modified by this review; no plan phase appended (residuals are info-only); nothing committed — writes left for the `/commit` flow.*
 
 ---
 

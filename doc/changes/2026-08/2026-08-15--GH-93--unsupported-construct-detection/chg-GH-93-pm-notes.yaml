@@ -438,3 +438,19 @@ notes:
       races reconciled at iters 3/4 (yaml-authoritative pattern).
     type: info
     date: "2026-08-15"
+  - text: >
+      ITER-5 UPGRADE (post-PR): a racing reviewer session independently
+      re-derived the record re-check at terminal HEAD 41742a4 and rewrote
+      review-iter-5.yaml as a REVIEWER-executed certification (superseding
+      the PM-exception draft; facts independently confirmed; preserved in
+      history at f14ad51/41742a4). Verdict PASS unchanged — F-30/F-31
+      RESOLVED via reviewer's own runs (check exit 0, 1758/1/0, bdd 6/42,
+      tripwires 0 files vs main, numstat forensics on 2345560). 3 new info
+      findings ride the PR: F-36 pass-count wording convention ("75 tests"
+      = 75 pass + 1 skip); F-37 cosmetic iter-4 yaml defects (already
+      disclosed); F-38 one unreproduced load-suspect flake (1757/1/1 once at
+      bb20e8e; re-run-on-red discipline note). The PM-executed-iter-5
+      disclosure concern in the PR body is now MOOT — independent reviewer
+      certification on record.
+    type: info
+    date: "2026-08-15"
