@@ -355,3 +355,16 @@ notes:
   type: info
   workItemRef: GH-92
   date: '2026-08-15'
+- text: 'CI remediation on PR #108 (post-creation): 2 red checks fixed. (1) commitlint body-max-line-length:
+    ONE commit (feat(GH-92): reverse contract — classifier, serializer, normalizer, old 3b76766) had 2
+    body lines >100 chars — reworded via filter-branch msg-filter (fold -s -w 100); subjects/meaning preserved;
+    commitlint range now exit 0. (2) doc-yaml-lint: review-iter-1.yaml F-6 message contained an embedded
+    colon-space in a plain scalar — single-quoted (syntax-only; 14 findings + verdict FAIL intact; all
+    repo yaml now parses). HISTORY NOTE: the rewrite rehashed ALL 40 branch commits (GPG signatures regenerated;
+    every pre-remediation SHA in Execution Log/review files/pm-notes refers to pre-rewrite hashes) — full
+    old->new map appended to the plan (Execution Log Appendix); branch re-signed (41/41 G). Content verified
+    unchanged vs backup branch backup/GH-92-pre-ci-fix (diff = yaml repair only). Force-pushed to the
+    PR branch; main untouched; PR left OPEN for CEO merge.'
+  type: info
+  workItemRef: GH-92
+  date: '2026-08-15'

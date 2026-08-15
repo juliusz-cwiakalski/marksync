@@ -493,3 +493,58 @@ All 19 test-plan TCs are wired by this plan; phases below are where each first e
 | Phase 7 | ✅ Completed | — | 2026-08-15 | 039c275 + 5ba3c0c | F-1 (collect-all parity): type-safe UnsupportedConstructError variant, removed double casts; F-3 (whitespace): context-aware collapse to space in phrasing, drop between blocks; F-4 (TC-RT-002): real byte-equality assertions against corpus-B sidecars; Exact pins, dedup, nested-table deep detection, zero forward modifications, 1608 tests green. NOTE: ff4145c referenced in orchestrator context is dangling; 5ba3c0c is the actual tsc-strict follow-up commit on this branch.
 | Phase 8 | ✅ Completed | — | 2026-08-15 | 5ef0718 (+ plan b0cd7b1, 780f8c3) | F-15: mixed-order parity test (mermaid artifact informational + gliffy blocking) in reverse-diagnostics.test.ts, first blocking ≡ fast-fail on code/construct/location; F-16: reverted world.ts to main (After(function () syntax); F-17: fixed readback-reflowed sidecar (trailing newline, heading case added) and wired TC-RT-002 storageOnly test; F-18: removed dead 0-byte sidecars (mixed-html-comment.md, provenance-panel.md; mixed-html-comment.md later restored in Phase 9 — it IS consumed by TC-RT-002, expected bytes are empty); F-19: OQ-T3 p95 dropped (no timing code added, decision recorded); F-20: deduped "span" in PHRASING_ELEMENTS, added h1-h6 for heading phrasing context; F-21: Phase-7 commit SHAs corrected (039c275 + 5ba3c0c, not phantom ff4145c); F-22: heading phrasing gap fixed (h1-h6 in PHRASING_ELEMENTS, heading case in reflow fixture); corrected false completion claims in 7.1, 7.6; test-plan §4.4 amendment added |
 
+
+
+## Execution Log Appendix: CI Remediation SHA Map (2026-08-15)
+
+CI on PR #108 failed commitlint (`body-max-line-length` on
+`feat(GH-92): reverse contract — classifier, serializer, normalizer`) and
+doc-yaml-lint (`review-iter-1.yaml` invalid). Remediation reworded that one
+commit via msg-filter rewrap (fold -s -w 100) and re-signed the branch; the
+history rewrite rehashed EVERY branch commit (signatures must be regenerated,
+so all SHAs changed even where messages are byte-identical). Content is
+unchanged (`git diff` full-range = the yaml syntax repair only).
+
+All SHAs cited in this plan's Execution Log, the review files, and pm-notes
+above refer to the PRE-rewrite hashes. Map (oldest→newest order below):
+
+`ca69a81` → `692a575`
+`8140e04` → `354d95f`
+`b3aff93` → `3208efa`
+`b6cb65f` → `80fa9c6`
+`5e93c61` → `8db9948`
+`94bb449` → `8e6b99d`
+`780f8c3` → `b0a2946`
+`b0cd7b1` → `4b875ba`
+`5ef0718` → `9f14dc9`
+`1a1ab3c` → `30db04d`
+`5ba3c0c` → `e4c23e5`
+`039c275` → `783b248`
+`6dfd375` → `99af0e9`
+`4746af7` → `a96447c`
+`1fdd690` → `b171634`
+`f607cd3` → `2a32aec`
+`e996e56` → `9048784`
+`7aad3a5` → `2c3659c`
+`0581381` → `96ea603`
+`7e5289f` → `f5eaa61`
+`142c3f0` → `ac6a7f1`
+`66a1d4f` → `18a53de`
+`7c8536e` → `012256c`
+`3b76766` → `29ef336`
+`c1bae1c` → `04ffa6e`
+`2b7964f` → `faa76b8`
+`47cb47a` → `63ab01c`
+`bdc3f50` → `2b4646d`
+`9a4ebc3` → `02fcbf0`
+`16e5f7b` → `216b5f8`
+`676d711` → `0223db3`
+`c3f779a` → `612fa2c`
+`8e8e559` → `5cadc37`
+`9829cde` → `fd38ba6`
+`37d045c` → `c61d7fd`
+`0662b4d` → `54cd296`
+`ef8cc2d` → `192f4ef`
+`d16ca18` → `2cd5317`
+`e9bc996` → `b1e90a5`
+`0147196` → `dd1796f`
