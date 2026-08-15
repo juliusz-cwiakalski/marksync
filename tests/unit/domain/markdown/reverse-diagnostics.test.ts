@@ -10,6 +10,10 @@ import type {
 	ReverseSuccess,
 } from "#domain/markdown/reverse-diagnostics";
 import { REVERSE_CODES } from "#domain/markdown/reverse-diagnostics";
+import {
+	reverseStorage,
+	reverseStorageCollectAll,
+} from "#infra/confluence/parse/reverse";
 
 describe("reverse-diagnostics", () => {
 	describe("TC-RDIAG-001: blocking diagnostic shape", () => {
@@ -211,6 +215,165 @@ describe("reverse-diagnostics", () => {
 		});
 
 		it("payload carries no content echo", () => {
+			const diagnostic: InformationalDiagnostic = {
+				severity: "informational",
+				class: "marksync-synthetic-artifact",
+				code: REVERSE_CODES.SYNTHETIC_ARTIFACT,
+				construct: "ac:image[ri:filename='marksync-mermaid-hash.svg']",
+				location: { line: 3, column: 7 },
+			};
+
+			const serialized = JSON.stringify(diagnostic);
+			expect(serialized).not.toContain("diagram");
+			expect(serialized).not.toContain("content");
+			// Only structural fields present
+			expect(serialized).toContain("severity");
+			expect(serialized).toContain("code");
+			expect(serialized).toContain("construct");
+			expect(serialized).toContain("location");
+		});
+	});
+
+	describe("TC-RDIAG-001 (Storage-driven): blocking diagnostic shape", () => {
+		it("hand-built Storage → blocking shape: pinned code, construct, location", () => {
+			// Unknown macro produces blocking diagnostic
+			const storage = `<ac:structured-macro ac:name="unknown-macro">
+  <ac:plain-text-body><![CDATA[Macro body]]></ac:plain-text-body>
+</ac:structured-macro>`;
+
+			const result = reverseStorage(storage);
+
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				const error = result.error;
+				expect(error.code).toBe(REVERSE_CODES.UNSUPPORTED_CONSTRUCT);
+				expect(error.construct).toContain('ac:name="unknown-macro"');
+				expect(error.location).toBeDefined();
+				expect(error.location.line).toBeGreaterThan(0);
+				expect(error.location.column).toBeGreaterThan(0);
+				// No content echo
+				expect(JSON.stringify(error)).not.toContain("Macro body");
+			}
+		});
+
+		it("no content echo — diagnostic carries only structural data", () => {
+			const storage = `<p>Secret password: hunter2</p>
+<ac:structured-macro ac:name="bad-macro">
+  <ac:plain-text-body><![CDATA[PII: john@example.com]]></ac:plain-text-body>
+</ac:structured-macro>`;
+
+			const result = reverseStorage(storage);
+
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				const serialized = JSON.stringify(result.error);
+				expect(serialized).not.toContain("hunter2");
+				expect(serialized).not.toContain("john@example.com");
+				expect(serialized).toContain("bad-macro"); // Only construct identity
+			}
+		});
+
+		it("deterministic — same Storage → identical diagnostic", () => {
+			const storage = `<ac:structured-macro ac:name="toc">
+  <ac:parameter ac:name="maxLevel">3</ac:parameter>
+</ac:structured-macro>`;
+
+			const result1 = reverseStorage(storage);
+			const result2 = reverseStorage(storage);
+
+			expect(result1.ok).toBe(false);
+			expect(result2.ok).toBe(false);
+			if (!result1.ok && !result2.ok) {
+				expect(result1.error).toEqual(result2.error);
+				expect(JSON.stringify(result1.error)).toBe(
+					JSON.stringify(result2.error),
+				);
+			}
+		});
+	});
+
+	describe("TC-RDIAG-002 (Storage-driven): fast-fail / collect-all parity", () => {
+		it("3+ unsupported instances → fast-fail returns first, collect-all returns all N", () => {
+			const storage = `<ac:structured-macro ac:name="toc">
+  <ac:parameter ac:name="maxLevel">3</ac:parameter>
+</ac:structured-macro>
+<p>Paragraph</p>
+<ac:structured-macro ac:name="expand"></ac:structured-macro>
+<ac:structured-macro ac:name="gliffy"></ac:structured-macro>`;
+
+			const fastFail = reverseStorage(storage);
+			const collectAll = reverseStorageCollectAll(storage);
+
+			// Fast-fail stops at first error
+			expect(fastFail.ok).toBe(false);
+			if (!fastFail.ok) {
+				expect(fastFail.error.construct).toContain('ac:name="toc"');
+			}
+
+			// Collect-all exhaustively lists all 3 (returns Result with diagnostics array)
+			expect(collectAll.ok).toBe(true);
+			if (collectAll.ok) {
+				expect(collectAll.value.diagnostics).toHaveLength(3);
+				expect(collectAll.value.diagnostics[0].construct).toContain(
+					'ac:name="toc"',
+				);
+				expect(collectAll.value.diagnostics[1].construct).toContain(
+					'ac:name="expand"',
+				);
+				expect(collectAll.value.diagnostics[2].construct).toContain(
+					'ac:name="gliffy"',
+				);
+			}
+		});
+
+		it("all[0] deep-equals fast-fail error (parity)", () => {
+			const storage = `<ac:structured-macro ac:name="toc"></ac:structured-macro>
+<p>Paragraph</p>
+<ac:structured-macro ac:name="expand"></ac:structured-macro>`;
+
+			const fastFail = reverseStorage(storage);
+			const collectAll = reverseStorageCollectAll(storage);
+
+			expect(fastFail.ok).toBe(false);
+			expect(collectAll.ok).toBe(true);
+			if (!fastFail.ok && collectAll.ok) {
+				// First collect-all entry deep-equals fast-fail error (code, construct, location)
+				expect(collectAll.value.diagnostics[0].code).toBe(fastFail.error.code);
+				expect(collectAll.value.diagnostics[0].construct).toBe(
+					fastFail.error.construct,
+				);
+				expect(collectAll.value.diagnostics[0].location).toEqual(
+					fastFail.error.location,
+				);
+			}
+		});
+
+		it("cross-mode per-instance stability via single-instance variants", () => {
+			// Single instance in each mode should have identical structure
+			const storage = `<ac:structured-macro ac:name="toc"></ac:structured-macro>`;
+
+			const fastFail = reverseStorage(storage);
+			const collectAll = reverseStorageCollectAll(storage);
+
+			expect(fastFail.ok).toBe(false);
+			expect(collectAll.ok).toBe(true);
+			if (!fastFail.ok && collectAll.ok) {
+				expect(collectAll.value.diagnostics).toHaveLength(1);
+
+				// Verify per-instance verdict shape
+				expect(fastFail.error.code).toBe(REVERSE_CODES.UNSUPPORTED_CONSTRUCT);
+				expect(fastFail.error.construct).toBeDefined();
+				expect(fastFail.error.location).toBeDefined();
+
+				expect(collectAll.value.diagnostics[0].code).toBe(
+					REVERSE_CODES.UNSUPPORTED_CONSTRUCT,
+				);
+			}
+		});
+	});
+
+	describe("TC-RDIAG-004 (Storage-driven): informational synthetic artifact", () => {
+		it("synthetic artifact payload carries no content echo", () => {
 			const diagnostic: InformationalDiagnostic = {
 				severity: "informational",
 				class: "marksync-synthetic-artifact",
