@@ -11,7 +11,7 @@ phases:
   test_planning: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z" }
   dor_check: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z", verdict: "READY", iterations: 3 }
   delivery_planning: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z", reopened: "2026-08-15", reopen_reason: "DoR iter-1 NOT_READY: plan v1.0 predates TDR-0013 (missing bullet/rule options layer, fallback order contradicts Alt 3, spike corner-checks missing, OQ-P1 shown unresolved). DoR iter-2 NOT_READY: Finding 6 — corpus-B 7→6 count not propagated to plan task 5.1 (manifest instruction still dual-buckets raw-html-block-real, contradicting test-plan v0.3 disjointness rule the same phase builds)" }
-  delivery: { started: null, completed: null }
+  delivery: { started: "2026-08-15T00:00:00Z", completed: null }
   system_spec_update: { started: null, completed: null }
   review_fix: { started: null, completed: null }
   quality_gates: { started: null, completed: null }
@@ -220,6 +220,16 @@ notes:
       should read corpus A+B = 32 (33 includes the excluded forward-error
       fixture; task 4.6 executed verbatim already produces the correct
       binding-conformant test). FIX at next guaranteed plan touch (task 6.5
-      or phase-8 review at latest) — tracked here.
+      or phase-8 review at latest) —       tracked here.
+    type: info
+    date: "2026-08-15"
+  - text: >
+      Delivery in progress — coder interrupted mid-P2 (empty completion
+      report): P1 COMMITTED (676d711 build(GH-92): saxes pinned, pre-lock
+      spike PASSED, 3/36 tasks ticked); P2 partial (untracked
+      src/domain/markdown/reverse-diagnostics.ts +
+      tests/unit/domain/markdown/reverse-diagnostics.test.ts in worktree —
+      left for coder to finish+commit as P2 whole). PM checkpoint commits
+      pm-notes delivery.started + plan P1 ticks; coder resumes at P2.
     type: info
     date: "2026-08-15"
