@@ -1,38 +1,29 @@
 // Doctor CLI handler unit tests (GH-30 / TDR-0009 / DEC-4).
+//
+// Exit-code derivation is driven by an injected runDoctor stub (DEC-4 seam).
+// Never use `mock.module` here: it is process-global under bun:test workers,
+// cannot be restored, and leaks into any test file later loaded by the same
+// worker (the cause of the PR #102 CI doctor flakes).
 
-import { describe, expect, mock, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import type { DoctorReport } from "#app/doctor";
+import type { MarkSyncError } from "#domain/errors";
 import type { Result } from "#domain/result";
 import { Result as Res } from "#domain/result";
 import { doctorCommand } from "#cli/commands/doctor";
 import { EXIT_HEALTH, EXIT_OK } from "#cli/output";
 import type { CommandResult } from "#cli/output";
 
-/**
- * The Result the mocked runDoctor returns, swapped per test. Bun hoists
- * `mock.module` above imports; the factory's closure reads this lazily at call
- * time (never during hoisting), so there is no temporal-dead-zone hazard.
- */
-let nextDoctorResult:
-	| { ok: true; value: DoctorReport }
-	| { ok: false; error: { kind: string; cause?: string } } = {
-	ok: true,
-	value: {
-		checks: [],
-		summary: { pass: 5, warn: 0, fail: 0, skipped: 0, total: 5 },
-		worstStatus: "pass",
-		probeCapabilities: false,
-	},
-};
+/** The Result the stubbed runDoctor returns, swapped per test. */
+let nextDoctorResult: Result<DoctorReport, MarkSyncError> = Res.ok({
+	checks: [],
+	summary: { pass: 5, warn: 0, fail: 0, skipped: 0, total: 5 },
+	worstStatus: "pass",
+	probeCapabilities: false,
+});
 
-mock.module("#app/doctor", () => ({
-	runDoctor: async (_deps: unknown) => {
-		if (nextDoctorResult.ok) {
-			return Res.ok(nextDoctorResult.value);
-		}
-		return Res.err(nextDoctorResult.error);
-	},
-}));
+const stubRunDoctor: typeof import("#app/doctor").runDoctor = async () =>
+	nextDoctorResult;
 
 describe("TC-DOCTOR-011: Exit-code derivation — worstStatus fail→60, no-fail→0", () => {
 	test("TC-DOCTOR-011.1: All checks pass → exit 0, data present, error unset", async () => {
@@ -43,9 +34,12 @@ describe("TC-DOCTOR-011: Exit-code derivation — worstStatus fail→60, no-fail
 			probeCapabilities: false,
 		};
 
-		nextDoctorResult = { ok: true, value: mockReport };
+		nextDoctorResult = Res.ok(mockReport);
 
-		const result = await doctorCommand({ probeCapabilities: false });
+		const result = await doctorCommand(
+			{ probeCapabilities: false },
+			{ runDoctor: stubRunDoctor },
+		);
 
 		expect(result.exitCode).toBe(EXIT_OK);
 		expect(result.data).toEqual(mockReport);
@@ -60,9 +54,12 @@ describe("TC-DOCTOR-011: Exit-code derivation — worstStatus fail→60, no-fail
 			probeCapabilities: false,
 		};
 
-		nextDoctorResult = { ok: true, value: mockReport };
+		nextDoctorResult = Res.ok(mockReport);
 
-		const result = await doctorCommand({ probeCapabilities: false });
+		const result = await doctorCommand(
+			{ probeCapabilities: false },
+			{ runDoctor: stubRunDoctor },
+		);
 
 		expect(result.exitCode).toBe(EXIT_OK); // Warn does not gate
 		expect(result.data).toEqual(mockReport);
@@ -77,9 +74,12 @@ describe("TC-DOCTOR-011: Exit-code derivation — worstStatus fail→60, no-fail
 			probeCapabilities: false,
 		};
 
-		nextDoctorResult = { ok: true, value: mockReport };
+		nextDoctorResult = Res.ok(mockReport);
 
-		const result = await doctorCommand({ probeCapabilities: false });
+		const result = await doctorCommand(
+			{ probeCapabilities: false },
+			{ runDoctor: stubRunDoctor },
+		);
 
 		expect(result.exitCode).toBe(EXIT_HEALTH); // Fail gates to 60
 		expect(result.data).toEqual(mockReport);
@@ -87,14 +87,15 @@ describe("TC-DOCTOR-011: Exit-code derivation — worstStatus fail→60, no-fail
 	});
 
 	test("TC-DOCTOR-011.4: runDoctor err → mapped err result, data absent", async () => {
-		const mockError = {
-			kind: "RemoteUnreachable" as const,
+		nextDoctorResult = Res.err({
+			kind: "RemoteUnreachable",
 			cause: "Network error",
-		};
+		});
 
-		nextDoctorResult = { ok: false, error: mockError };
-
-		const result = await doctorCommand({ probeCapabilities: false });
+		const result = await doctorCommand(
+			{ probeCapabilities: false },
+			{ runDoctor: stubRunDoctor },
+		);
 
 		// Error should be mapped and exit code should be derived from the mapped code
 		expect(result.data).toBeUndefined();
@@ -110,9 +111,12 @@ describe("TC-DOCTOR-011: Exit-code derivation — worstStatus fail→60, no-fail
 			probeCapabilities: false,
 		};
 
-		nextDoctorResult = { ok: true, value: mockReport };
+		nextDoctorResult = Res.ok(mockReport);
 
-		const result = await doctorCommand({ probeCapabilities: false });
+		const result = await doctorCommand(
+			{ probeCapabilities: false },
+			{ runDoctor: stubRunDoctor },
+		);
 
 		// Verify CommandResult structure
 		expect(result).toHaveProperty("schemaVersion");
