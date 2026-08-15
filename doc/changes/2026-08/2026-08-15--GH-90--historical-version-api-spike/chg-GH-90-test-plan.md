@@ -1,6 +1,18 @@
----
 # Copyright (c) 2025-2026 Juliusz Ćwiąkalski (https://www.cwiakalski.com | https://www.linkedin.com/in/juliusz-cwiakalski | https://www.x.com/juliuszcwiakalski)
 # MIT License - see LICENSE file for full terms
+
+<!-- AMENDMENT 1 (2026-08-15, CEO-authorized credential resolution — issue #90
+comment 5300646430; plan v1.1 chg-GH-90-plan.md): local demo .env token is
+revoked → execution vehicle is a CI probe workflow on the spike branch using
+the valid E2E_* Actions secrets. Two conventions superseded:
+(1) D-TST-2 "nothing executable is committed" — the zero-dep probe script
+    (scripts/gh-90-historical-probe.mjs) + workflow file ARE committed under
+    the CEO waiver (additive, spike branch only, GH-32 precedent).
+(2) §6.1/§7 sweeps 1–2 — locally they cover only the known (revoked) local
+    literals; the E2E_* secret values are swept authoritatively IN CI by the
+    script's hard-fail self-check (token/email/Authorization) before upload.
+Case matrix, redaction contract, and verdict scale are UNCHANGED. -->
+---
 ados_distribution: project-generated
 id: chg-GH-90-test-plan
 status: Proposed

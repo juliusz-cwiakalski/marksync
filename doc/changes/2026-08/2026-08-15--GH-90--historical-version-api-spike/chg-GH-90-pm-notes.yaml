@@ -7,7 +7,7 @@ phases:
   clarify_scope: { started: 2026-08-15, completed: 2026-08-15 }
   specification: { started: 2026-08-15, completed: 2026-08-15 }
   test_planning: { started: 2026-08-15, completed: 2026-08-15 }
-  delivery_planning: { started: 2026-08-15, completed: 2026-08-15 }
+  delivery_planning: { started: 2026-08-15, completed: 2026-08-15, reopened: "2026-08-15 CEO credential resolution — execution vehicle local→CI" }
   dor_check: { started: 2026-08-15, completed: 2026-08-15, verdict: READY, iterations: 1 }
   delivery: { started: 2026-08-15, completed: null, blocked_at: "plan task 1.3, A-1 abort" }
   system_spec_update: { started: null, completed: null }
@@ -41,6 +41,28 @@ decisions:
       tenant/space as MS-0001 spike and live e2e regression). TDR-0001 C-1
       analog satisfied: dedicated disposable PAGE created under the sandbox
       space for the spike and trashed after capture; never a production space.
+      SUPERSEDED 2026-08-15 PM by the CEO-authorized credential resolution:
+      execution vehicle is now the e2e sandbox space via CI (E2E_* secrets);
+      disposable-page containment principle unchanged.
+    date: "2026-08-15"
+  - text: >
+      CEO-AUTHORIZED CREDENTIAL RESOLUTION (2026-08-15, comment
+      5300646430 on #90): (1) local tmp/marksync-demo/.env token is revoked
+      — do NOT wait for human token refresh; (2) repo GitHub Actions E2E
+      secrets ARE valid (run-e2e.yml success 2026-08-15T03:18Z, run
+      31861445358): E2E_CONFLUENCE_BASE_URL, E2E_USER_EMAIL, E2E_API_TOKEN,
+      E2E_SPACE_KEY, E2E_PARENT_PAGE_ID; (3) gather live evidence via CI —
+      additive probe workflow on the SPIKE BRANCH ONLY executing the spec
+      10-case matrix (create/update scratch page 3+ times in the e2e sandbox
+      space, fetch historical bodies v1+v2, capture sanitized status+shapes
+      as workflow artifacts); (4) CEO WAIVER pre-authorized for the additive
+      workflow file on the spike branch only, GH-32 precedent, no security
+      controls removed; (5) TDR-0011 cites the captured evidence and keeps
+      a non-blocking note that local .env runs need a human-issued token.
+      PM consequence: delivery_planning REOPENED to amend the plan's
+      execution vehicle (local curl → CI workflow); spec/test-plan case
+      matrix, redaction contract, verdict scale UNCHANGED; DoR READY verdict
+      stands (scope unchanged).
     date: "2026-08-15"
 
 open_questions: []
@@ -59,9 +81,12 @@ blockers:
       access / fresh token / different tenant). Issue labeled
       human-input-needed + blocked, assigned owner. NOT a scope/spec problem:
       all artifacts (DoR READY) stand; resume at plan task 1.3 once access
-      is restored.
+      is restored. RESOLVED same day via CEO-authorized credential
+      resolution: local .env token revoked (do not wait for human refresh);
+      evidence capture moved to CI using valid E2E_* Actions secrets (see
+      decisions). Delivery resumed with amended plan.
     date: "2026-08-15"
-    resolved_date: null
+    resolved_date: "2026-08-15"
 
 doc_risks:
   - doc/decisions/00-index.md — must add TDR-0011 row (@decision flow inside delivery).

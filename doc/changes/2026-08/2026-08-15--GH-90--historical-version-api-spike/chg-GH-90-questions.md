@@ -46,4 +46,16 @@ notes; MS-0003 epic E2/E4 design locks wait on this spike.
 plan task 1.3 once access is restored — no re-planning needed.
 
 ### Answer
-<!-- Human: provide your answer here (or reply inline on issue #90) -->
+
+**RESOLVED 2026-08-15 (CEO-authorized credential resolution):** the local
+demo `.env` token is revoked — do NOT wait for a human token refresh. The
+repo's GitHub Actions E2E secrets ARE valid (`run-e2e.yml` succeeded
+2026-08-15T03:18Z, run 31861445358). Evidence capture therefore moves to
+CI: a small, additive probe workflow on the spike branch only (CEO waiver,
+GH-32 precedent; no security controls removed) executes the spec's 10-case
+matrix against the live sandbox using the existing secrets
+(`E2E_CONFLUENCE_BASE_URL`, `E2E_USER_EMAIL`, `E2E_API_TOKEN`,
+`E2E_SPACE_KEY`, `E2E_PARENT_PAGE_ID`), producing ≥3 page versions and
+capturing sanitized status codes + response shapes as workflow artifacts.
+TDR-0011 cites the captured evidence and keeps a non-blocking note that
+local `.env` runs require a human-issued token.
