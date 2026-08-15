@@ -310,6 +310,37 @@ MarkSync converts only Markdown→Storage today. This change adds the reverse di
 
 ---
 
+### Phase 7: Code Review Remediation (Iteration 1 — consolidated)
+
+> Consolidated by PM from TWO reviewer runs (both interrupted mid-report; findings union deduplicated).
+> Full findings: `chg-GH-92-review.md` / `code-review/review-iter-1.yaml`.
+
+**Goal**: Resolve the union of review-iter-1 findings: 1 blocker (collect-all parity), 3 major (ReverseError runtime shape vs declared type; context-free whitespace drop; TC-RT-002 placeholder with dead corpus-B sidecars), minors (caret pin, world.ts claim, ReverseSuccess duplication, ~70-line task-list duplication, shallow nested-table detection, stale Execution Log), nits (positions, doctype, imports, eslint-disable, sourcePath, p95 record).
+**Effort**: ~0.5–1 day · **Risk**: L-M (contract + whitespace semantics + test wiring; round-trip engine core untouched)
+
+**Tasks**:
+
+- [ ] **7.1** (BLOCKER, review F-1) Fix `reverseStorageCollectAll` (`src/infra/confluence/parse/reverse.ts`): preserve `severity`/`class` on every returned diagnostic — return `ReverseDiagnostic[]` (or `{ blocking: ReverseError[]; informational: InformationalDiagnostic[] }`) instead of coercing informationals into `kind: "UnsupportedConstruct"`. Add a mixed-order unit test (informational render artifact BEFORE a blocking macro) asserting the first BLOCKING entry deep-equals the fast-fail error (test-plan §4.4 parity, unmapped full-object deep-equal).
+- [ ] **7.2** (major, review F-2) Align the blocking arm with the declared model in `src/domain/markdown/reverse-diagnostics.ts`: faithful `ReverseError = StorageParseError | { kind: "UnsupportedConstruct"; code; construct; location }` (or add `kind` to `BlockingDiagnostic`); construct WITHOUT `as unknown as` double casts in `reverse.ts`; fast-fail payload and collect-all entries structurally identical.
+- [ ] **7.3** (major, review F-3) Context-aware structural whitespace in `src/infra/confluence/parse/reverse-parser.ts`: drop whitespace-only newline chunks ONLY between block-level siblings; inside phrasing content (p/em/strong/a/td/…) collapse to a single space (repro: `<p>foo <strong>a</strong>\n<em>b</em> baz</p>` must yield `foo **a** *b* baz`, not `foo **a***b* baz`). Add a reflowed-paragraph fixture (Storage-only, e.g. `readback-reflowed.storage.xhtml`).
+- [ ] **7.4** (major, review run-1 F-1) Implement TC-RT-002 for real in `tests/golden/markdown/reverse-round-trip.test.ts`: replace the placeholder corpus-B loop with byte-equality assertions against each `tests/golden/fixtures/markdown/reverse/<name>.md` sidecar (empty-output expectation for `mixed-html-comment`; escaped-HTML expectation for `raw-html-inline-real`); add the negative self-test (an unlisted fixture name fails the completeness helper). No dead fixture files.
+- [ ] **7.5** (minor) `bun add -E hast-util-to-mdast@10.1.2` — exact pin per task-4.1/TDR-0013 posture (saxes already exact).
+- [ ] **7.6** (minor) Resolve the `tests/bdd/support/world.ts:99` deviation: revert the style change OR record it with reason in the Execution Log — task-6.4(b)'s "every other existing test file unmodified" claim must match the diff.
+- [ ] **7.7** (minor) Dedup: remove the duplicated `ReverseSuccess` (import from `#domain/markdown/reverse-diagnostics` or add the typescript.md note + structural compat test); extract a shared `ac:task`-sequence → task-list HAST helper from `classifyTaskListMacro`/`classifyTaskListElement` (~70 lines) — drop or justify the macro variant (forward emits `<ac:task-list>` directly, storage.ts:155); delete the unreachable mermaid pre-check (`props["ri:filename"]` on `ac:image` itself).
+- [ ] **7.8** (minor) Deepen nested-table detection: a `table` ANYWHERE inside a `td`/`th` subtree (e.g. `td > blockquote > table`) → blocking, not just direct children.
+- [ ] **7.9** (nits — coder discretion) Merge the two `reverse-diagnostics` imports (reverse-parser.ts:16-17); drop the eslint-disable + non-null assertion (:179); wire or drop `ParseOptions.sourcePath`; consider `opentagstart` for start-of-tag positions; comment/block doctype + unknown node types in `classifyNode`; replace vacuous TC-RT-004 `toBeDefined()` with a real assertion; record the OQ-T3 p95 decision (record-only timing or documented drop).
+- [ ] **7.10** (minor) Close the Execution Log: Phase 4 rows (2b7964f..47cb47a series), Phase 5 = 7c8536e/66a1d4f/142c3f0/7e5289f, Phase 6 = 0581381 (+ dep-defect note and fix e996e56), Phase 7 = this remediation; record the sidecar human-review confirmation (rides phase-8 re-review).
+- [ ] **7.11** Green boundary: `bun run check` + `bun run test:bdd` green; forward NG-3 tripwire re-verified (zero modified forward fixtures); snapshots updated only via reviewed local run.
+
+**Acceptance Criteria**:
+
+- Must: mixed-order parity test green; no double casts on the reverse error path; collect-all preserves severity/class; reflow fixture round-trips without word-joining; corpus-B sidecars byte-asserted (TC-RT-002 real); exact pin; Execution Log accurate; all suites green.
+- Must: NG-3 tripwire intact; zero CLI changes.
+
+**Completion signal**: `fix(GH-92): review iter-1 remediation — parity, whitespace, TC-RT-002, dedup`
+
+---
+
 ## Test Scenarios
 
 All 19 test-plan TCs are wired by this plan; phases below are where each first executes green.
@@ -366,6 +397,8 @@ All 19 test-plan TCs are wired by this plan; phases below are where each first e
 | 1.0 | 2026-08-15 | plan-writer (GH-92) | Initial plan. 6 phases, each one green commit: (1) TDR-0012 pre-lock spike — saxes pin, event-surface + fragment-mode verification, 34-fixture Bun smoke, @xmldom/xmldom descend criteria; (2) DM-2 diagnostic model — standalone ReverseError union (PD-2: avoids MarkSyncError-kind → src/cli/ exit-code coupling), stable codes + line:column locations; (3) infra saxes parser — SAX→HAST builder, CDATA/entities/positions, parse-error arm, panel strip, K1 tolerance; (4) domain serializer + normalizer on the unified stack (PD-3: canonicalize → hast-util-to-mdast → remark-gfm stringify; spike-gated, hand-written fallback flagged highest-risk) + classifier/content-mapping + DM-1 entry with fast-fail/collect-all parity; (5) golden harness — partition manifest + guardrail self-test, corpus A/B, Storage-only fixtures (3), reverse sidecars (human-reviewed), Storage-side adversarial set at tests/adversarial-storage/ (PD-5: test plan's tests/adversarial/storage/ subdir would crash pii-audit.test.ts with EISDIR — verified); (6) 0.9.0 bump + CHANGELOG + bun run check/test:bdd + TC-REG-001 structural checks + spec reconciliation. 36 tasks; unit-test paths match the test plan defaults; doc/spec/** deferred to @doc-syncer (phase 7). |
 | 1.1 | 2026-08-15 | plan-writer (GH-92) | DoR iter-1 remediation — integrate TDR-0013 (options layer, Alt 3 fallback, corner-checks, OQ-P1 resolved), TDR-0012 precedence note, pii-audit scope note, qualified loader paths |
 | 1.2 | 2026-08-15 | plan-writer (GH-92) | DoR iter-2 Finding 6 — corpus-B 7→6 propagated to task 5.1 manifest instruction + Binding inputs (raw-html-block-real excluded-only, disjoint per test-plan TC-RT-005) |
+| 1.3 | 2026-08-15 | reviewer (GH-92) | Review iteration 1 FAIL — appended Phase 7 remediation (11 findings: collect-all parity blocker, error-arm type divergence, inline whitespace loss, pins/dedup/bookkeeping) |
+| 1.3 | 2026-08-15 | reviewer (GH-92) | Phase 7 appended — Code Review Remediation (Iteration 1): 2 major (TC-RT-002 placeholder + dead corpus-B sidecars; ReverseError runtime-shape drift), 5 minor, 4 nit findings per `chg-GH-92-review.md` |
 
 ## Execution Log
 

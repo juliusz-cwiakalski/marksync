@@ -288,6 +288,26 @@ notes:
       OST S5.1 evidence; test-spec-confluence-adapter stale exclusion fix.
       PM follow-up: AGENTS.md milestone line updated (MS-0002 shipped →
       active MS-0003, E1 delivered) — doc-syncer flagged it out of its
-      doc/** write scope. No residual gaps reported.
+      doc/**       write scope. No residual gaps reported.
+    type: info
+    date: "2026-08-15"
+  - text: >
+      Review iter-1 FAIL (chg-GH-92-review.md + code-review/review-iter-1.yaml):
+      1 blocker (collect-all coerces informationals to kind
+      UnsupportedConstruct — breaks §4.4 parity all[0]≡fast-fail, empirically
+      reproduced), 3 major (ReverseError runtime shape vs declared type
+      masked by double casts; context-free whitespace drop silently joins
+      inline words on editor-reflowed read-back; TC-RT-002 shipped as
+      placeholder with 6 dead corpus-B sidecars), 6 minor (caret pin not
+      exact, world.ts touched vs 6.4(b) claim, ReverseSuccess dup, ~70-line
+      task-list dup, shallow nested-table check, stale Execution Log), nits
+      (opentag-end positions, doctype ignore). VERIFIED GREEN by reviewer:
+      engine core (26/26 corpus-A byte round-trip, CDATA/entity/positions),
+      NG-3 tripwire, zero CLI, saxes exact, options layer single-point, no
+      mock.module. NOTE: reviewer ran twice (two interruptions); both runs
+      appended their own Phase 7 remediation section to the plan — PM
+      consolidated into ONE Phase 7 (11 tasks, union deduplicated, plan
+      pending v1.3 rev-log row). Remediation → @coder, then re-review
+      iter-2.
     type: info
     date: "2026-08-15"

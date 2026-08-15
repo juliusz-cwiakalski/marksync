@@ -1,0 +1,155 @@
+version: 1
+iteration: 1
+mode: local
+work_item_ref: GH-92
+branch: feat/GH-92/reverse-converter-storage-to-markdown
+status: FAIL
+summary: >-
+  First review of the GH-92 reverse converter. Delivery is substantially strong: 362 new/affected tests
+  pass, forward golden fixtures are byte-unchanged (additions only), src/cli is untouched (PD-2 honored),
+  saxes pinned exact 6.0.0, and the options layer lives solely in hast-to-markdown.ts. FAIL is driven by
+  an empirically-proven collect-all contract violation (informational diagnostics relabeled as blocking
+  errors; all.diagnostics[0] does not deep-equal the fast-fail error when an informational precedes a
+  blocking construct), a runtime/type divergence on the blocking-error arm masked by double casts, and a
+  silent content-loss edge where inter-inline structural whitespace is dropped (rendered space lost).
+severity_breakdown:
+  critical: 1
+  high: 2
+  medium: 6
+  low: 2
+  info: 0
+spec_compliance: FAIL
+plan_compliance: FAIL
+findings:
+  - id: F-1
+    severity: critical
+    confidence: high
+    category: correctness
+    location: src/infra/confluence/parse/reverse.ts:97
+    message: >-
+      Collect-all maps informational diagnostics into the blocking error shape (kind "UnsupportedConstruct"),
+      discarding severity/class, so DM-2's two-class taxonomy collapses and the normative test-plan §4.4
+      parity (all.diagnostics[0] deep-equals the fast-fail error) breaks whenever an informational precedes
+      a blocking construct in document order. Empirically reproduced: mermaid render artifact + gliffy macro
+      yields all[0] = informational mislabeled as UnsupportedConstruct vs fast-fail = gliffy blocking.
+    suggestion: >-
+      Return ReverseDiagnostic[] preserving severity/class (filter to blocking for the error arm, surface
+      informationals separately) and add a mixed-order parity test asserting the first blocking entry
+      deep-equals the fast-fail error.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-2
+    severity: high
+    confidence: high
+    category: correctness
+    location: src/infra/confluence/parse/reverse.ts:62
+    message: >-
+      Runtime blocking error {kind, code, construct, location} does not match the declared
+      BlockingDiagnostic {severity, class, code, construct, location} (reverse-diagnostics.ts:15-21);
+      the divergence is silenced by "as unknown as ReverseError" double casts. Consumers cannot
+      discriminate ReverseError arms reliably and never-exhaustive checks are unsound.
+    suggestion: >-
+      Declare the error union faithfully (e.g. a {kind: "UnsupportedConstruct"} variant in the domain
+      model) and construct it type-safely without double casts.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-3
+    severity: high
+    confidence: high
+    category: correctness
+    location: src/infra/confluence/parse/reverse-parser.ts:110
+    message: >-
+      Whitespace-only text containing a newline is dropped in every context (parse-time flushText and
+      normalizeChildren), including between inline siblings. Repro: <p>foo <strong>a</strong>\n<em>b</em>
+      baz</p> reverses to "foo **a***b* baz" — the HTML-rendered space is silently lost and words join.
+      Exceeds K1 tolerance; silent content loss on the RSK-2 real-read-back path.
+    suggestion: >-
+      Drop structural whitespace only between block-level siblings; in phrasing-content contexts collapse
+      the chunk to a single space. Add a reflowed-paragraph fixture.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-4
+    severity: medium
+    confidence: high
+    category: dependencies
+    location: package.json:54
+    message: hast-util-to-mdast pinned with caret (^10.1.2) though plan task 4.1 requires an exact pin and the byte-form guarantees rest on the locked substrate.
+    suggestion: Run bun add -E hast-util-to-mdast@10.1.2.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-5
+    severity: medium
+    confidence: high
+    category: plan-compliance
+    location: tests/bdd/support/world.ts:99
+    message: Existing BDD test file modified (style-only function-to-arrow), contradicting plan 6.4(b) "every other existing test file unmodified" and test-plan §7.4 "touched existing tests: 0".
+    suggestion: Revert if a biome regression, or record the deviation and reason in the plan execution log.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-6
+    severity: medium
+    confidence: high
+    category: code-quality
+    location: src/infra/confluence/parse/reverse.ts:17
+    message: ReverseSuccess duplicated across tiers (re-declared vs reverse-diagnostics.ts:42-45) without the typescript.md structural-duplication note or compatibility test.
+    suggestion: Import the domain type (preferred) or add the note plus a structural compatibility test.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-7
+    severity: medium
+    confidence: high
+    category: code-quality
+    location: src/infra/confluence/parse/reverse.ts:441
+    message: ~70 verbatim duplicated lines between classifyTaskListMacro and classifyTaskListElement; the macro variant is unreachable from forward output (storage.ts:155 emits <ac:task-list> directly).
+    suggestion: Extract one shared ac:task-sequence mapper; drop the speculative macro branch or justify it with a comment.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-8
+    severity: medium
+    confidence: medium
+    category: correctness
+    location: src/infra/confluence/parse/reverse.ts:294
+    message: Nested-table detection inspects only direct children of td/th; a table wrapped in an intermediate canonical element inside a cell bypasses the check and serializes to unnestable GFM.
+    suggestion: Detect descendant tables within td/th subtrees rather than direct children only.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-9
+    severity: medium
+    confidence: high
+    category: plan-compliance
+    location: doc/changes/2026-08/2026-08-15--GH-92--reverse-converter-storage-to-markdown/chg-GH-92-plan.md:377
+    message: Execution Log stale — Phase 4 commit "TBD", Phases 5/6 marked Pending despite [x] tasks and delivery commits 7e5289f/0581381/f607cd3; Phase 5 sidecar-review confirmation not recorded.
+    suggestion: Close the rows with commits and record the sidecar-review confirmation.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-10
+    severity: low
+    confidence: medium
+    category: code-quality
+    location: src/infra/confluence/parse/reverse-parser.ts:71
+    message: opentag fires after attributes, so recorded line/column point at the end of the open tag rather than its start; still sufficient to locate the element per AC-F4-1.
+    suggestion: Consider the opentagstart event for conventional start positions.
+    suppressed: false
+    published_url: null
+    published_at: null
+  - id: F-11
+    severity: low
+    confidence: high
+    category: code-quality
+    location: src/infra/confluence/parse/reverse.ts:169
+    message: Unknown node types (doctype) are silently ignored, in tension with C-4's never-silently-drop posture; unreachable from valid page bodies.
+    suggestion: Add a justifying comment or classify as blocking for consistency.
+    suppressed: false
+    published_url: null
+    published_at: null
+reviewed_at: 2026-08-15T00:00:00Z
+next_step: EXECUTE_REMEDIATION_PHASE
