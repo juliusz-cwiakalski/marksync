@@ -115,80 +115,73 @@ Next Step: **EXECUTE_REMEDIATION_PHASE** (Phase 7 in chg-GH-92-plan.md, tasks 7.
 
 ---
 
-# Iteration 2 — RE-REVIEW AFTER REMEDIATION
+# Code Review — GH-92: Iteration 2 (RE-REVIEW after Phase-7 remediation)
 
-**Mode**: local · **Iteration**: 2 (RE-REVIEW) · **Date**: 2026-08-15
-**Remediation under review**: `039c275` (iter-1 remediation) + `5ba3c0c` (tsc-strict follow-up, hast-builder empty-stack guard). NOTE: the orchestrator-context hash `ff4145c` does not exist in the repo — the follow-up landed as `5ba3c0c` (same intent, different header). Both diffs reviewed.
-**Verification run by this review (not trusted from notes)**: `bun test` → **1608 pass / 0 fail**; `rg "as unknown as"` over changed files → zero on the reverse path; mixed-order repro + reflow repro executed via Bun against HEAD; `git diff main...HEAD` tripwire re-checked.
+**Mode**: local · **Iteration**: 2 · **Date**: 2026-08-15
+**Remediation reviewed**: `039c275` + tsc-strict follow-up `5ba3c0c` (tree-identical to the dangling `ff4145c` — not an ancestor of HEAD)
+**Verification run by this review**: `bun test` 1608/0 green · `bun run check` green (biome + format + tsc + depcruise) · `git diff main...HEAD` re-inspected (forward fixtures additions-only, zero `src/cli/`, **world.ts still modified**) · both repros from iter-1 re-run live at HEAD · grep `as unknown as` → zero hits in reverse surfaces
+**Artifact note**: an interrupted prior pass of this iteration had already appended Phase 8 + revision 1.4 to the plan and committed its own iter-2 section alongside this review (commit `1a1ab3c`, landed mid-review). The two passes agreed on all 7 shared findings; this section is the authoritative consolidated record (the colliding section was removed, its unique observations folded in below). This review adds F-22, which the prior pass missed. Phase 8 was amended to 8 findings / 9 tasks.
 
 ## Verdict
 
-**Status: FAIL** — narrowly. The **code substance** of the blocker and all three majors is genuinely fixed and was re-verified empirically by this review (not taken on faith). What keeps this at FAIL: the Phase-7 **Must** acceptance criteria are not all met — the required mixed-order parity test does not exist (while plan 7.1 claims it is "covered by TC-RDIAG-002" — false), the reflow repro is pinned by no assertion (its sidecar is dead AND byte-mismatched), `world.ts` is still modified vs main (while plan 7.6 and the commit message claim "Reverted" — false), and three dead sidecar files remain despite the "no dead fixture files" Must. Three remediation completion claims are demonstrably false — a plan-integrity problem the ADOS gates treat seriously.
+**Status: FAIL (narrow)** — 0 blocker · 2 major · 2 minor · 3 low · 1 info
 
-## Per-finding closure table (iteration 1 → 2)
+The iter-1 blocker and all three majors are **fixed in code substance** — this was verified empirically, not taken from the commit message. What keeps this at FAIL: two Phase-7 Must ACs are unmet while their tasks claim `[x]` FIXED (the mixed-order parity test was never added; world.ts was never reverted), the F-3 fix has a verified residual defect in headings, and the new reflow sidecar is both dead and byte-mismatched — i.e. the same CHECKED_BUT_MISSING pattern iter-1 flagged, now in the remediation itself.
 
-| ID | Sev | Finding (short) | Closure | Evidence verified by this review |
-|----|-----|-----------------|---------|----------------------------------|
-| F-1 | blocker | Collect-all mislabels informationals; §4.4 parity broken | **PARTIAL — code CLOSED, required test MISSING** | Code verified empirically at HEAD: mixed Storage (mermaid artifact line 2 before gliffy line 3) → fast-fail = gliffy `UnsupportedConstruct` 3:39; collect-all = `[informational(synthetic-artifact, 2:11), blocking(gliffy, 3:39)]`, first blocking matches fast-fail on code/construct/location ✔. **But no test exercises mixed informational-before-blocking order anywhere** (TC-RDIAG-002 Storage-driven cases are toc/expand/gliffy — all blocking; no adversarial fixture contains a `marksync-mermaid-*` artifact). Plan 7.1 note "mixed-order parity covered by TC-RDIAG-002" is false. Also: whole-object `toEqual(first.error)` (test-plan §4.4:178 literal) intentionally does not hold under the kind-tagged `UnsupportedConstructError` design — reasonable, but the §4.4 amendment is nowhere recorded. |
-| F-2 | major | Runtime shape contradicts declared type; double casts | **CLOSED** | `UnsupportedConstructError {kind:"UnsupportedConstruct"; code; construct; location}` added to the `ReverseError` union (reverse-diagnostics.ts:44-49,56); zero `as unknown as` in any GH-92-changed source file (grep-verified; remaining repo hits are pre-existing fetch-mock casts outside this change). Fast-fail constructs the error type-safely (reverse.ts:58-63). |
-| F-3 | major | Structural-whitespace drop loses rendered space between inline siblings | **PARTIAL — code CLOSED, repro NOT pinned** | Code verified empirically: `readback-reflowed.storage.xhtml` → `foo **a** *b* baz\n` (no word-joining) ✔; context split correct (drop at block context, collapse-to-space in phrasing context); leading/trailing collapse inside `<p>` harmlessly trimmed by the serializer (probed: `<p>\nfoo\nbar\n</p>` → `foo bar\n`). **But no test asserts the expected output**: the fixture is in `storageOnly` so TC-RT-003 only checks determinism, and the sidecar `reverse/readback-reflowed.md` is consumed by nothing AND is byte-wrong (missing the trailing newline — a byte-equality test against it would fail today). A regression to word-joining would sail through green. |
-| F-4 | major | TC-RT-002 placeholder; corpus-B sidecars dead; negative self-test absent | **CLOSED (with a nit)** | TC-RT-002 now byte-asserts `reverseStorage(<name>.storage.xhtml) === reverse/<name>.md` for all 6 corpus-B names; `mixed-html-comment` empty-output semantics handled; dead `reverseDir` gone; a negative self-test exists as a loop↔manifest sync assertion (weaker than the asked "unlisted fixture fails the completeness helper", but present). Nit: `reverse/mixed-html-comment.md` (0 bytes) is never read — the early-return branch skips the sidecar; `reverse/provenance-panel.md` likewise unconsumed (TC-RT-006 hardcodes `""`). |
-| F-5 | minor | `hast-util-to-mdast` caret pin | **CLOSED** | `package.json:54` → `"10.1.2"` exact (saxes `6.0.0` still exact). |
-| F-6 | minor | `world.ts` modified vs plan 6.4(b) claim | **NOT CLOSED — claim now false twice** | `git diff main...HEAD -- tests/bdd/support/world.ts` still shows `After(function ()` → `After(() =>` at :99 at HEAD. Plan 7.6 says "(FIXED: Reverted to function syntax; zero existing test file modifications)" and the commit message says "F-6: reverted world.ts style change" — **the revert never landed** (039c275 touched no `world.ts`; no later commit did either). |
-| F-7 | minor | `ReverseSuccess` duplicated across tiers | **CLOSED** | `reverse.ts:21` re-exports the domain type; local declaration removed. |
-| F-8 | minor | ~70 duplicated task-list lines; unreachable mermaid pre-check | **CLOSED** | Shared `mapTaskSequenceToGfmTaskList` extracted (reverse.ts:404-467); macro branch retained with a justification comment (:469-472, acceptable per the original "or justify" option); dead `ri:filename`-on-`ac:image` pre-check deleted (verified absent from current source). |
-| F-9 | minor | Nested-table detection shallow (direct children only) | **CLOSED** | `hasDescendantTable` recurses over element descendants (reverse.ts:502-514); wrapped forms (`td > blockquote > table`) now blocking. |
-| F-10 | minor | p95 timing absent; OQ-T3 undecided | **WEAK** | Plan 7.10 records "(OQ-T3: P95 < 200ms holds — record-only informational measurement remains)" — a decision of sorts, but the "holds" claim has zero measurement behind it (no timing code was added; test-plan §4.4:247 still promises recorded per-fixture timings). |
-| F-11 | minor | Execution Log stale (Phases 4–6) | **MOSTLY CLOSED** | Phase 4/5/6 rows now carry real SHAs; Phase-5 sidecar human-review confirmation recorded. Residual: the new Phase-7 row's commit cell still reads `[REMEDIATION COMMIT]` instead of `039c275`(+`5ba3c0c`). |
-| F-12 | nit | `opentag` end-of-tag position | **NOT ADOPTED** (explicitly optional) | Still `opentag`; AC-F4-1 "sufficient to locate" still holds. Fine. |
-| F-13 | nit | Unknown node types silently ignored | **CLOSED** | Justifying comment at reverse.ts:154 ("not reachable from page-body Storage"). |
-| F-14 | nit | Import duplication; `parent!` + eslint-disable; dead `sourcePath` | **PARTIAL** | eslint-disable + non-null assertion removed (later hardened into an `if (parent)` guard by 5ba3c0c — good); `sourcePath` documented as reserved. But the dual same-module imports remain (`reverse-parser.ts:16-17`, and `reverse.ts:17` beside the :5-13 block) despite plan 7.12's "Merged imports" claim. |
+## Empirical re-verification (this review, at HEAD)
+
+- **F-1 repro (mixed informational-before-blocking)**: heading + mermaid render-policy image (line 2) + gliffy (line 3) → fast-fail error = gliffy `UnsupportedConstruct {3:39}` ✔; `collectAll.diagnostics[0]` = **informational** `marksync/synthetic-artifact {2:48}` with `severity`/`class` preserved ✔; first blocking entry matches fast-fail on `code`/`construct`/`location` ✔. The blocker behavior is corrected.
+- **F-3 repro (reflow)**: `<p>foo <strong>a</strong>\n<em>b</em> baz</p>` → `foo **a** *b* baz\n` ✔ (rendered space preserved in `p`).
+- **New repro (F-22)**: `<h1>a <strong>b</strong>\n<em>c</em> d</h1>` → `# a **b***c* d` ✘ — space still lost inside headings.
+- **Gates/tripwires**: 1608/0 · check green · forward fixtures addition-only · zero `src/cli/` · saxes 6.0.0 and hast-util-to-mdast 10.1.2 both exact · zero `as unknown as` in reverse files.
+
+## Per-finding closure table (iter-1 → iter-2)
+
+| Iter-1 finding | Claim | Verified state | Verdict |
+|---|---|---|---|
+| F-1 (blocker) collect-all parity | 7.1 "FIXED … mixed-order parity covered by TC-RDIAG-002" | Code fixed (repro ✔); **no mixed-order test exists** — TC-RDIAG-002 cases all-blocking, file untouched by 039c275; claim false | **PARTIAL** → F-15 |
+| F-2 (major) error shape + double casts | 7.2 FIXED | `UnsupportedConstructError` variant in domain union; type-safe construction; zero double casts | **CLOSED** |
+| F-3 (major) inline whitespace loss | 7.3 FIXED + fixture | Fixed for `p`/`td`/`th`/`li` (repro ✔); `PHRASING_ELEMENTS` omits `h1`–`h6` — heading repro still joins words; sidecar not asserted by any test and byte-mismatched (trailing `\n`) | **PARTIAL** → F-22, F-17 |
+| F-4 (major) TC-RT-002 placeholder | 7.4 FIXED | Real byte-equality vs all 6 corpus-B sidecars ✔; negative self-test present (weaker manifest-equality form); **6 dead sidecars remain** incl. the new one — "no dead fixtures" Must unmet | **PARTIAL** → F-18 |
+| F-5 caret pin | 7.5 FIXED | `hast-util-to-mdast: 10.1.2` exact + bun.lock | **CLOSED** |
+| F-6 world.ts | 7.6 "Reverted … zero existing test file modifications" | **Never reverted** — `git diff main...HEAD` still shows the hunk; claim false | **NOT CLOSED** → F-16 |
+| F-7 ReverseSuccess dup | 7.7 FIXED | Type re-exported from domain | **CLOSED** |
+| F-8 ~70 dup lines + dead pre-check | 7.8 FIXED | `mapTaskSequenceToGfmTaskList` shared helper; macro branch kept with justification; `:178-195` pre-check deleted | **CLOSED** |
+| F-9 shallow nested-table detection | 7.9 FIXED | Recursive `hasDescendantTable` | **CLOSED** |
+| F-10 p95 timing | 7.10 decision recorded | Note is evidence-free ("P95 < 200ms holds" with no measurement anywhere) | **WEAK** → F-19 |
+| F-11 Execution Log stale | 7.11 FIXED | Phases 4–6 rows closed with commits + sidecar confirmation ✔; Phase-7 row itself still `[REMEDIATION COMMIT]` | **CLOSED** (+ F-21 info) |
+| F-12 opentagstart (nit, discretionary) | not done | Accepted as discretionary | **ACCEPTED** |
+| F-13 unknown-node comment (nit) | 7.12 FIXED | Comment added | **CLOSED** |
+| F-14 parser nits | 7.12 "Merged imports" | eslint-disable/`parent!` gone ✔ (tsc-strict guard added in 5ba3c0c ✔); sourcePath documented ✔; **imports NOT merged** — parser still has two same-module imports; reverse.ts gained a new second one | **PARTIAL** → F-20 |
 
 ## New findings (iteration 2)
 
-### [high] F-15 — Mixed-order parity test does not exist; plan 7.1 claims it does
-- **Evidence**: Searched all of `tests/` — no test combines an informational (`marksync-mermaid-*` artifact) with a blocking construct through `reverseStorageCollectAll`. `tests/unit/domain/markdown/reverse-diagnostics.test.ts:295-373` (TC-RDIAG-002 Storage-driven) uses only blocking macros; `tests/golden/adversarial/` fixtures contain no synthetic artifact. Plan 7.1 REQUIRED "add a mixed-order unit test … asserting the first blocking entry deep-equals the fast-fail error"; Phase 7 AC line 1: "Must: mixed-order parity test green" — nothing can be green because nothing exists. The completion note "mixed-order parity covered by TC-RDIAG-002" is false.
-- **Fix**: add the unit test (the reviewer repro from iter-1 is the template; this review re-verified it passes at HEAD), and record the §4.4:178 amendment (parity = first *blocking* entry, field-level `code/construct/location`) in the test plan.
+- **[major] F-15** — Mixed-order parity test absent; plan 7.1 claims TC-RDIAG-002 covers it (false — all its cases are all-blocking; the file was not touched by the remediation commit). The blocker has no regression guard. *Fix*: add the mixed-order case to TC-RDIAG-002 (informational at [0], first blocking ≡ fast-fail on code/construct/location); record the §4.4:178 field-level parity amendment.
+- **[major] F-22** — F-3 residual: `PHRASING_ELEMENTS` omits `h1`–`h6` (and `del`/`summary`), so rendered spaces between inline siblings inside **headings** are still silently dropped (verified: `# a **b***c* d`). Same content-loss class on the RSK-2 path. *Fix*: audit the allowlist against HTML phrasing contexts; add a heading-reflow assertion.
+- **[minor] F-16** — world.ts revert never landed; 7.6 note and commit message factually false vs the diff.
+- **[minor] F-17** — `reverse/readback-reflowed.md` consumed by no test AND byte-mismatched (missing trailing newline — wiring it as-is fails); the F-3 pin is unenforced.
+- **[low] F-18** — Six dead sidecars remain under `reverse/` (mixed-html-comment.md, provenance-panel.md, code-block-python-k1.md, mermaid-code-policy-k1.md, mermaid-render-policy.md, readback-realistic.md) — Phase-7 Must "no dead fixture files" unmet.
+- **[low] F-19** — 7.10's "P95 < 200ms holds" is an evidence-free claim; no timing code exists.
+- **[low] F-20** — "Merged imports" claim false (parser :16-17 unchanged; reverse.ts gained a second same-module import); `PHRASING_ELEMENTS` lists `"span"` twice.
+- **[info] F-21** — Execution Log Phase-7 row still `[REMEDIATION COMMIT]` placeholder; `ff4145c` is dangling (on-branch equivalent `5ba3c0c`, tree-identical).
 
-### [medium] F-16 — F-6 remediation claim is false; `world.ts` still modified
-- **Evidence**: `git diff main...HEAD -- tests/bdd/support/world.ts` → 1-line style change still present at HEAD. Plan 7.6 "(FIXED: Reverted…)" and the 039c275 commit message ("F-6: reverted world.ts style change") are both false — the diff of 039c275 contains no `world.ts` hunk. The plan's task 6.4(b) claim "every other existing test file unmodified" remains contradicted by the branch diff.
-- **Fix**: actually revert the hunk (one-line), or record the deviation honestly in the Execution Log.
+## Remediation-introduced regressions
 
-### [medium] F-17 — Reflow repro unpinned: sidecar dead AND byte-mismatched
-- **Evidence**: `tests/golden/fixtures/markdown/reverse/readback-reflowed.md` (`foo **a** *b* baz`, no trailing newline) is read by no test (grep across `tests/` — only the partition manifest mentions the fixture name). Actual output is `foo **a** *b* baz\n`. So (a) the F-3 regression is unguarded, and (b) if someone later wires the sidecar as-is, the byte-equality test will fail on the missing trailing newline. Violates Phase 7 AC "reflow fixture round-trips without word-joining" (nothing asserts it) and "no dead fixture files".
-- **Fix**: add a TC-RT-006-style test (or extend TC-RT-002's storageOnly arm) asserting `reverseStorage(readback-reflowed.storage.xhtml).markdown` byte-equals the sidecar; fix the sidecar's trailing newline.
+None found beyond the above. Specifically checked:
 
-### [low] F-18 — Residual dead sidecars; weak negative self-test form
-- **Evidence**: `reverse/mixed-html-comment.md` and `reverse/provenance-panel.md` (both 0 bytes) are never consumed — TC-RT-002's early return skips reading the former; TC-RT-006 hardcodes `""` for the latter. The "negative self-test" is a loop↔manifest sync assertion, not the asked "unlisted fixture name fails the completeness helper".
-- **Fix**: consume or delete the two 0-byte sidecars; optionally make the negative self-test exercise the completeness helper with an injected unlisted name.
+- `5ba3c0c` (tsc-strict guard): converts the removed `parent!` into an `if (parent)` guard — behavior-neutral for well-formed input; strictly safer than before.
+- Whitespace-collapse implementation: context split correct; no leading/trailing-space artifacts (serializer trims — probed `<p>\nfoo\nbar\n</p>` → `foo bar\n`); `blockquote`/`pre` correctly NOT in the phrasing set; only the duplicate-`span` cosmetic (F-20) and the heading gap (F-22).
+- Collect-all return-shape change (`ReverseDiagnostic[]`): no production consumers yet (E2/E3 unbuilt); both test consumers updated; golden snapshots unaffected (collect-all is not snapshotted; adversarial sidecars compare mapped `{code, construct, location}`, unchanged).
+- Golden corpus byte-equality intact (1608/0), forward fixtures and `src/cli/` untouched.
+- Transparency flag: the remediation commit `039c275` edited `chg-GH-92-review.md`/`review-iter-1.yaml` — acceptable only because it executed the documented consolidation of the two colliding iter-1 review passes; iter-1 findings were not weakened. Reviewer files should not normally be touched by remediation commits.
 
-### [low] F-19 — OQ-T3 closed without evidence
-- **Evidence**: plan 7.10 asserts "P95 < 200ms holds" with no measurement anywhere (no timing code in the round-trip runner; test-plan §4.4:247 still promises recorded per-fixture durations).
-- **Fix**: add record-only `performance.now()` timings per fixture (no CI gate), or reword 7.10 to record the drop honestly.
+## Summary (iteration 2)
 
-### [low] F-20 — Remediation nits: duplicate `span`; unmerged imports
-- **Evidence**: `reverse-parser.ts:281,285` — `"span"` appears twice in `PHRASING_ELEMENTS`; same-module dual imports remain at `reverse-parser.ts:16-17` and `reverse.ts:17` despite plan 7.12's "Merged imports".
-- **Fix**: dedupe the Set entry; merge the imports (or drop the claim).
+Status: **FAIL (narrow)**
+Findings: 8 (2 major / 2 minor / 3 low / 1 info)
+Plan Status: Phase 7 tasks all `[x]` but 7.1 (test clause), 7.6, 7.12 carry **inaccurate closure notes**; Phase-7 Must ACs "mixed-order parity test green" and "no dead fixture files" unmet
+Next Step: **EXECUTE_REMEDIATION_PHASE** (Phase 8, tasks 8.1–8.9 in chg-GH-92-plan.md; iteration-3 re-review of 8.1–8.3 + 8.8)
 
-### [info] F-21 — Bookkeeping: Phase-7 commit placeholder; phantom hash
-- **Evidence**: Execution Log Phase 7 row still shows `[REMEDIATION COMMIT]` instead of `039c275`/`5ba3c0c`. The orchestrator context referenced `ff4145c`, which does not exist in the repo (the tsc-strict follow-up is `5ba3c0c`, different header) — worth recording so the audit trail resolves.
-- **Fix**: fill the SHA(s); note the hash correction.
+*Review artifacts: `code-review/review-iter-2.yaml` (machine-readable, same findings). Phase 8 was amended (8.9 tasks, F-22 added) — no source code was modified by this review.*
 
-## Remediation-diff review (new issues check)
-
-- `5ba3c0c` (tsc-strict guard): converts the removed `parent!` into an `if (parent)` guard — behavior-neutral for well-formed input (stack non-empty in that branch), silently drops the child only in an impossible state. Fine; strictly safer than before.
-- Whitespace-collapse implementation: context split is correct; verified no leading/trailing-space artifacts (serializer trims); `blockquote`/`pre` correctly NOT in the phrasing set; `code` inline vs `pre` block handled. Only the duplicate-`span` cosmetic (F-20).
-- Collect-all return-shape change (`ReverseDiagnostic[]`, error arm `StorageParseError`): no production consumers yet (E2/E3 unbuilt); both test consumers updated; golden snapshots unaffected (collect-all is not snapshotted; adversarial sidecars compare mapped `{code, construct, location}` which is unchanged). No new issues.
-- The remediation commit edited `chg-GH-92-review.md` / `review-iter-1.yaml` — acceptable ONLY because it executed the documented consolidation of the two colliding iter-1 review passes (artifact note at file top); iter-1 findings were not weakened. Flagged for transparency; reviewers' files should not normally be touched by remediation commits.
-
-## Summary
-
-Status: **FAIL** (narrow — code substance of F-1/F-2/F-3/F-4 verified fixed; gaps are test wiring and false plan claims)
-Findings: 7 new (1 high / 2 medium / 3 low / 1 info)
-Spec compliance: **PASS in substance** (AC-F4-1 parity and AC-F1-1 corpus-B arm now hold and were re-verified empirically; AC-F6-1 forward-additions-only + zero `src/cli/` re-confirmed on `main...HEAD`)
-Plan compliance: **FAIL** — Phase 7 Must ACs "mixed-order parity test green", "no dead fixture files", "bookkeeping claims accurate" unmet; three completion notes (7.1, 7.6, 7.12) are false
-Plan Gaps: CHECKED_BUT_MISSING (7.1 mixed-order test, 7.6 revert); CHECKED_BUT_INACCURATE (7.10 p95 evidence, 7.12 merged imports)
-Test Coverage Gaps: mixed-order collect-all parity; reflow byte expectation (sidecar fix + wiring)
-Next Step: **EXECUTE_REMEDIATION_PHASE** (Phase 8 — small: 1 test + 1 sidecar byte-fix + 1 wiring test + 1 revert + honesty edits; no architecture work)
-
-*Review artifacts: `code-review/review-iter-2.yaml` (machine-readable, same findings). Phase 8 remediation appended to the plan. No source code was modified by this review.*
+---

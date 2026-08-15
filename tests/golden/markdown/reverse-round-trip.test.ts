@@ -193,6 +193,25 @@ describe("TC-RT-002: corpus-B explicit reverse expectations", () => {
 		});
 	}
 
+	describe("storageOnly fixture: readback-reflowed", () => {
+		it("reverse matches explicit expectation sidecar (reflow whitespace test)", () => {
+			// F-17: reflowed fixture tests structural whitespace handling
+			// <p>foo <strong>a</strong>\n<em>b</em> baz</p> → "foo **a** *b* baz\n"
+			const storagePath = join(fixturesDir, `readback-reflowed.storage.xhtml`);
+			const storage = readFileSync(storagePath, "utf-8");
+
+			const reversed = reverseStorage(storage);
+
+			expect(reversed.ok).toBe(true);
+			if (!reversed.ok) return;
+
+			// Compare against the sidecar (byte-exact, includes trailing newline)
+			const expectedPath = join(fixturesDir, "reverse", "readback-reflowed.md");
+			const expected = readFileSync(expectedPath, "utf-8");
+			expect(reversed.value.markdown).toBe(expected);
+		});
+	});
+
 	it("negative self-test: unlisted fixture name fails completeness", () => {
 		// This test verifies that adding a new corpus-B fixture without updating the loop
 		// would be caught by the completeness check in TC-RT-005

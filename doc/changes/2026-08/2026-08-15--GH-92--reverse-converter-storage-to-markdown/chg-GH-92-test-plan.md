@@ -178,6 +178,8 @@ all   = reverseCollectAll(storage)      // enumeration: every instance, same per
 expect(all.diagnostics[0]).toEqual(first.error)   // parity — identical verdict, first instance
 expect(all.diagnostics).toHaveLength(N)           // exhaustive — no truncation
 // per-instance stability: same code + construct + location shape in both modes
+// NOTE (Phase 8, F-15): For mixed-order cases (informational before blocking), parity is field-level:
+// the first BLOCKING entry in all.diagnostics deep-equals the fast-fail error on code/construct/location.
 ```
 
 **Guardrail auto-inclusion (TC-RT-005)** — the harness is directory-driven, never a hand-listed fixture array:

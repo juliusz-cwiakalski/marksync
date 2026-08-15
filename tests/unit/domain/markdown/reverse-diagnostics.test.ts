@@ -293,6 +293,52 @@ describe("reverse-diagnostics", () => {
 	});
 
 	describe("TC-RDIAG-002 (Storage-driven): fast-fail / collect-all parity", () => {
+		it("mixed informational-before-blocking order: first blocking ≡ fast-fail (field-level parity)", () => {
+			// F-15: mermaid artifact (informational, line 2) before gliffy (blocking, line 3)
+			// Empirically verified by iteration-2 review: informationals are now labeled correctly
+			const storage = `<h1>Heading</h1>
+<ac:image>
+  <ri:attachment ri:filename="marksync-mermaid-abc123.svg"></ri:attachment>
+</ac:image>
+<ac:structured-macro ac:name="gliffy">
+  <ac:parameter ac:name="diagramName">my-diagram</ac:parameter>
+</ac:structured-macro>`;
+
+			const fastFail = reverseStorage(storage);
+			const collectAll = reverseStorageCollectAll(storage);
+
+			// Fast-fail returns the first blocking error (gliffy)
+			expect(fastFail.ok).toBe(false);
+			if (!fastFail.ok) {
+				expect(fastFail.error.code).toBe(REVERSE_CODES.UNSUPPORTED_CONSTRUCT);
+				expect(fastFail.error.construct).toContain('ac:name="gliffy"');
+			}
+
+			// Collect-all returns both diagnostics in document order
+			expect(collectAll.ok).toBe(true);
+			if (collectAll.ok) {
+				expect(collectAll.value.diagnostics).toHaveLength(2);
+
+				// First is informational (mermaid artifact)
+				expect(collectAll.value.diagnostics[0].severity).toBe("informational");
+				expect(collectAll.value.diagnostics[0].class).toBe(
+					"marksync-synthetic-artifact",
+				);
+				expect(collectAll.value.diagnostics[0].code).toBe(
+					REVERSE_CODES.SYNTHETIC_ARTIFACT,
+				);
+				expect(collectAll.value.diagnostics[0].construct).toContain("mermaid");
+
+				// Second is blocking (gliffy) — first BLOCKING entry deep-equals fast-fail error
+				const firstBlocking = collectAll.value.diagnostics[1];
+				expect(firstBlocking.severity).toBe("blocking");
+				expect(firstBlocking.class).toBe("unsupported-construct");
+				expect(firstBlocking.code).toBe(fastFail.error.code);
+				expect(firstBlocking.construct).toBe(fastFail.error.construct);
+				expect(firstBlocking.location).toEqual(fastFail.error.location);
+			}
+		});
+
 		it("3+ unsupported instances → fast-fail returns first, collect-all returns all N", () => {
 			const storage = `<ac:structured-macro ac:name="toc">
   <ac:parameter ac:name="maxLevel">3</ac:parameter>

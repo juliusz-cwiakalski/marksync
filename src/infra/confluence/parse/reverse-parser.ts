@@ -274,15 +274,19 @@ function normalizeReadback(root: Root): Root {
 // Phrasing content elements (inline context where whitespace should collapse to space)
 const PHRASING_ELEMENTS = new Set([
 	"p",
+	"h1",
+	"h2",
+	"h3",
+	"h4",
+	"h5",
+	"h6",
 	"em",
 	"strong",
 	"a",
 	"code",
-	"span",
 	"td",
 	"th",
 	"li",
-	"span",
 ]);
 
 function normalizeChildren(
