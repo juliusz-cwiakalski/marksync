@@ -185,3 +185,62 @@ Next Step: **EXECUTE_REMEDIATION_PHASE** (Phase 8, tasks 8.1–8.9 in chg-GH-92-
 *Review artifacts: `code-review/review-iter-2.yaml` (machine-readable, same findings). Phase 8 was amended (8.9 tasks, F-22 added) — no source code was modified by this review.*
 
 ---
+
+# Code Review — GH-92: Iteration 3 (FINAL RE-REVIEW after Phase-8 remediation)
+
+**Mode**: local · **Iteration**: 3 · **Date**: 2026-08-15
+**Remediation reviewed**: `5ef0718` (code/fixtures/docs) + `b0cd7b1` + `780f8c3` (plan ticks/notes)
+**Verification run by this review**: `bun run check` green (biome + format + tsc + **1610/0** tests + depcruise clean, 112 modules) · `bun run test:bdd` green (6 scenarios / 42 steps) · targeted re-run of `reverse-diagnostics.test.ts` + `reverse-round-trip.test.ts` + `reverse-readback.test.ts` → 153/0 · `git diff main...HEAD --diff-filter=M --name-only` → **zero modified files under `src/` or `tests/`** (docs + package.json/bun.lock/AGENTS.md/CHANGELOG.md only; zero `src/cli/`) · `git diff main...HEAD -- tests/bdd/support/world.ts` → **empty** · both iter-2 repros re-run live at HEAD · sidecar bytes inspected via xxd · fixture-consumer grep across tests/src/scripts/tools.
+
+## Verdict
+
+**Status: FAIL (narrow — hygiene-only)** — 0 blocker · 0 major · 1 medium · 2 low · 1 info
+
+**Every code-substance finding from iteration 2 is verified CLOSED — empirically, by this review, not from commit messages.** No correctness, security, or regression findings remain; all gates and tripwires are green. What keeps this at FAIL: Phase-8's own binding Must ACs — "no dead fixture files under `reverse/`" and "every remediation note in this plan accurate against the actual diffs" — are still violated. Four sidecars remain unconsumed while task 8.4 claims "all consumed" (with a provably false sub-claim), task 7.12 still asserts "imports merged" (the very falsehood F-20 flagged, restated as the "correction"), task 8.9 is checked with a "(PENDING)" note, and the Phase-8 Execution Log SHA regressed to "TBD". This is the identical honesty pattern that drove iterations 1 and 2, now reduced to documentation and fixture disposition.
+
+## Empirical re-verification (this review, at HEAD)
+
+- **F-15 test**: exists at `reverse-diagnostics.test.ts:296-340` — TC-RDIAG-002 "mixed informational-before-blocking order: first blocking ≡ fast-fail (field-level parity)": heading + mermaid render-policy image (line 2) + gliffy (line 3); asserts `diagnostics[0]` is the informational synthetic-artifact and `diagnostics[1]` (first blocking) equals the fast-fail error on code/construct/location. Ran green. Test-plan §4.4 amendment recorded (verified in diff).
+- **F-22 repro**: `<h1>a <strong>b</strong>\n<em>c</em> d</h1>` → **`# a **b** *c* d\n`** ✔ (rendered space survives). `PHRASING_ELEMENTS` now includes h1–h6; heading case (`# heading **bold** *italic* end`) present in the reflow fixture and byte-asserted.
+- **F-17 sidecar**: `reverse/readback-reflowed.md` ends `…z\n\n# heading **bold** *italic* end\n` (trailing newline present, xxd-verified) and is wired by the TC-RT-002 `storageOnly` arm with `expect(markdown).toBe(expected)` — byte-exact, green.
+- **F-16**: `git diff main...HEAD -- tests/bdd/support/world.ts` → empty ✔.
+- **Span removal probe** (potential F-20 regression): `<p><span>foo <strong>a</strong>\n<em>b</em> baz</span></p>` → `reverse/unsupported-construct` — bare `span` is itself a blocking unsupported construct and never reaches phrasing normalization, so removing it from `PHRASING_ELEMENTS` is behavior-neutral (the duplicate entries were dead). No regression.
+- **F-19**: 7.10 + revision log 1.5 record "OQ-T3 p95 dropped — no timing code added"; no evidence-free "holds" claim remains ✔.
+- **F-21**: Phase-7 Execution Log row carries `039c275 + 5ba3c0c` with the ff4145c dangling note ✔.
+- **Gates/tripwires**: 1610/0 · check green · BDD green · zero modified `src/`/`tests/` files vs main · zero `src/cli/` · exact pins unchanged.
+
+## Per-finding closure table (iter-2 → iter-3)
+
+| Iter-2 finding | Claim | Verified state | Verdict |
+|---|---|---|---|
+| F-15 (major) mixed-order parity test | 8.1 COMPLETED | Test exists (:296-340), correct semantics, ran green; §4.4 amendment landed | **CLOSED** |
+| F-16 (minor) world.ts revert | 8.3 COMPLETED | Diff vs main empty | **CLOSED** |
+| F-17 (minor) reflow sidecar dead + byte-mismatched | 8.2 COMPLETED | Byte-correct incl. trailing `\n`; wired via storageOnly arm; heading case included | **CLOSED** |
+| F-18 (low) dead sidecars | 8.4 "remaining sidecars all consumed" | provenance-panel.md deleted ✔; mixed-html-comment.md genuinely consumed (0-byte `.storage.xhtml` exists → real byte comparison) ✔; **4 sidecars still dead** and the consumption claim is false | **PARTIAL** → F-23 |
+| F-19 (low) evidence-free p95 claim | 8.5 COMPLETED | Dropped honestly, no "holds" claim | **CLOSED** |
+| F-20 (low) imports + span dup | 8.6 COMPLETED | Span removal behavior-neutral (verified: span is blocking) ✔; **7.12 still claims "imports merged" — false** | **PARTIAL** → F-24 |
+| F-21 (info) Phase-7 SHA placeholder | 8.7 COMPLETED | Real SHAs + dangling note ✔; **but Phase-8 row regressed to "TBD"** | **CLOSED** (+F-25) |
+| F-22 (major) heading phrasing gap | 8.8 COMPLETED | h1–h6 added; reviewer repro now preserves the space; heading case asserted | **CLOSED** |
+
+## New findings (iteration 3)
+
+- **[medium] F-23** — Phase-8 Must AC "no dead fixture files under `reverse/`" unmet: `code-block-python-k1.md`, `mermaid-code-policy-k1.md`, `mermaid-render-policy.md`, `readback-realistic.md` have zero consuming tests (grep-verified across tests/src/scripts/tools). Task 8.4's claim "remaining reverse/ sidecars are all consumed" is false; its specific claim that `mermaid-render-policy.md` is consumed by `mermaid-render-golden.test.ts` is provably wrong (that test uses the name only as a `sourcePath` label and reads the `.storage.xhtml` from the fixtures root). Also: "Both dead 0-byte sidecars deleted" is inaccurate — only `provenance-panel.md` was deleted; `mixed-html-comment.md` survives (legitimately, as TC-RT-002 consumes it). *Fix*: delete or wire the four files; correct 8.4's note to the true disposition.
+- **[low] F-24** — 7.12's "corrected" note still states "reverse-parser.ts imports merged" — false at HEAD (lines 16-17 unchanged since file creation, `git log -L`-verified); the "required by TypeScript's separate import semantics" justification is also inaccurate (`import { X, type Y }` is valid). The exact false claim F-20 flagged, restated as the fix.
+- **[low] F-25** — Task 8.9 checked `[x]` with note "(PENDING: Will run after all fixes are committed)"; Phase-8 Execution Log commit set to `5ef0718` by b0cd7b1 then regressed to "TBD" by 780f8c3 — a new placeholder of the F-11/F-21 class introduced while closing the old one.
+- **[info] F-26** — Stale comment at `reverse-round-trip.test.ts:177` ("mixed-html-comment has no Storage form") — the 0-byte `.storage.xhtml` exists so the early-return branch is dead and the real byte comparison runs; comment misdescribes the executed path.
+
+## Remediation-introduced regressions
+
+None. Critically read `5ef0718` (only src delta is the PHRASING_ELEMENTS edit: +h1-h6, −span×2 — span removal verified behavior-neutral since bare span is blocking), `b0cd7b1` (1-line plan edit), `780f8c3` (plan-only; introduced the F-25 TBD regression noted above). The `mixed-html-comment.md` working-tree restore left no commit delta (file never deleted in git history) and the end state is correct. Reviewer artifacts were touched by `5ef0718` — same documented-collision consolidation already accepted in iteration 2; iter-1/iter-2 findings not weakened.
+
+## Summary (iteration 3)
+
+Status: **FAIL (narrow — hygiene-only)**
+Findings: 4 (1 medium / 2 low / 1 info) — zero code-correctness findings
+Plan Status: Phase 8 tasks all `[x]` but Must ACs "no dead fixture files" and "every remediation note accurate" unmet; Phase 9 appended
+Spec Status: **PASS** — all 17 ACs hold (corpus-B arm now proven via real TC-RT-002 byte assertions; AC-F4-1 parity clause guarded by the new mixed-order test)
+Next Step: **EXECUTE_REMEDIATION_PHASE** (Phase 9, tasks 9.1–9.5 — fixture disposition + note accuracy only, no production code; iteration-4 spot-check of 9.1–9.3)
+
+*Review artifacts: `code-review/review-iter-3.yaml` (machine-readable, same findings). Phase 9 + revision 1.6 appended to the plan — no source code was modified by this review.*
+
+---
