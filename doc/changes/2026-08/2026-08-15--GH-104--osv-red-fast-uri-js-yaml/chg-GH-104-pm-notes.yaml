@@ -14,7 +14,7 @@ phases:
   delivery: { started: 2026-08-15, completed: 2026-08-15 }
   system_spec_update: { started: 2026-08-15, completed: 2026-08-15 }
   review_fix: { started: 2026-08-15, completed: 2026-08-15 }
-  quality_gates: { started: 2026-08-15, completed: null }
+  quality_gates: { started: 2026-08-15, completed: 2026-08-15 }
   dod_check: { started: 2026-08-15, completed: 2026-08-15 }
   pr_creation: { started: 2026-08-15, completed: 2026-08-15, url: https://github.com/juliusz-cwiakalski/marksync/pull/105 }
 
@@ -170,7 +170,62 @@ notes:
       behavior, not lockfile format). quality_gates REOPENED after PR
       creation; @fixer engaged with full evidence. Process gap: local gate
       (Bun 1.3.14 ≠ engines.bun 1.2.23) cannot catch CI-version-specific
-      regressions — candidate follow-up: align local Bun to engines or add
-      CI-matrix Bun to dev-env docs.
+       regressions — candidate follow-up: align local Bun to engines or add
+       CI-matrix Bun to dev-env docs.
     type: retro
     date: 2026-08-15
+
+  - text: >
+      HYPOTHESIS CORRECTION (kept for the record; superseded by the GH-103
+      resolution note below): @fixer root-caused the PR #105 "Lint +
+      Typecheck + Test" failures — NOT fast-uri 3.1.5. Actual cause:
+      pre-existing test-isolation flake, latent since PR #85 —
+      process-global mock.module("#app/doctor") in
+      tests/unit/cli/commands/doctor.test.ts leaks into
+      tests/integration/cli/commands/doctor.test.ts when bun:test assigns
+      both files to one worker (scheduling race; CI 4-vCPU packs ~29
+      files/worker). Evidence: failure signature (missing checks,
+      worstStatus=pass, 13-16ms runtime) is byte-identical to the unit
+      mocker's last nextDoctorResult; same commit 4000d4d produced red run
+      31855081477 AND green run 31855085529. PM lesson: the "CI-only
+      failure + version delta present" pattern led to a confident-but-
+      wrong Bun-version-skew hypothesis; the same-commit-red-and-green
+      proof was the discriminating evidence.
+    type: retro
+    date: 2026-08-15
+
+  - text: >
+      RESOLUTION — GH-103 EXTERNAL, DESCOPED (human directive, 2026-08-15):
+      the "Lint + Typecheck + Test" failure on PR #105 is the known,
+      separately tracked GH-103 defect (bun mock.module test pollution of
+      doctor integration tests) — NOT caused by this change; GH-104's
+      dependency pins are exonerated (osv-scan GREEN on PR #105; full
+      suite green under Bun 1.2.23 + fast-uri 3.1.5 in non-colliding
+      runs; local gate 1310/0). Per directive, GH-104 does NOT expand
+      scope to fix GH-103. A remediation rider (seams fix + spec v1.1
+      draft) was briefly drafted and then REVERTED from this branch; the
+      verified fix work is preserved for the GH-103 delivery as a patch:
+      tmp/gh-103-handoff/gh-103-mock-module-seams-fix.patch (+ spec rider
+      draft .diff alongside). specification/test_planning/
+      delivery_planning/delivery/quality_gates restored to completed —
+      phase records reflect the ACTUAL delivered GH-104 scope (lockfile
+      fix + version 0.8.2, committed spec/plan/test-plan unchanged).
+    type: decision
+    date: 2026-08-15
+
+  - text: >
+      QUALITY GATES FINAL RECORD: local gate GREEN (bun run check exit 0,
+      1310 pass / 0 fail, runner log tmp/run-logs-runner/2026-08-15/
+      024525-gh-104-bun-run-check.log). PR #105 CI: osv-scan GREEN —
+      AC-F3-1 SATISFIED (the ticket's core requirement: the fix works).
+      KNOWN EXTERNAL FAILURE: "Lint + Typecheck + Test" job red due to
+      GH-103 (bun mock.module leak polluting doctor integration tests
+      TC-DOCTOR-013/015..020/022.1) — pre-existing defect latent since
+      PR #85, proven NOT caused by GH-104 (same-commit red+green runs
+      31855081477/31855085529 on 4000d4d; unrelated deps delta). Tracked
+      in GH-103 (priority:critical, OPEN); excluded from this change's
+      gates per human directive. Merge reviewers: red test job on this PR
+      is expected until GH-103 lands; osv-scan is the AC-relevant check.
+    type: info
+    date: 2026-08-15
+
