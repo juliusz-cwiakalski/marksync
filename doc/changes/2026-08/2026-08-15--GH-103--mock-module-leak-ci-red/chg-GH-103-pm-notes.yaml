@@ -10,7 +10,7 @@ phases:
   delivery_planning: { started: 2026-08-15T04:35:00Z, completed: 2026-08-15T04:50:00Z }
   dor_check: { started: 2026-08-15T04:50:00Z, completed: 2026-08-15T05:05:00Z }
   delivery: { started: 2026-08-15T05:06:00Z, completed: 2026-08-15T05:55:00Z }
-  system_spec_update: { started: null, completed: null }
+  system_spec_update: { started: 2026-08-15T05:56:00Z, completed: 2026-08-15T06:10:00Z }
   review_fix: { started: null, completed: null }
   quality_gates: { started: null, completed: null }
   dod_check: { started: null, completed: null }
@@ -35,6 +35,16 @@ open_questions: []
 blockers: []
 
 notes:
+  - text: >
+      Phase 7 complete: @doc-syncer SUCCESS, zero unresolved gaps. PM
+      intake expectation held (rules-file-only impact). One surgical
+      edit: .ai/rules/testing-strategy.md blockquote nesting fix
+      (phase-4 commit accidentally deepened 18 lines to "> >" splitting
+      the emphasis span; content byte-identical). No doc/** teaches
+      mock.module; no new ADR/TDR needed (ban is change-scoped
+      convention, DI-seam mirrors established DEC-4/DoctorDeps).
+    type: info
+    date: 2026-08-15
   - text: >
       Phase 6 complete: @coder executed all 5 plan phases, 6 commits
       (c7d58af DI seams, 14fe403 test rewrites + PR#102 fix, 3d26ffe

@@ -103,24 +103,24 @@ Because MarkSync is explicitly AI-agent-operable (agents generate and modify
 tests), this is a hard guardrail against over-mocking:
 
 > **Agent-generated tests must prefer golden fixtures, contract tests, real
-> > parser/renderer fixtures, and live-sandbox coverage over excessive mocks.**
-> >
-> > Mocks are allowed for:
-> > - **Fault injection** (e.g., the 409 version-conflict, network errors).
-> > - **Adapter boundary tests** (e.g., `Bun.serve` HTTP mock for the Confluence
-> >   adapter).
-> >
-> > Mocks are NOT allowed for:
-> > - **Lifecycle invariants** (INV-SAFE-1/2/3, INV-SEC-1) — these MUST be
-> >   validated at least once through integration or E2E paths, never through
-> >   mocks alone.
-> > - **Domain logic** — the state classifier, hierarchy planner, etc. must be
-> >   tested with real inputs and real outputs, not mocked dependencies.
-> > - **`mock.module` in any test** — Bun's `mock.module` API is process-wide,
-> >   unscoped under `bun:test` workers, order-dependent, and has no restore API
-> >   in the pinned Bun 1.2.23. Use DI seams for unit-level isolation (see
-> >   `DoctorCommandDeps`/`RepairStateCommandDeps` pattern) or `Bun.spawn`
-> >   CLI-level tests where process isolation is the point. See GH-103.
+> parser/renderer fixtures, and live-sandbox coverage over excessive mocks.**
+>
+> Mocks are allowed for:
+> - **Fault injection** (e.g., the 409 version-conflict, network errors).
+> - **Adapter boundary tests** (e.g., `Bun.serve` HTTP mock for the Confluence
+>   adapter).
+>
+> Mocks are NOT allowed for:
+> - **Lifecycle invariants** (INV-SAFE-1/2/3, INV-SEC-1) — these MUST be
+>   validated at least once through integration or E2E paths, never through
+>   mocks alone.
+> - **Domain logic** — the state classifier, hierarchy planner, etc. must be
+>   tested with real inputs and real outputs, not mocked dependencies.
+> - **`mock.module` in any test** — Bun's `mock.module` API is process-wide,
+>   unscoped under `bun:test` workers, order-dependent, and has no restore API
+>   in the pinned Bun 1.2.23. Use DI seams for unit-level isolation (see
+>   `DoctorCommandDeps`/`RepairStateCommandDeps` pattern) or `Bun.spawn`
+>   CLI-level tests where process isolation is the point. See GH-103.
 
 Source: arXiv 2602.00409 (AI-agent commits more likely to over-mock); arXiv
 2602.19098 (JavaScript environmental test flakiness).
