@@ -43,8 +43,8 @@ phases:
     completed: '2026-08-15T00:00:00Z'
   pr_creation:
     started: '2026-08-15T00:00:00Z'
-    completed: null
-    url: null
+    completed: '2026-08-15T00:00:00Z'
+    url: https://github.com/juliusz-cwiakalski/marksync/pull/108
 decisions:
 - text: 'TDR-0012 (via @decision-advisor, resolves spec OQ-1 / test-plan OQ-T1): adopt saxes (strict streaming
     SAX XML parser, pure JS, zero deps) for Storage→HAST parsing behind the infra-tier port; @xmldom/xmldom
@@ -343,6 +343,15 @@ notes:
     + BDD 6/42 + frozen-lockfile 0 + tripwire clean + 0.9.0; (6) ticket ACs: round-trip 100% (26/26 corpus
     A + 6 corpus-B explicit), deterministic (in-run + across-run), panel/mermaid strip verified by fixtures.
     Ticket AC map: AC1→AC-F1-1, AC2→AC-F1-2, AC3→AC-F3-1/2.'
+  type: info
+  workItemRef: GH-92
+  date: '2026-08-15'
+- text: 'Phase 11 complete: PR #108 created (target main, squash-merge, left OPEN for human review — merge
+    authority per Mode A/B rules; PM not authorized to merge). PR title = Conventional Commit; body lists
+    AC status, test tiers, decisions touched (TDR-0012/0013 Proposed — human license confirmation requested
+    at review; flip Accepted at merge). Issue #92 moved in-progress → review; assigned to @juliusz-cwiakalski.
+    All 11 lifecycle phases complete. Branch pushed with upstream tracking. TDR flip + issue close happen
+    at merge.'
   type: info
   workItemRef: GH-92
   date: '2026-08-15'
