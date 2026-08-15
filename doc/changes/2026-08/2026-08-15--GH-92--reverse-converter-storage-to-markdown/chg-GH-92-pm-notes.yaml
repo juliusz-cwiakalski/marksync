@@ -9,8 +9,9 @@ phases:
   clarify_scope: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z" }
   specification: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z" }
   test_planning: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z" }
-  delivery_planning: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z" }
-  dor_check: { started: null, completed: null }
+  dor_check: { started: "2026-08-15T00:00:00Z", completed: null }
+  delivery_planning: { started: "2026-08-15T00:00:00Z", completed: "2026-08-15T00:00:00Z", reopened: "2026-08-15", reopen_reason: "DoR iter-1 NOT_READY: plan v1.0 predates TDR-0013 (missing bullet/rule options layer, fallback order contradicts Alt 3, spike corner-checks missing, OQ-P1 shown unresolved)" }
+  dor_check: { started: "2026-08-15T00:00:00Z", completed: null }
   delivery: { started: null, completed: null }
   system_spec_update: { started: null, completed: null }
   review_fix: { started: null, completed: null }
@@ -160,4 +161,32 @@ notes:
       closed by plan task 4.1 spike + NFR-SEC-4 scans; human license
       acceptance at PR review.
     type: decision
+    date: "2026-08-15"
+  - text: >
+      DoR iter-1 NOT_READY (chg-GH-92-dor-review.md): 10 facets, 9 PASS,
+      cross_artifact_consistency FAIL. REOPENED delivery_planning (major:
+      plan v1.0 predates TDR-0013 — (a) options layer {bullet:'-',rule:'-'}
+      absent, task 4.2 would emit remark defaults violating Appendix B;
+      (b) fallback order descends to full hand-written serializer instead of
+      TDR-0013 Alt 3; (c) spike corner-checks bulletOther/bare-text links
+      missing from 4.1; (d) OQ-P1 shown unresolved. Minor: TDR-0012 Impl#3
+      stale MarkSyncError wording vs PM-DEC-3 → precedence note; manifest
+      dual-buckets raw-html-block-real (corpusB + excluded) → test-plan.
+      Nits: adversarial-storage outside pii-audit scan (document in plan);
+      two bare-name loader paths. CLEARED by reviewer: DEC-7 partition
+      honest (corpus-B un-round-trippable by construction), 33/34/35 counts
+      self-documented, PD-5 EISDIR verified, loader invisibility verified,
+      scope discipline holds. Remediation: plan v1.1 via @plan-writer +
+      test-plan v0.3 via @test-plan-writer + TDR-0012 precedence note →
+      re-run DoR iter-2.
+    type: info
+    date: "2026-08-15"
+  - text: >
+      Retro — DoR iter-1: the plan/TDR ordering created the inconsistency —
+      PM committed the plan in the same checkpoint as TDR-0013 without
+      requiring the plan to be re-validated against the fresh TDR first.
+      Improvement: when a decision lands AFTER an artifact that depends on
+      it, re-run the dependent artifact's validation (or sequence the
+      decision before the artifact) before the phase checkpoint commit.
+    type: retro
     date: "2026-08-15"
