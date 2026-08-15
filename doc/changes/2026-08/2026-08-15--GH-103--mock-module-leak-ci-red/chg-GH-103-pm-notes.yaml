@@ -11,7 +11,7 @@ phases:
   dor_check: { started: 2026-08-15T04:50:00Z, completed: 2026-08-15T05:05:00Z }
   delivery: { started: 2026-08-15T05:06:00Z, completed: 2026-08-15T05:55:00Z }
   system_spec_update: { started: 2026-08-15T05:56:00Z, completed: 2026-08-15T06:10:00Z }
-  review_fix: { started: null, completed: null }
+  review_fix: { started: 2026-08-15T06:11:00Z, completed: 2026-08-15T06:30:00Z }
   quality_gates: { started: null, completed: null }
   dod_check: { started: null, completed: null }
   pr_creation: { started: null, completed: null, url: null }
@@ -35,6 +35,21 @@ open_questions: []
 blockers: []
 
 notes:
+  - text: >
+      Phase 8 complete: review PASS iter-1 (0 critical/high/medium; 3
+      low + 2 info, all optional polish, NO remediation appended).
+      Review at chg-GH-103-review.md + code-review/review-iter-1.yaml.
+      PM disposition — accept low findings as-is: (1) DEC-4 mis-citation
+      in seam comments (terminology from plan; cosmetic, cite-worthy for
+      follow-up), (2) two imports from #app/repair could combine (lint
+      passes; style-only), (3) ephemeral R-TST-1/D-TST-1 tags in guard
+      file header (prose sufficient). Rationale: non-blocking style
+      nits; reviewer marked optional; remediation cycle cost outweighs
+      value for a priority:critical CI-unblock change. Spec §17 all pass
+      except AC-F1-3 pending PR (correct). Plan audit: zero open/unchecked
+      drift. No tmp/ leakage, no secrets, 12 clean commits.
+    type: decision
+    date: 2026-08-15
   - text: >
       Phase 7 complete: @doc-syncer SUCCESS, zero unresolved gaps. PM
       intake expectation held (rules-file-only impact). One surgical
