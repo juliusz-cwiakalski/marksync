@@ -263,7 +263,7 @@ None (library-only, zero runtime surface). Observability remains the harness: th
 |----|----------|---------|--------|
 | OQ-1 | Confirm the granular code taxonomy (4 new codes + structural fallback; two emitted-code re-assignments) as the frozen pre-E2/E3 contract. | Precedent-setting on the public-ish, additions-only `REVERSE_CODES` registry (GH-92 §22). Provisionally decided (DEC-1) with full alternatives analysis in Appendix A; independent confirmation required before DoR freeze. | Resolved 2026-08-15 — [TDR-0014](../../../decisions/TDR-0014-reverse-diagnostics-granular-code-taxonomy.md) confirms DEC-1 (Alt 3) as the frozen pre-E2/E3 contract, with two clarifying pins: orphaned layout-family elements classify as one `reverse/complex-layout` construct at the outermost family element present; consumers bind to `code` strings (never `construct` text or `class` labels). |
 | OQ-2 | Attribute-diagnostic location granularity: element-start + enumerated names (this spec's minimum) vs attribute-level byte positions (requires parser position extension). | Element-level is sufficient for E2/E3 "go to the element" UX; attribute positions are a nicety. Plan latitude; do not block on it. | Resolved for this change (element-level); revisit with E2/E3 |
-| OQ-3 | Version bump 0.9.0 → 0.10.0 (minor) vs 0.9.1 (patch). | Emitted-code re-assignment argues minor (DEC-7); PM confirms at DoR. | Provisional: minor |
+| OQ-3 | Version bump 0.9.0 → 0.10.0 (minor) vs 0.9.1 (patch). | Emitted-code re-assignment argues minor (DEC-7); PM confirms at DoR. | Resolved (DoR iter-1, PM-confirmed): minor |
 | OQ-4 | Should the informational `marksync-synthetic-artifact` diagnostic also echo page context? | This spec says yes (uniform payload, DM-2) — zero extra cost, consistent E2/E3 rendering. | Provisional: yes (uniform) |
 
 ## 15. DECISION LOG
@@ -403,7 +403,7 @@ An attribute is canonical on an element iff the forward converter emits it there
 | `ri:url` | `ri:value` |
 | `ac:structured-macro` | `ac:name`; **plus K1 carve-out**: `ac:schema-version`, `ac:macro-id` (silently dropped, never diagnostic) |
 | `ac:parameter` | `ac:name` |
-| All other canonical elements (h1–h6, p, strong, em, del, code, ul, ol, li, table, thead, tbody, tr, th, td, blockquote, hr, pre, ac:task-list, ac:task, ac:task-status, ac:task-body, ac:plain-text-body) | none |
+| All other canonical elements (h1–h6, p, strong, em, del, code, img, ul, ol, li, table, thead, tbody, tr, th, td, blockquote, hr, pre, ac:task-list, ac:task, ac:task-status, ac:task-body, ac:plain-text-body) | none |
 
 Everything else on a canonical element → `reverse/unsupported-attribute`. The allowlist is pinned by the zero-diagnostic sweeps (NFR-3) and evolves only with the forward emission vocabulary (§22).
 
